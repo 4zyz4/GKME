@@ -1,4 +1,5 @@
 # Gamepad Emu
+<img width="3200" height="1440" alt="Screenshot_2026-06-14-17-01-26-243_com zyz4 gamepademu" src="https://github.com/user-attachments/assets/5dc80a24-fa4a-4a83-9582-2f29286008cc" />
 
 将 Android 手机变成无线游戏手柄，用于 Windows、Android 或其他设备。
 
