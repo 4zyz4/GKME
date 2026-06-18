@@ -38,15 +38,9 @@ class SensorHandler(private val context: Context) : SensorEventListener {
     private var initCalSumZ = 0f
     private var initCalSamples = 0
     private var initCalDone = false
-    var onCalibrationComplete: ((biasX: Float, biasY: Float, biasZ: Float) -> Unit)? = null
-
-    // ── PC-triggered recalibration buffer ──
-    private var pcCalSamples = 0
-    private var pcCalTarget = 0
-    private var pcCalSumX = 0f
-    private var pcCalSumY = 0f
-    private var pcCalSumZ = 0f
-    private var pcCalCallback: ((Float, Float, Float) -> Unit)? = null
+    private var biasX = 0f
+    private var biasY = 0f
+    private var biasZ = 0f
 
     private var _gyroX = 0f
     private var _gyroY = 0f
@@ -68,16 +62,14 @@ class SensorHandler(private val context: Context) : SensorEventListener {
         sensorManager.unregisterListener(this)
     }
 
-    fun requestPcCalibration(
-        sampleCount: Int = 60,
-        onComplete: (biasX: Float, biasY: Float, biasZ: Float) -> Unit,
-    ) {
-        pcCalSamples = 0
-        pcCalTarget = sampleCount.coerceIn(10, 300)
-        pcCalSumX = 0f
-        pcCalSumY = 0f
-        pcCalSumZ = 0f
-        pcCalCallback = onComplete
+    fun setManualCalibration(biasX: Float, biasY: Float, biasZ: Float) {
+        this.biasX = biasX
+        this.biasY = biasY
+        this.biasZ = biasZ
+    }
+
+    fun getManualCalibration(): Triple<Float, Float, Float> {
+        return Triple(biasX, biasY, biasZ)
     }
 
     private fun remapToDisplayRotation(
@@ -102,31 +94,15 @@ class SensorHandler(private val context: Context) : SensorEventListener {
                     initCalSamples++
                     if (initCalSamples >= 60) {
                         initCalDone = true
-                        val bx = initCalSumX / 60f
-                        val by = initCalSumY / 60f
-                        val bz = initCalSumZ / 60f
-                        onCalibrationComplete?.invoke(bx, by, bz)
+                        biasX = initCalSumX / 60f
+                        biasY = initCalSumY / 60f
+                        biasZ = initCalSumZ / 60f
                     }
                 }
 
-                // PC-triggered recalibration buffer
-                if (pcCalCallback != null && pcCalSamples < pcCalTarget) {
-                    pcCalSumX += rx
-                    pcCalSumY += ry
-                    pcCalSumZ += rz
-                    pcCalSamples++
-                    if (pcCalSamples >= pcCalTarget) {
-                        val bx = pcCalSumX / pcCalSamples
-                        val by = pcCalSumY / pcCalSamples
-                        val bz = pcCalSumZ / pcCalSamples
-                        pcCalCallback?.invoke(bx, by, bz)
-                        pcCalCallback = null
-                    }
-                }
-
-                _gyroX = rx
-                _gyroY = ry
-                _gyroZ = rz
+                _gyroX = rx - biasX
+                _gyroY = ry - biasY
+                _gyroZ = rz - biasZ
             }
             Sensor.TYPE_ACCELEROMETER -> {
                 val (ax, ay, az) = remapToDisplayRotation(

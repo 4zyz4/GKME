@@ -159,17 +159,11 @@ class MainActivity : ComponentActivity() {
         v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
     }
 
-    private fun hapticLongPress(v: View) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-        } else {
-            v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-        }
-    }
-
     // ── Gamepad ──────────────────────────────────────────────
 
     private fun setupGamepad() {
+        viewModel.onHapticFeedbackPress = { hapticClick(gamepadLayout) }
+        viewModel.onHapticFeedbackRelease = { hapticTick(gamepadLayout) }
         setupTrigger(R.id.btnLT, true)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             setupBumper(R.id.btnLB, GamepadState.LB)
@@ -205,11 +199,9 @@ class MainActivity : ComponentActivity() {
             when (e.action) {
                 MotionEvent.ACTION_DOWN -> {
                     v.performClick()
-                    hapticClick(v)
                     viewModel.onButtonDown(bit); true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    hapticTick(v)
                     viewModel.onButtonUp(bit); true
                 }
                 else -> false
@@ -225,12 +217,10 @@ class MainActivity : ComponentActivity() {
             when (e.action) {
                 MotionEvent.ACTION_DOWN -> {
                     v.performClick()
-                    hapticClick(v)
                     viewModel.onButtonDown(bit)
                     analogFn(255); true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    hapticTick(v)
                     viewModel.onButtonUp(bit)
                     analogFn(0); true
                 }
@@ -245,11 +235,9 @@ class MainActivity : ComponentActivity() {
             when (e.action) {
                 MotionEvent.ACTION_DOWN -> {
                     v.performClick()
-                    hapticClick(v)
                     viewModel.onDpad(dir); true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    hapticTick(v)
                     viewModel.onDpad(0); true
                 }
                 else -> false
@@ -263,11 +251,9 @@ class MainActivity : ComponentActivity() {
             when (e.action) {
                 MotionEvent.ACTION_DOWN -> {
                     v.performClick()
-                    hapticClick(v)
                     viewModel.onButtonDown(bit); true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    hapticTick(v)
                     viewModel.onButtonUp(bit); true
                 }
                 else -> false
@@ -281,11 +267,9 @@ class MainActivity : ComponentActivity() {
             when (e.action) {
                 MotionEvent.ACTION_DOWN -> {
                     v.performClick()
-                    hapticClick(v)
                     viewModel.onButtonDown(bit); true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    hapticTick(v)
                     viewModel.onButtonUp(bit); true
                 }
                 else -> false
@@ -316,7 +300,6 @@ class MainActivity : ComponentActivity() {
         var firstTapX = 0f
         var firstTapY = 0f
         var isDoubleClick = false
-        var longPressTimer: Runnable? = null
 
         val doubleTapTimeout = Runnable {
             firstTapTime = 0
@@ -339,7 +322,6 @@ class MainActivity : ComponentActivity() {
                         isDoubleClick = true
                         firstTapTime = 0
 
-                        hapticClick(v)
                         viewModel.onButtonDown(GamepadState.TOUCHPAD_CLICK)
                     } else {
                         firstTapTime = now
@@ -350,12 +332,6 @@ class MainActivity : ComponentActivity() {
                     }
                     if (ds4) {
                         viewModel.onTouchpad(sx, sy, true)
-                        val timer = Runnable {
-                            viewModel.calibrateGyro()
-                            hapticLongPress(v)
-                        }
-                        longPressTimer = timer
-                        handler.postDelayed(timer, 800)
                     }
                     true
                 }
@@ -370,12 +346,10 @@ class MainActivity : ComponentActivity() {
                     }
                     if (ds4) {
                         viewModel.onTouchpad(sx, sy, true)
-                        longPressTimer?.let { handler.removeCallbacks(it) }
                     }
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    longPressTimer?.let { handler.removeCallbacks(it) }
                     if (isDoubleClick) {
                         viewModel.onButtonUp(GamepadState.TOUCHPAD_CLICK)
                     }

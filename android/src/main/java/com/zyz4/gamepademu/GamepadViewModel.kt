@@ -54,13 +54,8 @@ class GamepadViewModel @Inject constructor(
     private val sensorHandler = SensorHandler(app)
     private var sendJob: Job? = null
 
-    fun calibrateGyro() {
-        sensorHandler.requestPcCalibration { bx, by, bz ->
-            viewModelScope.launch {
-                connectionManager.sendGyroCalibration(bx, by, bz)
-            }
-        }
-    }
+    var onHapticFeedbackPress: (() -> Unit)? = null
+    var onHapticFeedbackRelease: (() -> Unit)? = null
 
     init {
         _displayMode.value = settings.value.displayMode
@@ -73,19 +68,6 @@ class GamepadViewModel @Inject constructor(
                 startSensorSendLoop()
             } else {
                 startPeriodicSendLoop()
-            }
-        }
-        sensorHandler.onCalibrationComplete = { bx, by, bz ->
-            viewModelScope.launch {
-                connectionManager.sendGyroCalibration(bx, by, bz)
-            }
-        }
-        connectionManager.onGyroCalibrationRequested = { durationMs ->
-            val sampleCount = (durationMs / 10).coerceIn(10, 300)
-            sensorHandler.requestPcCalibration(sampleCount) { bx, by, bz ->
-                viewModelScope.launch {
-                    connectionManager.sendGyroCalibration(bx, by, bz)
-                }
             }
         }
     }
@@ -284,6 +266,7 @@ class GamepadViewModel @Inject constructor(
         _gamepadState.value = _gamepadState.value.copy(
             buttons = _gamepadState.value.buttons or bit.toUInt()
         )
+        onHapticFeedbackPress?.invoke()
         sendInput()
     }
 
@@ -291,6 +274,7 @@ class GamepadViewModel @Inject constructor(
         _gamepadState.value = _gamepadState.value.copy(
             buttons = _gamepadState.value.buttons and (bit.toUInt().inv())
         )
+        onHapticFeedbackRelease?.invoke()
         sendInput()
     }
 

@@ -31,7 +31,6 @@ message ClientToServer {
     Hello hello = 1;
     GamepadInput gamepad_input = 2;
     KeepAlive keep_alive = 3;
-    GyroCalibration gyro_calibration = 4;
   }
 }
 
@@ -69,12 +68,6 @@ message KeepAlive {
   uint64 timestamp = 1;
 }
 
-message GyroCalibration {
-  float bias_x = 1;
-  float bias_y = 2;
-  float bias_z = 3;
-}
-
 // ─── PC → 手机 ─────────────────────────────────
 
 message ServerToClient {
@@ -83,8 +76,7 @@ message ServerToClient {
     Ack ack = 2;
     Disconnect disconnect = 3;
     SetControllerMode set_controller_mode = 4;
-    StartGyroCalibration start_gyro_calibration = 5;
-    RttReport rtt_report = 6;
+    RttReport rtt_report = 5;
     ServerHello server_hello = 7;
   }
 }
@@ -118,8 +110,4 @@ message Disconnect {
 
 message SetControllerMode {
   ControllerMode mode = 1;
-}
-
-message StartGyroCalibration {
-  uint32 duration_ms = 1;
 }

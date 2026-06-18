@@ -12,7 +12,6 @@ import com.zyz4.gamepademu.model.ConnectionMode
 import com.zyz4.gamepademu.model.ControllerMode
 import com.zyz4.gamepademu.proto.ClientToServer
 import com.zyz4.gamepademu.proto.GamepadInput
-import com.zyz4.gamepademu.proto.GyroCalibration
 import com.zyz4.gamepademu.proto.Hello
 import com.zyz4.gamepademu.proto.ServerToClient
 import kotlinx.coroutines.CoroutineScope
@@ -266,7 +265,6 @@ class ConnectionManager @Inject constructor(
     }
 
     var onControllerModeChanged: ((ControllerMode) -> Unit)? = null
-    var onGyroCalibrationRequested: ((durationMs: Int) -> Unit)? = null
 
     private fun handleClientMessage(data: ByteArray) {
         try {
@@ -289,10 +287,6 @@ class ConnectionManager @Inject constructor(
                     scope.launch { settingsRepository.saveSettings(_settings.value) }
                     resendHello(newMode)
                     onControllerModeChanged?.invoke(newMode)
-                }
-                ServerToClient.PayloadCase.START_GYRO_CALIBRATION -> {
-                    val durationMs = msg.startGyroCalibration.durationMs
-                    onGyroCalibrationRequested?.invoke(durationMs)
                 }
                 ServerToClient.PayloadCase.RTT_REPORT -> {
                     val r = msg.rttReport
@@ -390,20 +384,6 @@ class ConnectionManager @Inject constructor(
                 bluetoothService?.sendReport(report)
             }
         }
-    }
-
-    suspend fun sendGyroCalibration(biasX: Float, biasY: Float, biasZ: Float) {
-        if (_settings.value.connectionMode != ConnectionMode.WIFI) return
-        if (!tcpServer.isClientConnected) return
-        val cal = GyroCalibration.newBuilder()
-            .setBiasX(biasX)
-            .setBiasY(biasY)
-            .setBiasZ(biasZ)
-            .build()
-        val msg = ClientToServer.newBuilder()
-            .setGyroCalibration(cal)
-            .build()
-        tcpServer.send(msg)
     }
 
     fun getServerIp(): String {
