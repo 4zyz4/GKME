@@ -62,6 +62,7 @@ message GamepadInput {
   bool touchpad_touch = 17;
   bool touchpad_click = 18;
   uint32 battery_level = 19;
+  uint64 seq = 20;
 }
 
 message KeepAlive {
@@ -83,7 +84,22 @@ message ServerToClient {
     Disconnect disconnect = 3;
     SetControllerMode set_controller_mode = 4;
     StartGyroCalibration start_gyro_calibration = 5;
+    RttReport rtt_report = 6;
+    ServerHello server_hello = 7;
   }
+}
+
+message ServerHello {
+  uint32 protocol_version = 1;
+  string host_name = 2;
+  uint32 max_downlink_rate_hz = 3;
+  uint32 recommended_uplink_interval_us = 4;
+}
+
+message RttReport {
+  uint64 ack_seq = 1;
+  uint32 measured_uplink_rate_hz = 2;
+  uint32 recommended_uplink_interval_us = 3;
 }
 
 message Vibration {

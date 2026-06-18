@@ -2,7 +2,6 @@ package com.zyz4.gamepademu.service
 
 import android.content.Context
 import android.os.Build
-import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -69,8 +68,10 @@ class ConnectionManager @Inject constructor(
     private val _settings = MutableStateFlow(AppSettings())
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
 
-    private var sendTimeEma = 0.0
     private var currentPollingRate = 144
+    private var _seq = 0L
+    private val _rttRing = LongArray(64) { -1L }
+    private var _rttEma = 0.0
 
     private val _pollingIntervalMs = MutableStateFlow(1000 / 144)
     val pollingIntervalMs: StateFlow<Int> = _pollingIntervalMs.asStateFlow()
@@ -79,8 +80,8 @@ class ConnectionManager @Inject constructor(
         private const val RATE_HIGH = 144
         private const val RATE_LOW = 60
         private const val EMA_ALPHA = 0.2
-        private const val BACKOFF_THRESHOLD_MS = 5.0
-        private const val RESTORE_THRESHOLD_MS = 2.0
+        private const val RTT_TARGET_MS = 15.0
+        private const val RTT_BACKOFF_MS = 30.0
     }
 
     init {
@@ -120,7 +121,7 @@ class ConnectionManager @Inject constructor(
     }
 
     private suspend fun startWifiServer(settings: AppSettings) {
-        sendTimeEma = 0.0
+        _rttEma = 0.0
         currentPollingRate = RATE_HIGH
         _pollingIntervalMs.value = 1000 / RATE_HIGH
         val port = settings.wifiServerPort
@@ -293,6 +294,28 @@ class ConnectionManager @Inject constructor(
                     val durationMs = msg.startGyroCalibration.durationMs
                     onGyroCalibrationRequested?.invoke(durationMs)
                 }
+                ServerToClient.PayloadCase.RTT_REPORT -> {
+                    val r = msg.rttReport
+                    val idx = (r.ackSeq % 64).toInt()
+                    val sendTime = _rttRing[idx]
+                    if (sendTime >= 0) {
+                        val rtt = (System.nanoTime() - sendTime) / 1_000_000.0
+                        _rttRing[idx] = -1L
+                        updateRateByRtt(rtt)
+                    }
+                }
+                ServerToClient.PayloadCase.SERVER_HELLO -> {
+                    val h = msg.serverHello
+                    val recommendedUs = h.recommendedUplinkIntervalUs
+                    if (recommendedUs > 0) {
+                        val recommendedMs = (recommendedUs / 1000).coerceIn(1, 50)
+                        val newRate = 1000 / recommendedMs
+                        if (newRate in RATE_LOW..RATE_HIGH) {
+                            currentPollingRate = newRate
+                            _pollingIntervalMs.value = 1000 / newRate
+                        }
+                    }
+                }
                 else -> {}
             }
         } catch (_: Exception) {}
@@ -313,38 +336,34 @@ class ConnectionManager @Inject constructor(
     }
 
     private var _vibSpeed = -1
-    private var _vibEndTime = 0L
 
     fun triggerVibration(largeMotor: Int, smallMotor: Int) {
         val speed = maxOf(largeMotor, smallMotor).coerceIn(0, 255)
+
         if (speed < 1) {
             vibrator.cancel()
             _vibSpeed = -1
             return
         }
-        val amplitude = (speed * VibrationEffect.DEFAULT_AMPLITUDE / 255).coerceAtLeast(1)
-        val interval = _pollingIntervalMs.value
-        val duration = (interval * 2).coerceIn(20, 500).toLong()
-        val now = SystemClock.uptimeMillis()
 
-        if (speed == _vibSpeed && now < _vibEndTime) {
-            _vibEndTime = now + duration
-            return
-        }
+        if (speed == _vibSpeed) return
 
         _vibSpeed = speed
-        _vibEndTime = now + duration
-        val effect = VibrationEffect.createOneShot(duration, amplitude)
+        val effect = VibrationEffect.createWaveform(
+            longArrayOf(1000),
+            intArrayOf(speed),
+            0
+        )
         vibrator.cancel()
         vibrator.vibrate(effect)
     }
 
-    private fun updateRate(sendTimeMs: Double) {
-        sendTimeEma = EMA_ALPHA * sendTimeMs + (1.0 - EMA_ALPHA) * sendTimeEma
+    private fun updateRateByRtt(rttMs: Double) {
+        _rttEma = EMA_ALPHA * rttMs + (1.0 - EMA_ALPHA) * _rttEma
 
         val newRate = when {
-            sendTimeEma > BACKOFF_THRESHOLD_MS -> RATE_LOW
-            sendTimeEma < RESTORE_THRESHOLD_MS -> RATE_HIGH
+            _rttEma > RTT_BACKOFF_MS -> RATE_LOW
+            _rttEma < RTT_TARGET_MS -> RATE_HIGH
             else -> currentPollingRate
         }
         if (newRate != currentPollingRate) {
@@ -357,12 +376,12 @@ class ConnectionManager @Inject constructor(
         when (_settings.value.connectionMode) {
             ConnectionMode.WIFI -> {
                 if (tcpServer.isClientConnected) {
+                    _seq++
+                    val idx = (_seq % 64).toInt()
+                    _rttRing[idx] = System.nanoTime()
                     val msg = ClientToServer.newBuilder()
-                        .setGamepadInput(state).build()
-                    val start = System.nanoTime()
+                        .setGamepadInput(state.toBuilder().setSeq(_seq).build()).build()
                     tcpServer.send(msg)
-                    val elapsed = (System.nanoTime() - start) / 1_000_000.0
-                    updateRate(elapsed)
                 }
             }
             ConnectionMode.BLUETOOTH -> {
