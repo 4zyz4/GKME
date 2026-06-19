@@ -31,6 +31,10 @@ class JoystickView @JvmOverloads constructor(
         color = -0xdddddd
         style = Paint.Style.FILL
     }
+    private val basePressedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = -0x555556
+        style = Paint.Style.FILL
+    }
     private val baseStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = -0xaaaaab
         style = Paint.Style.STROKE
@@ -47,6 +51,7 @@ class JoystickView @JvmOverloads constructor(
     }
 
     private var isTouching = false
+    private var isClicking = false
     private var firstTapTime = 0L
     private var firstTapX = 0f
     private var firstTapY = 0f
@@ -66,7 +71,7 @@ class JoystickView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        canvas.drawCircle(centerX, centerY, baseRadius, basePaint)
+        canvas.drawCircle(centerX, centerY, baseRadius, if (isClicking) basePressedPaint else basePaint)
         canvas.drawCircle(centerX, centerY, baseRadius, baseStrokePaint)
         canvas.drawCircle(knobX, knobY, knobRadius, knobPaint)
         canvas.drawCircle(knobX, knobY, knobRadius, knobStrokePaint)
@@ -78,8 +83,10 @@ class JoystickView @JvmOverloads constructor(
                 val now = System.currentTimeMillis()
                 if (now - firstTapTime < 300 && firstTapTime > 0) {
                     handler.removeCallbacks(doubleTapTimeout)
+                    isClicking = true
                     isDoubleClick = true
                     firstTapTime = 0
+                    invalidate()
                     performHapticFeedback(HapticFeedbackConstants.CONFIRM)
                     onStickClickDown?.invoke()
                 } else {
@@ -109,6 +116,7 @@ class JoystickView @JvmOverloads constructor(
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 isTouching = false
+                isClicking = false
                 knobX = centerX
                 knobY = centerY
                 invalidate()

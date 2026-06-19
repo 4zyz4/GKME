@@ -76,11 +76,12 @@ class ConnectionManager @Inject constructor(
     val pollingIntervalMs: StateFlow<Int> = _pollingIntervalMs.asStateFlow()
 
     companion object {
-        private const val RATE_HIGH = 144
-        private const val RATE_LOW = 60
+        private const val MIN_RATE = 30
+        private const val MAX_RATE = 120
         private const val EMA_ALPHA = 0.2
-        private const val RTT_TARGET_MS = 15.0
-        private const val RTT_BACKOFF_MS = 30.0
+        private const val RTT_TARGET_MS = 8.0
+        private const val RTT_TARGET_MS_HIGH = 5.0
+        private const val RTT_BACKOFF_MS = 25.0
     }
 
     init {
@@ -121,8 +122,8 @@ class ConnectionManager @Inject constructor(
 
     private suspend fun startWifiServer(settings: AppSettings) {
         _rttEma = 0.0
-        currentPollingRate = RATE_HIGH
-        _pollingIntervalMs.value = 1000 / RATE_HIGH
+        currentPollingRate = MAX_RATE
+        _pollingIntervalMs.value = 1000 / MAX_RATE
         val port = settings.wifiServerPort
         try {
             startBroadcast(settings.deviceName, port)
@@ -302,12 +303,10 @@ class ConnectionManager @Inject constructor(
                     val h = msg.serverHello
                     val recommendedUs = h.recommendedUplinkIntervalUs
                     if (recommendedUs > 0) {
-                        val recommendedMs = (recommendedUs / 1000).coerceIn(1, 50)
-                        val newRate = 1000 / recommendedMs
-                        if (newRate in RATE_LOW..RATE_HIGH) {
-                            currentPollingRate = newRate
-                            _pollingIntervalMs.value = 1000 / newRate
-                        }
+                        val recommendedMs = (recommendedUs / 1000.0).coerceIn(1.0, (1000.0 / MIN_RATE))
+                        val newRate = (1000.0 / recommendedMs).toInt().coerceIn(MIN_RATE, MAX_RATE)
+                        currentPollingRate = newRate
+                        _pollingIntervalMs.value = 1000 / newRate
                     }
                 }
                 else -> {}
@@ -355,11 +354,20 @@ class ConnectionManager @Inject constructor(
     private fun updateRateByRtt(rttMs: Double) {
         _rttEma = EMA_ALPHA * rttMs + (1.0 - EMA_ALPHA) * _rttEma
 
-        val newRate = when {
-            _rttEma > RTT_BACKOFF_MS -> RATE_LOW
-            _rttEma < RTT_TARGET_MS -> RATE_HIGH
-            else -> currentPollingRate
+        val newRate = if (_rttEma < RTT_TARGET_MS_HIGH) {
+            // 很好，向最高速率靠近
+            minOf((currentPollingRate * 1.15).toInt(), MAX_RATE)
+        } else if (_rttEma < RTT_TARGET_MS) {
+            // 略高，微调上升
+            minOf((currentPollingRate * 1.05).toInt(), MAX_RATE)
+        } else if (_rttEma > RTT_BACKOFF_MS) {
+            // 太高，大幅降速
+            maxOf((currentPollingRate * 0.7).toInt(), MIN_RATE)
+        } else {
+            // 略高，缓慢降速
+            maxOf((currentPollingRate * 0.92).toInt(), MIN_RATE)
         }
+
         if (newRate != currentPollingRate) {
             currentPollingRate = newRate
             _pollingIntervalMs.value = 1000 / newRate

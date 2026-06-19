@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@drawable/button_circle" />
-    <item android:drawable="@drawable/ic_ps_circle" android:gravity="center" />
-</layer-list>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_pressed="true">
+        <layer-list>
+            <item android:drawable="@drawable/button_circle_pressed" />
+            <item android:drawable="@drawable/ic_ps_circle" android:gravity="center" />
+        </layer-list>
+    </item>
+    <item>
+        <layer-list>
+            <item android:drawable="@drawable/button_circle" />
+            <item android:drawable="@drawable/ic_ps_circle" android:gravity="center" />
+        </layer-list>
+    </item>
+</selector>

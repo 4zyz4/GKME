@@ -32,16 +32,6 @@ class SensorHandler(private val context: Context) : SensorEventListener {
             return wm?.defaultDisplay?.rotation ?: Surface.ROTATION_0
         }
 
-    // ── Initial auto-calibration ──
-    private var initCalSumX = 0f
-    private var initCalSumY = 0f
-    private var initCalSumZ = 0f
-    private var initCalSamples = 0
-    private var initCalDone = false
-    private var biasX = 0f
-    private var biasY = 0f
-    private var biasZ = 0f
-
     private var _gyroX = 0f
     private var _gyroY = 0f
     private var _gyroZ = 0f
@@ -62,16 +52,6 @@ class SensorHandler(private val context: Context) : SensorEventListener {
         sensorManager.unregisterListener(this)
     }
 
-    fun setManualCalibration(biasX: Float, biasY: Float, biasZ: Float) {
-        this.biasX = biasX
-        this.biasY = biasY
-        this.biasZ = biasZ
-    }
-
-    fun getManualCalibration(): Triple<Float, Float, Float> {
-        return Triple(biasX, biasY, biasZ)
-    }
-
     private fun remapToDisplayRotation(
         rawX: Float, rawY: Float, rawZ: Float,
     ): Triple<Float, Float, Float> {
@@ -86,23 +66,9 @@ class SensorHandler(private val context: Context) : SensorEventListener {
                     event.values[0], event.values[1], event.values[2]
                 )
 
-                // Initial auto-calibration (first 60 raw samples)
-                if (!initCalDone) {
-                    initCalSumX += rx
-                    initCalSumY += ry
-                    initCalSumZ += rz
-                    initCalSamples++
-                    if (initCalSamples >= 60) {
-                        initCalDone = true
-                        biasX = initCalSumX / 60f
-                        biasY = initCalSumY / 60f
-                        biasZ = initCalSumZ / 60f
-                    }
-                }
-
-                _gyroX = rx - biasX
-                _gyroY = ry - biasY
-                _gyroZ = rz - biasZ
+                _gyroX = rx
+                _gyroY = ry
+                _gyroZ = rz
             }
             Sensor.TYPE_ACCELEROMETER -> {
                 val (ax, ay, az) = remapToDisplayRotation(

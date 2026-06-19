@@ -198,10 +198,12 @@ class MainActivity : ComponentActivity() {
         findViewById<Button>(id).setOnTouchListener { v, e ->
             when (e.action) {
                 MotionEvent.ACTION_DOWN -> {
+                    v.isPressed = true
                     v.performClick()
                     viewModel.onButtonDown(bit); true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    v.isPressed = false
                     viewModel.onButtonUp(bit); true
                 }
                 else -> false
@@ -216,11 +218,13 @@ class MainActivity : ComponentActivity() {
         findViewById<Button>(id).setOnTouchListener { v, e ->
             when (e.action) {
                 MotionEvent.ACTION_DOWN -> {
+                    v.isPressed = true
                     v.performClick()
                     viewModel.onButtonDown(bit)
                     analogFn(255); true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    v.isPressed = false
                     viewModel.onButtonUp(bit)
                     analogFn(0); true
                 }
@@ -234,11 +238,13 @@ class MainActivity : ComponentActivity() {
         findViewById<ImageButton>(id).setOnTouchListener { v, e ->
             when (e.action) {
                 MotionEvent.ACTION_DOWN -> {
+                    v.isPressed = true
                     v.performClick()
-                    viewModel.onDpad(dir); true
+                    viewModel.onDpad(dir, true); true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    viewModel.onDpad(0); true
+                    v.isPressed = false
+                    viewModel.onDpad(dir, false); true
                 }
                 else -> false
             }
@@ -250,10 +256,12 @@ class MainActivity : ComponentActivity() {
         findViewById<Button>(id).setOnTouchListener { v, e ->
             when (e.action) {
                 MotionEvent.ACTION_DOWN -> {
+                    v.isPressed = true
                     v.performClick()
                     viewModel.onButtonDown(bit); true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    v.isPressed = false
                     viewModel.onButtonUp(bit); true
                 }
                 else -> false
@@ -266,10 +274,12 @@ class MainActivity : ComponentActivity() {
         findViewById<View>(id).setOnTouchListener { v, e ->
             when (e.action) {
                 MotionEvent.ACTION_DOWN -> {
+                    v.isPressed = true
                     v.performClick()
                     viewModel.onButtonDown(bit); true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    v.isPressed = false
                     viewModel.onButtonUp(bit); true
                 }
                 else -> false
@@ -319,6 +329,7 @@ class MainActivity : ComponentActivity() {
                     val now = System.currentTimeMillis()
                     if (now - firstTapTime < 300 && firstTapTime > 0) {
                         handler.removeCallbacks(doubleTapTimeout)
+                        v.isPressed = true
                         isDoubleClick = true
                         firstTapTime = 0
 
@@ -351,6 +362,7 @@ class MainActivity : ComponentActivity() {
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     if (isDoubleClick) {
+                        v.isPressed = false
                         viewModel.onButtonUp(GamepadState.TOUCHPAD_CLICK)
                     }
                     if (ds4) viewModel.onTouchpad(sx, sy, false)

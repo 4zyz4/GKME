@@ -53,6 +53,7 @@ class GamepadViewModel @Inject constructor(
 
     private val sensorHandler = SensorHandler(app)
     private var sendJob: Job? = null
+    private var _dpadBits = 0
 
     var onHapticFeedbackPress: (() -> Unit)? = null
     var onHapticFeedbackRelease: (() -> Unit)? = null
@@ -246,14 +247,15 @@ class GamepadViewModel @Inject constructor(
             while (true) {
                 val frameStart = System.nanoTime()
                 val sensor = sensorHandler.sensorData.value
-                val input = _gamepadState.value.copy(
+                _gamepadState.value = _gamepadState.value.copy(
                     gyroX = sensor.gyroX,
                     gyroY = sensor.gyroY,
                     gyroZ = sensor.gyroZ,
                     accelX = sensor.accelX,
                     accelY = sensor.accelY,
                     accelZ = sensor.accelZ,
-                ).toProto()
+                )
+                val input = _gamepadState.value.toProto()
                 connectionManager.sendGamepadState(input)
                 val elapsed = (System.nanoTime() - frameStart) / 1_000_000L
                 val remaining = connectionManager.pollingIntervalMs.value.toLong() - elapsed
@@ -288,8 +290,22 @@ class GamepadViewModel @Inject constructor(
         sendInput()
     }
 
-    fun onDpad(direction: Int) {
-        _gamepadState.value = _gamepadState.value.copy(dpad = direction)
+    fun onDpad(dir: Int, pressed: Boolean) {
+        if (pressed) {
+            _dpadBits = _dpadBits or dir
+            onHapticFeedbackPress?.invoke()
+        } else {
+            _dpadBits = _dpadBits and dir.inv()
+            onHapticFeedbackRelease?.invoke()
+        }
+        val hat = when (_dpadBits) {
+            GamepadState.DPAD_UP, GamepadState.DPAD_DOWN,
+            GamepadState.DPAD_LEFT, GamepadState.DPAD_RIGHT,
+            GamepadState.DPAD_UP_LEFT, GamepadState.DPAD_UP_RIGHT,
+            GamepadState.DPAD_DOWN_LEFT, GamepadState.DPAD_DOWN_RIGHT -> _dpadBits
+            else -> 0
+        }
+        _gamepadState.value = _gamepadState.value.copy(dpad = hat)
         sendInput()
     }
 
