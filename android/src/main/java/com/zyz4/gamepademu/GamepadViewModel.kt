@@ -206,6 +206,14 @@ class GamepadViewModel @Inject constructor(
         connectionManager.updateSettings(settings.value.copy(isEditMode = enabled))
     }
 
+    fun updateVibrationEnabled(enabled: Boolean) {
+        connectionManager.updateSettings(settings.value.copy(vibrationEnabled = enabled))
+    }
+
+    fun updateGameVibrationEnabled(enabled: Boolean) {
+        connectionManager.updateSettings(settings.value.copy(gameVibrationEnabled = enabled))
+    }
+
     fun startServer() {
         connectionManager.startServer(viewModelScope)
         if (settings.value.connectionMode == ConnectionMode.WIFI ||

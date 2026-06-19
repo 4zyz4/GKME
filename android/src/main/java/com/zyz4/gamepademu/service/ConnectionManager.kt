@@ -214,6 +214,7 @@ class ConnectionManager @Inject constructor(
 
     private fun handleBtOutputReport(data: ByteArray) {
         if (data.size < 8) return
+        if (!_settings.value.gameVibrationEnabled) return
         val leftMotor = data[1].toInt() and 0xFF
         val rightMotor = data[2].toInt() and 0xFF
         if (leftMotor > 0 || rightMotor > 0) {
@@ -272,8 +273,10 @@ class ConnectionManager @Inject constructor(
             val msg = ServerToClient.parseFrom(data)
             when (msg.payloadCase) {
                 ServerToClient.PayloadCase.VIBRATION -> {
-                    val v = msg.vibration
-                    triggerVibration(v.largeMotor, v.smallMotor)
+                    if (_settings.value.gameVibrationEnabled) {
+                        val v = msg.vibration
+                        triggerVibration(v.largeMotor, v.smallMotor)
+                    }
                 }
                 ServerToClient.PayloadCase.DISCONNECT -> {
                     _connectionState.value = _connectionState.value.copy(

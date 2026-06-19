@@ -162,8 +162,12 @@ class MainActivity : ComponentActivity() {
     // ── Gamepad ──────────────────────────────────────────────
 
     private fun setupGamepad() {
-        viewModel.onHapticFeedbackPress = { hapticClick(gamepadLayout) }
-        viewModel.onHapticFeedbackRelease = { hapticTick(gamepadLayout) }
+        viewModel.onHapticFeedbackPress = {
+            if (viewModel.settings.value.vibrationEnabled) hapticClick(gamepadLayout)
+        }
+        viewModel.onHapticFeedbackRelease = {
+            if (viewModel.settings.value.vibrationEnabled) hapticTick(gamepadLayout)
+        }
         setupTrigger(R.id.btnLT, true)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             setupBumper(R.id.btnLB, GamepadState.LB)
@@ -396,9 +400,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun selectSettingsCategory(index: Int) {
-        val pages = listOf(R.id.pageConnection, R.id.pagePresets)
+        val pages = listOf(R.id.pageConnection, R.id.pagePresets, R.id.pageVibration)
         val buttons = listOf(
-            R.id.btnCategoryConnection, R.id.btnCategoryPresets
+            R.id.btnCategoryConnection, R.id.btnCategoryPresets, R.id.btnCategoryVibration
         )
         pages.forEachIndexed { i, id ->
             findViewById<View>(id).visibility = if (i == index) View.VISIBLE else View.GONE
@@ -416,6 +420,7 @@ class MainActivity : ComponentActivity() {
         // Category switching
         findViewById<Button>(R.id.btnCategoryConnection).setOnClickListener { selectSettingsCategory(0) }
         findViewById<Button>(R.id.btnCategoryPresets).setOnClickListener { selectSettingsCategory(1) }
+        findViewById<Button>(R.id.btnCategoryVibration).setOnClickListener { selectSettingsCategory(2) }
 
         // ── Presets page ──
         findViewById<Switch>(R.id.switchEditMode).setOnCheckedChangeListener { _, isChecked ->
@@ -505,6 +510,14 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+
+        // ── Vibration page ──
+        findViewById<Switch>(R.id.switchBtnVibration).setOnCheckedChangeListener { _, isChecked ->
+            viewModel.updateVibrationEnabled(isChecked)
+        }
+        findViewById<Switch>(R.id.switchGameVibration).setOnCheckedChangeListener { _, isChecked ->
+            viewModel.updateGameVibrationEnabled(isChecked)
+        }
 
         // ── Connection page ──
         setupConnectionPage()
@@ -774,6 +787,8 @@ class MainActivity : ComponentActivity() {
             ConnectionMode.entries.indexOf(s.connectionMode).coerceAtLeast(0))
         selectChipGroup(listOf(R.id.btnTargetWindows, R.id.btnTargetAndroid),
             TargetPlatform.entries.indexOf(s.targetPlatform).coerceAtLeast(0))
+        findViewById<Switch>(R.id.switchBtnVibration).isChecked = s.vibrationEnabled
+        findViewById<Switch>(R.id.switchGameVibration).isChecked = s.gameVibrationEnabled
         updateSettingsVisibility(s.connectionMode)
 
         refreshPresetList()

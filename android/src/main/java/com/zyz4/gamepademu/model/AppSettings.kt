@@ -18,4 +18,6 @@ data class AppSettings(
     val deviceName: String = "Gamepad Emu",
     val currentPresetName: String = "Default",
     val isEditMode: Boolean = false,
+    val vibrationEnabled: Boolean = true,
+    val gameVibrationEnabled: Boolean = true,
 )

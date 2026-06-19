@@ -1,6 +1,7 @@
 package com.zyz4.gamepademu.data
 
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -30,6 +31,8 @@ class SettingsRepository @Inject constructor(
         val WIFI_SERVER_PORT = intPreferencesKey("wifi_server_port")
         val DEVICE_NAME = stringPreferencesKey("device_name")
         val CURRENT_PRESET_NAME = stringPreferencesKey("current_preset_name")
+        val VIBRATION_ENABLED = booleanPreferencesKey("vibration_enabled")
+        val GAME_VIBRATION_ENABLED = booleanPreferencesKey("game_vibration_enabled")
     }
 
     val settings: Flow<AppSettings> = context.settingsDataStore.data.map { prefs ->
@@ -49,6 +52,8 @@ class SettingsRepository @Inject constructor(
             wifiServerPort = prefs[Keys.WIFI_SERVER_PORT] ?: 37284,
             deviceName = prefs[Keys.DEVICE_NAME] ?: "Gamepad Emu",
             currentPresetName = prefs[Keys.CURRENT_PRESET_NAME] ?: "Default",
+            vibrationEnabled = prefs[Keys.VIBRATION_ENABLED] ?: true,
+            gameVibrationEnabled = prefs[Keys.GAME_VIBRATION_ENABLED] ?: true,
         )
     }
 
@@ -61,6 +66,8 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.WIFI_SERVER_PORT] = settings.wifiServerPort
             prefs[Keys.DEVICE_NAME] = settings.deviceName
             prefs[Keys.CURRENT_PRESET_NAME] = settings.currentPresetName
+            prefs[Keys.VIBRATION_ENABLED] = settings.vibrationEnabled
+            prefs[Keys.GAME_VIBRATION_ENABLED] = settings.gameVibrationEnabled
         }
     }
 }
