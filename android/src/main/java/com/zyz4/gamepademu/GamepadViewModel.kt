@@ -233,12 +233,9 @@ class GamepadViewModel @Inject constructor(
         sendJob?.cancel()
         sendJob = viewModelScope.launch {
             while (true) {
-                val frameStart = System.nanoTime()
                 val input = _gamepadState.value.toProto()
                 connectionManager.sendGamepadState(input)
-                val elapsed = (System.nanoTime() - frameStart) / 1_000_000L
-                val remaining = connectionManager.pollingIntervalMs.value.toLong() - elapsed
-                if (remaining > 0) delay(remaining.milliseconds)
+                delay(8)
             }
         }
     }
@@ -253,7 +250,6 @@ class GamepadViewModel @Inject constructor(
         sendJob?.cancel()
         sendJob = viewModelScope.launch {
             while (true) {
-                val frameStart = System.nanoTime()
                 val sensor = sensorHandler.sensorData.value
                 _gamepadState.value = _gamepadState.value.copy(
                     gyroX = sensor.gyroX,
@@ -265,9 +261,7 @@ class GamepadViewModel @Inject constructor(
                 )
                 val input = _gamepadState.value.toProto()
                 connectionManager.sendGamepadState(input)
-                val elapsed = (System.nanoTime() - frameStart) / 1_000_000L
-                val remaining = connectionManager.pollingIntervalMs.value.toLong() - elapsed
-                if (remaining > 0) delay(remaining.milliseconds)
+                delay(8)
             }
         }
     }

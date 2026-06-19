@@ -6,7 +6,6 @@ import android.graphics.Paint
 import android.os.Handler
 import android.os.Looper
 import android.util.AttributeSet
-import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import kotlin.math.sqrt
@@ -87,7 +86,6 @@ class JoystickView @JvmOverloads constructor(
                     isDoubleClick = true
                     firstTapTime = 0
                     invalidate()
-                    performHapticFeedback(HapticFeedbackConstants.CONFIRM)
                     onStickClickDown?.invoke()
                 } else {
                     firstTapTime = now
