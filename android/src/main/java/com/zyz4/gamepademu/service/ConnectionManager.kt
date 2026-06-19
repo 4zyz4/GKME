@@ -129,7 +129,7 @@ class ConnectionManager @Inject constructor(
             startBroadcast(settings.deviceName, port)
             _connectionState.value = _connectionState.value.copy(
                 phase = ConnectionPhase.LISTENING,
-                statusText = "服务已启动，等待客户端连接..."
+                statusText = "服务已启动，等待连接..."
             )
             tcpServer.start(port,
                 onClientConnected = {
@@ -153,7 +153,7 @@ class ConnectionManager @Inject constructor(
                 onClientDisconnected = {
                     _connectionState.value = _connectionState.value.copy(
                         connected = false, phase = ConnectionPhase.DISCONNECTED,
-                        statusText = "客户端已断开"
+                        statusText = "已断开"
                     )
                 },
                 onMessage = { data -> handleClientMessage(data) }
@@ -233,7 +233,7 @@ class ConnectionManager @Inject constructor(
                     val packet = DatagramPacket(msg, msg.size,
                         InetAddress.getByName("255.255.255.255"), port)
                     socket.send(packet)
-                    delay(3000.milliseconds)
+                    delay(1000.milliseconds)
                 }
             } catch (_: Exception) {}
         }
@@ -279,8 +279,9 @@ class ConnectionManager @Inject constructor(
                     }
                 }
                 ServerToClient.PayloadCase.DISCONNECT -> {
-                    _connectionState.value = _connectionState.value.copy(
-                        connected = false, statusText = "客户端断开"
+                    tcpServer.stop()
+                    _connectionState.value = ConnectionState(
+                        statusText = "已断开"
                     )
                 }
                 ServerToClient.PayloadCase.SET_CONTROLLER_MODE -> {

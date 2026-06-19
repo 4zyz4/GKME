@@ -44,6 +44,10 @@ class TcpServerService {
                 readLoop(onMessage)
                 isClientConnected = false
                 onClientDisconnected()
+                try { clientSocket?.close() } catch (_: Exception) {}
+                clientSocket = null
+                outputStream = null
+                inputStream = null
             } catch (_: java.net.SocketTimeoutException) {
             } catch (_: java.net.SocketException) {
             }
@@ -51,12 +55,28 @@ class TcpServerService {
     }
 
     private fun readLoop(onMessage: (ByteArray) -> Unit) {
-        val buf = ByteArray(4096)
+        val header = ByteArray(4)
         while (isRunning && isClientConnected) {
             try {
-                val len = inputStream?.read(buf) ?: -1
-                if (len <= 0) break
-                onMessage(buf.copyOf(len))
+                var offset = 0
+                while (offset < 4) {
+                    val n = inputStream?.read(header, offset, 4 - offset) ?: -1
+                    if (n < 0) return
+                    offset += n
+                }
+                val len = ((header[0].toInt() and 0xFF) shl 24) or
+                          ((header[1].toInt() and 0xFF) shl 16) or
+                          ((header[2].toInt() and 0xFF) shl 8) or
+                          (header[3].toInt() and 0xFF)
+                if (len <= 0 || len > 65536) break
+                val buf = ByteArray(len)
+                offset = 0
+                while (offset < len) {
+                    val n = inputStream?.read(buf, offset, len - offset) ?: -1
+                    if (n < 0) return
+                    offset += n
+                }
+                onMessage(buf)
             } catch (_: Exception) { break }
         }
     }
