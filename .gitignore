@@ -64,3 +64,4 @@ obj/
 # Proto generated sources
 **/generated/
 /sign
+/android/release/
