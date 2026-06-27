@@ -750,8 +750,8 @@ class MainActivity : ComponentActivity() {
                 menuBtn.setBackgroundResource(R.drawable.button_circle)
             }
             DisplayMode.SWITCH -> {
-                selBtn.text = "\uFF0D"
-                selBtn.setBackgroundResource(R.drawable.button_circle)
+                selBtn.text = ""
+                selBtn.setBackgroundResource(R.drawable.btn_select_switch)
                 homeBtn.setBackgroundResource(R.drawable.button_circle)
                 homeBtn.setImageResource(R.drawable.ic_home)
                 menuBtn.text = ""
