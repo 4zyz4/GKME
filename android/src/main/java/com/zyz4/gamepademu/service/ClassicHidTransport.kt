@@ -17,6 +17,7 @@ import com.zyz4.gamepademu.model.TargetPlatform
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -40,9 +41,10 @@ class ClassicHidTransport(
 
     private var hidDevice: BluetoothHidDevice? = null
     private var connectedDevice: BluetoothDevice? = null
-    private var lastReport: ByteArray = ByteArray(7)
+    private var lastReport: ByteArray = ByteArray(0)
     private var currentSettings: AppSettings? = null
     private var onOutputReport: ((ByteArray) -> Unit)? = null
+    private var reRegisterAttempts = 0
 
     override val transportType: BluetoothTransportType = BluetoothTransportType.CLASSIC
 
@@ -53,9 +55,21 @@ class ClassicHidTransport(
         object : BluetoothHidDevice.Callback() {
             override fun onAppStatusChanged(pluggedDevice: BluetoothDevice?, registered: Boolean) {
                 if (registered) {
+                    reRegisterAttempts = 0
                     scope.launch { tryAutoReconnect() }
                 } else {
-                    _connectionPhase.value = ConnectionPhase.ERROR
+                    if (reRegisterAttempts < 3 && _connectionPhase.value != ConnectionPhase.IDLE) {
+                        reRegisterAttempts++
+                        _connectionPhase.value = ConnectionPhase.REGISTERING_PROFILE
+                        scope.launch {
+                            delay(1000)
+                            if (_connectionPhase.value == ConnectionPhase.REGISTERING_PROFILE) {
+                                restartService()
+                            }
+                        }
+                    } else {
+                        _connectionPhase.value = ConnectionPhase.ERROR
+                    }
                 }
             }
 
@@ -118,8 +132,11 @@ class ClassicHidTransport(
             _connectionPhase.value = ConnectionPhase.ERROR
             return
         }
+        reRegisterAttempts = 0
         this.onOutputReport = onOutputReport
         currentSettings = settings
+        val reportSize = if (settings.targetPlatform == TargetPlatform.ANDROID) 7 else 11
+        lastReport = ByteArray(reportSize)
         _connectionPhase.value = ConnectionPhase.REGISTERING_PROFILE
         bluetoothAdapter.getProfileProxy(context, profileListener, BluetoothProfile.HID_DEVICE)
     }
@@ -128,12 +145,19 @@ class ClassicHidTransport(
         val device = connectedDevice ?: return
         val hid = hidDevice ?: return
         lastReport = report
+        val reportId = if (currentSettings?.targetPlatform == TargetPlatform.ANDROID) 0 else 1
         try {
-            hid.sendReport(device, 1, report)
+            hid.sendReport(device, reportId, report)
         } catch (_: Exception) {}
     }
 
     override fun stop() {
+        cleanup()
+        onOutputReport = null
+        _connectionPhase.value = ConnectionPhase.IDLE
+    }
+
+    private fun cleanup() {
         try {
             hidDevice?.unregisterApp()
         } catch (_: Exception) {}
@@ -142,8 +166,13 @@ class ClassicHidTransport(
         }
         hidDevice = null
         connectedDevice = null
-        onOutputReport = null
-        _connectionPhase.value = ConnectionPhase.IDLE
+    }
+
+    private fun restartService() {
+        cleanup()
+        reRegisterAttempts = 0
+        _connectionPhase.value = ConnectionPhase.REGISTERING_PROFILE
+        bluetoothAdapter.getProfileProxy(context, profileListener, BluetoothProfile.HID_DEVICE)
     }
 
     private fun isBluetoothEnabled(): Boolean {
