@@ -34,6 +34,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.zyz4.gamepademu.model.ConnectionMode
 import com.zyz4.gamepademu.model.ControllerMode
+import com.zyz4.gamepademu.service.ConnectionPhase
 import com.zyz4.gamepademu.model.DisplayMode
 import com.zyz4.gamepademu.model.GamepadState
 import com.zyz4.gamepademu.model.LayoutPreset
@@ -480,6 +481,10 @@ class MainActivity : ComponentActivity() {
 
         listOf(R.id.btnConnWifi to 0, R.id.btnConnBluetooth to 1).forEach { (id, idx) ->
             findViewById<Button>(id).setOnClickListener {
+                if (viewModel.connectionState.value.phase != ConnectionPhase.IDLE) {
+                    showToast("请先停止服务")
+                    return@setOnClickListener
+                }
                 selectChipGroup(listOf(R.id.btnConnWifi, R.id.btnConnBluetooth), idx)
                 val mode = ConnectionMode.entries[idx]
                 viewModel.updateConnectionMode(mode)
@@ -774,6 +779,20 @@ class MainActivity : ComponentActivity() {
         findViewById<EditText>(R.id.etPort).visibility = if (isBt) View.GONE else View.VISIBLE
         findViewById<View>(R.id.tvServerIp).visibility = if (isBt) View.GONE else View.VISIBLE
         findViewById<View>(R.id.tvBroadcastStatus).visibility = if (isBt) View.GONE else View.VISIBLE
+        updatePairedDeviceVisibility(viewModel.pairedDeviceName.value)
+    }
+
+    private fun updatePairedDeviceVisibility(name: String?) {
+        val section = findViewById<View>(R.id.sectionPairedDevice)
+        val nameView = findViewById<TextView>(R.id.tvPairedDeviceName)
+        val isBt = viewModel.settings.value.connectionMode == ConnectionMode.BLUETOOTH
+        if (name != null && isBt) {
+            section.visibility = View.VISIBLE
+            @SuppressLint("SetTextI18n")
+            nameView.text = "蓝牙已配对: $name"
+        } else {
+            section.visibility = View.GONE
+        }
     }
 
     private fun syncSettingsUI() {
@@ -843,6 +862,7 @@ class MainActivity : ComponentActivity() {
                     viewModel.settings.collect { s ->
                         val ds4 = s.controllerMode == ControllerMode.DS4 && s.connectionMode == ConnectionMode.WIFI
                         findViewById<View>(R.id.centerArea).visibility = if (ds4) View.VISIBLE else View.GONE
+                        updatePairedDeviceVisibility(viewModel.pairedDeviceName.value)
                     }
                 }
                 launch {
@@ -859,15 +879,7 @@ class MainActivity : ComponentActivity() {
                 }
                 launch {
                     viewModel.pairedDeviceName.collect { name ->
-                        val section = findViewById<View>(R.id.sectionPairedDevice)
-                        val nameView = findViewById<TextView>(R.id.tvPairedDeviceName)
-                        if (name != null) {
-                            section.visibility = View.VISIBLE
-                            @SuppressLint("SetTextI18n")
-                            nameView.text = "蓝牙已配对: $name"
-                        } else {
-                            section.visibility = View.GONE
-                        }
+                        updatePairedDeviceVisibility(name)
                     }
                 }
             }
