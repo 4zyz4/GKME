@@ -737,7 +737,7 @@ class MainActivity : ComponentActivity() {
                 selBtn.text = ""
                 selBtn.setBackgroundResource(R.drawable.btn_select_xbox)
                 homeBtn.setBackgroundResource(R.drawable.button_circle)
-                homeBtn.setImageResource(R.drawable.ic_home)
+                homeBtn.setImageResource(R.drawable.ic_home_xbox)
                 menuBtn.text = ""
                 menuBtn.setBackgroundResource(R.drawable.btn_menu_xbox)
             }
@@ -745,7 +745,7 @@ class MainActivity : ComponentActivity() {
                 selBtn.text = "SHARE"
                 selBtn.setBackgroundResource(R.drawable.button_circle)
                 homeBtn.setBackgroundResource(R.drawable.button_circle)
-                homeBtn.setImageResource(R.drawable.ic_home)
+                homeBtn.setImageResource(R.drawable.ic_home_playstation)
                 menuBtn.text = "OPTION"
                 menuBtn.setBackgroundResource(R.drawable.button_circle)
             }
