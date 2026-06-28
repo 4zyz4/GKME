@@ -1,10 +1,12 @@
 package com.zyz4.gamepademu.service
 
+import android.bluetooth.BluetoothAdapter
 import android.content.Context
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.provider.Settings
 import com.zyz4.gamepademu.data.PairingStateRepository
 import com.zyz4.gamepademu.data.SettingsRepository
 import com.zyz4.gamepademu.model.AppSettings
@@ -114,7 +116,7 @@ class ConnectionManager @Inject constructor(
     private suspend fun startWifiServer(settings: AppSettings) {
         currentPollingRate = 1000 / POLLING_INTERVAL_MS
         try {
-            startBroadcast(settings.deviceName)
+            startBroadcast(getRealDeviceName())
             _connectionState.value = _connectionState.value.copy(
                 phase = ConnectionPhase.LISTENING,
                 statusText = "服务已启动，等待连接..."
@@ -127,7 +129,7 @@ class ConnectionManager @Inject constructor(
                     )
                     val hello = Hello.newBuilder()
                         .setProtocolVersion(1)
-                        .setDeviceName(Build.MODEL)
+                        .setDeviceName(getRealDeviceName())
                         .build()
                     val msg = ClientToServer.newBuilder()
                         .setHello(hello)
@@ -325,6 +327,16 @@ class ConnectionManager @Inject constructor(
                 val report = GamepadStateMapper.map(state, target)
                 bluetoothService?.sendReport(report)
             }
+        }
+    }
+
+    private fun getRealDeviceName(): String {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
+            Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME)
+                ?: BluetoothAdapter.getDefaultAdapter()?.name
+                ?: Build.MODEL
+        } else {
+            BluetoothAdapter.getDefaultAdapter()?.name ?: Build.MODEL
         }
     }
 

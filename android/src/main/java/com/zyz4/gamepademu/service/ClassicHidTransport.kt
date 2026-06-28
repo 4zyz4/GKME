@@ -201,6 +201,17 @@ class ClassicHidTransport(
         }
     }
 
+    private fun getRealDeviceName(): String {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
+            android.provider.Settings.Global.getString(
+                context.contentResolver,
+                android.provider.Settings.Global.DEVICE_NAME
+            ) ?: bluetoothAdapter.name ?: Build.MODEL
+        } else {
+            bluetoothAdapter.name ?: Build.MODEL
+        }
+    }
+
     private fun registerApp() {
         val subclass: Byte = 0x02
         val desc = if (currentSettings?.targetPlatform == TargetPlatform.ANDROID) {
@@ -208,10 +219,11 @@ class ClassicHidTransport(
         } else {
             HID_DESCRIPTOR
         }
+        val deviceName = getRealDeviceName()
         val sdp = BluetoothHidDeviceAppSdpSettings(
-            "Gamepad Emu",
+            deviceName,
             "Virtual Xbox 360 Controller",
-            "Gamepad Emu",
+            deviceName,
             subclass,
             desc,
         )
