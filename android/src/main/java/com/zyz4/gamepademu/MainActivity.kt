@@ -23,6 +23,7 @@ import android.widget.FrameLayout
 import android.widget.GridView
 import android.widget.ImageButton
 import android.widget.Switch
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
@@ -401,9 +402,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun selectSettingsCategory(index: Int) {
-        val pages = listOf(R.id.pageConnection, R.id.pagePresets, R.id.pageVibration)
+        val pages = listOf(R.id.pageConnection, R.id.pagePresets, R.id.pageVibration, R.id.pageAbout)
         val buttons = listOf(
-            R.id.btnCategoryConnection, R.id.btnCategoryPresets, R.id.btnCategoryVibration
+            R.id.btnCategoryConnection, R.id.btnCategoryPresets, R.id.btnCategoryVibration, R.id.btnCategoryAbout
         )
         pages.forEachIndexed { i, id ->
             findViewById<View>(id).visibility = if (i == index) View.VISIBLE else View.GONE
@@ -422,6 +423,7 @@ class MainActivity : ComponentActivity() {
         findViewById<Button>(R.id.btnCategoryConnection).setOnClickListener { selectSettingsCategory(0) }
         findViewById<Button>(R.id.btnCategoryPresets).setOnClickListener { selectSettingsCategory(1) }
         findViewById<Button>(R.id.btnCategoryVibration).setOnClickListener { selectSettingsCategory(2) }
+        findViewById<Button>(R.id.btnCategoryAbout).setOnClickListener { selectSettingsCategory(3) }
 
         // ── Presets page ──
         findViewById<Switch>(R.id.switchEditMode).setOnCheckedChangeListener { _, isChecked ->
@@ -524,6 +526,9 @@ class MainActivity : ComponentActivity() {
             viewModel.updateGameVibrationEnabled(isChecked)
         }
 
+        // ── About page ──
+        setupAboutPage()
+
         // ── Connection page ──
         setupConnectionPage()
         setupUnpairButton()
@@ -542,10 +547,41 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @SuppressLint("SetTextI18n")
+    private fun setupAboutPage() {
+        val packageInfo = packageManager.getPackageInfo(packageName, 0)
+        findViewById<TextView>(R.id.tvAppName).text = "Gamepad Emu"
+        findViewById<TextView>(R.id.tvAppVersion).text = "版本 ${packageInfo.versionName}"
+        findViewById<TextView>(R.id.tvAppDescription).text = "作者：4zyz4\n\n" +
+                "开源地址：https://github.com/4zyz4/gamepad-emu-android\n" +
+                "https://github.com/4zyz4/gamepad-emu-windows\n\n" +
+                "注意：本软件不是Emotion，请进入Q群1045923515以下载正版Emotion"
+
+        findViewById<ImageView>(R.id.ivAppIcon).setImageResource(R.mipmap.icon)
+
+        findViewById<Button>(R.id.btnSponsor).setOnClickListener {
+            showSponsorDialog()
+        }
+    }
+
+    private fun showSponsorDialog() {
+        val imageView = ImageView(this).apply {
+            setImageResource(R.mipmap.reward)
+            setScaleType(ImageView.ScaleType.FIT_CENTER)
+            setPadding(40, 0, 40, 0)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("赞助")
+            .setMessage("感谢您的支持！")
+            .setView(imageView)
+            .setNegativeButton("关闭", null)
+            .show()
+    }
+
     private fun setupConnectionPage() {
         findViewById<Button>(R.id.btnConnectAction).setOnClickListener {
             val st = viewModel.connectionState.value
-            if (st.phase != com.zyz4.gamepademu.service.ConnectionPhase.IDLE) {
+            if (st.phase != ConnectionPhase.IDLE) {
                 viewModel.stopServer()
             } else {
                 val s = viewModel.settings.value
@@ -599,7 +635,7 @@ class MainActivity : ComponentActivity() {
         input.setHint("输入新预设名称")
         AlertDialog.Builder(this)
             .setTitle("新建布局")
-            .setMessage("基于 Default 模板创建新布局")
+            .setMessage("创建新布局")
             .setView(input)
             .setPositiveButton("创建") { _, _ ->
                 val name = input.text.toString().trim()
@@ -778,7 +814,6 @@ class MainActivity : ComponentActivity() {
         findViewById<View>(R.id.sectionTargetPlatform).visibility = if (isBt) View.VISIBLE else View.GONE
         findViewById<EditText>(R.id.etPort).visibility = if (isBt) View.GONE else View.VISIBLE
         findViewById<View>(R.id.tvServerIp).visibility = if (isBt) View.GONE else View.VISIBLE
-        findViewById<View>(R.id.tvBroadcastStatus).visibility = if (isBt) View.GONE else View.VISIBLE
         updatePairedDeviceVisibility(viewModel.pairedDeviceName.value)
     }
 
@@ -823,21 +858,18 @@ class MainActivity : ComponentActivity() {
                         findViewById<TextView>(R.id.centerText).text = st.statusText
                         findViewById<TextView>(R.id.tvConnectionStatus).text = st.statusText
                         val btn = findViewById<Button>(R.id.btnConnectAction)
-                        btn.text = if (st.phase != com.zyz4.gamepademu.service.ConnectionPhase.IDLE) "停止服务" else "启动服务"
+                        btn.text = if (st.phase != ConnectionPhase.IDLE) "停止服务" else "启动服务"
                         val ip = if (viewModel.settings.value.connectionMode == ConnectionMode.WIFI &&
                             st.statusText != "未启动"
                         ) {
                             "本机 IP: ${viewModel.getServerIp()}"
                         } else ""
                         findViewById<TextView>(R.id.tvServerIp).text = ip
-                        findViewById<TextView>(R.id.tvBroadcastStatus).text =
-                            if (st.connected && viewModel.settings.value.connectionMode == ConnectionMode.WIFI) "UDP 广播中 (每 3 秒)"
-                            else ""
 
                         val transportType = st.transportType
                         val isClassicBt = transportType == BluetoothTransportType.CLASSIC
 
-                        if (st.phase == com.zyz4.gamepademu.service.ConnectionPhase.DISCOVERABLE
+                        if (st.phase == ConnectionPhase.DISCOVERABLE
                             && !discoverableRequested
                             && viewModel.settings.value.connectionMode == ConnectionMode.BLUETOOTH
                             && isClassicBt
@@ -848,7 +880,7 @@ class MainActivity : ComponentActivity() {
                             }
                             discoverableLauncher.launch(intent)
                         }
-                        if (st.phase == com.zyz4.gamepademu.service.ConnectionPhase.IDLE) {
+                        if (st.phase == ConnectionPhase.IDLE) {
                             discoverableRequested = false
                         }
                     }
