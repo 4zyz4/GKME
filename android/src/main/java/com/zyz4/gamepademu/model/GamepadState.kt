@@ -20,6 +20,7 @@ data class GamepadState(
     val touchpadTouch: Boolean = false,
     val touchpadClick: Boolean = false,
     val batteryLevel: Int = 100,
+    val isCharging: Boolean = false,
 ) {
     companion object {
         // Bits 0-5 = A/B/X/Y/LB/RB

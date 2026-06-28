@@ -1,6 +1,10 @@
 package com.zyz4.gamepademu
 
 import android.app.Application
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.zyz4.gamepademu.data.LayoutRepository
@@ -225,10 +229,30 @@ class GamepadViewModel @Inject constructor(
         }
     }
 
+    private fun readBattery() {
+        val intent = getApplication<Application>().registerReceiver(null,
+            IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        if (intent == null) return
+        val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, 100)
+        val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
+        val pct = (level * 100) / scale
+        val plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)
+        _gamepadState.value = _gamepadState.value.copy(
+            batteryLevel = pct,
+            isCharging = plugged != 0,
+        )
+    }
+
     private fun startPeriodicSendLoop() {
         sendJob?.cancel()
+        var lastBatteryRead = 0L
         sendJob = viewModelScope.launch {
             while (true) {
+                val now = System.currentTimeMillis()
+                if (now - lastBatteryRead > 2000) {
+                    readBattery()
+                    lastBatteryRead = now
+                }
                 val input = _gamepadState.value.toProto()
                 connectionManager.sendGamepadState(input)
                 delay(8)
@@ -244,8 +268,14 @@ class GamepadViewModel @Inject constructor(
 
     private fun startSensorSendLoop() {
         sendJob?.cancel()
+        var lastBatteryRead = 0L
         sendJob = viewModelScope.launch {
             while (true) {
+                val now = System.currentTimeMillis()
+                if (now - lastBatteryRead > 2000) {
+                    readBattery()
+                    lastBatteryRead = now
+                }
                 val sensor = sensorHandler.sensorData.value
                 _gamepadState.value = _gamepadState.value.copy(
                     gyroX = sensor.gyroX,

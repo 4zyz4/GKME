@@ -61,6 +61,7 @@ message GamepadInput {
   bool touchpad_click = 18;
   uint32 battery_level = 19;
   uint64 seq = 20;
+  bool is_charging = 21;
 }
 
 message KeepAlive {

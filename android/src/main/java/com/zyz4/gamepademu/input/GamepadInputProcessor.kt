@@ -24,6 +24,7 @@ fun GamepadState.toProto(): GamepadInput {
         .setTouchpadY(touchpadY)
         .setTouchpadTouch(touchpadTouch)
         .setTouchpadClick(touchpadClick)
+        .setIsCharging(isCharging)
         .build()
 }
 
