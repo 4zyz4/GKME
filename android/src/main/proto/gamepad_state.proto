@@ -37,7 +37,6 @@ message ClientToServer {
 message Hello {
   uint32 protocol_version = 1;
   string device_name = 2;
-  ControllerMode controller_mode = 3;
   uint32 controller_index = 4;
 }
 

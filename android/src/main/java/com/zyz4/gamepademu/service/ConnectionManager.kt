@@ -125,13 +125,9 @@ class ConnectionManager @Inject constructor(
                         connected = true, phase = ConnectionPhase.CONNECTED,
                         statusText = "已连接 (WiFi)"
                     )
-                    val protoMode = com.zyz4.gamepademu.proto.ControllerMode.forNumber(
-                        settings.controllerMode.ordinal
-                    ) ?: com.zyz4.gamepademu.proto.ControllerMode.XBOX_360
                     val hello = Hello.newBuilder()
                         .setProtocolVersion(1)
                         .setDeviceName(Build.MODEL)
-                        .setControllerMode(protoMode)
                         .build()
                     val msg = ClientToServer.newBuilder()
                         .setHello(hello)
@@ -278,7 +274,6 @@ class ConnectionManager @Inject constructor(
                         ControllerMode.DS4 else ControllerMode.XBOX_360
                     _settings.value = _settings.value.copy(controllerMode = newMode)
                     scope.launch { settingsRepository.saveSettings(_settings.value) }
-                    resendHello(newMode)
                     onControllerModeChanged?.invoke(newMode)
                 }
                 ServerToClient.PayloadCase.RTT_REPORT -> {
@@ -288,20 +283,6 @@ class ConnectionManager @Inject constructor(
                 else -> {}
             }
         } catch (_: Exception) {}
-    }
-
-    private fun resendHello(mode: ControllerMode) {
-        val protoMode = com.zyz4.gamepademu.proto.ControllerMode.forNumber(mode.ordinal)
-            ?: com.zyz4.gamepademu.proto.ControllerMode.XBOX_360
-        val hello = Hello.newBuilder()
-            .setProtocolVersion(1)
-            .setDeviceName(Build.MODEL)
-            .setControllerMode(protoMode)
-            .build()
-        val msg = ClientToServer.newBuilder()
-            .setHello(hello)
-            .build()
-        scope.launch { tcpServer.send(msg) }
     }
 
     private var _vibSpeed = -1

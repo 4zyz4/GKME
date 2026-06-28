@@ -1,7 +1,6 @@
 package com.zyz4.gamepademu.service
 
 import com.google.protobuf.AbstractMessageLite
-import com.zyz4.gamepademu.proto.ControllerMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.InputStream
@@ -58,18 +57,6 @@ class TcpClientService {
             outputStream?.write(data)
             outputStream?.flush()
         } catch (_: Exception) {}
-    }
-
-    suspend fun sendHello(deviceName: String, controllerMode: ControllerMode) {
-        val hello = com.zyz4.gamepademu.proto.Hello.newBuilder()
-            .setProtocolVersion(1)
-            .setDeviceName(deviceName)
-            .setControllerMode(controllerMode)
-            .build()
-        val msg = com.zyz4.gamepademu.proto.ClientToServer.newBuilder()
-            .setHello(hello)
-            .build()
-        send(msg)
     }
 
     suspend fun sendKeepAlive(timestamp: Long) {
