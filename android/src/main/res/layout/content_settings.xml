@@ -407,27 +407,6 @@
                     android:background="@color/bg_surface"
                     android:layout_marginBottom="4dp" />
 
-                <!-- Port -->
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="端口"
-                    android:textColor="@color/text_primary"
-                    android:textSize="13sp"
-                    android:layout_marginBottom="4dp" />
-
-                <EditText
-                    android:id="@+id/etPort"
-                    android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:background="@color/bg_surface"
-                    android:textColor="@color/text_primary"
-                    android:textColorHint="@color/text_secondary"
-                    android:hint="端口 (默认 37284)"
-                    android:paddingHorizontal="12dp"
-                    android:singleLine="true"
-                    android:inputType="number"
-                    android:layout_marginBottom="8dp" />
             </LinearLayout>
         </ScrollView>
 

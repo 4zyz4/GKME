@@ -14,7 +14,6 @@ data class AppSettings(
     val displayMode: DisplayMode = DisplayMode.XBOX,
     val controllerMode: ControllerMode = ControllerMode.XBOX_360,
     val wifiServerIp: String = "",
-    val wifiServerPort: Int = 37284,
     val deviceName: String = "Gamepad Emu",
     val currentPresetName: String = "Default",
     val isEditMode: Boolean = false,

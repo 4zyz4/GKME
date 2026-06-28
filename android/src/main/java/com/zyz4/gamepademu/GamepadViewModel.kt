@@ -192,10 +192,6 @@ class GamepadViewModel @Inject constructor(
         connectionManager.updateSettings(settings.value.copy(targetPlatform = platform))
     }
 
-    fun updateWifiServer(ip: String, port: Int) {
-        connectionManager.updateSettings(settings.value.copy(wifiServerIp = ip, wifiServerPort = port))
-    }
-
     fun getServerIp(): String = connectionManager.getServerIp()
 
     fun unpairDevice() {

@@ -395,8 +395,6 @@ class MainActivity : ComponentActivity() {
 
     private fun hideSettings() {
         inSettings = false
-        val port = findViewById<EditText>(R.id.etPort).text.toString().toIntOrNull() ?: 37284
-        viewModel.updateWifiServer("", port)
         findViewById<View>(R.id.gamepadPanel).visibility = View.VISIBLE
         findViewById<View>(R.id.settingsPanel).visibility = View.GONE
     }
@@ -812,7 +810,6 @@ class MainActivity : ComponentActivity() {
     private fun updateSettingsVisibility(mode: ConnectionMode) {
         val isBt = mode == ConnectionMode.BLUETOOTH
         findViewById<View>(R.id.sectionTargetPlatform).visibility = if (isBt) View.VISIBLE else View.GONE
-        findViewById<EditText>(R.id.etPort).visibility = if (isBt) View.GONE else View.VISIBLE
         findViewById<View>(R.id.tvServerIp).visibility = if (isBt) View.GONE else View.VISIBLE
         updatePairedDeviceVisibility(viewModel.pairedDeviceName.value)
     }
@@ -832,7 +829,6 @@ class MainActivity : ComponentActivity() {
 
     private fun syncSettingsUI() {
         val s = viewModel.settings.value
-        findViewById<EditText>(R.id.etPort).setText(s.wifiServerPort.toString())
         findViewById<Switch>(R.id.switchEditMode).isChecked = false
 
         selectChipGroup(listOf(R.id.btnDisplayXbox, R.id.btnDisplayPlaystation, R.id.btnDisplaySwitch),

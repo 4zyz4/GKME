@@ -113,14 +113,13 @@ class ConnectionManager @Inject constructor(
 
     private suspend fun startWifiServer(settings: AppSettings) {
         currentPollingRate = 1000 / POLLING_INTERVAL_MS
-        val port = settings.wifiServerPort
         try {
-            startBroadcast(settings.deviceName, port)
+            startBroadcast(settings.deviceName)
             _connectionState.value = _connectionState.value.copy(
                 phase = ConnectionPhase.LISTENING,
                 statusText = "服务已启动，等待连接..."
             )
-            tcpServer.start(port,
+            tcpServer.start(37284,
                 onClientConnected = {
                     _connectionState.value = _connectionState.value.copy(
                         connected = true, phase = ConnectionPhase.CONNECTED,
@@ -211,7 +210,7 @@ class ConnectionManager @Inject constructor(
         }
     }
 
-    private fun startBroadcast(deviceName: String, port: Int) {
+    private fun startBroadcast(deviceName: String) {
         broadcastJob?.cancel()
         broadcastJob = CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -220,7 +219,7 @@ class ConnectionManager @Inject constructor(
                 val msg = "GAMEPAD_SERVER:$deviceName".toByteArray()
                 while (true) {
                     val packet = DatagramPacket(msg, msg.size,
-                        InetAddress.getByName("255.255.255.255"), port)
+                        InetAddress.getByName("255.255.255.255"), 37284)
                     socket.send(packet)
                     delay(1000.milliseconds)
                 }

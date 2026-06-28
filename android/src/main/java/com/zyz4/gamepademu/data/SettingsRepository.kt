@@ -28,7 +28,6 @@ class SettingsRepository @Inject constructor(
         val CONTROLLER_MODE = intPreferencesKey("controller_mode")
         val CONNECTION_MODE = intPreferencesKey("connection_mode")
         val TARGET_PLATFORM = intPreferencesKey("target_platform")
-        val WIFI_SERVER_PORT = intPreferencesKey("wifi_server_port")
         val DEVICE_NAME = stringPreferencesKey("device_name")
         val CURRENT_PRESET_NAME = stringPreferencesKey("current_preset_name")
         val VIBRATION_ENABLED = booleanPreferencesKey("vibration_enabled")
@@ -49,7 +48,6 @@ class SettingsRepository @Inject constructor(
             targetPlatform = TargetPlatform.entries.getOrElse(
                 prefs[Keys.TARGET_PLATFORM] ?: 0
             ) { TargetPlatform.WINDOWS },
-            wifiServerPort = prefs[Keys.WIFI_SERVER_PORT] ?: 37284,
             deviceName = prefs[Keys.DEVICE_NAME] ?: "Gamepad Emu",
             currentPresetName = prefs[Keys.CURRENT_PRESET_NAME] ?: "Default",
             vibrationEnabled = prefs[Keys.VIBRATION_ENABLED] ?: true,
@@ -63,7 +61,6 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.CONTROLLER_MODE] = settings.controllerMode.ordinal
             prefs[Keys.CONNECTION_MODE] = settings.connectionMode.ordinal
             prefs[Keys.TARGET_PLATFORM] = settings.targetPlatform.ordinal
-            prefs[Keys.WIFI_SERVER_PORT] = settings.wifiServerPort
             prefs[Keys.DEVICE_NAME] = settings.deviceName
             prefs[Keys.CURRENT_PRESET_NAME] = settings.currentPresetName
             prefs[Keys.VIBRATION_ENABLED] = settings.vibrationEnabled
