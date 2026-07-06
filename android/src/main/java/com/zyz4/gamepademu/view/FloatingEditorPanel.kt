@@ -49,7 +49,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     private var contentW = 0
     private var panelW = 0
 
-    private fun isButton(id: String) = id in BUTTON_IDS
+    private fun isButton(id: String) = id.substringBefore("_") in BUTTON_IDS
 
     private fun getChineseName(buttonId: String): String {
         val base = buttonId.substringBefore("_")

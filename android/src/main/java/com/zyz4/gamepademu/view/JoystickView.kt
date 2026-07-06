@@ -50,7 +50,7 @@ class JoystickView @JvmOverloads constructor(
         strokeWidth = 1.5f
     }
     private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = -0x333334
+        color = -0x555556
         textAlign = Paint.Align.CENTER
         textSize = 0f
     }
@@ -82,8 +82,9 @@ class JoystickView @JvmOverloads constructor(
         canvas.drawCircle(knobX, knobY, knobRadius, knobStrokePaint)
         if (label.isNotEmpty()) {
             if (labelPaint.textSize == 0f)
-                labelPaint.textSize = baseRadius * 0.55f
-            canvas.drawText(label, centerX, centerY + baseRadius + labelPaint.textSize, labelPaint)
+                labelPaint.textSize = knobRadius * 1.1f
+            val textY = knobY - (labelPaint.ascent() + labelPaint.descent()) / 2f
+            canvas.drawText(label, knobX, textY, labelPaint)
         }
     }
 

@@ -6,6 +6,8 @@ import android.app.AlertDialog
 import android.bluetooth.BluetoothAdapter
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Canvas
+import android.graphics.Paint
 import android.graphics.Typeface
 import android.net.Uri
 import android.os.Build
@@ -209,11 +211,48 @@ class MainActivity : ComponentActivity() {
         CtrlEntry("btnMenu", "菜单", R.drawable.btn_menu_xbox, bit = GamepadState.START, w = 9, h = 9),
     )
 
+    private fun getPreviewText(entry: CtrlEntry, mode: DisplayMode): String? {
+        return when (entry.baseId) {
+            "btnA" -> when (mode) { DisplayMode.XBOX -> "A"; DisplayMode.SWITCH -> "B"; else -> null }
+            "btnB" -> when (mode) { DisplayMode.XBOX -> "B"; DisplayMode.SWITCH -> "A"; else -> null }
+            "btnX" -> when (mode) { DisplayMode.XBOX -> "X"; DisplayMode.SWITCH -> "Y"; else -> null }
+            "btnY" -> when (mode) { DisplayMode.XBOX -> "Y"; DisplayMode.SWITCH -> "X"; else -> null }
+            "btnLB" -> when (mode) { DisplayMode.XBOX -> "LB"; DisplayMode.PLAYSTATION -> "L1"; DisplayMode.SWITCH -> "L" }
+            "btnRB" -> when (mode) { DisplayMode.XBOX -> "RB"; DisplayMode.PLAYSTATION -> "R1"; DisplayMode.SWITCH -> "R" }
+            "btnLT" -> when (mode) { DisplayMode.XBOX -> "LT"; DisplayMode.PLAYSTATION -> "L2"; DisplayMode.SWITCH -> "ZL" }
+            "btnRT" -> when (mode) { DisplayMode.XBOX -> "RT"; DisplayMode.PLAYSTATION -> "R2"; DisplayMode.SWITCH -> "ZR" }
+            "btnSelect" -> when (mode) { DisplayMode.PLAYSTATION -> "SHARE"; else -> null }
+            "btnMenu" -> when (mode) { DisplayMode.PLAYSTATION -> "OPTION"; else -> null }
+            else -> null
+        }
+    }
+
+    private fun getPreviewIcon(entry: CtrlEntry, mode: DisplayMode): Int {
+        val text = getPreviewText(entry, mode)
+        if (text != null) {
+            return when (entry.baseId) {
+                "btnLB", "btnRB", "btnLT", "btnRT" -> R.drawable.button_rounded_rect
+                else -> R.drawable.button_circle
+            }
+        }
+        return when (entry.baseId) {
+            "btnA" -> R.drawable.btn_ps_cross
+            "btnB" -> R.drawable.btn_ps_circle
+            "btnX" -> R.drawable.btn_ps_square
+            "btnY" -> R.drawable.btn_ps_triangle
+            "btnSelect" -> when (mode) { DisplayMode.XBOX -> R.drawable.btn_select_xbox; DisplayMode.SWITCH -> R.drawable.btn_select_switch; else -> R.drawable.button_circle }
+            "btnMenu" -> when (mode) { DisplayMode.XBOX -> R.drawable.btn_menu_xbox; DisplayMode.SWITCH -> R.drawable.btn_menu_switch; else -> R.drawable.button_circle }
+            "btnHome" -> when (mode) { DisplayMode.XBOX -> R.drawable.ic_home_xbox; DisplayMode.PLAYSTATION -> R.drawable.ic_home_playstation; else -> R.drawable.ic_home }
+            else -> entry.icon
+        }
+    }
+
     private fun showAddButtonDialog() {
         val density = resources.displayMetrics.density
         val cols = 4
         val cellW = (200f * density).toInt()
         val iconSize = (40f * density).toInt()
+        val mode = viewModel.settings.value.displayMode
 
         val content = NestedScrollView(this)
         val grid = LinearLayout(this).apply {
@@ -235,21 +274,49 @@ class MainActivity : ComponentActivity() {
                     isFocusable = true
                     setPadding((6f * density).toInt(), (6f * density).toInt(), (6f * density).toInt(), (6f * density).toInt())
                 }
-                val iv = ImageView(this).apply {
-                    setImageResource(entry.icon)
-                    layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+                val text = getPreviewText(entry, mode)
+                if (text != null) {
+                    val btn = Button(this).apply {
+                        this.text = text
+                        setTextColor(-0x333334)
+                        textSize = 12f
+                        setTypeface(null, Typeface.BOLD)
+                        setBackgroundResource(getPreviewIcon(entry, mode))
+                        gravity = android.view.Gravity.CENTER
+                        layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+                        isClickable = false
+                    }
+                    wrapper.addView(btn)
+                } else if (entry.isJoystick) {
+                    val jl = if (entry.baseId.startsWith("left")) "L" else "R"
+                    val jv = object : View(this) {
+                        private val outerP = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = -0xdddddd; style = Paint.Style.FILL }
+                        private val outerS = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = -0xaaaaab; style = Paint.Style.STROKE; strokeWidth = 2f }
+                        private val innerP = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = -0xaaaaab; style = Paint.Style.FILL }
+                        private val innerS = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = -0x888889; style = Paint.Style.STROKE; strokeWidth = 1.5f }
+                        private val lp = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = -0x555556; textAlign = Paint.Align.CENTER }
+                        override fun onDraw(canvas: Canvas) {
+                            val cx = width / 2f; val cy = height / 2f
+                            val r = minOf(cx, cy)
+                            val kr = r * 0.32f
+                            canvas.drawCircle(cx, cy, r, outerP)
+                            canvas.drawCircle(cx, cy, r, outerS)
+                            canvas.drawCircle(cx, cy, kr, innerP)
+                            canvas.drawCircle(cx, cy, kr, innerS)
+                            lp.textSize = kr * 1.1f
+                            val textY = cy - (lp.ascent() + lp.descent()) / 2f
+                            canvas.drawText(jl, cx, textY, lp)
+                        }
+                    }
+                    jv.layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+                    wrapper.addView(jv)
+                } else {
+                    val iv = ImageView(this).apply {
+                        setImageResource(getPreviewIcon(entry, mode))
+                        layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+                    }
+                    wrapper.addView(iv)
                 }
-                val tv = TextView(this).apply {
-                    text = entry.name
-                    setTextColor(-0xcccccd)
-                    textSize = 10f
-                    gravity = android.view.Gravity.CENTER
-                }
-                wrapper.addView(iv)
-                wrapper.addView(tv, LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                ).apply { topMargin = (4f * density).toInt() })
                 row.addView(wrapper, LinearLayout.LayoutParams(cellW / cols, ViewGroup.LayoutParams.WRAP_CONTENT))
             }
             grid.addView(row)
