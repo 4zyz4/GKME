@@ -9,6 +9,7 @@ import android.view.View
 import android.view.ViewGroup
 import com.zyz4.gamepademu.model.ButtonPosition
 import com.zyz4.gamepademu.model.LayoutPreset
+import com.zyz4.gamepademu.view.JoystickView
 
 class GamepadLayout @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
@@ -38,6 +39,11 @@ class GamepadLayout @JvmOverloads constructor(
     private val handlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = -0x1
         style = Paint.Style.FILL
+    }
+
+    private val markPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = -0x10000
+        textAlign = Paint.Align.CENTER
     }
 
     private var cellW = 0f
@@ -348,6 +354,10 @@ class GamepadLayout @JvmOverloads constructor(
 
     fun isEditModeActive(): Boolean = isEditMode
 
+    fun getRotation(buttonId: String): Int {
+        return currentButtons.find { it.id == buttonId }?.rotation ?: 0
+    }
+
     fun hasUnsavedChanges(): Boolean = hasChanges
 
     fun getEditSnapshot(): LayoutPreset? = editSnapshot
@@ -367,6 +377,7 @@ class GamepadLayout @JvmOverloads constructor(
             hasChanges = true
             refreshSwipeTriggers()
             requestLayout()
+            invalidate()
         }
     }
 
@@ -450,8 +461,9 @@ class GamepadLayout @JvmOverloads constructor(
             }
             if (child.visibility != View.VISIBLE) child.visibility = View.VISIBLE
 
-            val childW = (pos.width * cellW).toInt()
-            val childH = (pos.height * cellH).toInt()
+            val isSwapped = !pos.lockAspect && (pos.rotation == 90 || pos.rotation == 270)
+            val childW = ((if (isSwapped) pos.height else pos.width) * cellW).toInt()
+            val childH = ((if (isSwapped) pos.width else pos.height) * cellH).toInt()
             val left = (pos.x * cellW).toInt()
             val top = (pos.y * cellH).toInt()
 
@@ -460,6 +472,17 @@ class GamepadLayout @JvmOverloads constructor(
                 MeasureSpec.makeMeasureSpec(childH, MeasureSpec.EXACTLY),
             )
             child.layout(left, top, left + childW, top + childH)
+            if (child is JoystickView) {
+                child.axisRotation = pos.rotation
+            } else if (child is ViewGroup) {
+                for (j in 0 until child.childCount) {
+                    child.getChildAt(j).rotation = pos.rotation.toFloat()
+                }
+            } else if (child is RotatableButton) {
+                child.textRotation = pos.rotation
+            } else if (pos.lockAspect) {
+                child.rotation = pos.rotation.toFloat()
+            }
         }
     }
 
@@ -479,18 +502,32 @@ class GamepadLayout @JvmOverloads constructor(
 
         val selId = selectedButtonId ?: return
         val pos = currentButtons.find { it.id == selId } ?: return
-        val l = (pos.x * cellW).toInt().toFloat()
-        val t = (pos.y * cellH).toInt().toFloat()
-        val bw = (pos.width * cellW).toInt().toFloat()
-        val bh = (pos.height * cellH).toInt().toFloat()
+        val vb = visualBounds(pos)
+        val vl = (vb[0] * cellW).toInt().toFloat()
+        val vt = (vb[1] * cellH).toInt().toFloat()
+        val vbw = (vb[2] * cellW).toInt().toFloat()
+        val vbh = (vb[3] * cellH).toInt().toFloat()
 
         selectionPaint.setStrokeWidth(3f * density)
-        canvas.drawRect(l, t, l + bw, t + bh, selectionPaint)
+        canvas.drawRect(vl, vt, vl + vbw, vt + vbh, selectionPaint)
 
         val handleDp = HANDLE_SIZE_DP * density
-        val handleX = l + bw - handleDp
-        val handleY = t + bh - handleDp
+        val handleX = vl + vbw - handleDp
+        val handleY = vt + vbh - handleDp
         canvas.drawRect(handleX, handleY, handleX + handleDp, handleY + handleDp, handlePaint)
+
+        markPaint.textSize = 14f * density
+        val markerDist = 4f * density
+        val (markX, markY, markAngle) = when (pos.rotation % 360) {
+            90 -> Triple(vl + vbw + markerDist, vt + vbh / 2, 90f)
+            180 -> Triple(vl + vbw / 2, vt + vbh + markerDist, 180f)
+            270 -> Triple(vl - markerDist, vt + vbh / 2, 270f)
+            else -> Triple(vl + vbw / 2, vt - markerDist, 0f)
+        }
+        canvas.save()
+        canvas.rotate(markAngle, markX, markY)
+        canvas.drawText("上", markX, markY, markPaint)
+        canvas.restore()
     }
 
     override fun onInterceptTouchEvent(event: MotionEvent): Boolean {
@@ -537,8 +574,17 @@ class GamepadLayout @JvmOverloads constructor(
                     val idx = currentButtons.indexOfFirst { it.id == rid }
                     if (idx >= 0) {
                         val old = currentButtons[idx]
-                        var newW = (gridX - old.x + 1).coerceAtLeast(1)
-                        var newH = (gridY - old.y + 1).coerceAtLeast(1)
+                        val isSwapped = !old.lockAspect && (old.rotation == 90 || old.rotation == 270)
+                        val deltaX = gridX - resizeStartGridX
+                        val deltaY = gridY - resizeStartGridY
+                        var newW: Int; var newH: Int
+                        if (isSwapped) {
+                            newW = (resizeStartW + deltaY).coerceAtLeast(1)
+                            newH = (resizeStartH + deltaX).coerceAtLeast(1)
+                        } else {
+                            newW = (resizeStartW + deltaX).coerceAtLeast(1)
+                            newH = (resizeStartH + deltaY).coerceAtLeast(1)
+                        }
                         if (old.lockAspect) {
                             val side = maxOf(newW, newH)
                             newW = side
@@ -604,14 +650,15 @@ class GamepadLayout @JvmOverloads constructor(
 
     private fun isOnHandle(x: Float, y: Float, buttonId: String): Boolean {
         val pos = currentButtons.find { it.id == buttonId } ?: return false
-        val l = (pos.x * cellW).toInt().toFloat()
-        val t = (pos.y * cellH).toInt().toFloat()
-        val bw = (pos.width * cellW).toInt().toFloat()
-        val bh = (pos.height * cellH).toInt().toFloat()
+        val vb = visualBounds(pos)
+        val vl = vb[0] * cellW
+        val vt = vb[1] * cellH
+        val vbw = vb[2] * cellW
+        val vbh = vb[3] * cellH
         val handleHit = HANDLE_HIT_DP * density
-        val hx = l + bw - handleHit
-        val hy = t + bh - handleHit
-        return x >= hx && x <= l + bw && y >= hy && y <= t + bh
+        val hx = vl + vbw - handleHit
+        val hy = vt + vbh - handleHit
+        return x >= hx && x <= vl + vbw && y >= hy && y <= vt + vbh
     }
 
     private fun findChildAt(x: Float, y: Float): View? {
@@ -636,6 +683,14 @@ class GamepadLayout @JvmOverloads constructor(
             }
         }
         return result
+    }
+
+    /** Returns [left, top, width, height] in grid coordinates for the visual extent. */
+    private fun visualBounds(pos: ButtonPosition): FloatArray {
+        val isSwapped = !pos.lockAspect && (pos.rotation == 90 || pos.rotation == 270)
+        val lw = if (isSwapped) pos.height else pos.width
+        val lh = if (isSwapped) pos.width else pos.height
+        return floatArrayOf(pos.x.toFloat(), pos.y.toFloat(), lw.toFloat(), lh.toFloat())
     }
 
     private val density: Float

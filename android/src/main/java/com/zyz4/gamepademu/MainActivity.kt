@@ -58,6 +58,7 @@ import com.zyz4.gamepademu.service.BluetoothTransportType
 import com.zyz4.gamepademu.GamepadViewModel.PresetInfo
 import com.zyz4.gamepademu.view.GamepadLayout
 import com.zyz4.gamepademu.view.JoystickView
+import com.zyz4.gamepademu.view.RotatableButton
 import com.zyz4.gamepademu.view.PresetPreviewView
 import com.zyz4.gamepademu.view.FloatingEditorPanel
 import dagger.hilt.android.AndroidEntryPoint
@@ -181,6 +182,7 @@ class MainActivity : ComponentActivity() {
 
                 override fun onButtonUpdated(buttonId: String, updated: ButtonPosition) {
                     gamepadLayout.updateButtonPosition(buttonId, updated)
+                    updateButtonLabels(viewModel.settings.value.displayMode)
                 }
             }
         }
@@ -409,6 +411,13 @@ class MainActivity : ComponentActivity() {
                 setupTouchpadView(tp)
                 tp
             }
+            !entry.lockAspect -> RotatableButton(this).apply {
+                this.id = View.generateViewId(); tag = id
+                setTextColor(-0x333334); textSize = 12f
+                setTypeface(null, Typeface.BOLD)
+                setBackgroundResource(entry.bgRes)
+                gravity = android.view.Gravity.CENTER
+            }
             else -> Button(this).apply {
                 this.id = View.generateViewId(); tag = id
                 setTextColor(-0x333334); textSize = 12f
@@ -568,6 +577,13 @@ class MainActivity : ComponentActivity() {
                     setupTouchpadView(tp)
                     tp
                 }
+                d.baseId in listOf("btnLB", "btnRB", "btnLT", "btnRT") -> RotatableButton(this).apply {
+                    this.id = View.generateViewId(); tag = d.baseId
+                    setTextColor(-0x333334); textSize = 12f
+                    setTypeface(null, Typeface.BOLD)
+                    setBackgroundResource(d.bgRes)
+                    gravity = android.view.Gravity.CENTER
+                }
                 else -> Button(this).apply {
                     this.id = View.generateViewId(); tag = d.baseId
                     setTextColor(-0x333334); textSize = 12f
@@ -629,8 +645,17 @@ class MainActivity : ComponentActivity() {
             val ds4 = s.controllerMode == ControllerMode.DS4 && s.connectionMode == ConnectionMode.WIFI
             val w = v.measuredWidth.coerceAtLeast(1)
             val h = v.measuredHeight.coerceAtLeast(1)
-            val sx = (event.x / w * 1919).toInt().coerceIn(0, 1919)
-            val sy = (event.y / h * 942).toInt().coerceIn(0, 942)
+            val rotation = (v.tag as? String)?.let { gamepadLayout.getRotation(it) } ?: 0
+            val nx = event.x / w
+            val ny = event.y / h
+            val (vx, vy) = when (rotation % 360) {
+                90 -> Pair(ny, 1f - nx)
+                180 -> Pair(1f - nx, 1f - ny)
+                270 -> Pair(1f - ny, nx)
+                else -> Pair(nx, ny)
+            }
+            val sx = (vx * 1919).toInt().coerceIn(0, 1919)
+            val sy = (vy * 942).toInt().coerceIn(0, 942)
 
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -1183,7 +1208,6 @@ class MainActivity : ComponentActivity() {
         for (i in 0 until gamepadLayout.childCount) {
             val child = gamepadLayout.getChildAt(i)
             val baseId = (child.tag as? String)?.substringBefore("_") ?: continue
-
             when {
                 baseId in abxyList -> {
                     val idx = abxyList.indexOf(baseId)

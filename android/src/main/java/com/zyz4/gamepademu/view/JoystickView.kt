@@ -15,6 +15,7 @@ class JoystickView @JvmOverloads constructor(
 ) : View(context, attrs, defStyleAttr) {
 
     var label: String = ""
+    var axisRotation: Int = 0
     var onStickMoved: ((sx: Short, sy: Short) -> Unit)? = null
     var onStickClickDown: (() -> Unit)? = null
     var onStickClickUp: (() -> Unit)? = null
@@ -76,6 +77,8 @@ class JoystickView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+        canvas.save()
+        canvas.rotate(axisRotation.toFloat(), centerX, centerY)
         canvas.drawCircle(centerX, centerY, baseRadius, if (isClicking) basePressedPaint else basePaint)
         canvas.drawCircle(centerX, centerY, baseRadius, baseStrokePaint)
         canvas.drawCircle(knobX, knobY, knobRadius, knobPaint)
@@ -86,6 +89,7 @@ class JoystickView @JvmOverloads constructor(
             val textY = knobY - (labelPaint.ascent() + labelPaint.descent()) / 2f
             canvas.drawText(label, knobX, textY, labelPaint)
         }
+        canvas.restore()
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -144,20 +148,32 @@ class JoystickView @JvmOverloads constructor(
     }
 
     private fun moveKnob(tx: Float, ty: Float) {
-        var dx = tx - centerX
-        var dy = ty - centerY
+        val dx = tx - centerX
+        val dy = ty - centerY
         val maxD = baseRadius - knobRadius
         val dist = sqrt(dx * dx + dy * dy)
-        if (dist > maxD) {
-            dx = dx / dist * maxD
-            dy = dy / dist * maxD
-        }
-        knobX = centerX + dx
-        knobY = centerY + dy
+
+        // Transform to canvas (rotated) space for visual knob position
+        val r = axisRotation * Math.PI / 180.0
+        val cosR = Math.cos(-r).toFloat()
+        val sinR = Math.sin(-r).toFloat()
+        val cdx = dx * cosR - dy * sinR
+        val cdy = dx * sinR + dy * cosR
+
+        val clampedDist = if (dist > maxD) maxD else dist
+        val scale = if (dist > 0f) clampedDist / dist else 0f
+        knobX = centerX + cdx * scale
+        knobY = centerY + cdy * scale
         invalidate()
 
-        val sx = if (maxD > 0f) ((dx / maxD * 32767).toInt()).toShort() else 0
-        val sy = if (maxD > 0f) ((dy / maxD * 32767).toInt()).toShort() else 0
+        var sx = if (maxD > 0f) ((dx * scale / maxD * 32767).toInt()).toShort() else 0
+        var sy = if (maxD > 0f) ((dy * scale / maxD * 32767).toInt()).toShort() else 0
+
+        when (axisRotation % 360) {
+            90 -> { val tmp = sx; sx = sy; sy = (-tmp).toShort() }
+            180 -> { sx = (-sx).toShort(); sy = (-sy).toShort() }
+            270 -> { val tmp = sx; sx = (-sy).toShort(); sy = tmp }
+        }
         onStickMoved?.invoke(sx, sy)
     }
 }

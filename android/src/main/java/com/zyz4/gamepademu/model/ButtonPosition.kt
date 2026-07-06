@@ -9,4 +9,5 @@ data class ButtonPosition(
     val visible: Boolean = true,
     val lockAspect: Boolean = false,
     val swipeTrigger: Boolean = false,
+    val rotation: Int = 0,
 )

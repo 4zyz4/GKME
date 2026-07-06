@@ -249,23 +249,30 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
         if (button.lockAspect) {
             addSeekbar("大小", button.width, 1, 40) { value ->
-                currentButton?.let { cb ->
-                    editorListener?.onButtonUpdated(buttonId, cb.copy(width = value, height = value))
-                }
+                currentButton = currentButton?.copy(width = value, height = value)
+                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             }
         } else {
-            addSeekbar("宽度", button.width, 1, 40) { value ->
-                currentButton?.let { cb ->
-                    editorListener?.onButtonUpdated(buttonId, cb.copy(width = value))
+            val isSwapped = button.rotation == 90 || button.rotation == 270
+            addSeekbar("宽度", if (isSwapped) button.height else button.width, 1, 40) { value ->
+                if (isSwapped) {
+                    currentButton = currentButton?.copy(height = value)
+                } else {
+                    currentButton = currentButton?.copy(width = value)
                 }
+                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             }
-            addSeekbar("高度", button.height, 1, 40) { value ->
-                currentButton?.let { cb ->
-                    editorListener?.onButtonUpdated(buttonId, cb.copy(height = value))
+            addSeekbar("高度", if (isSwapped) button.width else button.height, 1, 40) { value ->
+                if (isSwapped) {
+                    currentButton = currentButton?.copy(width = value)
+                } else {
+                    currentButton = currentButton?.copy(height = value)
                 }
+                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             }
         }
 
+        addRotationButtons(buttonId, density)
         if (isButton(buttonId)) {
             val cb = CheckBox(context).apply {
                 text = "滑动触发"
@@ -287,6 +294,81 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             setOnClickListener { editorListener?.onDeleteButton(buttonId) }
         }
         paramsContainer.addView(btnDelete, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (16f * density).toInt() })
+    }
+
+    private fun addRotationButtons(buttonId: String, density: Float) {
+        val row = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = (10f * density).toInt()
+            }
+        }
+        val btnSize = (40f * density).toInt()
+        val spacing = (8f * density).toInt()
+
+        val btnCcw = TextView(context).apply {
+            text = "↺"
+            setTextColor(-0x1)
+            textSize = 24f
+            gravity = Gravity.CENTER
+            includeFontPadding = false
+            setBackgroundResource(R.drawable.button_flat)
+            setOnClickListener {
+                currentButton = currentButton?.let { cb ->
+                    val newRot = (cb.rotation - 90 + 360) % 360
+                    val updated = cb.copy(rotation = newRot)
+                    editorListener?.onButtonUpdated(buttonId, updated)
+                    updated
+                }
+            }
+        }
+        val btnCw = TextView(context).apply {
+            text = "↻"
+            setTextColor(-0x1)
+            textSize = 24f
+            gravity = Gravity.CENTER
+            includeFontPadding = false
+            setBackgroundResource(R.drawable.button_flat)
+            setOnClickListener {
+                currentButton = currentButton?.let { cb ->
+                    val newRot = (cb.rotation + 90) % 360
+                    val updated = cb.copy(rotation = newRot)
+                    editorListener?.onButtonUpdated(buttonId, updated)
+                    updated
+                }
+            }
+        }
+
+        val colCcw = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = spacing }
+        }
+        colCcw.addView(btnCcw, LinearLayout.LayoutParams(btnSize, btnSize))
+        colCcw.addView(TextView(context).apply {
+            text = "逆时针"
+            setTextColor(-0x444445)
+            textSize = 11f
+            gravity = Gravity.CENTER
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (2f * density).toInt() })
+
+        val colCw = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        colCw.addView(btnCw, LinearLayout.LayoutParams(btnSize, btnSize))
+        colCw.addView(TextView(context).apply {
+            text = "顺时针"
+            setTextColor(-0x444445)
+            textSize = 11f
+            gravity = Gravity.CENTER
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (2f * density).toInt() })
+
+        row.addView(colCcw)
+        row.addView(colCw)
+        paramsContainer.addView(row)
     }
 
     private fun addSeekbar(label: String, value: Int, min: Int, max: Int, onChange: (Int) -> Unit) {
