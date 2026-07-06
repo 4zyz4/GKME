@@ -594,7 +594,7 @@ class MainActivity : ComponentActivity() {
                 when (e.action) {
                     MotionEvent.ACTION_DOWN -> { v.isPressed = true; v.performClick(); viewModel.onDpad(bit, true); true }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.isPressed = false; viewModel.onDpad(bit, false); true }
-                    else -> false
+                    else -> true
                 }
             }
             isTrigger -> {
@@ -603,7 +603,7 @@ class MainActivity : ComponentActivity() {
                     when (e.action) {
                         MotionEvent.ACTION_DOWN -> { v.isPressed = true; v.performClick(); viewModel.onButtonDown(bit); analogFn(255); true }
                         MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.isPressed = false; viewModel.onButtonUp(bit); analogFn(0); true }
-                        else -> false
+                        else -> true
                     }
                 }
             }
@@ -611,7 +611,7 @@ class MainActivity : ComponentActivity() {
                 when (e.action) {
                     MotionEvent.ACTION_DOWN -> { v.isPressed = true; v.performClick(); if (bit != 0) viewModel.onButtonDown(bit); true }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.isPressed = false; if (bit != 0) viewModel.onButtonUp(bit); true }
-                    else -> false
+                    else -> true
                 }
             }
         }

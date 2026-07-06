@@ -64,8 +64,8 @@ class GamepadLayout @JvmOverloads constructor(
 
     var listener: GamepadLayoutListener? = null
 
-    /** Swipe-trigger state: tracks which pointer is heading to which button */
-    private val swipeTargets = HashMap<Int, String>()
+    /** Swipe-trigger state: tracks which buttons are currently pressed (buttonId -> child View) */
+    private val activeSwipeButtons = HashMap<String, View>()
 
     /** Set of button IDs that have swipeTrigger enabled */
     private var swipeTriggerIds: Set<String> = emptySet()
@@ -85,10 +85,12 @@ class GamepadLayout @JvmOverloads constructor(
                     return true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    for ((pid, child) in touchTargets.toMap()) {
+                    for ((pid, children) in touchTargets.toMap()) {
                         val idx = event.findPointerIndex(pid)
                         if (idx >= 0) {
-                            dispatchToChild(child, event, MotionEvent.ACTION_MOVE, idx)
+                            for (child in children) {
+                                dispatchToChild(child, event, MotionEvent.ACTION_MOVE, idx)
+                            }
                         }
                     }
                     return true
@@ -103,13 +105,15 @@ class GamepadLayout @JvmOverloads constructor(
                     return true
                 }
                 MotionEvent.ACTION_CANCEL -> {
-                    for ((_, child) in touchTargets) {
-                        val ev = MotionEvent.obtain(
-                            event.downTime, event.eventTime,
-                            MotionEvent.ACTION_CANCEL, 0f, 0f, 0
-                        )
-                        child.dispatchTouchEvent(ev)
-                        ev.recycle()
+                    for ((_, children) in touchTargets) {
+                        for (child in children) {
+                            val ev = MotionEvent.obtain(
+                                event.downTime, event.eventTime,
+                                MotionEvent.ACTION_CANCEL, 0f, 0f, 0
+                            )
+                            child.dispatchTouchEvent(ev)
+                            ev.recycle()
+                        }
                     }
                     touchTargets.clear()
                     return true
@@ -121,20 +125,27 @@ class GamepadLayout @JvmOverloads constructor(
     }
 
     // ── Swipe-trigger touch handling ─────────────────────────
+    //
+    // Each swipe-triggered button independently checks ALL pointers.
+    // If ANY pointer is within a button's bounds → pressed.
+    // If NO pointer is within bounds → released.
+    // This allows multiple swipe buttons to be pressed simultaneously.
 
     private fun handleSwipeTriggerTouch(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 val x = event.x
                 val y = event.y
-                val child = findChildAt(x, y)
-                if (child != null) {
-                    val pid = event.getPointerId(0)
-                    touchTargets[pid] = child
-                    dispatchToChild(child, event, MotionEvent.ACTION_DOWN, 0)
-                } else {
-                    trySwipeTrigger(event, 0)
+                val pid = event.getPointerId(0)
+                val children = findAllChildrenAt(x, y)
+                val regularChildren = children.filter { getButtonId(it) !in swipeTriggerIds }
+                if (regularChildren.isNotEmpty()) {
+                    touchTargets[pid] = regularChildren.toMutableList()
+                    for (child in regularChildren) {
+                        dispatchToChild(child, event, MotionEvent.ACTION_DOWN, 0)
+                    }
                 }
+                updateSwipeButtons(event)
                 return true
             }
             MotionEvent.ACTION_POINTER_DOWN -> {
@@ -142,52 +153,58 @@ class GamepadLayout @JvmOverloads constructor(
                 val pid = event.getPointerId(idx)
                 val x = event.getX(idx)
                 val y = event.getY(idx)
-                val child = findChildAt(x, y)
-                if (child != null) {
-                    touchTargets[pid] = child
-                    dispatchToChild(child, event, MotionEvent.ACTION_DOWN, idx)
-                } else {
-                    trySwipeTrigger(event, idx)
+                val children = findAllChildrenAt(x, y)
+                val regularChildren = children.filter { getButtonId(it) !in swipeTriggerIds }
+                if (regularChildren.isNotEmpty()) {
+                    touchTargets[pid] = regularChildren.toMutableList()
+                    for (child in regularChildren) {
+                        dispatchToChild(child, event, MotionEvent.ACTION_DOWN, idx)
+                    }
                 }
+                updateSwipeButtons(event)
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
-                for ((pid, targetId) in swipeTargets.toMap()) {
+                // Non-swipe buttons: once pressed, stay pressed until finger lifts
+                for ((pid, children) in touchTargets.toMap()) {
                     val idx = event.findPointerIndex(pid)
-                    if (idx < 0) continue
-                    val x = event.getX(idx)
-                    val y = event.getY(idx)
-                    val child = findChildAt(x, y)
-                    if (child != null) {
-                        val childId = getButtonId(child)
-                        if (childId == targetId) {
-                            swipeTargets.remove(pid)
-                            touchTargets[pid] = child
-                            dispatchToChild(child, event, MotionEvent.ACTION_DOWN, idx)
+                    if (idx >= 0) {
+                        for (child in children) {
+                            dispatchToChild(child, event, MotionEvent.ACTION_MOVE, idx)
                         }
                     }
                 }
-                for ((pid, child) in touchTargets.toMap()) {
-                    val idx = event.findPointerIndex(pid)
-                    if (idx >= 0) {
-                        dispatchToChild(child, event, MotionEvent.ACTION_MOVE, idx)
-                    }
-                }
+                // Swipe-triggered buttons: presence-based, re-evaluate against all pointers
+                updateSwipeButtons(event)
                 return true
             }
             MotionEvent.ACTION_POINTER_UP -> {
                 val idx = event.actionIndex
                 val pid = event.getPointerId(idx)
-                swipeTargets.remove(pid)
-                val child = touchTargets.remove(pid)
-                if (child != null) {
-                    dispatchToChild(child, event, MotionEvent.ACTION_UP, idx)
+                val children = touchTargets.remove(pid)
+                if (children != null) {
+                    for (child in children) {
+                        dispatchToChild(child, event, MotionEvent.ACTION_UP, idx)
+                    }
                 }
+                // Re-evaluate swipe buttons excluding the lifted pointer
+                updateSwipeButtons(event, setOf(pid))
                 return true
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                swipeTargets.clear()
-                for ((_, child) in touchTargets) {
+                for ((_, children) in touchTargets) {
+                    for (child in children) {
+                        val ev = MotionEvent.obtain(
+                            event.downTime, event.eventTime,
+                            MotionEvent.ACTION_CANCEL, 0f, 0f, 0
+                        )
+                        child.dispatchTouchEvent(ev)
+                        ev.recycle()
+                    }
+                }
+                touchTargets.clear()
+                // Release all active swipe buttons
+                for ((_, child) in activeSwipeButtons) {
                     val ev = MotionEvent.obtain(
                         event.downTime, event.eventTime,
                         MotionEvent.ACTION_CANCEL, 0f, 0f, 0
@@ -195,59 +212,87 @@ class GamepadLayout @JvmOverloads constructor(
                     child.dispatchTouchEvent(ev)
                     ev.recycle()
                 }
-                touchTargets.clear()
+                activeSwipeButtons.clear()
                 return true
             }
         }
         return true
     }
 
-    private fun trySwipeTrigger(event: MotionEvent, idx: Int) {
-        val pid = event.getPointerId(idx)
-        val x = event.getX(idx)
-        val y = event.getY(idx)
-        val target = findNearestSwipeButton(x, y) ?: return
-        swipeTargets[pid] = target
-    }
-
-    private fun findNearestSwipeButton(x: Float, y: Float): String? {
-        var bestId: String? = null
-        var bestDist = Float.MAX_VALUE
-        for (pos in currentButtons) {
-            if (!pos.visible || pos.id !in swipeTriggerIds) continue
-            val cx = (pos.x + pos.width / 2f) * cellW
-            val cy = (pos.y + pos.height / 2f) * cellH
-            val dx = x - cx
-            val dy = y - cy
-            val dist = dx * dx + dy * dy
-            if (dist < bestDist) {
-                bestDist = dist
-                bestId = pos.id
+    /** Re-evaluate all swipe-triggered buttons: if any active pointer is inside → press, otherwise → release */
+    private fun updateSwipeButtons(event: MotionEvent, excludePointerIds: Set<Int> = emptySet()) {
+        // Determine which buttons should be active based on all non-excluded pointers
+        val newlyActive = HashMap<String, View>()
+        for (i in 0 until childCount) {
+            val child = getChildAt(i)
+            if (child.visibility != View.VISIBLE) continue
+            val cid = getButtonId(child) ?: continue
+            if (cid !in swipeTriggerIds) continue
+            for (pi in 0 until event.pointerCount) {
+                val pid = event.getPointerId(pi)
+                if (pid in excludePointerIds) continue
+                val x = event.getX(pi)
+                val y = event.getY(pi)
+                if (x >= child.left && x <= child.right && y >= child.top && y <= child.bottom) {
+                    newlyActive[cid] = child
+                    break
+                }
             }
         }
-        return bestId
+
+        val prevActive = activeSwipeButtons.keys.toSet()
+        val currActive = newlyActive.keys
+
+        // Release buttons no longer under any pointer
+        for (cid in prevActive - currActive) {
+            val child = activeSwipeButtons[cid] ?: continue
+            dispatchToChild(child, event, MotionEvent.ACTION_UP, 0)
+            activeSwipeButtons.remove(cid)
+        }
+
+        // Press newly covered buttons
+        for (cid in currActive - prevActive) {
+            val child = newlyActive[cid] ?: continue
+            var pointerIdx = 0
+            for (pi in 0 until event.pointerCount) {
+                val pid = event.getPointerId(pi)
+                if (pid in excludePointerIds) continue
+                val x = event.getX(pi)
+                val y = event.getY(pi)
+                if (x >= child.left && x <= child.right && y >= child.top && y <= child.bottom) {
+                    pointerIdx = pi
+                    break
+                }
+            }
+            dispatchToChild(child, event, MotionEvent.ACTION_DOWN, pointerIdx)
+            activeSwipeButtons[cid] = child
+        }
     }
 
     // ── Normal multi-touch dispatch (no swipe trigger) ───────
 
-    private val touchTargets = HashMap<Int, View>()
+    private val touchTargets = HashMap<Int, MutableList<View>>()
 
     private fun pointerDown(event: MotionEvent, idx: Int) {
         val pid = event.getPointerId(idx)
         val x = event.getX(idx)
         val y = event.getY(idx)
-        val child = findChildAt(x, y)
-        if (child != null) {
-            touchTargets[pid] = child
-            dispatchToChild(child, event, MotionEvent.ACTION_DOWN, idx)
+        val children = findAllChildrenAt(x, y)
+        if (children.isNotEmpty()) {
+            touchTargets[pid] = children.toMutableList()
+            for (child in children) {
+                dispatchToChild(child, event, MotionEvent.ACTION_DOWN, idx)
+            }
         }
     }
 
     private fun pointerUp(event: MotionEvent, idx: Int) {
         val pid = event.getPointerId(idx)
-        val child = touchTargets.remove(pid)
-        if (child != null) {
-            dispatchToChild(child, event, MotionEvent.ACTION_UP, idx)
+        val children = touchTargets.remove(pid)
+        if (children != null) {
+            for (child in children) {
+                dispatchToChild(child, event, MotionEvent.ACTION_UP, idx)
+            }
         }
     }
 
@@ -578,6 +623,19 @@ class GamepadLayout @JvmOverloads constructor(
             }
         }
         return null
+    }
+
+    /** Returns all visible children at (x,y), topmost first */
+    private fun findAllChildrenAt(x: Float, y: Float): List<View> {
+        val result = mutableListOf<View>()
+        for (i in childCount - 1 downTo 0) {
+            val child = getChildAt(i)
+            if (child.visibility != View.VISIBLE) continue
+            if (x >= child.left && x <= child.right && y >= child.top && y <= child.bottom) {
+                result.add(child)
+            }
+        }
+        return result
     }
 
     private val density: Float
