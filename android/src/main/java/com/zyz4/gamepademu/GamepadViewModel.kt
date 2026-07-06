@@ -106,7 +106,7 @@ class GamepadViewModel @Inject constructor(
         val existing = preset.buttons.map { it.id }.toSet()
         val missing = DEFAULT_BUTTON_IDS - existing
         if (missing.isEmpty()) return preset
-        val defaults = layoutRepository.createDefaultPreset().buttons.filter { it.id in missing }
+        val defaults = layoutRepository.getDefaultPreset().buttons.filter { it.id in missing }
         val merged = preset.buttons + defaults
         val updated = preset.copy(buttons = merged)
         layoutRepository.savePreset(settings.value.currentPresetName, updated)
@@ -119,7 +119,7 @@ class GamepadViewModel @Inject constructor(
             "btnY", "btnA", "btnX", "btnB",
             "leftJoystick", "rightJoystick",
             "btnLT", "btnLB", "btnRT", "btnRB",
-            "btnSelect", "btnHome", "btnMenu", "centerArea",
+            "btnSelect", "btnHome", "btnMenu", "touchpad",
         )
     }
 
@@ -144,9 +144,10 @@ class GamepadViewModel @Inject constructor(
         refreshPresetList()
     }
 
-    fun saveCurrentPreset() {
+    fun saveCurrentPreset(preset: LayoutPreset) {
         val name = settings.value.currentPresetName
-        layoutRepository.savePreset(name, _currentPreset.value)
+        _currentPreset.value = preset
+        layoutRepository.savePreset(name, preset)
         refreshPresetList()
     }
 

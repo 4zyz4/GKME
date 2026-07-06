@@ -14,6 +14,7 @@ class JoystickView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
 
+    var label: String = ""
     var onStickMoved: ((sx: Short, sy: Short) -> Unit)? = null
     var onStickClickDown: (() -> Unit)? = null
     var onStickClickUp: (() -> Unit)? = null
@@ -48,6 +49,11 @@ class JoystickView @JvmOverloads constructor(
         style = Paint.Style.STROKE
         strokeWidth = 1.5f
     }
+    private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = -0x333334
+        textAlign = Paint.Align.CENTER
+        textSize = 0f
+    }
 
     private var isTouching = false
     private var isClicking = false
@@ -74,6 +80,11 @@ class JoystickView @JvmOverloads constructor(
         canvas.drawCircle(centerX, centerY, baseRadius, baseStrokePaint)
         canvas.drawCircle(knobX, knobY, knobRadius, knobPaint)
         canvas.drawCircle(knobX, knobY, knobRadius, knobStrokePaint)
+        if (label.isNotEmpty()) {
+            if (labelPaint.textSize == 0f)
+                labelPaint.textSize = baseRadius * 0.55f
+            canvas.drawText(label, centerX, centerY + baseRadius + labelPaint.textSize, labelPaint)
+        }
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {

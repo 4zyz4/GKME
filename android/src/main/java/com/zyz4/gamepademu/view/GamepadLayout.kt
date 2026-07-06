@@ -9,7 +9,6 @@ import android.view.View
 import android.view.ViewGroup
 import com.zyz4.gamepademu.model.ButtonPosition
 import com.zyz4.gamepademu.model.LayoutPreset
-import kotlin.math.sqrt
 
 class GamepadLayout @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
@@ -44,12 +43,14 @@ class GamepadLayout @JvmOverloads constructor(
     private var cellW = 0f
     private var cellH = 0f
 
-    private var currentButtons: List<ButtonPosition> = emptyList()
+    var currentButtons: List<ButtonPosition> = emptyList()
+        private set
     private var isEditMode = false
     var selectedButtonId: String? = null
         private set
     private var editSnapshot: LayoutPreset? = null
-    private var hasChanges = false
+    var hasChanges = false
+        private set
 
     private var draggingChild: View? = null
     private var dragOffsetX = 0f
@@ -63,11 +64,17 @@ class GamepadLayout @JvmOverloads constructor(
 
     var listener: GamepadLayoutListener? = null
 
-    // Per-pointer tracking for non-edit mode multi-touch dispatch
-    private val touchTargets = HashMap<Int, View>()
+    /** Swipe-trigger state: tracks which pointer is heading to which button */
+    private val swipeTargets = HashMap<Int, String>()
+
+    /** Set of button IDs that have swipeTrigger enabled */
+    private var swipeTriggerIds: Set<String> = emptySet()
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         if (!isEditMode) {
+            if (swipeTriggerIds.isNotEmpty()) {
+                return handleSwipeTriggerTouch(event)
+            }
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     pointerDown(event, 0)
@@ -113,6 +120,118 @@ class GamepadLayout @JvmOverloads constructor(
         return super.dispatchTouchEvent(event)
     }
 
+    // ── Swipe-trigger touch handling ─────────────────────────
+
+    private fun handleSwipeTriggerTouch(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                val x = event.x
+                val y = event.y
+                val child = findChildAt(x, y)
+                if (child != null) {
+                    val pid = event.getPointerId(0)
+                    touchTargets[pid] = child
+                    dispatchToChild(child, event, MotionEvent.ACTION_DOWN, 0)
+                } else {
+                    trySwipeTrigger(event, 0)
+                }
+                return true
+            }
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                val idx = event.actionIndex
+                val pid = event.getPointerId(idx)
+                val x = event.getX(idx)
+                val y = event.getY(idx)
+                val child = findChildAt(x, y)
+                if (child != null) {
+                    touchTargets[pid] = child
+                    dispatchToChild(child, event, MotionEvent.ACTION_DOWN, idx)
+                } else {
+                    trySwipeTrigger(event, idx)
+                }
+                return true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                for ((pid, targetId) in swipeTargets.toMap()) {
+                    val idx = event.findPointerIndex(pid)
+                    if (idx < 0) continue
+                    val x = event.getX(idx)
+                    val y = event.getY(idx)
+                    val child = findChildAt(x, y)
+                    if (child != null) {
+                        val childId = getButtonId(child)
+                        if (childId == targetId) {
+                            swipeTargets.remove(pid)
+                            touchTargets[pid] = child
+                            dispatchToChild(child, event, MotionEvent.ACTION_DOWN, idx)
+                        }
+                    }
+                }
+                for ((pid, child) in touchTargets.toMap()) {
+                    val idx = event.findPointerIndex(pid)
+                    if (idx >= 0) {
+                        dispatchToChild(child, event, MotionEvent.ACTION_MOVE, idx)
+                    }
+                }
+                return true
+            }
+            MotionEvent.ACTION_POINTER_UP -> {
+                val idx = event.actionIndex
+                val pid = event.getPointerId(idx)
+                swipeTargets.remove(pid)
+                val child = touchTargets.remove(pid)
+                if (child != null) {
+                    dispatchToChild(child, event, MotionEvent.ACTION_UP, idx)
+                }
+                return true
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                swipeTargets.clear()
+                for ((_, child) in touchTargets) {
+                    val ev = MotionEvent.obtain(
+                        event.downTime, event.eventTime,
+                        MotionEvent.ACTION_CANCEL, 0f, 0f, 0
+                    )
+                    child.dispatchTouchEvent(ev)
+                    ev.recycle()
+                }
+                touchTargets.clear()
+                return true
+            }
+        }
+        return true
+    }
+
+    private fun trySwipeTrigger(event: MotionEvent, idx: Int) {
+        val pid = event.getPointerId(idx)
+        val x = event.getX(idx)
+        val y = event.getY(idx)
+        val target = findNearestSwipeButton(x, y) ?: return
+        swipeTargets[pid] = target
+    }
+
+    private fun findNearestSwipeButton(x: Float, y: Float): String? {
+        var bestId: String? = null
+        var bestDist = Float.MAX_VALUE
+        for (pos in currentButtons) {
+            if (!pos.visible || pos.id !in swipeTriggerIds) continue
+            val cx = (pos.x + pos.width / 2f) * cellW
+            val cy = (pos.y + pos.height / 2f) * cellH
+            val dx = x - cx
+            val dy = y - cy
+            val dist = dx * dx + dy * dy
+            if (dist < bestDist) {
+                bestDist = dist
+                bestId = pos.id
+            }
+        }
+        return bestId
+    }
+
+    // ── Normal multi-touch dispatch (no swipe trigger) ───────
+
+    private val touchTargets = HashMap<Int, View>()
+
     private fun pointerDown(event: MotionEvent, idx: Int) {
         val pid = event.getPointerId(idx)
         val x = event.getX(idx)
@@ -146,13 +265,15 @@ class GamepadLayout @JvmOverloads constructor(
 
     interface GamepadLayoutListener {
         fun onButtonSelected(buttonId: String?)
-        fun onButtonMoved(buttonId: String, x: Int, y: Int)
         fun onEditModeChanged(isEditMode: Boolean)
     }
 
     fun loadPreset(preset: LayoutPreset) {
-        currentButtons = preset.buttons.toList()
+        currentButtons = preset.buttons.map {
+            if (it.id == "centerArea") it.copy(id = "touchpad") else it
+        }.toList()
         hasChanges = false
+        refreshSwipeTriggers()
         requestLayout()
     }
 
@@ -192,7 +313,74 @@ class GamepadLayout @JvmOverloads constructor(
         requestLayout()
     }
 
+    fun updateButtonPosition(id: String, updated: ButtonPosition) {
+        val idx = currentButtons.indexOfFirst { it.id == id }
+        if (idx >= 0) {
+            currentButtons = currentButtons.toMutableList().also {
+                it[idx] = updated
+            }
+            hasChanges = true
+            refreshSwipeTriggers()
+            requestLayout()
+        }
+    }
+
+    fun addButtonPosition(pos: ButtonPosition) {
+        currentButtons = currentButtons.toMutableList().also { it.add(pos) }
+        hasChanges = true
+        refreshSwipeTriggers()
+        requestLayout()
+    }
+
+    fun removeButtonPosition(id: String) {
+        currentButtons = currentButtons.toMutableList().also { it.removeAll { b -> b.id == id } }
+        for (i in 0 until childCount) {
+            val child = getChildAt(i)
+            if (getButtonId(child) == id) {
+                removeView(child)
+                break
+            }
+        }
+        if (selectedButtonId == id) selectedButtonId = null
+        hasChanges = true
+        refreshSwipeTriggers()
+        requestLayout()
+    }
+
+    fun setSelectedButton(id: String?) {
+        if (selectedButtonId != id) {
+            selectedButtonId = id
+            listener?.onButtonSelected(id)
+            invalidate()
+        }
+    }
+
+    /** Mark selection by tapping a child in edit mode */
+    private fun selectChildAt(x: Float, y: Float) {
+        val child = findChildAt(x, y)
+        if (child != null) {
+            val cid = getButtonId(child)
+            if (cid != null) {
+                selectedButtonId = cid
+                listener?.onButtonSelected(cid)
+                invalidate()
+            }
+        } else {
+            if (selectedButtonId != null) {
+                selectedButtonId = null
+                listener?.onButtonSelected(null)
+                invalidate()
+            }
+        }
+    }
+
+    private fun refreshSwipeTriggers() {
+        swipeTriggerIds = currentButtons.filter { it.swipeTrigger }.map { it.id }.toSet()
+    }
+
     private fun getButtonId(child: View): String? {
+        val tag = child.tag as? String
+        if (tag != null) return tag
         return try {
             context.resources.getResourceEntryName(child.id)
         } catch (e: Exception) {
@@ -292,11 +480,7 @@ class GamepadLayout @JvmOverloads constructor(
                         invalidate()
                     }
                 } else {
-                    if (selectedButtonId != null) {
-                        selectedButtonId = null
-                        listener?.onButtonSelected(null)
-                        invalidate()
-                    }
+                    selectChildAt(event.x, event.y)
                 }
                 return true
             }
@@ -304,8 +488,8 @@ class GamepadLayout @JvmOverloads constructor(
                 if (resizingChild != null) {
                     val gridX = (event.x / cellW).toInt().coerceAtLeast(0)
                     val gridY = (event.y / cellH).toInt().coerceAtLeast(0)
-                    val id = getButtonId(resizingChild!!) ?: return true
-                    val idx = currentButtons.indexOfFirst { it.id == id }
+                    val rid = getButtonId(resizingChild!!) ?: return true
+                    val idx = currentButtons.indexOfFirst { it.id == rid }
                     if (idx >= 0) {
                         val old = currentButtons[idx]
                         var newW = (gridX - old.x + 1).coerceAtLeast(1)
@@ -341,6 +525,7 @@ class GamepadLayout @JvmOverloads constructor(
                                     it[idx] = old.copy(x = gridX, y = gridY)
                                 }
                                 hasChanges = true
+                                listener?.onButtonSelected(id)
                                 requestLayout()
                             }
                         }
@@ -352,8 +537,7 @@ class GamepadLayout @JvmOverloads constructor(
                 if (resizingChild != null) {
                     val id = getButtonId(resizingChild!!)
                     if (id != null) {
-                        val pos = currentButtons.find { it.id == id }
-                        if (pos != null) listener?.onButtonMoved(id, pos.x, pos.y)
+                        listener?.onButtonSelected(id)
                     }
                     resizingChild = null
                 }
@@ -361,7 +545,9 @@ class GamepadLayout @JvmOverloads constructor(
                     val id = getButtonId(draggingChild!!)
                     if (id != null) {
                         val pos = currentButtons.find { it.id == id }
-                        if (pos != null) listener?.onButtonMoved(id, pos.x, pos.y)
+                        if (pos != null) {
+                            listener?.onButtonSelected(id)
+                        }
                     }
                     draggingChild = null
                 }

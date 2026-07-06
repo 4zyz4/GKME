@@ -6,6 +6,7 @@ import android.app.AlertDialog
 import android.bluetooth.BluetoothAdapter
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Typeface
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -24,12 +25,14 @@ import android.widget.GridView
 import android.widget.ImageButton
 import android.widget.Switch
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
+import androidx.core.widget.NestedScrollView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -40,11 +43,13 @@ import com.zyz4.gamepademu.model.DisplayMode
 import com.zyz4.gamepademu.model.GamepadState
 import com.zyz4.gamepademu.model.LayoutPreset
 import com.zyz4.gamepademu.model.TargetPlatform
+import com.zyz4.gamepademu.model.ButtonPosition
 import com.zyz4.gamepademu.service.BluetoothTransportType
 import com.zyz4.gamepademu.GamepadViewModel.PresetInfo
 import com.zyz4.gamepademu.view.GamepadLayout
 import com.zyz4.gamepademu.view.JoystickView
 import com.zyz4.gamepademu.view.PresetPreviewView
+import com.zyz4.gamepademu.view.FloatingEditorPanel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
@@ -53,6 +58,9 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: GamepadViewModel by viewModels()
     private lateinit var gamepadLayout: GamepadLayout
+    private lateinit var floatingEditor: FloatingEditorPanel
+    private val controlViews = mutableMapOf<String, View>()
+    private val touchpadLabels = mutableListOf<TextView>()
     private var discoverableRequested = false
 
     private val bluetoothPermissionLauncher = registerForActivityResult(
@@ -96,11 +104,225 @@ class MainActivity : ComponentActivity() {
         setContentView(R.layout.activity_main)
         enableEdgeToEdge()
         gamepadLayout = findViewById(R.id.gamepadLayout)
+        setupFloatingEditor()
         setupGamepadLayoutListener()
-        setupEditToolbar()
-        setupGamepad()
+        createAllControls()
         setupSettings()
         observeState()
+    }
+
+    // ── Floating Editor ──────────────────────────────────────
+
+    private fun setupFloatingEditor() {
+        floatingEditor = FloatingEditorPanel(this).apply {
+            visibility = View.GONE
+            editorListener = object : FloatingEditorPanel.EditorListener {
+                override fun onSave() {
+                    viewModel.saveCurrentPreset(gamepadLayout.getPreset())
+                    gamepadLayout.exitEditMode()
+                    viewModel.updateEditMode(false)
+                }
+
+                override fun onDiscard() {
+                    if (!gamepadLayout.hasUnsavedChanges()) {
+                        gamepadLayout.exitEditMode()
+                        viewModel.updateEditMode(false)
+                        return
+                    }
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle("放弃修改")
+                        .setMessage("确定放弃当前布局修改？")
+                        .setPositiveButton("放弃") { _, _ ->
+                            gamepadLayout.discardToSnapshot()
+                            gamepadLayout.exitEditMode()
+                            viewModel.updateEditMode(false)
+                        }
+                        .setNegativeButton("取消", null)
+                        .show()
+                }
+
+                override fun onAddButton() {
+                    showAddButtonDialog()
+                }
+
+                override fun onDeleteButton(buttonId: String) {
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle("删除控件")
+                        .setMessage("确定删除该控件？")
+                        .setPositiveButton("删除") { _, _ ->
+                            gamepadLayout.removeButtonPosition(buttonId)
+                            floatingEditor.clearParameters()
+                        }
+                        .setNegativeButton("取消", null)
+                        .show()
+                }
+
+                override fun onButtonUpdated(buttonId: String, updated: ButtonPosition) {
+                    gamepadLayout.updateButtonPosition(buttonId, updated)
+                }
+            }
+        }
+        (findViewById<View>(android.R.id.content) as ViewGroup).addView(
+            floatingEditor,
+            FrameLayout.LayoutParams(
+                (resources.displayMetrics.widthPixels * 0.4f).toInt(),
+                (resources.displayMetrics.heightPixels * 0.8f).toInt()
+            )
+        )
+    }
+
+    private var addDialog: AlertDialog? = null
+    private var addCounter = 0
+
+    @SuppressLint("ClickableViewAccessibility")
+    private data class CtrlEntry(
+        val baseId: String, val name: String, val icon: Int,
+        val bgRes: Int = R.drawable.button_circle,
+        val isJoystick: Boolean = false,
+        val isTouchpad: Boolean = false,
+        val isDpad: Boolean = false,
+        val isTrigger: Boolean = false,
+        val useImageButton: Boolean = false,
+        val bit: Int = 0,
+        val w: Int = 10, val h: Int = 10,
+        val lockAspect: Boolean = true,
+    )
+
+    private val allControls = listOf(
+        CtrlEntry("btnDpadUp", "上方向", R.drawable.ic_arrow_up, isDpad = true, useImageButton = true, bit = GamepadState.DPAD_UP),
+        CtrlEntry("btnDpadDown", "下方向", R.drawable.ic_arrow_down, isDpad = true, useImageButton = true, bit = GamepadState.DPAD_DOWN),
+        CtrlEntry("btnDpadLeft", "左方向", R.drawable.ic_arrow_left, isDpad = true, useImageButton = true, bit = GamepadState.DPAD_LEFT),
+        CtrlEntry("btnDpadRight", "右方向", R.drawable.ic_arrow_right, isDpad = true, useImageButton = true, bit = GamepadState.DPAD_RIGHT),
+        CtrlEntry("btnA", "A", R.drawable.btn_ps_cross, bit = GamepadState.A),
+        CtrlEntry("btnB", "B", R.drawable.btn_ps_circle, bit = GamepadState.B),
+        CtrlEntry("btnX", "X", R.drawable.btn_ps_square, bit = GamepadState.X),
+        CtrlEntry("btnY", "Y", R.drawable.btn_ps_triangle, bit = GamepadState.Y),
+        CtrlEntry("btnLB", "LB", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, bit = GamepadState.LB, w = 14, h = 8, lockAspect = false),
+        CtrlEntry("btnRB", "RB", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, bit = GamepadState.RB, w = 14, h = 8, lockAspect = false),
+        CtrlEntry("btnLT", "LT", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, isTrigger = true, bit = GamepadState.LT, w = 14, h = 8, lockAspect = false),
+        CtrlEntry("btnRT", "RT", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, isTrigger = true, bit = GamepadState.RT, w = 14, h = 8, lockAspect = false),
+        CtrlEntry("leftJoystick", "左摇杆", R.drawable.joystick_outer, isJoystick = true, w = 17, h = 17),
+        CtrlEntry("rightJoystick", "右摇杆", R.drawable.joystick_outer, isJoystick = true, w = 17, h = 17),
+        CtrlEntry("touchpad", "触摸板", R.drawable.center_rect, isTouchpad = true, w = 34, h = 22, lockAspect = false),
+        CtrlEntry("btnSelect", "选择", R.drawable.btn_select_xbox, bit = GamepadState.SELECT, w = 9, h = 9),
+        CtrlEntry("btnHome", "主页", R.drawable.ic_home, useImageButton = true, bit = GamepadState.HOME, w = 9, h = 9),
+        CtrlEntry("btnMenu", "菜单", R.drawable.btn_menu_xbox, bit = GamepadState.START, w = 9, h = 9),
+    )
+
+    private fun showAddButtonDialog() {
+        val density = resources.displayMetrics.density
+        val cols = 4
+        val cellW = (200f * density).toInt()
+        val iconSize = (40f * density).toInt()
+
+        val content = NestedScrollView(this)
+        val grid = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((12f * density).toInt(), (12f * density).toInt(), (12f * density).toInt(), (12f * density).toInt())
+        }
+
+        allControls.chunked(cols).forEach { rowItems ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER
+            }
+            rowItems.forEach { entry ->
+                val wrapper = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    gravity = android.view.Gravity.CENTER
+                    setOnClickListener { addDialog?.dismiss(); addControl(entry) }
+                    isClickable = true
+                    isFocusable = true
+                    setPadding((6f * density).toInt(), (6f * density).toInt(), (6f * density).toInt(), (6f * density).toInt())
+                }
+                val iv = ImageView(this).apply {
+                    setImageResource(entry.icon)
+                    layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+                }
+                val tv = TextView(this).apply {
+                    text = entry.name
+                    setTextColor(-0xcccccd)
+                    textSize = 10f
+                    gravity = android.view.Gravity.CENTER
+                }
+                wrapper.addView(iv)
+                wrapper.addView(tv, LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = (4f * density).toInt() })
+                row.addView(wrapper, LinearLayout.LayoutParams(cellW / cols, ViewGroup.LayoutParams.WRAP_CONTENT))
+            }
+            grid.addView(row)
+        }
+
+        content.addView(grid)
+        addDialog = AlertDialog.Builder(this)
+            .setTitle("添加控件")
+            .setView(content)
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun addControl(entry: CtrlEntry) {
+        val id = "${entry.baseId}_${addCounter++}"
+        val view: View = when {
+            entry.useImageButton -> ImageButton(this).apply {
+                this.id = View.generateViewId(); tag = id
+                setBackgroundResource(R.drawable.button_circle)
+                setImageResource(entry.icon)
+                scaleType = ImageView.ScaleType.CENTER_INSIDE
+            }
+            entry.isJoystick -> JoystickView(this).apply {
+                this.id = View.generateViewId(); tag = id
+                val isLeft = entry.baseId == "leftJoystick"
+                label = if (isLeft) "L" else "R"
+                onStickClickDown = { viewModel.onButtonDown(if (isLeft) GamepadState.L3 else GamepadState.R3) }
+                onStickClickUp = { viewModel.onButtonUp(if (isLeft) GamepadState.L3 else GamepadState.R3) }
+                onStickMoved = { sx, sy -> if (isLeft) viewModel.onLeftStick(sx, sy) else viewModel.onRightStick(sx, sy) }
+            }
+            entry.isTouchpad -> {
+                val tp = FrameLayout(this).apply {
+                    this.id = View.generateViewId(); tag = id
+                    setBackgroundResource(R.drawable.center_rect)
+                }
+                val label = TextView(this).apply {
+                    layoutParams = FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        android.view.Gravity.CENTER
+                    )
+                    setTextColor(-0x6699999a)
+                    textSize = 11f
+                }
+                tp.addView(label)
+                label.text = viewModel.connectionState.value.statusText
+                touchpadLabels.add(label)
+                setupTouchpadView(tp)
+                tp
+            }
+            else -> Button(this).apply {
+                this.id = View.generateViewId(); tag = id
+                setTextColor(-0x333334); textSize = 12f
+                setTypeface(null, Typeface.BOLD)
+                setBackgroundResource(entry.bgRes)
+                gravity = android.view.Gravity.CENTER
+            }
+        }
+        gamepadLayout.addView(view, 0)
+
+        if (!entry.isTouchpad) {
+            setupTouchHandler(view, entry.bit, entry.isDpad, entry.isTrigger, entry.isJoystick)
+        }
+
+        val pos = ButtonPosition(
+            id = id, x = 50, y = 20,
+            width = entry.w, height = entry.h,
+            lockAspect = entry.lockAspect,
+        )
+        gamepadLayout.addButtonPosition(pos)
+        gamepadLayout.setSelectedButton(id)
+        updateButtonLabels(viewModel.settings.value.displayMode)
     }
 
     // ── Gamepad Layout Listener ────────────────────────────────
@@ -109,43 +331,19 @@ class MainActivity : ComponentActivity() {
         gamepadLayout.listener = object : GamepadLayout.GamepadLayoutListener {
             override fun onButtonSelected(buttonId: String?) {
                 viewModel.setSelectedButtonId(buttonId)
-            }
-
-            override fun onButtonMoved(buttonId: String, x: Int, y: Int) {
-                viewModel.updatePresetButtons(gamepadLayout.getPreset())
+                if (buttonId != null) {
+                    val pos = gamepadLayout.currentButtons.find { it.id == buttonId }
+                    if (pos != null) {
+                        floatingEditor.showParameters(buttonId, pos)
+                    }
+                }
             }
 
             override fun onEditModeChanged(isEditMode: Boolean) {
-                findViewById<View>(R.id.editToolbar).visibility =
-                    if (isEditMode) View.VISIBLE else View.GONE
+                floatingEditor.visibility = if (isEditMode) View.VISIBLE else View.GONE
                 findViewById<ImageButton>(R.id.btnSettings).visibility =
                     if (isEditMode) View.GONE else View.VISIBLE
             }
-        }
-    }
-
-    private fun setupEditToolbar() {
-        findViewById<Button>(R.id.btnEditSave).setOnClickListener {
-            viewModel.saveCurrentPreset()
-            gamepadLayout.exitEditMode()
-            viewModel.updateEditMode(false)
-        }
-        findViewById<Button>(R.id.btnEditDiscard).setOnClickListener {
-            if (!gamepadLayout.hasUnsavedChanges()) {
-                gamepadLayout.exitEditMode()
-                viewModel.updateEditMode(false)
-                return@setOnClickListener
-            }
-            AlertDialog.Builder(this)
-                .setTitle("放弃修改")
-                .setMessage("确定放弃当前布局修改？")
-                .setPositiveButton("放弃") { _, _ ->
-                    gamepadLayout.discardToSnapshot()
-                    gamepadLayout.exitEditMode()
-                    viewModel.updateEditMode(false)
-                }
-                .setNegativeButton("取消", null)
-                .show()
         }
     }
 
@@ -163,165 +361,136 @@ class MainActivity : ComponentActivity() {
 
     // ── Gamepad ──────────────────────────────────────────────
 
-    private fun setupGamepad() {
+    @SuppressLint("ClickableViewAccessibility")
+    private fun createAllControls() {
         viewModel.onHapticFeedbackPress = {
             if (viewModel.settings.value.vibrationEnabled) hapticClick(gamepadLayout)
         }
         viewModel.onHapticFeedbackRelease = {
             if (viewModel.settings.value.vibrationEnabled) hapticTick(gamepadLayout)
         }
-        setupTrigger(R.id.btnLT, true)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            setupBumper(R.id.btnLB, GamepadState.LB)
-            setupBumper(R.id.btnRB, GamepadState.RB)
+
+        data class Def(
+            val baseId: String, val bit: Int = 0,
+            val isDpad: Boolean = false, val isTrigger: Boolean = false,
+            val isJoystick: Boolean = false, val isTouchpad: Boolean = false,
+            val useImageButton: Boolean = false, val icon: Int = 0,
+            val bgRes: Int = R.drawable.button_circle,
+        )
+
+        val defaults = listOf(
+            Def("btnDpadUp", bit = GamepadState.DPAD_UP, isDpad = true, useImageButton = true, icon = R.drawable.ic_arrow_up),
+            Def("btnDpadDown", bit = GamepadState.DPAD_DOWN, isDpad = true, useImageButton = true, icon = R.drawable.ic_arrow_down),
+            Def("btnDpadLeft", bit = GamepadState.DPAD_LEFT, isDpad = true, useImageButton = true, icon = R.drawable.ic_arrow_left),
+            Def("btnDpadRight", bit = GamepadState.DPAD_RIGHT, isDpad = true, useImageButton = true, icon = R.drawable.ic_arrow_right),
+            Def("btnA", bit = GamepadState.A),
+            Def("btnB", bit = GamepadState.B),
+            Def("btnX", bit = GamepadState.X),
+            Def("btnY", bit = GamepadState.Y),
+            Def("btnLB", bit = GamepadState.LB, bgRes = R.drawable.button_rounded_rect),
+            Def("btnRB", bit = GamepadState.RB, bgRes = R.drawable.button_rounded_rect),
+            Def("btnLT", isTrigger = true, bit = GamepadState.LT, bgRes = R.drawable.button_rounded_rect),
+            Def("btnRT", isTrigger = true, bit = GamepadState.RT, bgRes = R.drawable.button_rounded_rect),
+            Def("leftJoystick", isJoystick = true),
+            Def("rightJoystick", isJoystick = true),
+            Def("touchpad", isTouchpad = true),
+            Def("btnSelect", bit = GamepadState.SELECT),
+            Def("btnHome", bit = GamepadState.HOME, useImageButton = true, icon = R.drawable.ic_home),
+            Def("btnMenu", bit = GamepadState.START),
+        )
+
+        for (d in defaults) {
+            val view = when {
+                d.useImageButton -> ImageButton(this).apply {
+                    this.id = View.generateViewId(); tag = d.baseId
+                    setBackgroundResource(R.drawable.button_circle)
+                    setImageResource(d.icon)
+                    scaleType = ImageView.ScaleType.CENTER_INSIDE
+                }
+                d.isJoystick -> JoystickView(this).apply {
+                    this.id = View.generateViewId(); tag = d.baseId
+                    val isLeft = d.baseId == "leftJoystick"
+                    label = if (isLeft) "L" else "R"
+                    onStickClickDown = { viewModel.onButtonDown(if (isLeft) GamepadState.L3 else GamepadState.R3) }
+                    onStickClickUp = { viewModel.onButtonUp(if (isLeft) GamepadState.L3 else GamepadState.R3) }
+                    onStickMoved = { sx, sy -> if (isLeft) viewModel.onLeftStick(sx, sy) else viewModel.onRightStick(sx, sy) }
+                }
+                d.isTouchpad -> {
+                    val tp = FrameLayout(this).apply {
+                        this.id = View.generateViewId(); tag = d.baseId
+                        setBackgroundResource(R.drawable.center_rect)
+                    }
+                    val label = TextView(this).apply {
+                        layoutParams = FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                            android.view.Gravity.CENTER
+                        )
+                        setTextColor(-0x6699999a)
+                        textSize = 11f
+                    }
+                    tp.addView(label)
+                    touchpadLabels.add(label)
+                    setupTouchpadView(tp)
+                    tp
+                }
+                else -> Button(this).apply {
+                    this.id = View.generateViewId(); tag = d.baseId
+                    setTextColor(-0x333334); textSize = 12f
+                    setTypeface(null, Typeface.BOLD)
+                    setBackgroundResource(d.bgRes)
+                    gravity = android.view.Gravity.CENTER
+                }
+            }
+            if (!d.isTouchpad) {
+                setupTouchHandler(view, d.bit, d.isDpad, d.isTrigger, d.isJoystick)
+            }
+            gamepadLayout.addView(view)
+            controlViews[d.baseId] = view
         }
-        setupTrigger(R.id.btnRT, false)
-
-        setupDpad(R.id.btnDpadUp, GamepadState.DPAD_UP)
-        setupDpad(R.id.btnDpadDown, GamepadState.DPAD_DOWN)
-        setupDpad(R.id.btnDpadLeft, GamepadState.DPAD_LEFT)
-        setupDpad(R.id.btnDpadRight, GamepadState.DPAD_RIGHT)
-
-        setupActionBtn(R.id.btnA, GamepadState.A)
-        setupActionBtn(R.id.btnB, GamepadState.B)
-        setupActionBtn(R.id.btnX, GamepadState.X)
-        setupActionBtn(R.id.btnY, GamepadState.Y)
-
-        setupJoystick(R.id.leftJoystick, true)
-        setupJoystick(R.id.rightJoystick, false)
-
-        setupCenterArea()
-        setupActionBtn(R.id.btnSelect, GamepadState.SELECT)
-        updateButtonLabels(viewModel.settings.value.displayMode)
 
         findViewById<ImageButton>(R.id.btnSettings).setOnClickListener { showSettings() }
-        setupLongPressButton(R.id.btnHome, GamepadState.HOME)
-        setupLongPressButton(R.id.btnMenu, GamepadState.START)
+        updateButtonLabels(viewModel.settings.value.displayMode)
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    private fun setupBumper(id: Int, bit: Int) {
-        findViewById<Button>(id).setOnTouchListener { v, e ->
-            when (e.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    v.isPressed = true
-                    v.performClick()
-                    viewModel.onButtonDown(bit); true
+    private fun setupTouchHandler(view: View, bit: Int, isDpad: Boolean, isTrigger: Boolean, isJoystick: Boolean) {
+        when {
+            isDpad -> view.setOnTouchListener { v, e ->
+                when (e.action) {
+                    MotionEvent.ACTION_DOWN -> { v.isPressed = true; v.performClick(); viewModel.onDpad(bit, true); true }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.isPressed = false; viewModel.onDpad(bit, false); true }
+                    else -> false
                 }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    v.isPressed = false
-                    viewModel.onButtonUp(bit); true
+            }
+            isTrigger -> {
+                val analogFn: (Int) -> Unit = if (bit == GamepadState.LT) viewModel::onLeftTrigger else viewModel::onRightTrigger
+                view.setOnTouchListener { v, e ->
+                    when (e.action) {
+                        MotionEvent.ACTION_DOWN -> { v.isPressed = true; v.performClick(); viewModel.onButtonDown(bit); analogFn(255); true }
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.isPressed = false; viewModel.onButtonUp(bit); analogFn(0); true }
+                        else -> false
+                    }
                 }
-                else -> false
+            }
+            !isJoystick -> view.setOnTouchListener { v, e ->
+                when (e.action) {
+                    MotionEvent.ACTION_DOWN -> { v.isPressed = true; v.performClick(); if (bit != 0) viewModel.onButtonDown(bit); true }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.isPressed = false; if (bit != 0) viewModel.onButtonUp(bit); true }
+                    else -> false
+                }
             }
         }
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    private fun setupTrigger(id: Int, isLeft: Boolean) {
-        val bit = if (isLeft) GamepadState.LT else GamepadState.RT
-        val analogFn: (Int) -> Unit = if (isLeft) viewModel::onLeftTrigger else viewModel::onRightTrigger
-        findViewById<Button>(id).setOnTouchListener { v, e ->
-            when (e.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    v.isPressed = true
-                    v.performClick()
-                    viewModel.onButtonDown(bit)
-                    analogFn(255); true
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    v.isPressed = false
-                    viewModel.onButtonUp(bit)
-                    analogFn(0); true
-                }
-                else -> false
-            }
-        }
-    }
-
-    @SuppressLint("ClickableViewAccessibility")
-    private fun setupDpad(id: Int, dir: Int) {
-        findViewById<ImageButton>(id).setOnTouchListener { v, e ->
-            when (e.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    v.isPressed = true
-                    v.performClick()
-                    viewModel.onDpad(dir, true); true
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    v.isPressed = false
-                    viewModel.onDpad(dir, false); true
-                }
-                else -> false
-            }
-        }
-    }
-
-    @SuppressLint("ClickableViewAccessibility")
-    private fun setupActionBtn(id: Int, bit: Int) {
-        findViewById<Button>(id).setOnTouchListener { v, e ->
-            when (e.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    v.isPressed = true
-                    v.performClick()
-                    viewModel.onButtonDown(bit); true
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    v.isPressed = false
-                    viewModel.onButtonUp(bit); true
-                }
-                else -> false
-            }
-        }
-    }
-
-    @SuppressLint("ClickableViewAccessibility")
-    private fun setupLongPressButton(id: Int, bit: Int) {
-        findViewById<View>(id).setOnTouchListener { v, e ->
-            when (e.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    v.isPressed = true
-                    v.performClick()
-                    viewModel.onButtonDown(bit); true
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    v.isPressed = false
-                    viewModel.onButtonUp(bit); true
-                }
-                else -> false
-            }
-        }
-    }
-
-    private fun setupJoystick(id: Int, isLeft: Boolean) {
-        val stick = findViewById<JoystickView>(id)
-        stick.onStickClickDown = {
-            val bit = if (isLeft) GamepadState.L3 else GamepadState.R3
-            viewModel.onButtonDown(bit)
-        }
-        stick.onStickClickUp = {
-            val bit = if (isLeft) GamepadState.L3 else GamepadState.R3
-            viewModel.onButtonUp(bit)
-        }
-        stick.onStickMoved = { sx, sy ->
-            if (isLeft) viewModel.onLeftStick(sx, sy) else viewModel.onRightStick(sx, sy)
-        }
-    }
-
-    @SuppressLint("ClickableViewAccessibility")
-    private fun setupCenterArea() {
-        val area = findViewById<FrameLayout>(R.id.centerArea)
+    private fun setupTouchpadView(tp: FrameLayout) {
         val handler = Handler(Looper.getMainLooper())
-        var firstTapTime = 0L
-        var firstTapX = 0f
-        var firstTapY = 0f
+        var firstTapTime = 0L; var firstTapX = 0f; var firstTapY = 0f
         var isDoubleClick = false
+        val doubleTapTimeout = Runnable { firstTapTime = 0 }
 
-        val doubleTapTimeout = Runnable {
-            firstTapTime = 0
-        }
-
-        area.setOnTouchListener { v, event ->
+        tp.setOnTouchListener { v, event ->
             val s = viewModel.settings.value
             val ds4 = s.controllerMode == ControllerMode.DS4 && s.connectionMode == ConnectionMode.WIFI
             val w = v.measuredWidth.coerceAtLeast(1)
@@ -335,45 +504,27 @@ class MainActivity : ComponentActivity() {
                     val now = System.currentTimeMillis()
                     if (now - firstTapTime < 300 && firstTapTime > 0) {
                         handler.removeCallbacks(doubleTapTimeout)
-                        v.isPressed = true
-                        isDoubleClick = true
-                        firstTapTime = 0
-
+                        v.isPressed = true; isDoubleClick = true; firstTapTime = 0
                         viewModel.onButtonDown(GamepadState.TOUCHPAD_CLICK)
                     } else {
-                        firstTapTime = now
-                        firstTapX = event.x
-                        firstTapY = event.y
-                        isDoubleClick = false
+                        firstTapTime = now; firstTapX = event.x; firstTapY = event.y; isDoubleClick = false
                         handler.postDelayed(doubleTapTimeout, 300)
                     }
-                    if (ds4) {
-                        viewModel.onTouchpad(sx, sy, true)
-                    }
+                    if (ds4) viewModel.onTouchpad(sx, sy, true)
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     if (firstTapTime != 0L) {
-                        val dx = event.x - firstTapX
-                        val dy = event.y - firstTapY
-                        if (dx * dx + dy * dy > 30f * 30f) {
-                            firstTapTime = 0
-                            handler.removeCallbacks(doubleTapTimeout)
-                        }
+                        val dx = event.x - firstTapX; val dy = event.y - firstTapY
+                        if (dx * dx + dy * dy > 30f * 30f) { firstTapTime = 0; handler.removeCallbacks(doubleTapTimeout) }
                     }
-                    if (ds4) {
-                        viewModel.onTouchpad(sx, sy, true)
-                    }
+                    if (ds4) viewModel.onTouchpad(sx, sy, true)
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    if (isDoubleClick) {
-                        v.isPressed = false
-                        viewModel.onButtonUp(GamepadState.TOUCHPAD_CLICK)
-                    }
+                    if (isDoubleClick) { v.isPressed = false; viewModel.onButtonUp(GamepadState.TOUCHPAD_CLICK) }
                     if (ds4) viewModel.onTouchpad(sx, sy, false)
-                    isDoubleClick = false
-                    true
+                    isDoubleClick = false; true
                 }
                 else -> false
             }
@@ -739,62 +890,74 @@ class MainActivity : ComponentActivity() {
 
     @SuppressLint("SetTextI18n")
     private fun updateButtonLabels(mode: DisplayMode) {
-        val abxyText = when (mode) {
-            DisplayMode.XBOX -> listOf("A", "B", "X", "Y")
-            DisplayMode.PLAYSTATION -> listOf("", "", "", "")
-            DisplayMode.SWITCH -> listOf("B", "A", "Y", "X")
-        }
-        val abxyDrawables = intArrayOf(
-            R.drawable.btn_ps_cross, R.drawable.btn_ps_circle,
-            R.drawable.btn_ps_square, R.drawable.btn_ps_triangle
-        )
-        val abxyIds = listOf(R.id.btnA, R.id.btnB, R.id.btnX, R.id.btnY)
-        abxyIds.forEachIndexed { i, id ->
-            findViewById<Button>(id).apply {
-                text = abxyText[i]
-                setBackgroundResource(
-                    if (mode == DisplayMode.PLAYSTATION) abxyDrawables[i] else R.drawable.button_circle
-                )
-            }
-        }
+        val abxyList = listOf("btnA", "btnB", "btnX", "btnY")
+        val bumperList = listOf("btnLB", "btnRB", "btnLT", "btnRT")
 
-        val bumpers = when (mode) {
-            DisplayMode.XBOX -> listOf("LB", "RB", "LT", "RT")
-            DisplayMode.PLAYSTATION -> listOf("L1", "R1", "L2", "R2")
-            DisplayMode.SWITCH -> listOf("L", "R", "ZL", "ZR")
-        }
-        findViewById<Button>(R.id.btnLB).text = bumpers[0]
-        findViewById<Button>(R.id.btnRB).text = bumpers[1]
-        findViewById<Button>(R.id.btnLT).text = bumpers[2]
-        findViewById<Button>(R.id.btnRT).text = bumpers[3]
+        for (i in 0 until gamepadLayout.childCount) {
+            val child = gamepadLayout.getChildAt(i)
+            val baseId = (child.tag as? String)?.substringBefore("_") ?: continue
 
-        val selBtn = findViewById<Button>(R.id.btnSelect)
-        val homeBtn = findViewById<ImageButton>(R.id.btnHome)
-        val menuBtn = findViewById<Button>(R.id.btnMenu)
-        when (mode) {
-            DisplayMode.XBOX -> {
-                selBtn.text = ""
-                selBtn.setBackgroundResource(R.drawable.btn_select_xbox)
-                homeBtn.setBackgroundResource(R.drawable.button_circle)
-                homeBtn.setImageResource(R.drawable.ic_home_xbox)
-                menuBtn.text = ""
-                menuBtn.setBackgroundResource(R.drawable.btn_menu_xbox)
-            }
-            DisplayMode.PLAYSTATION -> {
-                selBtn.text = "SHARE"
-                selBtn.setBackgroundResource(R.drawable.button_circle)
-                homeBtn.setBackgroundResource(R.drawable.button_circle)
-                homeBtn.setImageResource(R.drawable.ic_home_playstation)
-                menuBtn.text = "OPTION"
-                menuBtn.setBackgroundResource(R.drawable.button_circle)
-            }
-            DisplayMode.SWITCH -> {
-                selBtn.text = ""
-                selBtn.setBackgroundResource(R.drawable.btn_select_switch)
-                homeBtn.setBackgroundResource(R.drawable.button_circle)
-                homeBtn.setImageResource(R.drawable.ic_home)
-                menuBtn.text = ""
-                menuBtn.setBackgroundResource(R.drawable.btn_menu_switch)
+            when {
+                baseId in abxyList -> {
+                    val idx = abxyList.indexOf(baseId)
+                    (child as? Button)?.apply {
+                        when (mode) {
+                            DisplayMode.XBOX -> {
+                                text = listOf("A", "B", "X", "Y")[idx]; textSize = 24f
+                                setBackgroundResource(R.drawable.button_circle)
+                            }
+                            DisplayMode.PLAYSTATION -> {
+                                text = ""; textSize = 12f
+                                setBackgroundResource(intArrayOf(
+                                    R.drawable.btn_ps_cross, R.drawable.btn_ps_circle,
+                                    R.drawable.btn_ps_square, R.drawable.btn_ps_triangle
+                                )[idx])
+                            }
+                            DisplayMode.SWITCH -> {
+                                text = listOf("B", "A", "Y", "X")[idx]; textSize = 24f
+                                setBackgroundResource(R.drawable.button_circle)
+                            }
+                        }
+                    }
+                }
+                baseId in bumperList -> {
+                    val idx = bumperList.indexOf(baseId)
+                    (child as? Button)?.apply {
+                        when (mode) {
+                            DisplayMode.XBOX -> { text = listOf("LB", "RB", "LT", "RT")[idx]; textSize = 18f; setBackgroundResource(R.drawable.button_rounded_rect) }
+                            DisplayMode.PLAYSTATION -> { text = listOf("L1", "R1", "L2", "R2")[idx]; textSize = 14f; setBackgroundResource(R.drawable.button_rounded_rect) }
+                            DisplayMode.SWITCH -> { text = listOf("L", "R", "ZL", "ZR")[idx]; textSize = if (idx < 2) 22f else 16f; setBackgroundResource(R.drawable.button_rounded_rect) }
+                        }
+                    }
+                }
+                baseId == "btnSelect" -> {
+                    (child as? Button)?.apply {
+                        when (mode) {
+                            DisplayMode.XBOX -> { text = ""; setBackgroundResource(R.drawable.btn_select_xbox) }
+                            DisplayMode.PLAYSTATION -> { text = "SHARE"; setBackgroundResource(R.drawable.button_circle) }
+                            DisplayMode.SWITCH -> { text = ""; setBackgroundResource(R.drawable.btn_select_switch) }
+                        }
+                    }
+                }
+                baseId == "btnHome" -> {
+                    (child as? ImageButton)?.apply {
+                        setBackgroundResource(R.drawable.button_circle)
+                        when (mode) {
+                            DisplayMode.XBOX -> setImageResource(R.drawable.ic_home_xbox)
+                            DisplayMode.PLAYSTATION -> setImageResource(R.drawable.ic_home_playstation)
+                            DisplayMode.SWITCH -> setImageResource(R.drawable.ic_home)
+                        }
+                    }
+                }
+                baseId == "btnMenu" -> {
+                    (child as? Button)?.apply {
+                        when (mode) {
+                            DisplayMode.XBOX -> { text = ""; setBackgroundResource(R.drawable.btn_menu_xbox) }
+                            DisplayMode.PLAYSTATION -> { text = "OPTION"; setBackgroundResource(R.drawable.button_circle) }
+                            DisplayMode.SWITCH -> { text = ""; setBackgroundResource(R.drawable.btn_menu_switch) }
+                        }
+                    }
+                }
             }
         }
     }
@@ -851,7 +1014,7 @@ class MainActivity : ComponentActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
                     viewModel.connectionState.collect { st ->
-                        findViewById<TextView>(R.id.centerText).text = st.statusText
+                        for (label in touchpadLabels) label.text = st.statusText
                         findViewById<TextView>(R.id.tvConnectionStatus).text = st.statusText
                         val btn = findViewById<Button>(R.id.btnConnectAction)
                         btn.text = if (st.phase != ConnectionPhase.IDLE) "停止服务" else "启动服务"
@@ -889,7 +1052,7 @@ class MainActivity : ComponentActivity() {
                 launch {
                     viewModel.settings.collect { s ->
                         val ds4 = s.controllerMode == ControllerMode.DS4 && s.connectionMode == ConnectionMode.WIFI
-                        findViewById<View>(R.id.centerArea).visibility = if (ds4) View.VISIBLE else View.GONE
+                        controlViews["touchpad"]?.visibility = if (ds4) View.VISIBLE else View.GONE
                         updatePairedDeviceVisibility(viewModel.pairedDeviceName.value)
                     }
                 }

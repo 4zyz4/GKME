@@ -8,4 +8,5 @@ data class ButtonPosition(
     val height: Int = 10,
     val visible: Boolean = true,
     val lockAspect: Boolean = false,
+    val swipeTrigger: Boolean = false,
 )
