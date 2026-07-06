@@ -63,6 +63,87 @@ class GamepadLayout @JvmOverloads constructor(
 
     var listener: GamepadLayoutListener? = null
 
+    // Per-pointer tracking for non-edit mode multi-touch dispatch
+    private val touchTargets = HashMap<Int, View>()
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (!isEditMode) {
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    pointerDown(event, 0)
+                    return true
+                }
+                MotionEvent.ACTION_POINTER_DOWN -> {
+                    pointerDown(event, event.actionIndex)
+                    return true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    for ((pid, child) in touchTargets.toMap()) {
+                        val idx = event.findPointerIndex(pid)
+                        if (idx >= 0) {
+                            dispatchToChild(child, event, MotionEvent.ACTION_MOVE, idx)
+                        }
+                    }
+                    return true
+                }
+                MotionEvent.ACTION_POINTER_UP -> {
+                    pointerUp(event, event.actionIndex)
+                    return true
+                }
+                MotionEvent.ACTION_UP -> {
+                    pointerUp(event, 0)
+                    touchTargets.clear()
+                    return true
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    for ((_, child) in touchTargets) {
+                        val ev = MotionEvent.obtain(
+                            event.downTime, event.eventTime,
+                            MotionEvent.ACTION_CANCEL, 0f, 0f, 0
+                        )
+                        child.dispatchTouchEvent(ev)
+                        ev.recycle()
+                    }
+                    touchTargets.clear()
+                    return true
+                }
+            }
+            return true
+        }
+        return super.dispatchTouchEvent(event)
+    }
+
+    private fun pointerDown(event: MotionEvent, idx: Int) {
+        val pid = event.getPointerId(idx)
+        val x = event.getX(idx)
+        val y = event.getY(idx)
+        val child = findChildAt(x, y)
+        if (child != null) {
+            touchTargets[pid] = child
+            dispatchToChild(child, event, MotionEvent.ACTION_DOWN, idx)
+        }
+    }
+
+    private fun pointerUp(event: MotionEvent, idx: Int) {
+        val pid = event.getPointerId(idx)
+        val child = touchTargets.remove(pid)
+        if (child != null) {
+            dispatchToChild(child, event, MotionEvent.ACTION_UP, idx)
+        }
+    }
+
+    private fun dispatchToChild(child: View, event: MotionEvent, action: Int, pointerIdx: Int) {
+        val ev = MotionEvent.obtain(
+            event.downTime, event.eventTime,
+            action,
+            event.getX(pointerIdx) - child.left,
+            event.getY(pointerIdx) - child.top,
+            event.metaState
+        )
+        child.dispatchTouchEvent(ev)
+        ev.recycle()
+    }
+
     interface GamepadLayoutListener {
         fun onButtonSelected(buttonId: String?)
         fun onButtonMoved(buttonId: String, x: Int, y: Int)
