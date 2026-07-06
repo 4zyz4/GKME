@@ -356,6 +356,7 @@ class MainActivity : ComponentActivity() {
                 } else {
                     val iv = ImageView(this).apply {
                         setImageResource(getPreviewIcon(entry, mode))
+                        setBackgroundResource(R.drawable.button_circle)
                         layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
                     }
                     wrapper.addView(iv)
