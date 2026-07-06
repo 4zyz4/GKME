@@ -61,6 +61,8 @@ class MainActivity : ComponentActivity() {
     private val viewModel: GamepadViewModel by viewModels()
     private lateinit var gamepadLayout: GamepadLayout
     private lateinit var floatingEditor: FloatingEditorPanel
+    private lateinit var btnToggleEditor: ImageButton
+    private var editorVisible = true
     private val controlViews = mutableMapOf<String, View>()
     private val touchpadLabels = mutableListOf<TextView>()
     private var discoverableRequested = false
@@ -170,6 +172,27 @@ class MainActivity : ComponentActivity() {
                 (resources.displayMetrics.widthPixels * 0.4f).toInt(),
                 (resources.displayMetrics.heightPixels * 0.8f).toInt()
             )
+        )
+
+        btnToggleEditor = ImageButton(this).apply {
+            visibility = View.GONE
+            setBackgroundResource(R.drawable.bg_small_btn)
+            setImageResource(R.drawable.ic_arrow_up)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            setPadding((8f * resources.displayMetrics.density).toInt(), (8f * resources.displayMetrics.density).toInt(),
+                (8f * resources.displayMetrics.density).toInt(), (8f * resources.displayMetrics.density).toInt())
+            setOnClickListener {
+                editorVisible = !editorVisible
+                floatingEditor.visibility = if (editorVisible) View.VISIBLE else View.GONE
+                setImageResource(if (editorVisible) R.drawable.ic_arrow_up else R.drawable.ic_arrow_down)
+            }
+        }
+        (findViewById<View>(android.R.id.content) as ViewGroup).addView(
+            btnToggleEditor,
+            FrameLayout.LayoutParams((36f * resources.displayMetrics.density).toInt(), (36f * resources.displayMetrics.density).toInt()).apply {
+                gravity = android.view.Gravity.TOP or android.view.Gravity.CENTER_HORIZONTAL
+                topMargin = (6f * resources.displayMetrics.density).toInt()
+            }
         )
     }
 
@@ -403,11 +426,14 @@ class MainActivity : ComponentActivity() {
                     if (pos != null) {
                         floatingEditor.showParameters(buttonId, pos)
                     }
+                } else {
+                    floatingEditor.clearParameters()
                 }
             }
 
             override fun onEditModeChanged(isEditMode: Boolean) {
-                floatingEditor.visibility = if (isEditMode) View.VISIBLE else View.GONE
+                floatingEditor.visibility = if (isEditMode && editorVisible) View.VISIBLE else View.GONE
+                btnToggleEditor.visibility = if (isEditMode) View.VISIBLE else View.GONE
                 findViewById<ImageButton>(R.id.btnSettings).visibility =
                     if (isEditMode) View.GONE else View.VISIBLE
             }
