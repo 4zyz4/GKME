@@ -903,7 +903,7 @@ class MainActivity : ComponentActivity() {
                     (child as? Button)?.apply {
                         when (mode) {
                             DisplayMode.XBOX -> {
-                                text = listOf("A", "B", "X", "Y")[idx]; textSize = 24f
+                                text = listOf("A", "B", "X", "Y")[idx]; textSize = 20f
                                 setBackgroundResource(R.drawable.button_circle)
                             }
                             DisplayMode.PLAYSTATION -> {
@@ -914,7 +914,7 @@ class MainActivity : ComponentActivity() {
                                 )[idx])
                             }
                             DisplayMode.SWITCH -> {
-                                text = listOf("B", "A", "Y", "X")[idx]; textSize = 24f
+                                text = listOf("B", "A", "Y", "X")[idx]; textSize = 20f
                                 setBackgroundResource(R.drawable.button_circle)
                             }
                         }
@@ -924,9 +924,9 @@ class MainActivity : ComponentActivity() {
                     val idx = bumperList.indexOf(baseId)
                     (child as? Button)?.apply {
                         when (mode) {
-                            DisplayMode.XBOX -> { text = listOf("LB", "RB", "LT", "RT")[idx]; textSize = 18f; setBackgroundResource(R.drawable.button_rounded_rect) }
-                            DisplayMode.PLAYSTATION -> { text = listOf("L1", "R1", "L2", "R2")[idx]; textSize = 14f; setBackgroundResource(R.drawable.button_rounded_rect) }
-                            DisplayMode.SWITCH -> { text = listOf("L", "R", "ZL", "ZR")[idx]; textSize = if (idx < 2) 22f else 16f; setBackgroundResource(R.drawable.button_rounded_rect) }
+                            DisplayMode.XBOX -> { text = listOf("LB", "RB", "LT", "RT")[idx]; textSize = 20f; setBackgroundResource(R.drawable.button_rounded_rect) }
+                            DisplayMode.PLAYSTATION -> { text = listOf("L1", "R1", "L2", "R2")[idx]; textSize = 20f; setBackgroundResource(R.drawable.button_rounded_rect) }
+                            DisplayMode.SWITCH -> { text = listOf("L", "R", "ZL", "ZR")[idx]; textSize = 20f; setBackgroundResource(R.drawable.button_rounded_rect) }
                         }
                     }
                 }
