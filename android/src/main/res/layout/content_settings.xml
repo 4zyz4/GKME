@@ -431,6 +431,7 @@
                     android:fontFamily="sans-serif-medium"
                     android:layout_marginBottom="16dp" />
 
+                <!-- Button Vibration Master Toggle -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
@@ -454,6 +455,132 @@
                         android:layout_height="wrap_content" />
                 </LinearLayout>
 
+                <!-- ─── Left: Press / Right: Release ─── -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:weightSum="2">
+
+                    <!-- Press Column -->
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:layout_marginEnd="4dp">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="按下"
+                            android:gravity="center"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp"
+                            android:fontFamily="sans-serif-medium"
+                            android:layout_marginBottom="6dp" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center"
+                            android:layout_marginBottom="4dp">
+
+                            <Button android:id="@+id/btnVibPressTypeNone" style="@style/GamepadChip" android:layout_marginEnd="3dp" android:text="无" android:textSize="10sp" />
+                            <Button android:id="@+id/btnVibPressTypeView" style="@style/GamepadChip" android:layout_marginEnd="3dp" android:text="系统效果" android:textSize="10sp" />
+                            <Button android:id="@+id/btnVibPressTypeEffect" style="@style/GamepadChip" android:text="自定义" android:textSize="10sp" />
+                        </LinearLayout>
+
+                        <LinearLayout android:id="@+id/layoutPressViewEffects" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone" android:background="@color/bg_surface" android:padding="6dp" android:layout_marginBottom="4dp">
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="系统效果" android:textColor="@color/text_secondary" android:textSize="11sp" android:layout_marginBottom="4dp" />
+                            <Spinner android:id="@+id/spinnerPressEffect" android:layout_width="match_parent" android:layout_height="32dp" />
+                        </LinearLayout>
+
+                        <LinearLayout android:id="@+id/layoutPressVibEffect" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone" android:background="@color/bg_surface" android:padding="6dp" android:layout_marginBottom="4dp">
+                            <TextView android:id="@+id/tvPressDuration" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="时长: 50ms" android:textColor="@color/text_secondary" android:textSize="11sp" />
+                            <SeekBar android:id="@+id/seekPressDuration" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="500" android:min="1" android:progress="50" />
+                            <TextView android:id="@+id/tvPressIntensity" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="强度: 128" android:textColor="@color/text_secondary" android:textSize="11sp" />
+                            <SeekBar android:id="@+id/seekPressIntensity" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="255" android:min="1" android:progress="128" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <!-- Release Column -->
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:layout_marginStart="4dp">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="松开"
+                            android:gravity="center"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp"
+                            android:fontFamily="sans-serif-medium"
+                            android:layout_marginBottom="6dp" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center"
+                            android:layout_marginBottom="4dp">
+
+                            <Button android:id="@+id/btnVibReleaseTypeNone" style="@style/GamepadChip" android:layout_marginEnd="3dp" android:text="无" android:textSize="10sp" />
+                            <Button android:id="@+id/btnVibReleaseTypeView" style="@style/GamepadChip" android:layout_marginEnd="3dp" android:text="系统效果" android:textSize="10sp" />
+                            <Button android:id="@+id/btnVibReleaseTypeEffect" style="@style/GamepadChip" android:text="自定义" android:textSize="10sp" />
+                        </LinearLayout>
+
+                        <LinearLayout android:id="@+id/layoutReleaseViewEffects" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone" android:background="@color/bg_surface" android:padding="6dp" android:layout_marginBottom="4dp">
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="系统效果" android:textColor="@color/text_secondary" android:textSize="11sp" android:layout_marginBottom="4dp" />
+                            <Spinner android:id="@+id/spinnerReleaseEffect" android:layout_width="match_parent" android:layout_height="32dp" />
+                        </LinearLayout>
+
+                        <LinearLayout android:id="@+id/layoutReleaseVibEffect" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone" android:background="@color/bg_surface" android:padding="6dp" android:layout_marginBottom="4dp">
+                            <TextView android:id="@+id/tvReleaseDuration" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="时长: 20ms" android:textColor="@color/text_secondary" android:textSize="11sp" />
+                            <SeekBar android:id="@+id/seekReleaseDuration" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="500" android:min="1" android:progress="20" />
+                            <TextView android:id="@+id/tvReleaseIntensity" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="强度: 64" android:textColor="@color/text_secondary" android:textSize="11sp" />
+                            <SeekBar android:id="@+id/seekReleaseIntensity" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="255" android:min="1" android:progress="64" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="#444"
+                    android:layout_marginVertical="8dp" />
+
+                <!-- Test Button (circular) -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:layout_marginBottom="12dp">
+
+                    <Button
+                        android:id="@+id/btnTestVibration"
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
+                        android:background="@drawable/button_circle"
+                        android:text="测试"
+                        android:textColor="@color/text_primary"
+                        android:textSize="12sp"
+                        android:gravity="center"
+                        android:stateListAnimator="@null" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="#444"
+                    android:layout_marginBottom="8dp" />
+
+                <!-- Game Vibration -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="48dp"

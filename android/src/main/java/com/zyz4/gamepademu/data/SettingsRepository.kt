@@ -10,7 +10,9 @@ import com.zyz4.gamepademu.model.AppSettings
 import com.zyz4.gamepademu.model.ConnectionMode
 import com.zyz4.gamepademu.model.ControllerMode
 import com.zyz4.gamepademu.model.DisplayMode
+import com.zyz4.gamepademu.model.HapticEffect
 import com.zyz4.gamepademu.model.TargetPlatform
+import com.zyz4.gamepademu.model.VibrationType
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -32,6 +34,14 @@ class SettingsRepository @Inject constructor(
         val CURRENT_PRESET_NAME = stringPreferencesKey("current_preset_name")
         val VIBRATION_ENABLED = booleanPreferencesKey("vibration_enabled")
         val GAME_VIBRATION_ENABLED = booleanPreferencesKey("game_vibration_enabled")
+        val VIBRATION_PRESS_TYPE = intPreferencesKey("vibration_press_type")
+        val VIBRATION_RELEASE_TYPE = intPreferencesKey("vibration_release_type")
+        val VIBRATION_PRESS_VIEW_EFFECT = intPreferencesKey("vibration_press_view_effect")
+        val VIBRATION_RELEASE_VIEW_EFFECT = intPreferencesKey("vibration_release_view_effect")
+        val VIBRATION_PRESS_DURATION = intPreferencesKey("vibration_press_duration")
+        val VIBRATION_RELEASE_DURATION = intPreferencesKey("vibration_release_duration")
+        val VIBRATION_PRESS_INTENSITY = intPreferencesKey("vibration_press_intensity")
+        val VIBRATION_RELEASE_INTENSITY = intPreferencesKey("vibration_release_intensity")
     }
 
     val settings: Flow<AppSettings> = context.settingsDataStore.data.map { prefs ->
@@ -52,6 +62,22 @@ class SettingsRepository @Inject constructor(
             currentPresetName = prefs[Keys.CURRENT_PRESET_NAME] ?: "Default",
             vibrationEnabled = prefs[Keys.VIBRATION_ENABLED] ?: true,
             gameVibrationEnabled = prefs[Keys.GAME_VIBRATION_ENABLED] ?: true,
+            vibrationPressType = VibrationType.entries.getOrElse(
+                prefs[Keys.VIBRATION_PRESS_TYPE] ?: VibrationType.VIEW.ordinal
+            ) { VibrationType.VIEW },
+            vibrationReleaseType = VibrationType.entries.getOrElse(
+                prefs[Keys.VIBRATION_RELEASE_TYPE] ?: VibrationType.VIEW.ordinal
+            ) { VibrationType.VIEW },
+            vibrationPressViewEffect = HapticEffect.entries.getOrElse(
+                prefs[Keys.VIBRATION_PRESS_VIEW_EFFECT] ?: HapticEffect.CONFIRM.ordinal
+            ) { HapticEffect.CONFIRM },
+            vibrationReleaseViewEffect = HapticEffect.entries.getOrElse(
+                prefs[Keys.VIBRATION_RELEASE_VIEW_EFFECT] ?: HapticEffect.KEYBOARD_TAP.ordinal
+            ) { HapticEffect.KEYBOARD_TAP },
+            vibrationPressDuration = prefs[Keys.VIBRATION_PRESS_DURATION] ?: 50,
+            vibrationReleaseDuration = prefs[Keys.VIBRATION_RELEASE_DURATION] ?: 20,
+            vibrationPressIntensity = prefs[Keys.VIBRATION_PRESS_INTENSITY] ?: 128,
+            vibrationReleaseIntensity = prefs[Keys.VIBRATION_RELEASE_INTENSITY] ?: 64,
         )
     }
 
@@ -65,6 +91,14 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.CURRENT_PRESET_NAME] = settings.currentPresetName
             prefs[Keys.VIBRATION_ENABLED] = settings.vibrationEnabled
             prefs[Keys.GAME_VIBRATION_ENABLED] = settings.gameVibrationEnabled
+            prefs[Keys.VIBRATION_PRESS_TYPE] = settings.vibrationPressType.ordinal
+            prefs[Keys.VIBRATION_RELEASE_TYPE] = settings.vibrationReleaseType.ordinal
+            prefs[Keys.VIBRATION_PRESS_VIEW_EFFECT] = settings.vibrationPressViewEffect.ordinal
+            prefs[Keys.VIBRATION_RELEASE_VIEW_EFFECT] = settings.vibrationReleaseViewEffect.ordinal
+            prefs[Keys.VIBRATION_PRESS_DURATION] = settings.vibrationPressDuration
+            prefs[Keys.VIBRATION_RELEASE_DURATION] = settings.vibrationReleaseDuration
+            prefs[Keys.VIBRATION_PRESS_INTENSITY] = settings.vibrationPressIntensity
+            prefs[Keys.VIBRATION_RELEASE_INTENSITY] = settings.vibrationReleaseIntensity
         }
     }
 }

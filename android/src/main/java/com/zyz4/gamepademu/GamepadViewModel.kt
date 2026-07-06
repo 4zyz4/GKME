@@ -15,8 +15,10 @@ import com.zyz4.gamepademu.model.ControllerMode
 import com.zyz4.gamepademu.model.DisplayMode
 import com.zyz4.gamepademu.model.GamepadState
 import com.zyz4.gamepademu.model.ButtonPosition
+import com.zyz4.gamepademu.model.HapticEffect
 import com.zyz4.gamepademu.model.LayoutPreset
 import com.zyz4.gamepademu.model.TargetPlatform
+import com.zyz4.gamepademu.model.VibrationType
 import com.zyz4.gamepademu.service.ConnectionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -213,6 +215,38 @@ class GamepadViewModel @Inject constructor(
 
     fun updateGameVibrationEnabled(enabled: Boolean) {
         connectionManager.updateSettings(settings.value.copy(gameVibrationEnabled = enabled))
+    }
+
+    fun updateVibrationPressType(type: VibrationType) {
+        connectionManager.updateSettings(settings.value.copy(vibrationPressType = type))
+    }
+
+    fun updateVibrationReleaseType(type: VibrationType) {
+        connectionManager.updateSettings(settings.value.copy(vibrationReleaseType = type))
+    }
+
+    fun updateVibrationPressViewEffect(effect: HapticEffect) {
+        connectionManager.updateSettings(settings.value.copy(vibrationPressViewEffect = effect))
+    }
+
+    fun updateVibrationReleaseViewEffect(effect: HapticEffect) {
+        connectionManager.updateSettings(settings.value.copy(vibrationReleaseViewEffect = effect))
+    }
+
+    fun updateVibrationPressDuration(duration: Int) {
+        connectionManager.updateSettings(settings.value.copy(vibrationPressDuration = duration))
+    }
+
+    fun updateVibrationReleaseDuration(duration: Int) {
+        connectionManager.updateSettings(settings.value.copy(vibrationReleaseDuration = duration))
+    }
+
+    fun updateVibrationPressIntensity(intensity: Int) {
+        connectionManager.updateSettings(settings.value.copy(vibrationPressIntensity = intensity))
+    }
+
+    fun updateVibrationReleaseIntensity(intensity: Int) {
+        connectionManager.updateSettings(settings.value.copy(vibrationReleaseIntensity = intensity))
     }
 
     fun startServer() {

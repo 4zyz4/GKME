@@ -14,6 +14,9 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.LayoutInflater
@@ -24,7 +27,10 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.GridView
+import android.widget.ArrayAdapter
 import android.widget.ImageButton
+import android.widget.SeekBar
+import android.widget.Spinner
 import android.widget.Switch
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -40,12 +46,14 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.zyz4.gamepademu.model.ConnectionMode
 import com.zyz4.gamepademu.model.ControllerMode
-import com.zyz4.gamepademu.service.ConnectionPhase
 import com.zyz4.gamepademu.model.DisplayMode
 import com.zyz4.gamepademu.model.GamepadState
+import com.zyz4.gamepademu.model.HapticEffect
 import com.zyz4.gamepademu.model.LayoutPreset
 import com.zyz4.gamepademu.model.TargetPlatform
 import com.zyz4.gamepademu.model.ButtonPosition
+import com.zyz4.gamepademu.model.VibrationType
+import com.zyz4.gamepademu.service.ConnectionPhase
 import com.zyz4.gamepademu.service.BluetoothTransportType
 import com.zyz4.gamepademu.GamepadViewModel.PresetInfo
 import com.zyz4.gamepademu.view.GamepadLayout
@@ -66,6 +74,16 @@ class MainActivity : ComponentActivity() {
     private val controlViews = mutableMapOf<String, View>()
     private val touchpadLabels = mutableListOf<TextView>()
     private var discoverableRequested = false
+
+    private val vibrator: Vibrator by lazy {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vm = getSystemService(VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            vm.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            getSystemService(VIBRATOR_SERVICE) as Vibrator
+        }
+    }
 
     private val bluetoothPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -440,28 +458,51 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun hapticClick(v: View) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            v.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
-        } else {
-            v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+    private fun performHaptic(isPress: Boolean) {
+        val s = viewModel.settings.value
+        if (!s.vibrationEnabled) return
+        val type = if (isPress) s.vibrationPressType else s.vibrationReleaseType
+        when (type) {
+            VibrationType.NONE -> return
+            VibrationType.VIEW -> {
+                val effect = if (isPress) s.vibrationPressViewEffect else s.vibrationReleaseViewEffect
+                val constantId = hapticEffectToConstant(effect)
+                gamepadLayout.performHapticFeedback(constantId)
+            }
+            VibrationType.VIBRATION_EFFECT -> {
+                val duration = (if (isPress) s.vibrationPressDuration else s.vibrationReleaseDuration).coerceAtLeast(1)
+                val intensity = if (isPress) s.vibrationPressIntensity else s.vibrationReleaseIntensity
+                val effect = VibrationEffect.createOneShot(duration.toLong(), intensity.coerceIn(0, 255))
+                vibrator.cancel()
+                vibrator.vibrate(effect)
+            }
         }
     }
 
-    private fun hapticTick(v: View) {
-        v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+    private fun hapticEffectToConstant(effect: HapticEffect): Int {
+        val fallback = HapticFeedbackConstants.KEYBOARD_TAP
+        return when (effect) {
+            HapticEffect.KEYBOARD_TAP -> HapticFeedbackConstants.KEYBOARD_TAP
+            HapticEffect.CONFIRM -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) HapticFeedbackConstants.CONFIRM else fallback
+            HapticEffect.REJECT -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) HapticFeedbackConstants.REJECT else fallback
+            HapticEffect.CLOCK_TICK -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) HapticFeedbackConstants.CLOCK_TICK else fallback
+            HapticEffect.CONTEXT_CLICK -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) HapticFeedbackConstants.CONTEXT_CLICK else fallback
+            HapticEffect.LONG_PRESS -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) HapticFeedbackConstants.LONG_PRESS else fallback
+            HapticEffect.KEYBOARD_PRESS -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) HapticFeedbackConstants.KEYBOARD_PRESS else fallback
+            HapticEffect.KEYBOARD_RELEASE -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) HapticFeedbackConstants.KEYBOARD_RELEASE else fallback
+            HapticEffect.GESTURE_START -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) HapticFeedbackConstants.GESTURE_START else fallback
+            HapticEffect.GESTURE_END -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) HapticFeedbackConstants.GESTURE_END else fallback
+            HapticEffect.VIRTUAL_KEY -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) HapticFeedbackConstants.VIRTUAL_KEY else fallback
+            HapticEffect.VIRTUAL_KEY_RELEASE -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) HapticFeedbackConstants.VIRTUAL_KEY_RELEASE else fallback
+        }
     }
 
     // ── Gamepad ──────────────────────────────────────────────
 
     @SuppressLint("ClickableViewAccessibility")
     private fun createAllControls() {
-        viewModel.onHapticFeedbackPress = {
-            if (viewModel.settings.value.vibrationEnabled) hapticClick(gamepadLayout)
-        }
-        viewModel.onHapticFeedbackRelease = {
-            if (viewModel.settings.value.vibrationEnabled) hapticTick(gamepadLayout)
-        }
+        viewModel.onHapticFeedbackPress = { performHaptic(isPress = true) }
+        viewModel.onHapticFeedbackRelease = { performHaptic(isPress = false) }
 
         data class Def(
             val baseId: String, val bit: Int = 0,
@@ -768,12 +809,165 @@ class MainActivity : ComponentActivity() {
             viewModel.updateGameVibrationEnabled(isChecked)
         }
 
+        // Press type selection
+        val pressTypeIds = listOf(
+            R.id.btnVibPressTypeNone to VibrationType.NONE,
+            R.id.btnVibPressTypeView to VibrationType.VIEW,
+            R.id.btnVibPressTypeEffect to VibrationType.VIBRATION_EFFECT,
+        )
+        pressTypeIds.forEach { (id, type) ->
+            findViewById<Button>(id).setOnClickListener {
+                viewModel.updateVibrationPressType(type)
+                updateVibrationUI()
+            }
+        }
+        // Release type selection
+        val releaseTypeIds = listOf(
+            R.id.btnVibReleaseTypeNone to VibrationType.NONE,
+            R.id.btnVibReleaseTypeView to VibrationType.VIEW,
+            R.id.btnVibReleaseTypeEffect to VibrationType.VIBRATION_EFFECT,
+        )
+        releaseTypeIds.forEach { (id, type) ->
+            findViewById<Button>(id).setOnClickListener {
+                viewModel.updateVibrationReleaseType(type)
+                updateVibrationUI()
+            }
+        }
+
+        // Effect Spinners
+        setupEffectSpinner(R.id.spinnerPressEffect, isPress = true)
+        setupEffectSpinner(R.id.spinnerReleaseEffect, isPress = false)
+
+        // Press SeekBars
+        findViewById<SeekBar>(R.id.seekPressDuration).setOnSeekBarChangeListener(
+            object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
+                    if (!fromUser) return
+                    if (progress < 1) { sb.progress = 1; return }
+                    viewModel.updateVibrationPressDuration(progress)
+                    findViewById<TextView>(R.id.tvPressDuration).text = "时长: ${progress}ms"
+                }
+                override fun onStartTrackingTouch(sb: SeekBar?) {}
+                override fun onStopTrackingTouch(sb: SeekBar?) {}
+            }
+        )
+        findViewById<SeekBar>(R.id.seekPressIntensity).setOnSeekBarChangeListener(
+            object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
+                    if (!fromUser) return
+                    viewModel.updateVibrationPressIntensity(progress)
+                    findViewById<TextView>(R.id.tvPressIntensity).text = "强度: $progress"
+                }
+                override fun onStartTrackingTouch(sb: SeekBar?) {}
+                override fun onStopTrackingTouch(sb: SeekBar?) {}
+            }
+        )
+
+        // Release SeekBars
+        findViewById<SeekBar>(R.id.seekReleaseDuration).setOnSeekBarChangeListener(
+            object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
+                    if (!fromUser) return
+                    if (progress < 1) { sb.progress = 1; return }
+                    viewModel.updateVibrationReleaseDuration(progress)
+                    findViewById<TextView>(R.id.tvReleaseDuration).text = "时长: ${progress}ms"
+                }
+                override fun onStartTrackingTouch(sb: SeekBar?) {}
+                override fun onStopTrackingTouch(sb: SeekBar?) {}
+            }
+        )
+        findViewById<SeekBar>(R.id.seekReleaseIntensity).setOnSeekBarChangeListener(
+            object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
+                    if (!fromUser) return
+                    viewModel.updateVibrationReleaseIntensity(progress)
+                    findViewById<TextView>(R.id.tvReleaseIntensity).text = "强度: $progress"
+                }
+                override fun onStartTrackingTouch(sb: SeekBar?) {}
+                override fun onStopTrackingTouch(sb: SeekBar?) {}
+            }
+        )
+
+        // Test button (circular) — press & release via touch
+        findViewById<Button>(R.id.btnTestVibration).setOnTouchListener { v, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> { v.performClick(); testHaptic(isPress = true); true }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { testHaptic(isPress = false); true }
+                else -> false
+            }
+        }
+
         // ── About page ──
         setupAboutPage()
 
         // ── Connection page ──
         setupConnectionPage()
         setupUnpairButton()
+    }
+
+    private fun setupEffectSpinner(spinnerId: Int, isPress: Boolean) {
+        val spinner = findViewById<Spinner>(spinnerId)
+        val names = HapticEffect.entries.map { it.displayName }.toTypedArray()
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, names)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinner.adapter = adapter
+        spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                val effect = HapticEffect.entries[pos]
+                if (isPress) viewModel.updateVibrationPressViewEffect(effect)
+                else viewModel.updateVibrationReleaseViewEffect(effect)
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+    }
+
+    private fun updateVibrationUI() {
+        val s = viewModel.settings.value
+
+        // Press column
+        selectChipGroup(listOf(R.id.btnVibPressTypeNone, R.id.btnVibPressTypeView, R.id.btnVibPressTypeEffect),
+            s.vibrationPressType.ordinal)
+        findViewById<View>(R.id.layoutPressViewEffects).visibility =
+            if (s.vibrationPressType == VibrationType.VIEW) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.layoutPressVibEffect).visibility =
+            if (s.vibrationPressType == VibrationType.VIBRATION_EFFECT) View.VISIBLE else View.GONE
+        findViewById<Spinner>(R.id.spinnerPressEffect).setSelection(s.vibrationPressViewEffect.ordinal)
+        findViewById<TextView>(R.id.tvPressDuration).text = "时长: ${s.vibrationPressDuration}ms"
+        findViewById<TextView>(R.id.tvPressIntensity).text = "强度: ${s.vibrationPressIntensity}"
+        findViewById<SeekBar>(R.id.seekPressDuration).progress = s.vibrationPressDuration
+        findViewById<SeekBar>(R.id.seekPressIntensity).progress = s.vibrationPressIntensity
+
+        // Release column
+        selectChipGroup(listOf(R.id.btnVibReleaseTypeNone, R.id.btnVibReleaseTypeView, R.id.btnVibReleaseTypeEffect),
+            s.vibrationReleaseType.ordinal)
+        findViewById<View>(R.id.layoutReleaseViewEffects).visibility =
+            if (s.vibrationReleaseType == VibrationType.VIEW) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.layoutReleaseVibEffect).visibility =
+            if (s.vibrationReleaseType == VibrationType.VIBRATION_EFFECT) View.VISIBLE else View.GONE
+        findViewById<Spinner>(R.id.spinnerReleaseEffect).setSelection(s.vibrationReleaseViewEffect.ordinal)
+        findViewById<TextView>(R.id.tvReleaseDuration).text = "时长: ${s.vibrationReleaseDuration}ms"
+        findViewById<TextView>(R.id.tvReleaseIntensity).text = "强度: ${s.vibrationReleaseIntensity}"
+        findViewById<SeekBar>(R.id.seekReleaseDuration).progress = s.vibrationReleaseDuration
+        findViewById<SeekBar>(R.id.seekReleaseIntensity).progress = s.vibrationReleaseIntensity
+    }
+
+    private fun testHaptic(isPress: Boolean) {
+        val s = viewModel.settings.value
+        if (!s.vibrationEnabled) return
+        val type = if (isPress) s.vibrationPressType else s.vibrationReleaseType
+        when (type) {
+            VibrationType.NONE -> return
+            VibrationType.VIEW -> {
+                val e = if (isPress) s.vibrationPressViewEffect else s.vibrationReleaseViewEffect
+                gamepadLayout.performHapticFeedback(hapticEffectToConstant(e))
+            }
+            VibrationType.VIBRATION_EFFECT -> {
+                val dur = (if (isPress) s.vibrationPressDuration else s.vibrationReleaseDuration).coerceAtLeast(1)
+                val amp = if (isPress) s.vibrationPressIntensity else s.vibrationReleaseIntensity
+                vibrator.cancel()
+                vibrator.vibrate(VibrationEffect.createOneShot(dur.toLong(), amp.coerceIn(0, 255)))
+            }
+        }
     }
 
     private fun setupUnpairButton() {
@@ -1095,6 +1289,7 @@ class MainActivity : ComponentActivity() {
             TargetPlatform.entries.indexOf(s.targetPlatform).coerceAtLeast(0))
         findViewById<Switch>(R.id.switchBtnVibration).isChecked = s.vibrationEnabled
         findViewById<Switch>(R.id.switchGameVibration).isChecked = s.gameVibrationEnabled
+        updateVibrationUI()
         updateSettingsVisibility(s.connectionMode)
 
         refreshPresetList()
