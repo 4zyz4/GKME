@@ -509,7 +509,7 @@ class MainActivity : ComponentActivity() {
                 gravity = android.view.Gravity.CENTER
             }
         }
-        gamepadLayout.addView(view, 0)
+        gamepadLayout.addView(view)
 
         if (!entry.isTouchpad) {
             if (entry.isCustom) {
@@ -556,7 +556,7 @@ class MainActivity : ComponentActivity() {
                 gravity = android.view.Gravity.CENTER
             }
         }
-        gamepadLayout.addView(view, 0)
+        gamepadLayout.addView(view)
         setupCustomTouchHandler(view)
         return view
     }
@@ -677,7 +677,7 @@ class MainActivity : ComponentActivity() {
             setupCustomTouchHandler(view)
         }
         controlViews[baseId] = view
-        gamepadLayout.addView(view, 0)
+        gamepadLayout.addView(view)
     }
 
     private fun getBitForEntry(entry: CtrlEntry): Int? {
