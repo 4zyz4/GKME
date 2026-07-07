@@ -11,7 +11,6 @@ import com.zyz4.gamepademu.data.PairingStateRepository
 import com.zyz4.gamepademu.data.SettingsRepository
 import com.zyz4.gamepademu.model.AppSettings
 import com.zyz4.gamepademu.model.ConnectionMode
-import com.zyz4.gamepademu.model.ControllerMode
 import com.zyz4.gamepademu.proto.ClientToServer
 import com.zyz4.gamepademu.proto.GamepadInput
 import com.zyz4.gamepademu.proto.Hello

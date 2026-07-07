@@ -8,7 +8,6 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.zyz4.gamepademu.model.AppSettings
 import com.zyz4.gamepademu.model.ConnectionMode
-import com.zyz4.gamepademu.model.ControllerMode
 import com.zyz4.gamepademu.model.DisplayMode
 import com.zyz4.gamepademu.model.GyroOrientation
 import com.zyz4.gamepademu.model.HapticEffect
@@ -28,7 +27,6 @@ class SettingsRepository @Inject constructor(
 ) {
     private object Keys {
         val DISPLAY_MODE = intPreferencesKey("display_mode")
-        val CONTROLLER_MODE = intPreferencesKey("controller_mode")
         val CONNECTION_MODE = intPreferencesKey("connection_mode")
         val TARGET_PLATFORM = intPreferencesKey("target_platform")
         val DEVICE_NAME = stringPreferencesKey("device_name")
@@ -55,9 +53,6 @@ class SettingsRepository @Inject constructor(
             displayMode = DisplayMode.entries.getOrElse(
                 prefs[Keys.DISPLAY_MODE] ?: 0
             ) { DisplayMode.XBOX },
-            controllerMode = ControllerMode.entries.getOrElse(
-                prefs[Keys.CONTROLLER_MODE] ?: 0
-            ) { ControllerMode.XBOX_360 },
             connectionMode = ConnectionMode.entries.getOrElse(
                 prefs[Keys.CONNECTION_MODE] ?: 0
             ) { ConnectionMode.WIFI },
@@ -97,7 +92,6 @@ class SettingsRepository @Inject constructor(
     suspend fun saveSettings(settings: AppSettings) {
         context.settingsDataStore.edit { prefs ->
             prefs[Keys.DISPLAY_MODE] = settings.displayMode.ordinal
-            prefs[Keys.CONTROLLER_MODE] = settings.controllerMode.ordinal
             prefs[Keys.CONNECTION_MODE] = settings.connectionMode.ordinal
             prefs[Keys.TARGET_PLATFORM] = settings.targetPlatform.ordinal
             prefs[Keys.DEVICE_NAME] = settings.deviceName

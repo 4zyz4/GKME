@@ -57,6 +57,14 @@ message GamepadInput {
   uint32 battery_level = 19;
   uint64 seq = 20;
   bool is_charging = 21;
+  repeated TouchPoint touches = 22;
+}
+
+message TouchPoint {
+  uint32 id = 1;
+  uint32 x = 2;
+  uint32 y = 3;
+  bool active = 4;
 }
 
 message KeepAlive {

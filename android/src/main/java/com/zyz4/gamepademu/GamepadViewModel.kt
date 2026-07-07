@@ -11,7 +11,6 @@ import com.zyz4.gamepademu.data.LayoutRepository
 import com.zyz4.gamepademu.input.SensorHandler
 import com.zyz4.gamepademu.input.toProto
 import com.zyz4.gamepademu.model.ConnectionMode
-import com.zyz4.gamepademu.model.ControllerMode
 import com.zyz4.gamepademu.model.DisplayMode
 import com.zyz4.gamepademu.model.GamepadState
 import com.zyz4.gamepademu.model.GyroOrientation
@@ -19,6 +18,7 @@ import com.zyz4.gamepademu.model.ButtonPosition
 import com.zyz4.gamepademu.model.HapticEffect
 import com.zyz4.gamepademu.model.LayoutPreset
 import com.zyz4.gamepademu.model.TargetPlatform
+import com.zyz4.gamepademu.model.TouchPoint
 import com.zyz4.gamepademu.model.VibrationType
 import com.zyz4.gamepademu.service.ConnectionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -171,12 +171,7 @@ class GamepadViewModel @Inject constructor(
     }
 
     fun updateConnectionMode(mode: ConnectionMode) {
-        val updated = if (mode == ConnectionMode.BLUETOOTH) {
-            settings.value.copy(connectionMode = mode, controllerMode = ControllerMode.XBOX_360)
-        } else {
-            settings.value.copy(connectionMode = mode)
-        }
-        connectionManager.updateSettings(updated)
+        connectionManager.updateSettings(settings.value.copy(connectionMode = mode))
     }
 
     fun updateTargetPlatform(platform: TargetPlatform) {
@@ -433,10 +428,18 @@ class GamepadViewModel @Inject constructor(
         sendInput()
     }
 
-    fun onTouchpad(x: Int, y: Int, touching: Boolean) {
+    fun onTouchpadTouches(touches: List<TouchPoint>) {
+        val primary = touches.firstOrNull { it.active }
         _gamepadState.value = _gamepadState.value.copy(
-            touchpadX = x, touchpadY = y, touchpadTouch = touching
+            touches = touches,
+            touchpadX = primary?.x ?: 0,
+            touchpadY = primary?.y ?: 0,
+            touchpadTouch = primary != null
         )
+        if (touches.isNotEmpty()) {
+            android.util.Log.d("TP", "touches=${touches.size} " +
+                touches.joinToString { "(${it.id}:${it.x},${it.y})" })
+        }
         sendInput()
     }
 

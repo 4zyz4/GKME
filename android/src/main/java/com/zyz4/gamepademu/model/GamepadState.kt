@@ -19,6 +19,7 @@ data class GamepadState(
     val touchpadY: Int = 0,
     val touchpadTouch: Boolean = false,
     val touchpadClick: Boolean = false,
+    val touches: List<TouchPoint> = emptyList(),
     val batteryLevel: Int = 100,
     val isCharging: Boolean = false,
 ) {
@@ -56,3 +57,10 @@ data class GamepadState(
         const val DPAD_DOWN_RIGHT = 10
     }
 }
+
+data class TouchPoint(
+    val id: Int = 0,
+    val x: Int = 0,
+    val y: Int = 0,
+    val active: Boolean = false,
+)

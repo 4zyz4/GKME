@@ -19,6 +19,16 @@ fun GamepadState.toProto(): GamepadInput {
         .setTouchpadTouch(touchpadTouch)
         .setTouchpadClick(touchpadClick)
         .setIsCharging(isCharging)
+    for (t in touches) {
+        builder.addTouches(
+            com.zyz4.gamepademu.proto.TouchPoint.newBuilder()
+                .setId(t.id)
+                .setX(t.x)
+                .setY(t.y)
+                .setActive(t.active)
+                .build()
+        )
+    }
     if (gyroX != 0f || gyroY != 0f || gyroZ != 0f) {
         builder.setGyroX(gyroX).setGyroY(gyroY).setGyroZ(gyroZ)
     }
