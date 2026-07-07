@@ -79,7 +79,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             "btnSelect" -> "选择"
             "btnHome" -> "主页"
             "btnMenu" -> "菜单"
-            "btnTouchpad" -> "触摸板按键"
+            "btnTouchpad" -> "触摸板按下"
             "btnLS" -> "左摇杆按下"
             "btnRS" -> "右摇杆按下"
             "touchpad" -> "触摸板"

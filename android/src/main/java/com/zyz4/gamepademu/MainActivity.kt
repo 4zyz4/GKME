@@ -254,14 +254,14 @@ class MainActivity : ComponentActivity() {
         CtrlEntry("leftJoystick", "左摇杆", R.drawable.joystick_outer, isJoystick = true, w = 17, h = 17),
         CtrlEntry("rightJoystick", "右摇杆", R.drawable.joystick_outer, isJoystick = true, w = 17, h = 17),
         CtrlEntry("touchpad", "触摸板", R.drawable.center_rect, isTouchpad = true, w = 34, h = 22, lockAspect = false),
-        CtrlEntry("btnTouchpad", "触摸板", R.drawable.btn_touchpad, R.drawable.btn_touchpad, bit = GamepadState.TOUCHPAD_CLICK, w = 9, h = 9),
-        CtrlEntry("btnLS", "LS", R.drawable.btn_ls, R.drawable.btn_ls, bit = GamepadState.L3, w = 9, h = 9),
-        CtrlEntry("btnRS", "RS", R.drawable.btn_rs, R.drawable.btn_rs, bit = GamepadState.R3, w = 9, h = 9),
+        CtrlEntry("btnTouchpad", "触摸板按下", R.drawable.btn_touchpad, R.drawable.btn_touchpad, bit = GamepadState.TOUCHPAD_CLICK, w = 9, h = 9),
+        CtrlEntry("btnLS", "左摇杆按下", R.drawable.btn_ls, R.drawable.btn_ls, bit = GamepadState.L3, w = 9, h = 9),
+        CtrlEntry("btnRS", "右摇杆按下", R.drawable.btn_rs, R.drawable.btn_rs, bit = GamepadState.R3, w = 9, h = 9),
         CtrlEntry("btnSelect", "选择", R.drawable.btn_select_xbox, bit = GamepadState.SELECT, w = 9, h = 9),
         CtrlEntry("btnHome", "主页", R.drawable.ic_home, useImageButton = true, bit = GamepadState.HOME, w = 9, h = 9),
         CtrlEntry("btnMenu", "菜单", R.drawable.btn_menu_xbox, bit = GamepadState.START, w = 9, h = 9),
-        CtrlEntry("btnCustomCircle", "自定义", R.drawable.button_circle, isCustom = true),
-        CtrlEntry("btnCustomRect", "自定义", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, w = 14, h = 8, lockAspect = false, isCustom = true),
+        CtrlEntry("btnCustomCircle", "自定义(圆)", R.drawable.button_circle, isCustom = true),
+        CtrlEntry("btnCustomRect", "自定义(方)", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, w = 14, h = 8, lockAspect = false, isCustom = true),
     )
 
     private fun getPreviewText(entry: CtrlEntry, mode: DisplayMode): String? {
@@ -399,6 +399,12 @@ class MainActivity : ComponentActivity() {
                     }
                     jv.layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
                     wrapper.addView(jv)
+                } else if (entry.isTouchpad) {
+                    val iv = ImageView(this).apply {
+                        setImageResource(getPreviewIcon(entry, mode))
+                        layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+                    }
+                    wrapper.addView(iv)
                 } else {
                     val iv = ImageView(this).apply {
                         setImageResource(getPreviewIcon(entry, mode))
@@ -407,6 +413,12 @@ class MainActivity : ComponentActivity() {
                     }
                     wrapper.addView(iv)
                 }
+                val label = TextView(this)
+                label.text = entry.name
+                label.setTextColor(-0x333334)
+                label.textSize = 10f
+                label.gravity = android.view.Gravity.CENTER
+                wrapper.addView(label)
                 row.addView(wrapper, LinearLayout.LayoutParams(cellW / cols, ViewGroup.LayoutParams.WRAP_CONTENT))
             }
             grid.addView(row)
@@ -689,7 +701,7 @@ class MainActivity : ComponentActivity() {
             setPadding((12f * density).toInt(), (12f * density).toInt(), (12f * density).toInt(), (12f * density).toInt())
         }
 
-        allControls.filter { it.baseId != "btnCustomCircle" && it.baseId != "btnCustomRect" }
+        allControls.filter { it.baseId != "btnCustomCircle" && it.baseId != "btnCustomRect" && !it.isJoystick && !it.isTouchpad }
             .chunked(cols).forEach { rowItems ->
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
