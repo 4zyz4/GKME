@@ -1454,7 +1454,6 @@ class MainActivity : ComponentActivity() {
         findViewById<TextView>(R.id.tvAppVersion).text = "版本 ${packageInfo.versionName}"
         findViewById<TextView>(R.id.tvAppDescription).text = "作者：4zyz4\n\n" +
                 "开源地址：https://github.com/4zyz4/gamepad-emu-android\n" +
-                "https://github.com/4zyz4/gamepad-emu-windows\n\n" +
                 "注意：本软件不是Emotion，请进入Q群1045923515以下载正版Emotion"
 
         findViewById<ImageView>(R.id.ivAppIcon).setImageResource(R.mipmap.icon)
