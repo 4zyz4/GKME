@@ -4,7 +4,7 @@ import com.zyz4.gamepademu.model.GamepadState
 import com.zyz4.gamepademu.proto.GamepadInput
 
 fun GamepadState.toProto(): GamepadInput {
-    return GamepadInput.newBuilder()
+    val builder = GamepadInput.newBuilder()
         .setButtons(buttons.toInt())
         .setLeftStickX(leftStickX.toInt())
         .setLeftStickY(leftStickY.toInt())
@@ -14,18 +14,18 @@ fun GamepadState.toProto(): GamepadInput {
         .setRightTrigger(rightTrigger)
         .setDpad(dpad)
         .setBatteryLevel(batteryLevel)
-        .setGyroX(gyroX)
-        .setGyroY(gyroY)
-        .setGyroZ(gyroZ)
-        .setAccelX(accelX)
-        .setAccelY(accelY)
-        .setAccelZ(accelZ)
         .setTouchpadX(touchpadX)
         .setTouchpadY(touchpadY)
         .setTouchpadTouch(touchpadTouch)
         .setTouchpadClick(touchpadClick)
         .setIsCharging(isCharging)
-        .build()
+    if (gyroX != 0f || gyroY != 0f || gyroZ != 0f) {
+        builder.setGyroX(gyroX).setGyroY(gyroY).setGyroZ(gyroZ)
+    }
+    if (accelX != 0f || accelY != 0f || accelZ != 0f) {
+        builder.setAccelX(accelX).setAccelY(accelY).setAccelZ(accelZ)
+    }
+    return builder.build()
 }
 
 object GamepadInputProcessor {

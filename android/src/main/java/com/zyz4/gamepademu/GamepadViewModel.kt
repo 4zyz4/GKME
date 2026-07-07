@@ -248,6 +248,10 @@ class GamepadViewModel @Inject constructor(
         } else {
             stopSensorDisplay()
             sendJob?.cancel()
+            _gamepadState.value = _gamepadState.value.copy(
+                gyroX = 0f, gyroY = 0f, gyroZ = 0f,
+                accelX = 0f, accelY = 0f, accelZ = 0f,
+            )
             startPeriodicSendLoop()
         }
     }
