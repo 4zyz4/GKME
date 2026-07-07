@@ -63,6 +63,7 @@ class GamepadViewModel @Inject constructor(
 
     private val sensorHandler = SensorHandler(app)
     private var sendJob: Job? = null
+    private var sensorDisplayJob: Job? = null
 
     var currentPresetGyroOrientation: GyroOrientation? = null
         set(value) {
@@ -78,16 +79,8 @@ class GamepadViewModel @Inject constructor(
     init {
         _displayMode.value = settings.value.displayMode
         initializeLayouts()
-        connectionManager.onControllerModeChanged = { mode ->
-            sendJob?.cancel()
-            sensorHandler.stop()
-            if (mode == ControllerMode.DS4 && settings.value.connectionMode == ConnectionMode.WIFI && settings.value.gyroEnabled) {
-                sensorHandler.gyroOrientation = currentPresetGyroOrientation ?: settings.value.gyroOrientation
-                sensorHandler.start()
-                startSensorSendLoop()
-            } else {
-                startPeriodicSendLoop()
-            }
+        if (settings.value.gyroEnabled) {
+            startSensorDisplay()
         }
     }
 
@@ -247,13 +240,14 @@ class GamepadViewModel @Inject constructor(
     fun updateGyroEnabled(enabled: Boolean) {
         val updated = settings.value.copy(gyroEnabled = enabled)
         connectionManager.updateSettings(updated)
-        if (enabled && settings.value.controllerMode == ControllerMode.DS4 && settings.value.connectionMode == ConnectionMode.WIFI) {
-            sensorHandler.gyroOrientation = currentPresetGyroOrientation ?: settings.value.gyroOrientation
-            sensorHandler.start()
-            startSensorSendLoop()
-        } else if (!enabled) {
+        if (enabled) {
+            startSensorDisplay()
+            if (settings.value.connectionMode == ConnectionMode.WIFI) {
+                startSensorSendLoop()
+            }
+        } else {
+            stopSensorDisplay()
             sendJob?.cancel()
-            sensorHandler.stop()
             startPeriodicSendLoop()
         }
     }
@@ -273,13 +267,11 @@ class GamepadViewModel @Inject constructor(
         ) {
             startPeriodicSendLoop()
         }
-        if (settings.value.controllerMode == ControllerMode.DS4 &&
-            settings.value.connectionMode == ConnectionMode.WIFI &&
-            settings.value.gyroEnabled
-        ) {
-            sensorHandler.gyroOrientation = currentPresetGyroOrientation ?: settings.value.gyroOrientation
-            sensorHandler.start()
-            startSensorSendLoop()
+        if (settings.value.gyroEnabled) {
+            startSensorDisplay()
+            if (settings.value.connectionMode == ConnectionMode.WIFI) {
+                startSensorSendLoop()
+            }
         }
     }
 
@@ -316,8 +308,26 @@ class GamepadViewModel @Inject constructor(
 
     fun stopServer() {
         sendJob?.cancel()
-        sensorHandler.stop()
         connectionManager.stopServer()
+    }
+
+    private fun startSensorDisplay() {
+        sensorHandler.gyroOrientation = currentPresetGyroOrientation ?: settings.value.gyroOrientation
+        sensorHandler.start()
+        sensorDisplayJob?.cancel()
+        sensorDisplayJob = viewModelScope.launch {
+            while (true) {
+                val sensor = sensorHandler.sensorData.value
+                _gyroDisplay.value = Triple(sensor.gyroX, sensor.gyroY, sensor.gyroZ)
+                delay(8)
+            }
+        }
+    }
+
+    private fun stopSensorDisplay() {
+        sensorDisplayJob?.cancel()
+        sensorDisplayJob = null
+        sensorHandler.stop()
     }
 
     private fun startSensorSendLoop() {

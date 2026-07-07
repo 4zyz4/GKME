@@ -252,8 +252,6 @@ class ConnectionManager @Inject constructor(
         bluetoothService = null
     }
 
-    var onControllerModeChanged: ((ControllerMode) -> Unit)? = null
-
     private fun handleClientMessage(data: ByteArray) {
         try {
             val msg = ServerToClient.parseFrom(data)
@@ -269,14 +267,6 @@ class ConnectionManager @Inject constructor(
                     _connectionState.value = ConnectionState(
                         statusText = "已断开"
                     )
-                }
-                ServerToClient.PayloadCase.SET_CONTROLLER_MODE -> {
-                    val protoMode = msg.setControllerMode.mode
-                    val newMode = if (protoMode == com.zyz4.gamepademu.proto.ControllerMode.DS4)
-                        ControllerMode.DS4 else ControllerMode.XBOX_360
-                    _settings.value = _settings.value.copy(controllerMode = newMode)
-                    scope.launch { settingsRepository.saveSettings(_settings.value) }
-                    onControllerModeChanged?.invoke(newMode)
                 }
                 ServerToClient.PayloadCase.RTT_REPORT -> {
                 }

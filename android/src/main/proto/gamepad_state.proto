@@ -8,11 +8,6 @@ option csharp_namespace = "GamepadEmu.Protocol";
 
 // ─── 枚举 ──────────────────────────────────────
 
-enum ControllerMode {
-  XBOX_360 = 0;
-  DS4 = 1;
-}
-
 enum Button {
   A = 0; B = 1; X = 2; Y = 3;
   LB = 4; RB = 5;
@@ -75,7 +70,6 @@ message ServerToClient {
     Vibration vibration = 1;
     Ack ack = 2;
     Disconnect disconnect = 3;
-    SetControllerMode set_controller_mode = 4;
     RttReport rtt_report = 5;
     ServerHello server_hello = 7;
   }
@@ -106,8 +100,4 @@ message Ack {
 
 message Disconnect {
   string reason = 1;
-}
-
-message SetControllerMode {
-  ControllerMode mode = 1;
 }
