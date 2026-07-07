@@ -321,8 +321,8 @@ class MainActivity : ComponentActivity() {
     private fun showAddButtonDialog() {
         val density = resources.displayMetrics.density
         val cols = 6
-        val cellW = (500f * density).toInt()
-        val iconSize = (56f * density).toInt()
+        val cellW = (400f * density).toInt()
+        val iconSize = (48f * density).toInt()
         val mode = viewModel.settings.value.displayMode
 
         val content = NestedScrollView(this)
@@ -700,8 +700,8 @@ class MainActivity : ComponentActivity() {
         outputPickerDialog?.dismiss()
         val density = resources.displayMetrics.density
         val cols = 6
-        val cellW = (500f * density).toInt()
-        val iconSize = (56f * density).toInt()
+        val cellW = (400f * density).toInt()
+        val iconSize = (48f * density).toInt()
         val mode = viewModel.settings.value.displayMode
 
         val content = NestedScrollView(this)
