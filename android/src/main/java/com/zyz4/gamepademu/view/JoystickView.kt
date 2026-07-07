@@ -16,6 +16,10 @@ class JoystickView @JvmOverloads constructor(
 
     var label: String = ""
     var axisRotation: Int = 0
+        set(value) {
+            field = value
+            invalidate()
+        }
     var onStickMoved: ((sx: Short, sy: Short) -> Unit)? = null
     var onStickClickDown: (() -> Unit)? = null
     var onStickClickUp: (() -> Unit)? = null

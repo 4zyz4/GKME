@@ -8,6 +8,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import com.zyz4.gamepademu.model.ButtonPosition
+import com.zyz4.gamepademu.model.GyroOrientation
 import com.zyz4.gamepademu.model.LayoutPreset
 import com.zyz4.gamepademu.view.JoystickView
 
@@ -50,6 +51,8 @@ class GamepadLayout @JvmOverloads constructor(
     private var cellH = 0f
 
     var currentButtons: List<ButtonPosition> = emptyList()
+        private set
+    var currentGyroOrientation: GyroOrientation? = null
         private set
     private var isEditMode = false
     var selectedButtonId: String? = null
@@ -323,13 +326,14 @@ class GamepadLayout @JvmOverloads constructor(
         currentButtons = preset.buttons.map {
             if (it.id == "centerArea") it.copy(id = "touchpad") else it
         }.toList()
+        currentGyroOrientation = preset.gyroOrientation
         hasChanges = false
         refreshSwipeTriggers()
         requestLayout()
     }
 
     fun getPreset(): LayoutPreset {
-        return LayoutPreset(version = 1, buttons = currentButtons.toList())
+        return LayoutPreset(version = 1, buttons = currentButtons.toList(), gyroOrientation = currentGyroOrientation)
     }
 
     fun enterEditMode() {

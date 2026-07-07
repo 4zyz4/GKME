@@ -12,6 +12,10 @@ class RotatableButton @JvmOverloads constructor(
 ) : Button(context, attrs, defStyleAttr) {
 
     var textRotation: Int = 0
+        set(value) {
+            field = value
+            invalidate()
+        }
 
     override fun onDraw(canvas: Canvas) {
         val r = textRotation % 360

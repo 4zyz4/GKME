@@ -99,13 +99,13 @@ class GamepadViewModel @Inject constructor(
             val name = settings.value.currentPresetName
             val loaded = layoutRepository.loadPreset(name)
             if (loaded != null) {
-                _currentPreset.value = ensureDefaultButtons(loaded)
+                _currentPreset.value = loaded
             } else {
                 val presets = layoutRepository.listPresets()
                 if (presets.isNotEmpty()) {
                     val first = layoutRepository.loadPreset(presets[0])
                     if (first != null) {
-                        _currentPreset.value = ensureDefaultButtons(first)
+                        _currentPreset.value = first
                         connectionManager.updateSettings(
                             settings.value.copy(currentPresetName = presets[0])
                         )
@@ -114,27 +114,6 @@ class GamepadViewModel @Inject constructor(
             }
         }
         refreshPresetList()
-    }
-
-    private fun ensureDefaultButtons(preset: LayoutPreset): LayoutPreset {
-        val existing = preset.buttons.map { it.id }.toSet()
-        val missing = DEFAULT_BUTTON_IDS - existing
-        if (missing.isEmpty()) return preset
-        val defaults = layoutRepository.getDefaultPreset().buttons.filter { it.id in missing }
-        val merged = preset.buttons + defaults
-        val updated = preset.copy(buttons = merged)
-        layoutRepository.savePreset(settings.value.currentPresetName, updated)
-        return updated
-    }
-
-    companion object {
-        private val DEFAULT_BUTTON_IDS = setOf(
-            "btnDpadUp", "btnDpadDown", "btnDpadLeft", "btnDpadRight",
-            "btnY", "btnA", "btnX", "btnB",
-            "leftJoystick", "rightJoystick",
-            "btnLT", "btnLB", "btnRT", "btnRB",
-            "btnSelect", "btnHome", "btnMenu", "touchpad",
-        )
     }
 
     private fun refreshPresetList() {
@@ -209,6 +188,10 @@ class GamepadViewModel @Inject constructor(
 
     fun updateTargetPlatform(platform: TargetPlatform) {
         connectionManager.updateSettings(settings.value.copy(targetPlatform = platform))
+    }
+
+    fun createDefaultLayout(): LayoutPreset {
+        return layoutRepository.getDefaultPreset()
     }
 
     fun getServerIp(): String = connectionManager.getServerIp()

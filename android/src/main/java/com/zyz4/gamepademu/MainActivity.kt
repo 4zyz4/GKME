@@ -145,12 +145,14 @@ class MainActivity : ComponentActivity() {
                     viewModel.saveCurrentPreset(gamepadLayout.getPreset())
                     gamepadLayout.exitEditMode()
                     viewModel.updateEditMode(false)
+                    applyPreset(viewModel.currentPreset.value)
                 }
 
                 override fun onDiscard() {
                     if (!gamepadLayout.hasUnsavedChanges()) {
                         gamepadLayout.exitEditMode()
                         viewModel.updateEditMode(false)
+                        applyPreset(viewModel.currentPreset.value)
                         return
                     }
                     AlertDialog.Builder(this@MainActivity)
@@ -160,6 +162,7 @@ class MainActivity : ComponentActivity() {
                             gamepadLayout.discardToSnapshot()
                             gamepadLayout.exitEditMode()
                             viewModel.updateEditMode(false)
+                            applyPreset(viewModel.currentPreset.value)
                         }
                         .setNegativeButton("取消", null)
                         .show()
@@ -193,8 +196,8 @@ class MainActivity : ComponentActivity() {
                     val updated = gamepadLayout.getPreset().copy(gyroOrientation = orientation)
                     gamepadLayout.loadPreset(updated)
                     viewModel.updatePresetButtons(updated)
+                    viewModel.currentPresetGyroOrientation = orientation
                     floatingEditor.presetGyroOrientation = orientation
-                    floatingEditor.gyroOrientationLocked = orientation != null
                 }
             }
         }
@@ -582,20 +585,11 @@ class MainActivity : ComponentActivity() {
 
     private fun applyPreset(preset: LayoutPreset) {
         gamepadLayout.loadPreset(preset)
-        ensureViewsForAllPresetButtons(preset)
+        ensureViewsForAllPresetButtons()
     }
 
-    private fun ensureViewsForAllPresetButtons(preset: LayoutPreset) {
-        val buttons = preset.buttons.orEmpty()
-        val presetIds = buttons.map { it.id }.toSet()
-
-        for (i in gamepadLayout.childCount - 1 downTo 0) {
-            val child = gamepadLayout.getChildAt(i)
-            val tag = child.tag as? String ?: continue
-            if (tag.startsWith("btnCustom") && tag !in presetIds) {
-                gamepadLayout.removeView(child)
-            }
-        }
+    private fun ensureViewsForAllPresetButtons() {
+        val buttons = gamepadLayout.currentButtons
 
         val existingIds = (0 until gamepadLayout.childCount).mapNotNull {
             gamepadLayout.getChildAt(it).tag as? String
@@ -676,6 +670,7 @@ class MainActivity : ComponentActivity() {
         } else if (entry.isCustom) {
             setupCustomTouchHandler(view)
         }
+        controlViews[baseId] = view
         gamepadLayout.addView(view, 0)
     }
 
@@ -830,7 +825,6 @@ class MainActivity : ComponentActivity() {
                     viewModel.setSelectedButtonId(buttonId)
                     val preset = gamepadLayout.getPreset()
                     floatingEditor.presetGyroOrientation = preset.gyroOrientation
-                    floatingEditor.gyroOrientationLocked = preset.gyroOrientation != null
                     if (buttonId != null) {
                         val pos = gamepadLayout.currentButtons.find { it.id == buttonId }
                         if (pos != null) {
@@ -1130,6 +1124,7 @@ class MainActivity : ComponentActivity() {
                 hideSettings()
                 applyPreset(viewModel.currentPreset.value)
                 gamepadLayout.enterEditMode()
+                floatingEditor.presetGyroOrientation = gamepadLayout.currentGyroOrientation
             }
         }
 
@@ -1323,6 +1318,12 @@ class MainActivity : ComponentActivity() {
             R.id.btnGyroOriPortraitInverted to GyroOrientation.PORTRAIT_INVERTED,
         ).forEach { (id, orientation) ->
             findViewById<Button>(id).setOnClickListener {
+                val locked = viewModel.currentPreset.value.gyroOrientation
+                if (locked != null) {
+                    val name = viewModel.settings.value.currentPresetName
+                    showToast("体感握持方向被布局「$name」锁定")
+                    return@setOnClickListener
+                }
                 selectChipGroup(
                     listOf(R.id.btnGyroOriLandscape, R.id.btnGyroOriPortrait, R.id.btnGyroOriPortraitInverted),
                     orientation.ordinal
@@ -1526,8 +1527,7 @@ class MainActivity : ComponentActivity() {
             .setPositiveButton("创建") { _, _ ->
                 val name = input.text.toString().trim()
                 if (name.isNotEmpty()) {
-                    val defaultJson = com.zyz4.gamepademu.data.LayoutRepository.DEFAULT_JSON
-                    val preset = LayoutPreset.fromJson(defaultJson)
+                    val preset = viewModel.createDefaultLayout()
                     viewModel.savePreset(name, preset)
                     applyPreset(preset)
                     refreshPresetList()
@@ -1759,9 +1759,8 @@ class MainActivity : ComponentActivity() {
         val orientationChips = listOf(
             R.id.btnGyroOriLandscape, R.id.btnGyroOriPortrait, R.id.btnGyroOriPortraitInverted
         )
-        val locked = presetGyroOrientation != null
-        orientationChips.forEach { id ->
-            findViewById<Button>(id).isEnabled = !locked
+        if (presetGyroOrientation != null) {
+            selectChipGroup(orientationChips, presetGyroOrientation.ordinal)
         }
     }
 
@@ -1782,8 +1781,9 @@ class MainActivity : ComponentActivity() {
         updateSettingsVisibility(s.connectionMode)
 
         findViewById<Switch>(R.id.switchGyroEnabled).isChecked = s.gyroEnabled
+        val effectiveOrientation = viewModel.currentPreset.value.gyroOrientation ?: s.gyroOrientation
         selectChipGroup(listOf(R.id.btnGyroOriLandscape, R.id.btnGyroOriPortrait, R.id.btnGyroOriPortraitInverted),
-            GyroOrientation.entries.indexOf(s.gyroOrientation).coerceAtLeast(0))
+            GyroOrientation.entries.indexOf(effectiveOrientation).coerceAtLeast(0))
         findViewById<TextView>(R.id.tvGyroSensitivityX).text = "X: 0.00"
         findViewById<TextView>(R.id.tvGyroSensitivityY).text = "Y: 0.00"
         findViewById<TextView>(R.id.tvGyroSensitivityZ).text = "Z: 0.00"

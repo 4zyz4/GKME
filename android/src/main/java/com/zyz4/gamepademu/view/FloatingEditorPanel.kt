@@ -39,8 +39,14 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     }
 
     var editorListener: EditorListener? = null
+
     var presetGyroOrientation: GyroOrientation? = null
-    var gyroOrientationLocked: Boolean = false
+        set(value) {
+            field = value
+            gyroSpinner?.setSelection((value?.ordinal?.plus(1)) ?: 0)
+        }
+
+    private var gyroSpinner: Spinner? = null
 
     private val BUTTON_IDS = setOf(
         "btnDpadUp", "btnDpadDown", "btnDpadLeft", "btnDpadRight",
@@ -226,8 +232,6 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, items).also {
                 it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
             }
-            setSelection((presetGyroOrientation?.ordinal?.plus(1)) ?: 0)
-            isEnabled = !gyroOrientationLocked
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
                     val orientation = when (pos) {
@@ -241,6 +245,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 override fun onNothingSelected(parent: AdapterView<*>?) {}
             }
         }
+        gyroSpinner = spinner
         paramsContainer.addView(spinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
     }
 
