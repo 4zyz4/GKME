@@ -478,6 +478,7 @@ class GamepadLayout @JvmOverloads constructor(
             child.layout(left, top, left + childW, top + childH)
             if (child is JoystickView) {
                 child.axisRotation = pos.rotation
+                child.doubleClickEnable = pos.doubleClickEnable
             } else if (child is ViewGroup) {
                 for (j in 0 until child.childCount) {
                     child.getChildAt(j).rotation = pos.rotation.toFloat()

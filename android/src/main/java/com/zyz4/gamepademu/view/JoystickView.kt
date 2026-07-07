@@ -20,6 +20,7 @@ class JoystickView @JvmOverloads constructor(
     var onStickClickDown: (() -> Unit)? = null
     var onStickClickUp: (() -> Unit)? = null
     var onStickReleased: (() -> Unit)? = null
+    var doubleClickEnable: Boolean = true
 
     private var centerX = 0f
     private var centerY = 0f
@@ -95,20 +96,22 @@ class JoystickView @JvmOverloads constructor(
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                val now = System.currentTimeMillis()
-                if (now - firstTapTime < 300 && firstTapTime > 0) {
-                    handler.removeCallbacks(doubleTapTimeout)
-                    isClicking = true
-                    isDoubleClick = true
-                    firstTapTime = 0
-                    invalidate()
-                    onStickClickDown?.invoke()
-                } else {
-                    firstTapTime = now
-                    firstTapX = event.x
-                    firstTapY = event.y
-                    isDoubleClick = false
-                    handler.postDelayed(doubleTapTimeout, 300)
+                if (doubleClickEnable) {
+                    val now = System.currentTimeMillis()
+                    if (now - firstTapTime < 300 && firstTapTime > 0) {
+                        handler.removeCallbacks(doubleTapTimeout)
+                        isClicking = true
+                        isDoubleClick = true
+                        firstTapTime = 0
+                        invalidate()
+                        onStickClickDown?.invoke()
+                    } else {
+                        firstTapTime = now
+                        firstTapX = event.x
+                        firstTapY = event.y
+                        isDoubleClick = false
+                        handler.postDelayed(doubleTapTimeout, 300)
+                    }
                 }
                 isTouching = true
                 moveKnob(event.x, event.y)

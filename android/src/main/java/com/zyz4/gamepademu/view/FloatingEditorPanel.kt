@@ -286,6 +286,21 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
 
         addRotationButtons(buttonId, density)
+
+        val joystickOrTouchpadIds = setOf("leftJoystick", "rightJoystick", "touchpad")
+        if (buttonId.substringBefore("_") in joystickOrTouchpadIds) {
+            val cb = CheckBox(context).apply {
+                text = "双击按下"
+                setTextColor(-0x444445)
+                textSize = 14f
+                isChecked = button.doubleClickEnable
+                setOnCheckedChangeListener { _, isChecked ->
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(doubleClickEnable = isChecked)) }
+                }
+            }
+            paramsContainer.addView(cb, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+        }
+
         if (isButton(buttonId)) {
             val cb = CheckBox(context).apply {
                 text = "滑动触发"

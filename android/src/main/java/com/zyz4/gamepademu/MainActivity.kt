@@ -929,6 +929,7 @@ class MainActivity : ComponentActivity() {
                     onStickClickDown = { viewModel.onButtonDown(if (isLeft) GamepadState.L3 else GamepadState.R3) }
                     onStickClickUp = { viewModel.onButtonUp(if (isLeft) GamepadState.L3 else GamepadState.R3) }
                     onStickMoved = { sx, sy -> if (isLeft) viewModel.onLeftStick(sx, sy) else viewModel.onRightStick(sx, sy) }
+                    doubleClickEnable = true
                 }
                 d.isTouchpad -> {
                     val tp = FrameLayout(this).apply {
@@ -1029,17 +1030,22 @@ class MainActivity : ComponentActivity() {
             val sx = (vx * 1919).toInt().coerceIn(0, 1919)
             val sy = (vy * 942).toInt().coerceIn(0, 942)
 
+            val btnId = v.tag as? String
+            val doubleClickEnable = btnId?.let { gamepadLayout.currentButtons.find { p -> p.id == it }?.doubleClickEnable } ?: true
+
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     v.performClick()
-                    val now = System.currentTimeMillis()
-                    if (now - firstTapTime < 300 && firstTapTime > 0) {
-                        handler.removeCallbacks(doubleTapTimeout)
-                        v.isPressed = true; isDoubleClick = true; firstTapTime = 0
-                        viewModel.onButtonDown(GamepadState.TOUCHPAD_CLICK)
-                    } else {
-                        firstTapTime = now; firstTapX = event.x; firstTapY = event.y; isDoubleClick = false
-                        handler.postDelayed(doubleTapTimeout, 300)
+                    if (doubleClickEnable) {
+                        val now = System.currentTimeMillis()
+                        if (now - firstTapTime < 300 && firstTapTime > 0) {
+                            handler.removeCallbacks(doubleTapTimeout)
+                            v.isPressed = true; isDoubleClick = true; firstTapTime = 0
+                            viewModel.onButtonDown(GamepadState.TOUCHPAD_CLICK)
+                        } else {
+                            firstTapTime = now; firstTapX = event.x; firstTapY = event.y; isDoubleClick = false
+                            handler.postDelayed(doubleTapTimeout, 300)
+                        }
                     }
                     if (ds4) viewModel.onTouchpad(sx, sy, true)
                     true

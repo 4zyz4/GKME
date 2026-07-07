@@ -14,6 +14,7 @@ data class ButtonPosition(
     val customText: String? = null,
     val customBits: List<Int>? = null,
     val roundShape: Boolean = true,
+    val doubleClickEnable: Boolean = true,
 ) {
     fun sanitize(): ButtonPosition = if (isCustom) {
         copy(customText = customText ?: "自定义", customBits = customBits ?: emptyList(), id = id ?: "")
