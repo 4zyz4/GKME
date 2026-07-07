@@ -276,6 +276,8 @@ class MainActivity : ComponentActivity() {
             "btnRT" -> when (mode) { DisplayMode.XBOX -> "RT"; DisplayMode.PLAYSTATION -> "R2"; DisplayMode.SWITCH -> "ZR" }
             "btnSelect" -> when (mode) { DisplayMode.PLAYSTATION -> "SHARE"; else -> null }
             "btnMenu" -> when (mode) { DisplayMode.PLAYSTATION -> "OPTION"; else -> null }
+            "btnLS" -> "L"
+            "btnRS" -> "R"
             "btnCustomCircle", "btnCustomRect" -> "自定义"
             else -> null
         }
@@ -334,17 +336,46 @@ class MainActivity : ComponentActivity() {
                 }
                 val text = getPreviewText(entry, mode)
                 if (text != null) {
-                    val btn = Button(this).apply {
-                        this.text = text
-                        setTextColor(-0x333334)
-                        textSize = 12f
-                        setTypeface(null, Typeface.BOLD)
-                        setBackgroundResource(getPreviewIcon(entry, mode))
-                        gravity = android.view.Gravity.CENTER
-                        layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
-                        isClickable = false
+                    if (entry.baseId in listOf("btnLS", "btnRS")) {
+                        val fl = FrameLayout(this).apply {
+                            setBackgroundResource(R.drawable.button_circle)
+                            layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+                        }
+                        val iconId = if (entry.baseId == "btnLS") R.drawable.ic_ls else R.drawable.ic_rs
+                        ImageView(this).apply {
+                            setImageResource(iconId)
+                            layoutParams = FrameLayout.LayoutParams(
+                                ViewGroup.LayoutParams.WRAP_CONTENT,
+                                ViewGroup.LayoutParams.WRAP_CONTENT,
+                                android.view.Gravity.TOP or android.view.Gravity.CENTER_HORIZONTAL
+                            )
+                        }.also { fl.addView(it) }
+                        TextView(this).apply {
+                            this.text = text
+                            setTextColor(-0x333334)
+                            textSize = 12f
+                            setTypeface(null, Typeface.BOLD)
+                            gravity = android.view.Gravity.CENTER
+                            layoutParams = FrameLayout.LayoutParams(
+                                ViewGroup.LayoutParams.WRAP_CONTENT,
+                                ViewGroup.LayoutParams.WRAP_CONTENT,
+                                android.view.Gravity.CENTER
+                            )
+                        }.also { fl.addView(it) }
+                        wrapper.addView(fl)
+                    } else {
+                        val btn = Button(this).apply {
+                            this.text = text
+                            setTextColor(-0x333334)
+                            textSize = 12f
+                            setTypeface(null, Typeface.BOLD)
+                            setBackgroundResource(getPreviewIcon(entry, mode))
+                            gravity = android.view.Gravity.CENTER
+                            layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+                            isClickable = false
+                        }
+                        wrapper.addView(btn)
                     }
-                    wrapper.addView(btn)
                 } else if (entry.isJoystick) {
                     val jl = if (entry.baseId.startsWith("left")) "L" else "R"
                     val jv = object : View(this) {
@@ -687,17 +718,46 @@ class MainActivity : ComponentActivity() {
 
                 val text = getPreviewText(entry, mode)
                 if (text != null) {
-                    val btn = Button(this).apply {
-                        this.text = text
-                        setTextColor(-0x333334)
-                        textSize = 12f
-                        setTypeface(null, Typeface.BOLD)
-                        setBackgroundResource(getPreviewIcon(entry, mode))
-                        gravity = android.view.Gravity.CENTER
-                        layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
-                        isClickable = false
+                    if (entry.baseId in listOf("btnLS", "btnRS")) {
+                        val fl = FrameLayout(this).apply {
+                            setBackgroundResource(R.drawable.button_circle)
+                            layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+                        }
+                        val iconId = if (entry.baseId == "btnLS") R.drawable.ic_ls else R.drawable.ic_rs
+                        ImageView(this).apply {
+                            setImageResource(iconId)
+                            layoutParams = FrameLayout.LayoutParams(
+                                ViewGroup.LayoutParams.WRAP_CONTENT,
+                                ViewGroup.LayoutParams.WRAP_CONTENT,
+                                android.view.Gravity.TOP or android.view.Gravity.CENTER_HORIZONTAL
+                            )
+                        }.also { fl.addView(it) }
+                        TextView(this).apply {
+                            this.text = text
+                            setTextColor(-0x333334)
+                            textSize = 12f
+                            setTypeface(null, Typeface.BOLD)
+                            gravity = android.view.Gravity.CENTER
+                            layoutParams = FrameLayout.LayoutParams(
+                                ViewGroup.LayoutParams.WRAP_CONTENT,
+                                ViewGroup.LayoutParams.WRAP_CONTENT,
+                                android.view.Gravity.CENTER
+                            )
+                        }.also { fl.addView(it) }
+                        wrapper.addView(fl)
+                    } else {
+                        val btn = Button(this).apply {
+                            this.text = text
+                            setTextColor(-0x333334)
+                            textSize = 12f
+                            setTypeface(null, Typeface.BOLD)
+                            setBackgroundResource(getPreviewIcon(entry, mode))
+                            gravity = android.view.Gravity.CENTER
+                            layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+                            isClickable = false
+                        }
+                        wrapper.addView(btn)
                     }
-                    wrapper.addView(btn)
                 } else if (entry.isJoystick) {
                     val jl = if (entry.baseId.startsWith("left")) "L" else "R"
                     val jv = object : View(this) {
@@ -1588,12 +1648,14 @@ class MainActivity : ComponentActivity() {
                 }
                 baseId == "btnLS" -> {
                     (child as? Button)?.apply {
-                        text = ""; setBackgroundResource(R.drawable.btn_ls)
+                        text = "L"; textSize = 20f
+                        setBackgroundResource(R.drawable.btn_ls)
                     }
                 }
                 baseId == "btnRS" -> {
                     (child as? Button)?.apply {
-                        text = ""; setBackgroundResource(R.drawable.btn_rs)
+                        text = "R"; textSize = 20f
+                        setBackgroundResource(R.drawable.btn_rs)
                     }
                 }
             }

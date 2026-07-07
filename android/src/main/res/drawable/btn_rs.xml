@@ -3,13 +3,13 @@
     <item android:state_pressed="true">
         <layer-list>
             <item android:drawable="@drawable/button_circle_pressed" />
-            <item android:drawable="@drawable/ic_rs" android:gravity="center" />
+            <item android:drawable="@drawable/ic_rs" android:gravity="top|center_horizontal" />
         </layer-list>
     </item>
     <item>
         <layer-list>
             <item android:drawable="@drawable/button_circle" />
-            <item android:drawable="@drawable/ic_rs" android:gravity="center" />
+            <item android:drawable="@drawable/ic_rs" android:gravity="top|center_horizontal" />
         </layer-list>
     </item>
 </selector>
