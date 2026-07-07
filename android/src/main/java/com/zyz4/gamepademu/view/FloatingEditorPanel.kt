@@ -10,10 +10,13 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.Spinner
 import androidx.core.widget.NestedScrollView
 import android.widget.SeekBar
 import android.widget.CheckBox
@@ -21,6 +24,7 @@ import android.widget.TextView
 import com.zyz4.gamepademu.R
 import com.zyz4.gamepademu.model.ButtonPosition
 import com.zyz4.gamepademu.model.GamepadState
+import com.zyz4.gamepademu.model.GyroOrientation
 
 class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
@@ -31,9 +35,12 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         fun onDeleteButton(buttonId: String)
         fun onButtonUpdated(buttonId: String, updated: ButtonPosition)
         fun onPickOutputValues(buttonId: String, currentBits: List<Int>, onResult: (List<Int>) -> Unit)
+        fun onGyroOrientationChanged(orientation: GyroOrientation?)
     }
 
     var editorListener: EditorListener? = null
+    var presetGyroOrientation: GyroOrientation? = null
+    var gyroOrientationLocked: Boolean = false
 
     private val BUTTON_IDS = setOf(
         "btnDpadUp", "btnDpadDown", "btnDpadLeft", "btnDpadRight",
@@ -51,6 +58,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     private var isDragging = false
 
     private lateinit var paramsContainer: LinearLayout
+    private lateinit var buttonParamsInner: LinearLayout
     private var contentW = 0
     private var panelW = 0
 
@@ -137,19 +145,26 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
         val header = LinearLayout(context).apply {
             layoutParams = LinearLayout.LayoutParams(contentW, ViewGroup.LayoutParams.WRAP_CONTENT)
-            orientation = LinearLayout.VERTICAL
             setOnTouchListener { _, event -> handleDrag(event); true }
         }
+        header.addView(buildGripBar(density))
+        root.addView(header)
 
-        val gripBar = buildGripBar(density)
-        header.addView(gripBar)
-
-        val btnRow = LinearLayout(context).apply {
-            layoutParams = LinearLayout.LayoutParams(contentW, ViewGroup.LayoutParams.WRAP_CONTENT)
-            orientation = LinearLayout.HORIZONTAL
-            setPadding((8f * density).toInt(), 0, (8f * density).toInt(), (10f * density).toInt())
+        val scroll = NestedScrollView(context).apply {
+            layoutParams = LinearLayout.LayoutParams(contentW, ViewGroup.LayoutParams.MATCH_PARENT)
+            isFillViewport = true
+        }
+        paramsContainer = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((8f * density).toInt(), (12f * density).toInt(), (8f * density).toInt(), (12f * density).toInt())
         }
 
+        // Persistent action buttons
+        val btnRow = LinearLayout(context).apply {
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            orientation = LinearLayout.HORIZONTAL
+        }
+        val btnSpacing = (4f * density).toInt()
         val btnSave = Button(context).apply {
             text = "保存"
             setTextColor(-0x1)
@@ -171,24 +186,62 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             setBackgroundResource(R.drawable.button_flat)
             setOnClickListener { editorListener?.onAddButton() }
         }
-        val btnSpacing = (4f * density).toInt()
         btnRow.addView(btnSave, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = btnSpacing })
         btnRow.addView(btnDiscard, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = btnSpacing })
         btnRow.addView(btnAdd, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        header.addView(btnRow)
-        root.addView(header)
+        paramsContainer.addView(btnRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
 
-        val scroll = NestedScrollView(context).apply {
-            layoutParams = LinearLayout.LayoutParams(contentW, ViewGroup.LayoutParams.MATCH_PARENT)
-            isFillViewport = true
-        }
-        paramsContainer = LinearLayout(context).apply {
+        // Gyro orientation selector
+        buildGyroSelector(density)
+
+        // Separator
+        paramsContainer.addView(View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (1f * density).toInt()).apply {
+                bottomMargin = (8f * density).toInt()
+            }
+            background = GradientDrawable().apply { setColor(-0x444445) }
+        })
+
+        // Button-specific params
+        buttonParamsInner = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding((8f * density).toInt(), (12f * density).toInt(), (8f * density).toInt(), (12f * density).toInt())
         }
+        paramsContainer.addView(buttonParamsInner)
+
         scroll.addView(paramsContainer)
         root.addView(scroll)
         addView(root)
+    }
+
+    private fun buildGyroSelector(density: Float) {
+        val tv = TextView(context).apply {
+            text = "体感握持方向"
+            setTextColor(-0x1)
+            textSize = 14f
+        }
+        paramsContainer.addView(tv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (6f * density).toInt() })
+
+        val items = listOf("不指定", "横屏", "竖屏", "倒置竖屏")
+        val spinner = Spinner(context).apply {
+            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, items).also {
+                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+            setSelection((presetGyroOrientation?.ordinal?.plus(1)) ?: 0)
+            isEnabled = !gyroOrientationLocked
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                    val orientation = when (pos) {
+                        1 -> GyroOrientation.LANDSCAPE
+                        2 -> GyroOrientation.PORTRAIT
+                        3 -> GyroOrientation.PORTRAIT_INVERTED
+                        else -> null
+                    }
+                    editorListener?.onGyroOrientationChanged(orientation)
+                }
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
+        }
+        paramsContainer.addView(spinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
     }
 
     private fun buildGripBar(density: Float): View {
@@ -244,30 +297,30 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     }
 
     fun clearParameters() {
-        paramsContainer.removeAllViews()
+        buttonParamsInner.removeAllViews()
     }
 
     fun showParameters(buttonId: String, button: ButtonPosition) {
         currentButton = button
         val density = context.resources.displayMetrics.density
 
-        paramsContainer.removeAllViews()
+        buttonParamsInner.removeAllViews()
 
         val tvId = TextView(context).apply {
             text = getChineseName(buttonId)
             setTextColor(-0x1)
             textSize = 16f
         }
-        paramsContainer.addView(tvId, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
+        buttonParamsInner.addView(tvId, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
 
         if (button.lockAspect) {
-            addSeekbar("大小", button.width, 1, 40) { value ->
+            addSeekbar(buttonParamsInner, "大小", button.width, 1, 40) { value ->
                 currentButton = currentButton?.copy(width = value, height = value)
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             }
         } else {
             val isSwapped = button.rotation == 90 || button.rotation == 270
-            addSeekbar("宽度", if (isSwapped) button.height else button.width, 1, 40) { value ->
+            addSeekbar(buttonParamsInner, "宽度", if (isSwapped) button.height else button.width, 1, 40) { value ->
                 if (isSwapped) {
                     currentButton = currentButton?.copy(height = value)
                 } else {
@@ -275,7 +328,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 }
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             }
-            addSeekbar("高度", if (isSwapped) button.width else button.height, 1, 40) { value ->
+            addSeekbar(buttonParamsInner, "高度", if (isSwapped) button.width else button.height, 1, 40) { value ->
                 if (isSwapped) {
                     currentButton = currentButton?.copy(width = value)
                 } else {
@@ -285,7 +338,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             }
         }
 
-        addRotationButtons(buttonId, density)
+        addRotationButtons(buttonParamsInner, buttonId, density)
 
         val joystickOrTouchpadIds = setOf("leftJoystick", "rightJoystick", "touchpad")
         if (buttonId.substringBefore("_") in joystickOrTouchpadIds) {
@@ -298,7 +351,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                     currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(doubleClickEnable = isChecked)) }
                 }
             }
-            paramsContainer.addView(cb, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+            buttonParamsInner.addView(cb, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
         }
 
         if (isButton(buttonId)) {
@@ -311,7 +364,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                     currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(swipeTrigger = isChecked)) }
                 }
             }
-            paramsContainer.addView(cb, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+            buttonParamsInner.addView(cb, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
         }
 
         // ── Custom button settings ─────────────────────────
@@ -321,7 +374,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 setTextColor(-0x444445)
                 textSize = 13f
             }
-            paramsContainer.addView(tvCustomLabel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (10f * density).toInt() })
+            buttonParamsInner.addView(tvCustomLabel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (10f * density).toInt() })
 
             val safeCustomText = button.customText ?: "自定义"
             val etCustomText = EditText(context).apply {
@@ -356,7 +409,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                     } else false
                 }
             }
-            paramsContainer.addView(etCustomText, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12f * density).toInt() })
+            buttonParamsInner.addView(etCustomText, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12f * density).toInt() })
 
             // ── Output values section ──
             val tvOutputLabel = TextView(context).apply {
@@ -364,7 +417,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 setTextColor(-0x1)
                 textSize = 14f
             }
-            paramsContainer.addView(tvOutputLabel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (4f * density).toInt() })
+            buttonParamsInner.addView(tvOutputLabel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (4f * density).toInt() })
 
             val bits = button.customBits.orEmpty()
             if (bits.isNotEmpty()) {
@@ -396,7 +449,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                     }
                     chipsContainer.addView(row)
                 }
-                paramsContainer.addView(chipsContainer, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
+                buttonParamsInner.addView(chipsContainer, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
             }
 
             val btnOutputRow = LinearLayout(context).apply {
@@ -428,7 +481,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             }
             btnOutputRow.addView(btnAddOutput, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = (4f * density).toInt() })
             btnOutputRow.addView(btnClearOutput, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            paramsContainer.addView(btnOutputRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12f * density).toInt() })
+            buttonParamsInner.addView(btnOutputRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12f * density).toInt() })
         }
 
         val btnDelete = Button(context).apply {
@@ -438,10 +491,10 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             setBackgroundResource(R.drawable.button_flat)
             setOnClickListener { editorListener?.onDeleteButton(buttonId) }
         }
-        paramsContainer.addView(btnDelete, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (16f * density).toInt() })
+        buttonParamsInner.addView(btnDelete, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (16f * density).toInt() })
     }
 
-    private fun addRotationButtons(buttonId: String, density: Float) {
+    private fun addRotationButtons(container: LinearLayout, buttonId: String, density: Float) {
         val row = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -513,7 +566,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
         row.addView(colCcw)
         row.addView(colCw)
-        paramsContainer.addView(row)
+        container.addView(row)
     }
 
     private fun getBitName(bit: Int): String {
@@ -540,7 +593,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
     }
 
-    private fun addSeekbar(label: String, value: Int, min: Int, max: Int, onChange: (Int) -> Unit) {
+    private fun addSeekbar(container: LinearLayout, label: String, value: Int, min: Int, max: Int, onChange: (Int) -> Unit) {
         val density = context.resources.displayMetrics.density
         val btnSize = (32f * density).toInt()
         var currentValue = value.coerceIn(min, max)
@@ -669,13 +722,13 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         row1.addView(et, LinearLayout.LayoutParams(0, btnSize, 1f).apply { leftMargin = (8f * density).toInt(); rightMargin = (4f * density).toInt() })
         row1.addView(btnMinus, LinearLayout.LayoutParams(btnSize, btnSize).apply { rightMargin = (4f * density).toInt() })
         row1.addView(btnPlus, LinearLayout.LayoutParams(btnSize, btnSize))
-        paramsContainer.addView(row1)
+        container.addView(row1)
 
         val row2 = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (4f * density).toInt() }
         }
         row2.addView(seek)
-        paramsContainer.addView(row2)
+        container.addView(row2)
     }
 }

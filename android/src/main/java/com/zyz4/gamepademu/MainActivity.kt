@@ -48,6 +48,7 @@ import com.zyz4.gamepademu.model.ConnectionMode
 import com.zyz4.gamepademu.model.ControllerMode
 import com.zyz4.gamepademu.model.DisplayMode
 import com.zyz4.gamepademu.model.GamepadState
+import com.zyz4.gamepademu.model.GyroOrientation
 import com.zyz4.gamepademu.model.HapticEffect
 import com.zyz4.gamepademu.model.LayoutPreset
 import com.zyz4.gamepademu.model.TargetPlatform
@@ -187,6 +188,13 @@ class MainActivity : ComponentActivity() {
 
                 override fun onPickOutputValues(buttonId: String, currentBits: List<Int>, onResult: (List<Int>) -> Unit) {
                     showOutputValuePicker(currentBits, onResult)
+                }
+                override fun onGyroOrientationChanged(orientation: GyroOrientation?) {
+                    val updated = gamepadLayout.getPreset().copy(gyroOrientation = orientation)
+                    gamepadLayout.loadPreset(updated)
+                    viewModel.updatePresetButtons(updated)
+                    floatingEditor.presetGyroOrientation = orientation
+                    floatingEditor.gyroOrientationLocked = orientation != null
                 }
             }
         }
@@ -818,17 +826,20 @@ class MainActivity : ComponentActivity() {
 
     private fun setupGamepadLayoutListener() {
         gamepadLayout.listener = object : GamepadLayout.GamepadLayoutListener {
-            override fun onButtonSelected(buttonId: String?) {
-                viewModel.setSelectedButtonId(buttonId)
-                if (buttonId != null) {
-                    val pos = gamepadLayout.currentButtons.find { it.id == buttonId }
-                    if (pos != null) {
-                        floatingEditor.showParameters(buttonId, pos)
+                override fun onButtonSelected(buttonId: String?) {
+                    viewModel.setSelectedButtonId(buttonId)
+                    val preset = gamepadLayout.getPreset()
+                    floatingEditor.presetGyroOrientation = preset.gyroOrientation
+                    floatingEditor.gyroOrientationLocked = preset.gyroOrientation != null
+                    if (buttonId != null) {
+                        val pos = gamepadLayout.currentButtons.find { it.id == buttonId }
+                        if (pos != null) {
+                            floatingEditor.showParameters(buttonId, pos)
+                        }
+                    } else {
+                        floatingEditor.clearParameters()
                     }
-                } else {
-                    floatingEditor.clearParameters()
                 }
-            }
 
             override fun onEditModeChanged(isEditMode: Boolean) {
                 floatingEditor.visibility = if (isEditMode && editorVisible) View.VISIBLE else View.GONE
@@ -1088,9 +1099,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun selectSettingsCategory(index: Int) {
-        val pages = listOf(R.id.pageConnection, R.id.pagePresets, R.id.pageVibration, R.id.pageAbout)
+        val pages = listOf(R.id.pageConnection, R.id.pagePresets, R.id.pageVibration, R.id.pageGyro, R.id.pageAbout)
         val buttons = listOf(
-            R.id.btnCategoryConnection, R.id.btnCategoryPresets, R.id.btnCategoryVibration, R.id.btnCategoryAbout
+            R.id.btnCategoryConnection, R.id.btnCategoryPresets, R.id.btnCategoryVibration, R.id.btnCategoryGyro, R.id.btnCategoryAbout
         )
         pages.forEachIndexed { i, id ->
             findViewById<View>(id).visibility = if (i == index) View.VISIBLE else View.GONE
@@ -1109,7 +1120,8 @@ class MainActivity : ComponentActivity() {
         findViewById<Button>(R.id.btnCategoryConnection).setOnClickListener { selectSettingsCategory(0) }
         findViewById<Button>(R.id.btnCategoryPresets).setOnClickListener { selectSettingsCategory(1) }
         findViewById<Button>(R.id.btnCategoryVibration).setOnClickListener { selectSettingsCategory(2) }
-        findViewById<Button>(R.id.btnCategoryAbout).setOnClickListener { selectSettingsCategory(3) }
+        findViewById<Button>(R.id.btnCategoryGyro).setOnClickListener { selectSettingsCategory(3) }
+        findViewById<Button>(R.id.btnCategoryAbout).setOnClickListener { selectSettingsCategory(4) }
 
         // ── Presets page ──
         findViewById<Switch>(R.id.switchEditMode).setOnCheckedChangeListener { _, isChecked ->
@@ -1298,6 +1310,41 @@ class MainActivity : ComponentActivity() {
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { testHaptic(isPress = false); true }
                 else -> false
             }
+        }
+
+        // ── Gyro page ──
+        findViewById<Switch>(R.id.switchGyroEnabled).setOnCheckedChangeListener { _, isChecked ->
+            viewModel.updateGyroEnabled(isChecked)
+        }
+
+        listOf(
+            R.id.btnGyroOriLandscape to GyroOrientation.LANDSCAPE,
+            R.id.btnGyroOriPortrait to GyroOrientation.PORTRAIT,
+            R.id.btnGyroOriPortraitInverted to GyroOrientation.PORTRAIT_INVERTED,
+        ).forEach { (id, orientation) ->
+            findViewById<Button>(id).setOnClickListener {
+                selectChipGroup(
+                    listOf(R.id.btnGyroOriLandscape, R.id.btnGyroOriPortrait, R.id.btnGyroOriPortraitInverted),
+                    orientation.ordinal
+                )
+                viewModel.updateGyroOrientation(orientation)
+            }
+        }
+
+        findViewById<SeekBar>(R.id.seekGyroSensitivityX).apply {
+            min = -3000
+            isEnabled = false
+            setOnTouchListener { _, _ -> true }
+        }
+        findViewById<SeekBar>(R.id.seekGyroSensitivityY).apply {
+            min = -3000
+            isEnabled = false
+            setOnTouchListener { _, _ -> true }
+        }
+        findViewById<SeekBar>(R.id.seekGyroSensitivityZ).apply {
+            min = -3000
+            isEnabled = false
+            setOnTouchListener { _, _ -> true }
         }
 
         // ── About page ──
@@ -1708,6 +1755,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun updateGyroChipsLockState(presetGyroOrientation: GyroOrientation?) {
+        val orientationChips = listOf(
+            R.id.btnGyroOriLandscape, R.id.btnGyroOriPortrait, R.id.btnGyroOriPortraitInverted
+        )
+        val locked = presetGyroOrientation != null
+        orientationChips.forEach { id ->
+            findViewById<Button>(id).isEnabled = !locked
+        }
+    }
+
+    @SuppressLint("SetTextI18n")
     private fun syncSettingsUI() {
         val s = viewModel.settings.value
         findViewById<Switch>(R.id.switchEditMode).isChecked = false
@@ -1722,6 +1780,15 @@ class MainActivity : ComponentActivity() {
         findViewById<Switch>(R.id.switchGameVibration).isChecked = s.gameVibrationEnabled
         updateVibrationUI()
         updateSettingsVisibility(s.connectionMode)
+
+        findViewById<Switch>(R.id.switchGyroEnabled).isChecked = s.gyroEnabled
+        selectChipGroup(listOf(R.id.btnGyroOriLandscape, R.id.btnGyroOriPortrait, R.id.btnGyroOriPortraitInverted),
+            GyroOrientation.entries.indexOf(s.gyroOrientation).coerceAtLeast(0))
+        findViewById<TextView>(R.id.tvGyroSensitivityX).text = "X: 0.00"
+        findViewById<TextView>(R.id.tvGyroSensitivityY).text = "Y: 0.00"
+        findViewById<TextView>(R.id.tvGyroSensitivityZ).text = "Z: 0.00"
+
+        updateGyroChipsLockState(viewModel.currentPreset.value.gyroOrientation)
 
         refreshPresetList()
     }
@@ -1777,9 +1844,11 @@ class MainActivity : ComponentActivity() {
                 }
                 launch {
                     viewModel.currentPreset.collect { preset ->
+                        viewModel.currentPresetGyroOrientation = preset.gyroOrientation
                         if (!gamepadLayout.isEditModeActive()) {
                             applyPreset(preset)
                         }
+                        updateGyroChipsLockState(preset.gyroOrientation)
                     }
                 }
                 launch {
@@ -1790,6 +1859,16 @@ class MainActivity : ComponentActivity() {
                 launch {
                     viewModel.pairedDeviceName.collect { name ->
                         updatePairedDeviceVisibility(name)
+                    }
+                }
+                launch {
+                    viewModel.gyroDisplay.collect { (x, y, z) ->
+                        findViewById<SeekBar>(R.id.seekGyroSensitivityX).progress = (x * 100).toInt().coerceIn(-3000, 3000)
+                        findViewById<SeekBar>(R.id.seekGyroSensitivityY).progress = (y * 100).toInt().coerceIn(-3000, 3000)
+                        findViewById<SeekBar>(R.id.seekGyroSensitivityZ).progress = (z * 100).toInt().coerceIn(-3000, 3000)
+                        findViewById<TextView>(R.id.tvGyroSensitivityX).text = "X: %.2f".format(x)
+                        findViewById<TextView>(R.id.tvGyroSensitivityY).text = "Y: %.2f".format(y)
+                        findViewById<TextView>(R.id.tvGyroSensitivityZ).text = "Z: %.2f".format(z)
                     }
                 }
             }

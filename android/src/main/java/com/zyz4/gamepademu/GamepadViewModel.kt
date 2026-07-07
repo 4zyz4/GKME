@@ -14,6 +14,7 @@ import com.zyz4.gamepademu.model.ConnectionMode
 import com.zyz4.gamepademu.model.ControllerMode
 import com.zyz4.gamepademu.model.DisplayMode
 import com.zyz4.gamepademu.model.GamepadState
+import com.zyz4.gamepademu.model.GyroOrientation
 import com.zyz4.gamepademu.model.ButtonPosition
 import com.zyz4.gamepademu.model.HapticEffect
 import com.zyz4.gamepademu.model.LayoutPreset
@@ -57,8 +58,18 @@ class GamepadViewModel @Inject constructor(
 
     private val _selectedButtonId = MutableStateFlow<String?>(null)
 
+    private val _gyroDisplay = MutableStateFlow(Triple(0f, 0f, 0f))
+    val gyroDisplay: StateFlow<Triple<Float, Float, Float>> = _gyroDisplay.asStateFlow()
+
     private val sensorHandler = SensorHandler(app)
     private var sendJob: Job? = null
+
+    var currentPresetGyroOrientation: GyroOrientation? = null
+        set(value) {
+            field = value
+            val orientation = value ?: settings.value.gyroOrientation
+            sensorHandler.gyroOrientation = orientation
+        }
     private var _dpadBits = 0
 
     var onHapticFeedbackPress: (() -> Unit)? = null
@@ -70,7 +81,8 @@ class GamepadViewModel @Inject constructor(
         connectionManager.onControllerModeChanged = { mode ->
             sendJob?.cancel()
             sensorHandler.stop()
-            if (mode == ControllerMode.DS4 && settings.value.connectionMode == ConnectionMode.WIFI) {
+            if (mode == ControllerMode.DS4 && settings.value.connectionMode == ConnectionMode.WIFI && settings.value.gyroEnabled) {
+                sensorHandler.gyroOrientation = currentPresetGyroOrientation ?: settings.value.gyroOrientation
                 sensorHandler.start()
                 startSensorSendLoop()
             } else {
@@ -249,6 +261,28 @@ class GamepadViewModel @Inject constructor(
         connectionManager.updateSettings(settings.value.copy(vibrationReleaseIntensity = intensity))
     }
 
+    fun updateGyroEnabled(enabled: Boolean) {
+        val updated = settings.value.copy(gyroEnabled = enabled)
+        connectionManager.updateSettings(updated)
+        if (enabled && settings.value.controllerMode == ControllerMode.DS4 && settings.value.connectionMode == ConnectionMode.WIFI) {
+            sensorHandler.gyroOrientation = currentPresetGyroOrientation ?: settings.value.gyroOrientation
+            sensorHandler.start()
+            startSensorSendLoop()
+        } else if (!enabled) {
+            sendJob?.cancel()
+            sensorHandler.stop()
+            startPeriodicSendLoop()
+        }
+    }
+
+    fun updateGyroOrientation(orientation: GyroOrientation) {
+        val updated = settings.value.copy(gyroOrientation = orientation)
+        connectionManager.updateSettings(updated)
+        if (currentPresetGyroOrientation == null) {
+            sensorHandler.gyroOrientation = orientation
+        }
+    }
+
     fun startServer() {
         connectionManager.startServer(viewModelScope)
         if (settings.value.connectionMode == ConnectionMode.WIFI ||
@@ -257,8 +291,10 @@ class GamepadViewModel @Inject constructor(
             startPeriodicSendLoop()
         }
         if (settings.value.controllerMode == ControllerMode.DS4 &&
-            settings.value.connectionMode == ConnectionMode.WIFI
+            settings.value.connectionMode == ConnectionMode.WIFI &&
+            settings.value.gyroEnabled
         ) {
+            sensorHandler.gyroOrientation = currentPresetGyroOrientation ?: settings.value.gyroOrientation
             sensorHandler.start()
             startSensorSendLoop()
         }
@@ -312,10 +348,12 @@ class GamepadViewModel @Inject constructor(
                     lastBatteryRead = now
                 }
                 val sensor = sensorHandler.sensorData.value
+                val s = settings.value
+                _gyroDisplay.value = Triple(sensor.gyroX, sensor.gyroY, sensor.gyroZ)
                 _gamepadState.value = _gamepadState.value.copy(
-                    gyroX = sensor.gyroX,
-                    gyroY = sensor.gyroY,
-                    gyroZ = sensor.gyroZ,
+                    gyroX = sensor.gyroX * s.gyroSensitivityX / 100f,
+                    gyroY = sensor.gyroY * s.gyroSensitivityY / 100f,
+                    gyroZ = sensor.gyroZ * s.gyroSensitivityZ / 100f,
                     accelX = sensor.accelX,
                     accelY = sensor.accelY,
                     accelZ = sensor.accelZ,

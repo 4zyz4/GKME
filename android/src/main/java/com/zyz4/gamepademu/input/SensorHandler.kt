@@ -5,9 +5,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
-import android.view.Display
-import android.view.Surface
-import android.view.WindowManager
+import com.zyz4.gamepademu.model.GyroOrientation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,11 +24,7 @@ class SensorHandler(private val context: Context) : SensorEventListener {
     private val gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
     private val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
-    private val displayRotation: Int
-        get() {
-            val wm = context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
-            return wm?.defaultDisplay?.rotation ?: Surface.ROTATION_0
-        }
+    var gyroOrientation: GyroOrientation = GyroOrientation.LANDSCAPE
 
     private var _gyroX = 0f
     private var _gyroY = 0f
@@ -52,17 +46,20 @@ class SensorHandler(private val context: Context) : SensorEventListener {
         sensorManager.unregisterListener(this)
     }
 
-    private fun remapToDisplayRotation(
+    private fun remapToOrientation(
         rawX: Float, rawY: Float, rawZ: Float,
     ): Triple<Float, Float, Float> {
-        // gyroX→俯仰(短轴), gyroY→偏航(法线), gyroZ→横滚(长轴)
-        return Triple(-rawY, rawZ,-rawX)
+        return when (gyroOrientation) {
+            GyroOrientation.LANDSCAPE -> Triple(-rawY, rawZ, -rawX)
+            GyroOrientation.PORTRAIT -> Triple(rawX, rawZ, -rawY)
+            GyroOrientation.PORTRAIT_INVERTED -> Triple(-rawX, rawZ, rawY)
+        }
     }
 
     override fun onSensorChanged(event: SensorEvent) {
         when (event.sensor.type) {
             Sensor.TYPE_GYROSCOPE -> {
-                val (rx, ry, rz) = remapToDisplayRotation(
+                val (rx, ry, rz) = remapToOrientation(
                     event.values[0], event.values[1], event.values[2]
                 )
 
@@ -71,7 +68,7 @@ class SensorHandler(private val context: Context) : SensorEventListener {
                 _gyroZ = rz
             }
             Sensor.TYPE_ACCELEROMETER -> {
-                val (ax, ay, az) = remapToDisplayRotation(
+                val (ax, ay, az) = remapToOrientation(
                     event.values[0], event.values[1], event.values[2]
                 )
                 _accelX = ax

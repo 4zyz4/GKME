@@ -10,6 +10,12 @@ enum class ControllerMode { XBOX_360, DS4 }
 
 enum class VibrationType { NONE, VIEW, VIBRATION_EFFECT }
 
+enum class GyroOrientation(val displayName: String) {
+    LANDSCAPE("横屏"),
+    PORTRAIT("竖屏"),
+    PORTRAIT_INVERTED("倒置竖屏"),
+}
+
 enum class HapticEffect(val displayName: String) {
     KEYBOARD_TAP("轻触"),
     KEYBOARD_PRESS("按键按下"),
@@ -44,4 +50,9 @@ data class AppSettings(
     val vibrationReleaseDuration: Int = 20,
     val vibrationPressIntensity: Int = 128,
     val vibrationReleaseIntensity: Int = 64,
+    val gyroEnabled: Boolean = true,
+    val gyroSensitivityX: Int = 100,
+    val gyroSensitivityY: Int = 100,
+    val gyroSensitivityZ: Int = 100,
+    val gyroOrientation: GyroOrientation = GyroOrientation.LANDSCAPE,
 )

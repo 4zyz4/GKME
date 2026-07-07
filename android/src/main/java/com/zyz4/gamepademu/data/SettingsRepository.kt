@@ -10,6 +10,7 @@ import com.zyz4.gamepademu.model.AppSettings
 import com.zyz4.gamepademu.model.ConnectionMode
 import com.zyz4.gamepademu.model.ControllerMode
 import com.zyz4.gamepademu.model.DisplayMode
+import com.zyz4.gamepademu.model.GyroOrientation
 import com.zyz4.gamepademu.model.HapticEffect
 import com.zyz4.gamepademu.model.TargetPlatform
 import com.zyz4.gamepademu.model.VibrationType
@@ -42,6 +43,11 @@ class SettingsRepository @Inject constructor(
         val VIBRATION_RELEASE_DURATION = intPreferencesKey("vibration_release_duration")
         val VIBRATION_PRESS_INTENSITY = intPreferencesKey("vibration_press_intensity")
         val VIBRATION_RELEASE_INTENSITY = intPreferencesKey("vibration_release_intensity")
+        val GYRO_ENABLED = booleanPreferencesKey("gyro_enabled")
+        val GYRO_SENSITIVITY_X = intPreferencesKey("gyro_sensitivity_x")
+        val GYRO_SENSITIVITY_Y = intPreferencesKey("gyro_sensitivity_y")
+        val GYRO_SENSITIVITY_Z = intPreferencesKey("gyro_sensitivity_z")
+        val GYRO_ORIENTATION = intPreferencesKey("gyro_orientation")
     }
 
     val settings: Flow<AppSettings> = context.settingsDataStore.data.map { prefs ->
@@ -78,6 +84,13 @@ class SettingsRepository @Inject constructor(
             vibrationReleaseDuration = prefs[Keys.VIBRATION_RELEASE_DURATION] ?: 20,
             vibrationPressIntensity = prefs[Keys.VIBRATION_PRESS_INTENSITY] ?: 128,
             vibrationReleaseIntensity = prefs[Keys.VIBRATION_RELEASE_INTENSITY] ?: 64,
+            gyroEnabled = prefs[Keys.GYRO_ENABLED] ?: true,
+            gyroSensitivityX = prefs[Keys.GYRO_SENSITIVITY_X] ?: 100,
+            gyroSensitivityY = prefs[Keys.GYRO_SENSITIVITY_Y] ?: 100,
+            gyroSensitivityZ = prefs[Keys.GYRO_SENSITIVITY_Z] ?: 100,
+            gyroOrientation = GyroOrientation.entries.getOrElse(
+                prefs[Keys.GYRO_ORIENTATION] ?: 0
+            ) { GyroOrientation.LANDSCAPE },
         )
     }
 
@@ -99,6 +112,11 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.VIBRATION_RELEASE_DURATION] = settings.vibrationReleaseDuration
             prefs[Keys.VIBRATION_PRESS_INTENSITY] = settings.vibrationPressIntensity
             prefs[Keys.VIBRATION_RELEASE_INTENSITY] = settings.vibrationReleaseIntensity
+            prefs[Keys.GYRO_ENABLED] = settings.gyroEnabled
+            prefs[Keys.GYRO_SENSITIVITY_X] = settings.gyroSensitivityX
+            prefs[Keys.GYRO_SENSITIVITY_Y] = settings.gyroSensitivityY
+            prefs[Keys.GYRO_SENSITIVITY_Z] = settings.gyroSensitivityZ
+            prefs[Keys.GYRO_ORIENTATION] = settings.gyroOrientation.ordinal
         }
     }
 }
