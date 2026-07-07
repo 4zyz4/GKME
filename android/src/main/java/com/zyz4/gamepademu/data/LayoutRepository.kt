@@ -13,6 +13,14 @@ import javax.inject.Singleton
 class LayoutRepository @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
+    companion object {
+        val BUILT_IN_PRESETS = mapOf(
+            "完整布局" to R.raw.full,
+            "左控制器" to R.raw.left,
+            "右控制器" to R.raw.right,
+        )
+    }
+
     private val layoutsDir: File
         get() {
             val dir = File(context.getExternalFilesDir(null), "layouts")
@@ -22,7 +30,11 @@ class LayoutRepository @Inject constructor(
 
     fun listPresets(): List<String> {
         val files = layoutsDir.listFiles { f -> f.extension == "json" } ?: return emptyList()
-        return files.map { it.nameWithoutExtension }.sorted()
+        val builtInOrder = BUILT_IN_PRESETS.keys.toList()
+        return files.map { it.nameWithoutExtension }.sortedBy { name ->
+            val idx = builtInOrder.indexOf(name)
+            if (idx >= 0) idx else Int.MAX_VALUE
+        }
     }
 
     fun loadPreset(name: String): LayoutPreset? {
@@ -56,19 +68,35 @@ class LayoutRepository @Inject constructor(
         return files.isNotEmpty()
     }
 
+    fun isBuiltInPreset(name: String): Boolean = name in BUILT_IN_PRESETS
+
     fun getDefaultPreset(): LayoutPreset {
         val json = context.resources.openRawResource(R.raw.full).bufferedReader().use { it.readText() }
         return LayoutPreset.fromJson(json) ?: LayoutPreset()
     }
 
-    fun createDefaultPreset(): LayoutPreset {
-        val preset = getDefaultPreset()
-        savePreset("Default", preset)
-        return preset
+    fun createAllBuiltInPresets() {
+        val legacyFile = File(layoutsDir, "Default.json")
+        val fullFile = File(layoutsDir, "完整布局.json")
+        if (legacyFile.exists() && !fullFile.exists()) {
+            legacyFile.renameTo(fullFile)
+        }
+        for ((name, rawId) in BUILT_IN_PRESETS) {
+            val file = File(layoutsDir, "$name.json")
+            if (!file.exists()) {
+                val preset = getPresetFromRaw(rawId)
+                savePreset(name, preset)
+            }
+        }
+    }
+
+    private fun getPresetFromRaw(rawId: Int): LayoutPreset {
+        val json = context.resources.openRawResource(rawId).bufferedReader().use { it.readText() }
+        return LayoutPreset.fromJson(json) ?: LayoutPreset()
     }
 
     fun createDefaultPreset(name: String): LayoutPreset {
-        val preset = createDefaultPreset()
+        val preset = getDefaultPreset()
         savePreset(name, preset)
         return preset
     }

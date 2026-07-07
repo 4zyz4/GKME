@@ -65,7 +65,7 @@ class SettingsRepository @Inject constructor(
                 prefs[Keys.TARGET_PLATFORM] ?: 0
             ) { TargetPlatform.WINDOWS },
             deviceName = prefs[Keys.DEVICE_NAME] ?: "Gamepad Emu",
-            currentPresetName = prefs[Keys.CURRENT_PRESET_NAME] ?: "Default",
+            currentPresetName = prefs[Keys.CURRENT_PRESET_NAME] ?: "完整布局",
             vibrationEnabled = prefs[Keys.VIBRATION_ENABLED] ?: true,
             gameVibrationEnabled = prefs[Keys.GAME_VIBRATION_ENABLED] ?: true,
             vibrationPressType = VibrationType.entries.getOrElse(

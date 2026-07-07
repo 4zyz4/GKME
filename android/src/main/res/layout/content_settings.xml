@@ -194,7 +194,7 @@
                     android:layout_marginBottom="8dp" />
 
                 <!-- Preset Cards Grid -->
-                <GridView
+                <com.zyz4.gamepademu.view.WrapContentGridView
                     android:id="@+id/gridPresets"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"

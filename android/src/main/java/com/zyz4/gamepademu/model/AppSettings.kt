@@ -38,7 +38,7 @@ data class AppSettings(
     val controllerMode: ControllerMode = ControllerMode.XBOX_360,
     val wifiServerIp: String = "",
     val deviceName: String = "Gamepad Emu",
-    val currentPresetName: String = "Default",
+    val currentPresetName: String = "完整布局",
     val isEditMode: Boolean = false,
     val vibrationEnabled: Boolean = true,
     val gameVibrationEnabled: Boolean = true,

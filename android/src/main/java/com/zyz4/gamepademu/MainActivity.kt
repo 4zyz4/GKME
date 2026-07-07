@@ -26,7 +26,7 @@ import android.widget.AdapterView
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
-import android.widget.GridView
+import com.zyz4.gamepademu.view.WrapContentGridView
 import android.widget.ArrayAdapter
 import android.widget.ImageButton
 import android.widget.SeekBar
@@ -611,6 +611,12 @@ class MainActivity : ComponentActivity() {
         val entry = allControls.find { it.baseId == baseId } ?: return
 
         val view: View = when {
+            entry.useImageButton -> ImageButton(this).apply {
+                id = View.generateViewId(); tag = pos.id
+                setBackgroundResource(entry.bgRes)
+                setImageResource(entry.icon)
+                scaleType = ImageView.ScaleType.CENTER_INSIDE
+            }
             entry.isJoystick -> JoystickView(this).apply {
                 id = View.generateViewId(); tag = pos.id
                 val isLeft = baseId == "leftJoystick"
@@ -1120,6 +1126,12 @@ class MainActivity : ComponentActivity() {
         // ── Presets page ──
         findViewById<Switch>(R.id.switchEditMode).setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
+                val currentName = viewModel.settings.value.currentPresetName
+                if (viewModel.isBuiltInPreset(currentName)) {
+                    showToast("内置布局禁止编辑")
+                    findViewById<Switch>(R.id.switchEditMode).isChecked = false
+                    return@setOnCheckedChangeListener
+                }
                 viewModel.updateEditMode(true)
                 hideSettings()
                 applyPreset(viewModel.currentPreset.value)
@@ -1128,7 +1140,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        val gridView = findViewById<GridView>(R.id.gridPresets)
+        val gridView = findViewById<WrapContentGridView>(R.id.gridPresets)
         gridView.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, _ ->
             val infos = viewModel.presetInfos.value
             val info = infos.getOrNull(position) ?: return@OnItemClickListener
@@ -1148,6 +1160,7 @@ class MainActivity : ComponentActivity() {
             val current = viewModel.settings.value.currentPresetName
             val idx = infos.indexOfFirst { it.name == current }
             val name = if (idx >= 0) infos[idx].name else infos.firstOrNull()?.name ?: return@setOnClickListener
+            if (viewModel.isBuiltInPreset(name)) { showToast("内置布局禁止重命名"); return@setOnClickListener }
             showRenameDialog(name)
         }
 
@@ -1156,7 +1169,7 @@ class MainActivity : ComponentActivity() {
             val current = viewModel.settings.value.currentPresetName
             val idx = infos.indexOfFirst { it.name == current }
             val selected = if (idx >= 0) infos[idx].name else infos.firstOrNull()?.name ?: return@setOnClickListener
-            if (selected == "Default") { showToast("不能删除默认预设"); return@setOnClickListener }
+            if (viewModel.isBuiltInPreset(selected)) { showToast("内置布局禁止删除"); return@setOnClickListener }
             AlertDialog.Builder(this)
                 .setTitle("删除预设")
                 .setMessage("确定删除「$selected」？")
@@ -1593,7 +1606,7 @@ class MainActivity : ComponentActivity() {
 
     @SuppressLint("SetTextI18n")
     private fun refreshPresetList() {
-        val gridView = findViewById<GridView>(R.id.gridPresets)
+        val gridView = findViewById<WrapContentGridView>(R.id.gridPresets)
         val infos = viewModel.presetInfos.value
         val current = viewModel.settings.value.currentPresetName
         gridView.adapter = PresetGridAdapter(infos, current)

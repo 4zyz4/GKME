@@ -92,24 +92,20 @@ class GamepadViewModel @Inject constructor(
     }
 
     private fun initializeLayouts() {
-        if (!layoutRepository.hasAnyPreset()) {
-            val defaultPreset = layoutRepository.createDefaultPreset()
-            _currentPreset.value = defaultPreset
+        layoutRepository.createAllBuiltInPresets()
+        val name = settings.value.currentPresetName
+        val loaded = layoutRepository.loadPreset(name)
+        if (loaded != null) {
+            _currentPreset.value = loaded
         } else {
-            val name = settings.value.currentPresetName
-            val loaded = layoutRepository.loadPreset(name)
-            if (loaded != null) {
-                _currentPreset.value = loaded
-            } else {
-                val presets = layoutRepository.listPresets()
-                if (presets.isNotEmpty()) {
-                    val first = layoutRepository.loadPreset(presets[0])
-                    if (first != null) {
-                        _currentPreset.value = first
-                        connectionManager.updateSettings(
-                            settings.value.copy(currentPresetName = presets[0])
-                        )
-                    }
+            val presets = layoutRepository.listPresets()
+            if (presets.isNotEmpty()) {
+                val first = layoutRepository.loadPreset(presets[0])
+                if (first != null) {
+                    _currentPreset.value = first
+                    connectionManager.updateSettings(
+                        settings.value.copy(currentPresetName = presets[0])
+                    )
                 }
             }
         }
@@ -122,6 +118,8 @@ class GamepadViewModel @Inject constructor(
             PresetInfo(name = name, buttons = preset?.buttons ?: emptyList())
         }
     }
+
+    fun isBuiltInPreset(name: String): Boolean = layoutRepository.isBuiltInPreset(name)
 
     fun loadPreset(name: String): Boolean {
         val loaded = layoutRepository.loadPreset(name) ?: return false
@@ -145,6 +143,7 @@ class GamepadViewModel @Inject constructor(
     }
 
     fun deletePreset(name: String) {
+        if (layoutRepository.isBuiltInPreset(name)) return
         layoutRepository.deletePreset(name)
         refreshPresetList()
         val current = settings.value.currentPresetName
@@ -157,6 +156,7 @@ class GamepadViewModel @Inject constructor(
     }
 
     fun renamePreset(oldName: String, newName: String) {
+        if (layoutRepository.isBuiltInPreset(oldName)) return
         layoutRepository.renamePreset(oldName, newName)
         refreshPresetList()
         if (settings.value.currentPresetName == oldName) {
