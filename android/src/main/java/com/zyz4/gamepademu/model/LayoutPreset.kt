@@ -12,7 +12,10 @@ data class LayoutPreset(
 
         fun fromJson(json: String): LayoutPreset {
             val type = object : TypeToken<LayoutPreset>() {}.type
-            return gson.fromJson(json, type)
+            val preset = gson.fromJson<LayoutPreset>(json, type)
+            return preset.copy(
+                buttons = (preset.buttons ?: emptyList()).map { it.sanitize() }
+            )
         }
 
         fun toJson(preset: LayoutPreset): String = gson.toJson(preset)

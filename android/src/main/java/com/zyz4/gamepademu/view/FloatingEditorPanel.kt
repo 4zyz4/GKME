@@ -2,7 +2,9 @@ package com.zyz4.gamepademu.view
 
 import android.content.Context
 import android.graphics.drawable.GradientDrawable
+import android.text.Editable
 import android.text.InputType
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -18,6 +20,7 @@ import android.widget.CheckBox
 import android.widget.TextView
 import com.zyz4.gamepademu.R
 import com.zyz4.gamepademu.model.ButtonPosition
+import com.zyz4.gamepademu.model.GamepadState
 
 class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
@@ -27,6 +30,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         fun onAddButton()
         fun onDeleteButton(buttonId: String)
         fun onButtonUpdated(buttonId: String, updated: ButtonPosition)
+        fun onPickOutputValues(buttonId: String, currentBits: List<Int>, onResult: (List<Int>) -> Unit)
     }
 
     var editorListener: EditorListener? = null
@@ -36,6 +40,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         "btnY", "btnA", "btnX", "btnB",
         "btnLT", "btnLB", "btnRT", "btnRB",
         "btnSelect", "btnHome", "btnMenu",
+        "btnTouchpad", "btnLS", "btnRS",
     )
 
     private var currentButton: ButtonPosition? = null
@@ -49,7 +54,10 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     private var contentW = 0
     private var panelW = 0
 
-    private fun isButton(id: String) = id.substringBefore("_") in BUTTON_IDS
+    private fun isButton(id: String): Boolean {
+        val base = id.substringBefore("_")
+        return base in BUTTON_IDS || base.startsWith("btnCustom")
+    }
 
     private fun getChineseName(buttonId: String): String {
         val base = buttonId.substringBefore("_")
@@ -71,7 +79,12 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             "btnSelect" -> "选择"
             "btnHome" -> "主页"
             "btnMenu" -> "菜单"
+            "btnTouchpad" -> "触摸板按键"
+            "btnLS" -> "左摇杆按下"
+            "btnRS" -> "右摇杆按下"
             "touchpad" -> "触摸板"
+            "btnCustomCircle" -> "自定义(圆)"
+            "btnCustomRect" -> "自定义(方)"
             "btn" -> "按钮"
             "joystick" -> "摇杆"
             else -> buttonId
@@ -286,6 +299,123 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             paramsContainer.addView(cb, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
         }
 
+        // ── Custom button settings ─────────────────────────
+        if (button.isCustom) {
+            val tvCustomLabel = TextView(context).apply {
+                text = "显示文本"
+                setTextColor(-0x444445)
+                textSize = 13f
+            }
+            paramsContainer.addView(tvCustomLabel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (10f * density).toInt() })
+
+            val safeCustomText = button.customText ?: "自定义"
+            val etCustomText = EditText(context).apply {
+                setText(safeCustomText)
+                setTextColor(-0x444445)
+                textSize = 13f
+                setBackgroundResource(R.drawable.bg_small_btn)
+                setPadding((8f * density).toInt(), (4f * density).toInt(), (8f * density).toInt(), (4f * density).toInt())
+                addTextChangedListener(object : TextWatcher {
+                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                    override fun afterTextChanged(s: Editable?) {
+                        val newText = s.toString().ifEmpty { "自定义" }
+                        currentButton = currentButton?.copy(customText = newText)
+                        currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                    }
+                })
+                setOnFocusChangeListener { _, hasFocus ->
+                    if (!hasFocus) {
+                        val newText = text.toString().ifEmpty { "自定义" }
+                        currentButton = currentButton?.copy(customText = newText)
+                        currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                    }
+                }
+                setOnEditorActionListener { _, actionId, _ ->
+                    if (actionId == EditorInfo.IME_ACTION_DONE) {
+                        val newText = text.toString().ifEmpty { "自定义" }
+                        currentButton = currentButton?.copy(customText = newText)
+                        currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                        clearFocus()
+                        true
+                    } else false
+                }
+            }
+            paramsContainer.addView(etCustomText, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12f * density).toInt() })
+
+            // ── Output values section ──
+            val tvOutputLabel = TextView(context).apply {
+                text = "传出值"
+                setTextColor(-0x1)
+                textSize = 14f
+            }
+            paramsContainer.addView(tvOutputLabel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (4f * density).toInt() })
+
+            val bits = button.customBits.orEmpty()
+            if (bits.isNotEmpty()) {
+                val chipsContainer = LinearLayout(context).apply {
+                    orientation = LinearLayout.VERTICAL
+                }
+                val chipsPerRow = 3
+                bits.chunked(chipsPerRow).forEach { rowBits ->
+                    val row = LinearLayout(context).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                    }
+                    rowBits.forEach { bit ->
+                        val chip = TextView(context).apply {
+                            text = getBitName(bit)
+                            setTextColor(-0x1)
+                            textSize = 11f
+                            gravity = Gravity.CENTER
+                            setBackgroundResource(R.drawable.bg_chip)
+                            setPadding((6f * density).toInt(), (2f * density).toInt(), (6f * density).toInt(), (2f * density).toInt())
+                            setOnClickListener {
+                                val newBits = (currentButton?.customBits.orEmpty()) - bit
+                                currentButton = currentButton?.copy(customBits = newBits)
+                                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                                showParameters(buttonId, currentButton!!)
+                            }
+                        }
+                        row.addView(chip, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { rightMargin = (4f * density).toInt() })
+                    }
+                    chipsContainer.addView(row)
+                }
+                paramsContainer.addView(chipsContainer, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
+            }
+
+            val btnOutputRow = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+            }
+            val btnAddOutput = Button(context).apply {
+                text = "添加"
+                setTextColor(-0x1)
+                textSize = 12f
+                setBackgroundResource(R.drawable.button_flat)
+                setOnClickListener {
+                    editorListener?.onPickOutputValues(buttonId, currentButton?.customBits.orEmpty()) { newBits ->
+                        currentButton = currentButton?.copy(customBits = newBits)
+                        currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                        showParameters(buttonId, currentButton!!)
+                    }
+                }
+            }
+            val btnClearOutput = Button(context).apply {
+                text = "清空"
+                setTextColor(-0x1)
+                textSize = 12f
+                setBackgroundResource(R.drawable.button_flat)
+                setOnClickListener {
+                    currentButton = currentButton?.copy(customBits = emptyList())
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                    showParameters(buttonId, currentButton!!)
+                }
+            }
+            btnOutputRow.addView(btnAddOutput, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = (4f * density).toInt() })
+            btnOutputRow.addView(btnClearOutput, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            paramsContainer.addView(btnOutputRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12f * density).toInt() })
+        }
+
         val btnDelete = Button(context).apply {
             text = "删除"
             setTextColor(-0x1)
@@ -369,6 +499,30 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         row.addView(colCcw)
         row.addView(colCw)
         paramsContainer.addView(row)
+    }
+
+    private fun getBitName(bit: Int): String {
+        return when (bit) {
+            GamepadState.A -> "A"
+            GamepadState.B -> "B"
+            GamepadState.X -> "X"
+            GamepadState.Y -> "Y"
+            GamepadState.LB -> "LB"
+            GamepadState.RB -> "RB"
+            GamepadState.LT -> "LT"
+            GamepadState.RT -> "RT"
+            GamepadState.SELECT -> "选择"
+            GamepadState.START -> "菜单"
+            GamepadState.L3 -> "左摇杆"
+            GamepadState.R3 -> "右摇杆"
+            GamepadState.HOME -> "主页"
+            GamepadState.TOUCHPAD_CLICK -> "触摸板"
+            GamepadState.DPAD_BIT_UP -> "上"
+            GamepadState.DPAD_BIT_DOWN -> "下"
+            GamepadState.DPAD_BIT_LEFT -> "左"
+            GamepadState.DPAD_BIT_RIGHT -> "右"
+            else -> "位$bit"
+        }
     }
 
     private fun addSeekbar(label: String, value: Int, min: Int, max: Int, onChange: (Int) -> Unit) {

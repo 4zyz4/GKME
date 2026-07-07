@@ -453,7 +453,11 @@ class GamepadLayout @JvmOverloads constructor(
         for (i in 0 until childCount) {
             val child = getChildAt(i)
             val id = getButtonId(child) ?: continue
-            val pos = currentButtons.find { it.id == id } ?: continue
+            val pos = currentButtons.find { it.id == id }
+            if (pos == null) {
+                child.visibility = View.GONE
+                continue
+            }
 
             if (!pos.visible) {
                 if (child.visibility != View.GONE) child.visibility = View.GONE

@@ -184,6 +184,10 @@ class MainActivity : ComponentActivity() {
                     gamepadLayout.updateButtonPosition(buttonId, updated)
                     updateButtonLabels(viewModel.settings.value.displayMode)
                 }
+
+                override fun onPickOutputValues(buttonId: String, currentBits: List<Int>, onResult: (List<Int>) -> Unit) {
+                    showOutputValuePicker(currentBits, onResult)
+                }
             }
         }
         (findViewById<View>(android.R.id.content) as ViewGroup).addView(
@@ -228,6 +232,7 @@ class MainActivity : ComponentActivity() {
         val isDpad: Boolean = false,
         val isTrigger: Boolean = false,
         val useImageButton: Boolean = false,
+        val isCustom: Boolean = false,
         val bit: Int = 0,
         val w: Int = 10, val h: Int = 10,
         val lockAspect: Boolean = true,
@@ -249,9 +254,14 @@ class MainActivity : ComponentActivity() {
         CtrlEntry("leftJoystick", "左摇杆", R.drawable.joystick_outer, isJoystick = true, w = 17, h = 17),
         CtrlEntry("rightJoystick", "右摇杆", R.drawable.joystick_outer, isJoystick = true, w = 17, h = 17),
         CtrlEntry("touchpad", "触摸板", R.drawable.center_rect, isTouchpad = true, w = 34, h = 22, lockAspect = false),
+        CtrlEntry("btnTouchpad", "触摸板", R.drawable.btn_touchpad, R.drawable.btn_touchpad, bit = GamepadState.TOUCHPAD_CLICK, w = 9, h = 9),
+        CtrlEntry("btnLS", "LS", R.drawable.btn_ls, R.drawable.btn_ls, bit = GamepadState.L3, w = 9, h = 9),
+        CtrlEntry("btnRS", "RS", R.drawable.btn_rs, R.drawable.btn_rs, bit = GamepadState.R3, w = 9, h = 9),
         CtrlEntry("btnSelect", "选择", R.drawable.btn_select_xbox, bit = GamepadState.SELECT, w = 9, h = 9),
         CtrlEntry("btnHome", "主页", R.drawable.ic_home, useImageButton = true, bit = GamepadState.HOME, w = 9, h = 9),
         CtrlEntry("btnMenu", "菜单", R.drawable.btn_menu_xbox, bit = GamepadState.START, w = 9, h = 9),
+        CtrlEntry("btnCustomCircle", "自定义", R.drawable.button_circle, isCustom = true),
+        CtrlEntry("btnCustomRect", "自定义", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, w = 14, h = 8, lockAspect = false, isCustom = true),
     )
 
     private fun getPreviewText(entry: CtrlEntry, mode: DisplayMode): String? {
@@ -266,6 +276,7 @@ class MainActivity : ComponentActivity() {
             "btnRT" -> when (mode) { DisplayMode.XBOX -> "RT"; DisplayMode.PLAYSTATION -> "R2"; DisplayMode.SWITCH -> "ZR" }
             "btnSelect" -> when (mode) { DisplayMode.PLAYSTATION -> "SHARE"; else -> null }
             "btnMenu" -> when (mode) { DisplayMode.PLAYSTATION -> "OPTION"; else -> null }
+            "btnCustomCircle", "btnCustomRect" -> "自定义"
             else -> null
         }
     }
@@ -275,6 +286,7 @@ class MainActivity : ComponentActivity() {
         if (text != null) {
             return when (entry.baseId) {
                 "btnLB", "btnRB", "btnLT", "btnRT" -> R.drawable.button_rounded_rect
+                "btnCustomRect" -> R.drawable.button_rounded_rect
                 else -> R.drawable.button_circle
             }
         }
@@ -286,15 +298,18 @@ class MainActivity : ComponentActivity() {
             "btnSelect" -> when (mode) { DisplayMode.XBOX -> R.drawable.btn_select_xbox; DisplayMode.SWITCH -> R.drawable.btn_select_switch; else -> R.drawable.button_circle }
             "btnMenu" -> when (mode) { DisplayMode.XBOX -> R.drawable.btn_menu_xbox; DisplayMode.SWITCH -> R.drawable.btn_menu_switch; else -> R.drawable.button_circle }
             "btnHome" -> when (mode) { DisplayMode.XBOX -> R.drawable.ic_home_xbox; DisplayMode.PLAYSTATION -> R.drawable.ic_home_playstation; else -> R.drawable.ic_home }
+            "btnTouchpad" -> R.drawable.ic_touchpad_grid
+            "btnLS" -> R.drawable.ic_ls
+            "btnRS" -> R.drawable.ic_rs
             else -> entry.icon
         }
     }
 
     private fun showAddButtonDialog() {
         val density = resources.displayMetrics.density
-        val cols = 4
-        val cellW = (200f * density).toInt()
-        val iconSize = (40f * density).toInt()
+        val cols = 6
+        val cellW = (500f * density).toInt()
+        val iconSize = (56f * density).toInt()
         val mode = viewModel.settings.value.displayMode
 
         val content = NestedScrollView(this)
@@ -412,6 +427,19 @@ class MainActivity : ComponentActivity() {
                 setupTouchpadView(tp)
                 tp
             }
+            entry.isCustom -> {
+                val btn = if (!entry.lockAspect) RotatableButton(this) else Button(this)
+                btn.apply {
+                    this.id = View.generateViewId(); tag = id
+                    text = "自定义"
+                    setAllCaps(false)
+                    setTextColor(-0x333334); textSize = 20f
+                    setTypeface(null, Typeface.BOLD)
+                    setBackgroundResource(entry.bgRes)
+                    gravity = android.view.Gravity.CENTER
+                }
+                btn
+            }
             !entry.lockAspect -> RotatableButton(this).apply {
                 this.id = View.generateViewId(); tag = id
                 setTextColor(-0x333334); textSize = 12f
@@ -430,17 +458,288 @@ class MainActivity : ComponentActivity() {
         gamepadLayout.addView(view, 0)
 
         if (!entry.isTouchpad) {
-            setupTouchHandler(view, entry.bit, entry.isDpad, entry.isTrigger, entry.isJoystick)
+            if (entry.isCustom) {
+                setupCustomTouchHandler(view)
+            } else {
+                setupTouchHandler(view, entry.bit, entry.isDpad, entry.isTrigger, entry.isJoystick)
+            }
         }
 
         val pos = ButtonPosition(
             id = id, x = 50, y = 20,
             width = entry.w, height = entry.h,
             lockAspect = entry.lockAspect,
+            isCustom = entry.isCustom,
+            customText = "自定义",
+            customBits = emptyList(),
+            roundShape = entry.baseId == "btnCustomCircle",
         )
         gamepadLayout.addButtonPosition(pos)
         gamepadLayout.setSelectedButton(id)
         updateButtonLabels(viewModel.settings.value.displayMode)
+    }
+
+    private fun createCustomButtonView(pos: ButtonPosition): View {
+        val displayText = (pos.customText ?: "自定义").ifEmpty { "自定义" }
+        val view: View = if (pos.roundShape || pos.lockAspect) {
+            Button(this).apply {
+                id = View.generateViewId(); tag = pos.id
+                text = displayText
+                setAllCaps(false)
+                setTextColor(-0x333334); textSize = 20f
+                setTypeface(null, Typeface.BOLD)
+                setBackgroundResource(R.drawable.button_circle)
+                gravity = android.view.Gravity.CENTER
+            }
+        } else {
+            RotatableButton(this).apply {
+                id = View.generateViewId(); tag = pos.id
+                text = displayText
+                setAllCaps(false)
+                setTextColor(-0x333334); textSize = 20f
+                setTypeface(null, Typeface.BOLD)
+                setBackgroundResource(R.drawable.button_rounded_rect)
+                gravity = android.view.Gravity.CENTER
+            }
+        }
+        gamepadLayout.addView(view, 0)
+        setupCustomTouchHandler(view)
+        return view
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupCustomTouchHandler(view: View) {
+        val id = view.tag as String
+        view.setOnTouchListener { v, e ->
+            when (e.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    v.isPressed = true; v.performClick()
+                    val bits = gamepadLayout.currentButtons.find { it.id == id }?.customBits.orEmpty()
+                    viewModel.onCustomButtonDown(bits)
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    v.isPressed = false
+                    val bits = gamepadLayout.currentButtons.find { it.id == id }?.customBits.orEmpty()
+                    viewModel.onCustomButtonUp(bits)
+                    true
+                }
+                else -> true
+            }
+        }
+    }
+
+    private fun applyPreset(preset: LayoutPreset) {
+        gamepadLayout.loadPreset(preset)
+        ensureViewsForAllPresetButtons(preset)
+    }
+
+    private fun ensureViewsForAllPresetButtons(preset: LayoutPreset) {
+        val buttons = preset.buttons.orEmpty()
+        val presetIds = buttons.map { it.id }.toSet()
+
+        for (i in gamepadLayout.childCount - 1 downTo 0) {
+            val child = gamepadLayout.getChildAt(i)
+            val tag = child.tag as? String ?: continue
+            if (tag.startsWith("btnCustom") && tag !in presetIds) {
+                gamepadLayout.removeView(child)
+            }
+        }
+
+        val existingIds = (0 until gamepadLayout.childCount).mapNotNull {
+            gamepadLayout.getChildAt(it).tag as? String
+        }.toSet()
+
+        for (pos in buttons) {
+            if (pos.id in existingIds) continue
+            if (pos.isCustom) {
+                createCustomButtonView(pos)
+            } else {
+                createStandardControlView(pos)
+            }
+        }
+        updateButtonLabels(viewModel.settings.value.displayMode)
+    }
+
+    private fun createStandardControlView(pos: ButtonPosition) {
+        val baseId = pos.id.substringBefore("_")
+        val entry = allControls.find { it.baseId == baseId } ?: return
+
+        val view: View = when {
+            entry.isJoystick -> JoystickView(this).apply {
+                id = View.generateViewId(); tag = pos.id
+                val isLeft = baseId == "leftJoystick"
+                label = if (isLeft) "L" else "R"
+                onStickClickDown = { viewModel.onButtonDown(if (isLeft) GamepadState.L3 else GamepadState.R3) }
+                onStickClickUp = { viewModel.onButtonUp(if (isLeft) GamepadState.L3 else GamepadState.R3) }
+                onStickMoved = { sx, sy -> if (isLeft) viewModel.onLeftStick(sx, sy) else viewModel.onRightStick(sx, sy) }
+            }
+            entry.isTouchpad -> {
+                val tp = FrameLayout(this).apply {
+                    id = View.generateViewId(); tag = pos.id
+                    setBackgroundResource(R.drawable.center_rect)
+                }
+                val label = TextView(this).apply {
+                    layoutParams = FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                        android.view.Gravity.CENTER
+                    )
+                    setTextColor(-0x6699999a); textSize = 11f
+                }
+                tp.addView(label)
+                touchpadLabels.add(label)
+                setupTouchpadView(tp)
+                tp
+            }
+            entry.isCustom -> {
+                val btn = if (!entry.lockAspect) RotatableButton(this) else Button(this)
+                btn.apply {
+                    id = View.generateViewId(); tag = pos.id
+                    text = "自定义"
+                    setAllCaps(false)
+                    setTextColor(-0x333334); textSize = 20f
+                    setTypeface(null, Typeface.BOLD)
+                    setBackgroundResource(entry.bgRes)
+                    gravity = android.view.Gravity.CENTER
+                }
+            }
+            !entry.lockAspect -> RotatableButton(this).apply {
+                id = View.generateViewId(); tag = pos.id
+                setTextColor(-0x333334); textSize = 12f
+                setTypeface(null, Typeface.BOLD)
+                setBackgroundResource(entry.bgRes)
+                gravity = android.view.Gravity.CENTER
+            }
+            else -> Button(this).apply {
+                id = View.generateViewId(); tag = pos.id
+                setTextColor(-0x333334); textSize = 12f
+                setTypeface(null, Typeface.BOLD)
+                setBackgroundResource(entry.bgRes)
+                gravity = android.view.Gravity.CENTER
+            }
+        }
+
+        if (!entry.isTouchpad && !entry.isCustom) {
+            val bit = getBitForEntry(entry) ?: 0
+            setupTouchHandler(view, bit, entry.isDpad, entry.isTrigger, entry.isJoystick)
+        } else if (entry.isCustom) {
+            setupCustomTouchHandler(view)
+        }
+        gamepadLayout.addView(view, 0)
+    }
+
+    private fun getBitForEntry(entry: CtrlEntry): Int? {
+        return when (entry.baseId) {
+            "leftJoystick" -> GamepadState.L3
+            "rightJoystick" -> GamepadState.R3
+            "touchpad" -> GamepadState.TOUCHPAD_CLICK
+            "btnTouchpad" -> GamepadState.TOUCHPAD_CLICK
+            "btnDpadUp" -> GamepadState.DPAD_BIT_UP
+            "btnDpadDown" -> GamepadState.DPAD_BIT_DOWN
+            "btnDpadLeft" -> GamepadState.DPAD_BIT_LEFT
+            "btnDpadRight" -> GamepadState.DPAD_BIT_RIGHT
+            else -> if (entry.bit != 0) entry.bit else null
+        }
+    }
+
+    private var outputPickerDialog: AlertDialog? = null
+
+    private fun showOutputValuePicker(currentBits: List<Int>, onResult: (List<Int>) -> Unit) {
+        outputPickerDialog?.dismiss()
+        val density = resources.displayMetrics.density
+        val cols = 6
+        val cellW = (500f * density).toInt()
+        val iconSize = (56f * density).toInt()
+        val mode = viewModel.settings.value.displayMode
+
+        val content = NestedScrollView(this)
+        val grid = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((12f * density).toInt(), (12f * density).toInt(), (12f * density).toInt(), (12f * density).toInt())
+        }
+
+        allControls.filter { it.baseId != "btnCustomCircle" && it.baseId != "btnCustomRect" }
+            .chunked(cols).forEach { rowItems ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER
+            }
+            rowItems.forEach { entry ->
+                val bit = getBitForEntry(entry) ?: return@forEach
+                val alreadySelected = bit in currentBits
+
+                val wrapper = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    gravity = android.view.Gravity.CENTER
+                    setOnClickListener {
+                        outputPickerDialog?.dismiss()
+                        val newBits = if (alreadySelected) currentBits else currentBits + bit
+                        onResult(newBits)
+                    }
+                    isClickable = true
+                    isFocusable = true
+                    setPadding((6f * density).toInt(), (6f * density).toInt(), (6f * density).toInt(), (6f * density).toInt())
+                }
+
+                if (alreadySelected) {
+                    wrapper.setBackgroundResource(R.drawable.bg_chip_selected)
+                }
+
+                val text = getPreviewText(entry, mode)
+                if (text != null) {
+                    val btn = Button(this).apply {
+                        this.text = text
+                        setTextColor(-0x333334)
+                        textSize = 12f
+                        setTypeface(null, Typeface.BOLD)
+                        setBackgroundResource(getPreviewIcon(entry, mode))
+                        gravity = android.view.Gravity.CENTER
+                        layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+                        isClickable = false
+                    }
+                    wrapper.addView(btn)
+                } else if (entry.isJoystick) {
+                    val jl = if (entry.baseId.startsWith("left")) "L" else "R"
+                    val jv = object : View(this) {
+                        private val outerP = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = -0xdddddd; style = Paint.Style.FILL }
+                        private val outerS = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = -0xaaaaab; style = Paint.Style.STROKE; strokeWidth = 2f }
+                        private val innerP = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = -0xaaaaab; style = Paint.Style.FILL }
+                        private val innerS = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = -0x888889; style = Paint.Style.STROKE; strokeWidth = 1.5f }
+                        private val lp = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = -0x555556; textAlign = Paint.Align.CENTER }
+                        override fun onDraw(canvas: Canvas) {
+                            val cx = width / 2f; val cy = height / 2f
+                            val r = minOf(cx, cy)
+                            val kr = r * 0.32f
+                            canvas.drawCircle(cx, cy, r, outerP)
+                            canvas.drawCircle(cx, cy, r, outerS)
+                            canvas.drawCircle(cx, cy, kr, innerP)
+                            canvas.drawCircle(cx, cy, kr, innerS)
+                            lp.textSize = kr * 1.1f
+                            val textY = cy - (lp.ascent() + lp.descent()) / 2f
+                            canvas.drawText(jl, cx, textY, lp)
+                        }
+                    }
+                    jv.layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+                    wrapper.addView(jv)
+                } else {
+                    val iv = ImageView(this).apply {
+                        setImageResource(getPreviewIcon(entry, mode))
+                        setBackgroundResource(R.drawable.button_circle)
+                        layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+                    }
+                    wrapper.addView(iv)
+                }
+                row.addView(wrapper, LinearLayout.LayoutParams(cellW / cols, ViewGroup.LayoutParams.WRAP_CONTENT))
+            }
+            grid.addView(row)
+        }
+
+        content.addView(grid)
+        outputPickerDialog = AlertDialog.Builder(this)
+            .setTitle("选择传出值")
+            .setView(content)
+            .setPositiveButton("取消", null)
+            .show()
     }
 
     // ── Gamepad Layout Listener ────────────────────────────────
@@ -739,7 +1038,7 @@ class MainActivity : ComponentActivity() {
             if (isChecked) {
                 viewModel.updateEditMode(true)
                 hideSettings()
-                gamepadLayout.loadPreset(viewModel.currentPreset.value)
+                applyPreset(viewModel.currentPreset.value)
                 gamepadLayout.enterEditMode()
             }
         }
@@ -1087,7 +1386,7 @@ class MainActivity : ComponentActivity() {
     private fun loadPresetByName(name: String) {
         if (!viewModel.loadPreset(name)) return
         val preset = viewModel.currentPreset.value
-        gamepadLayout.loadPreset(preset)
+        applyPreset(preset)
         showToast("已加载「$name」")
         refreshPresetList()
     }
@@ -1105,7 +1404,7 @@ class MainActivity : ComponentActivity() {
                     val defaultJson = com.zyz4.gamepademu.data.LayoutRepository.DEFAULT_JSON
                     val preset = LayoutPreset.fromJson(defaultJson)
                     viewModel.savePreset(name, preset)
-                    gamepadLayout.loadPreset(preset)
+                    applyPreset(preset)
                     refreshPresetList()
                     showToast("已创建「$name」")
                 }
@@ -1127,7 +1426,7 @@ class MainActivity : ComponentActivity() {
                     val name = nameInput.text.toString().trim()
                     if (name.isNotEmpty()) {
                         viewModel.savePreset(name, preset)
-                        gamepadLayout.loadPreset(preset)
+                        applyPreset(preset)
                         refreshPresetList()
                         showToast("已导入「$name」")
                     }
@@ -1208,7 +1507,19 @@ class MainActivity : ComponentActivity() {
 
         for (i in 0 until gamepadLayout.childCount) {
             val child = gamepadLayout.getChildAt(i)
-            val baseId = (child.tag as? String)?.substringBefore("_") ?: continue
+            val tag = child.tag as? String ?: continue
+            val baseId = tag.substringBefore("_") ?: continue
+
+            if (baseId.startsWith("btnCustom")) {
+                val pos = gamepadLayout.currentButtons.find { it.id == tag }
+                (child as? TextView)?.apply {
+                    text = (pos?.customText ?: "自定义").ifEmpty { "自定义" }
+                    setAllCaps(false)
+                    textSize = 20f
+                }
+                continue
+            }
+
             when {
                 baseId in abxyList -> {
                     val idx = abxyList.indexOf(baseId)
@@ -1268,6 +1579,21 @@ class MainActivity : ComponentActivity() {
                             DisplayMode.PLAYSTATION -> { text = "OPTION"; setBackgroundResource(R.drawable.button_circle) }
                             DisplayMode.SWITCH -> { text = ""; setBackgroundResource(R.drawable.btn_menu_switch) }
                         }
+                    }
+                }
+                baseId == "btnTouchpad" -> {
+                    (child as? Button)?.apply {
+                        text = ""; setBackgroundResource(R.drawable.btn_touchpad)
+                    }
+                }
+                baseId == "btnLS" -> {
+                    (child as? Button)?.apply {
+                        text = ""; setBackgroundResource(R.drawable.btn_ls)
+                    }
+                }
+                baseId == "btnRS" -> {
+                    (child as? Button)?.apply {
+                        text = ""; setBackgroundResource(R.drawable.btn_rs)
                     }
                 }
             }
@@ -1372,7 +1698,7 @@ class MainActivity : ComponentActivity() {
                 launch {
                     viewModel.currentPreset.collect { preset ->
                         if (!gamepadLayout.isEditModeActive()) {
-                            gamepadLayout.loadPreset(preset)
+                            applyPreset(preset)
                         }
                     }
                 }

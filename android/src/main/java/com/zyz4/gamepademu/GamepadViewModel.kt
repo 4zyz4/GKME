@@ -343,6 +343,22 @@ class GamepadViewModel @Inject constructor(
         sendInput()
     }
 
+    fun onCustomButtonDown(bits: List<Int>) {
+        var b = _gamepadState.value.buttons
+        for (bit in bits) { b = b or bit.toUInt() }
+        _gamepadState.value = _gamepadState.value.copy(buttons = b)
+        onHapticFeedbackPress?.invoke()
+        sendInput()
+    }
+
+    fun onCustomButtonUp(bits: List<Int>) {
+        var b = _gamepadState.value.buttons
+        for (bit in bits) { b = b and (bit.toUInt().inv()) }
+        _gamepadState.value = _gamepadState.value.copy(buttons = b)
+        onHapticFeedbackRelease?.invoke()
+        sendInput()
+    }
+
     fun onLeftStick(x: Short, y: Short) {
         _gamepadState.value = _gamepadState.value.copy(leftStickX = x, leftStickY = y)
         sendInput()
