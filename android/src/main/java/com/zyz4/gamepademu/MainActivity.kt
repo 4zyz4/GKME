@@ -133,6 +133,7 @@ class MainActivity : ComponentActivity() {
         createAllControls()
         setupSettings()
         observeState()
+        autoStartService()
     }
 
     // ── Floating Editor ──────────────────────────────────────
@@ -1552,6 +1553,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+
+        findViewById<Switch>(R.id.switchAutoStart).setOnCheckedChangeListener { _, isChecked ->
+            viewModel.updateAutoStartEnabled(isChecked)
+        }
     }
 
     @Suppress("DEPRECATION")
@@ -1560,6 +1565,25 @@ class MainActivity : ComponentActivity() {
         if (adapter != null && !adapter.isEnabled) {
             val enableIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
             bluetoothEnableLauncher.launch(enableIntent)
+        } else {
+            viewModel.startServer()
+        }
+    }
+
+    private fun autoStartService() {
+        val s = viewModel.settings.value
+        if (!s.autoStartEnabled) return
+        if (s.connectionMode == ConnectionMode.BLUETOOTH) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val connectGranted = ContextCompat.checkSelfPermission(
+                    this, Manifest.permission.BLUETOOTH_CONNECT
+                ) == PackageManager.PERMISSION_GRANTED
+                val advertiseGranted = ContextCompat.checkSelfPermission(
+                    this, Manifest.permission.BLUETOOTH_ADVERTISE
+                ) == PackageManager.PERMISSION_GRANTED
+                if (!connectGranted || !advertiseGranted) return
+            }
+            checkBluetoothOnAndStart()
         } else {
             viewModel.startServer()
         }
@@ -1836,6 +1860,7 @@ class MainActivity : ComponentActivity() {
         updateVibrationUI()
         updateSettingsVisibility(s.connectionMode)
 
+        findViewById<Switch>(R.id.switchAutoStart).isChecked = s.autoStartEnabled
         findViewById<Switch>(R.id.switchGyroEnabled).isChecked = s.gyroEnabled
         val effectiveOrientation = viewModel.currentPreset.value.gyroOrientation ?: s.gyroOrientation
         selectChipGroup(listOf(R.id.btnGyroOriLandscape, R.id.btnGyroOriPortrait, R.id.btnGyroOriPortraitInverted),

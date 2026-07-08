@@ -41,6 +41,7 @@ class SettingsRepository @Inject constructor(
         val VIBRATION_RELEASE_DURATION = intPreferencesKey("vibration_release_duration")
         val VIBRATION_PRESS_INTENSITY = intPreferencesKey("vibration_press_intensity")
         val VIBRATION_RELEASE_INTENSITY = intPreferencesKey("vibration_release_intensity")
+        val AUTO_START_ENABLED = booleanPreferencesKey("auto_start_enabled")
         val GYRO_ENABLED = booleanPreferencesKey("gyro_enabled")
         val GYRO_SENSITIVITY_X = intPreferencesKey("gyro_sensitivity_x")
         val GYRO_SENSITIVITY_Y = intPreferencesKey("gyro_sensitivity_y")
@@ -79,6 +80,7 @@ class SettingsRepository @Inject constructor(
             vibrationReleaseDuration = prefs[Keys.VIBRATION_RELEASE_DURATION] ?: 20,
             vibrationPressIntensity = prefs[Keys.VIBRATION_PRESS_INTENSITY] ?: 128,
             vibrationReleaseIntensity = prefs[Keys.VIBRATION_RELEASE_INTENSITY] ?: 64,
+            autoStartEnabled = prefs[Keys.AUTO_START_ENABLED] ?: false,
             gyroEnabled = prefs[Keys.GYRO_ENABLED] ?: true,
             gyroSensitivityX = prefs[Keys.GYRO_SENSITIVITY_X] ?: 100,
             gyroSensitivityY = prefs[Keys.GYRO_SENSITIVITY_Y] ?: 100,
@@ -106,6 +108,7 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.VIBRATION_RELEASE_DURATION] = settings.vibrationReleaseDuration
             prefs[Keys.VIBRATION_PRESS_INTENSITY] = settings.vibrationPressIntensity
             prefs[Keys.VIBRATION_RELEASE_INTENSITY] = settings.vibrationReleaseIntensity
+            prefs[Keys.AUTO_START_ENABLED] = settings.autoStartEnabled
             prefs[Keys.GYRO_ENABLED] = settings.gyroEnabled
             prefs[Keys.GYRO_SENSITIVITY_X] = settings.gyroSensitivityX
             prefs[Keys.GYRO_SENSITIVITY_Y] = settings.gyroSensitivityY

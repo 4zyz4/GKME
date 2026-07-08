@@ -174,6 +174,10 @@ class GamepadViewModel @Inject constructor(
         connectionManager.updateSettings(settings.value.copy(connectionMode = mode))
     }
 
+    fun updateAutoStartEnabled(enabled: Boolean) {
+        connectionManager.updateSettings(settings.value.copy(autoStartEnabled = enabled))
+    }
+
     fun updateTargetPlatform(platform: TargetPlatform) {
         connectionManager.updateSettings(settings.value.copy(targetPlatform = platform))
     }

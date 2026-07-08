@@ -47,6 +47,7 @@ data class AppSettings(
     val vibrationReleaseDuration: Int = 20,
     val vibrationPressIntensity: Int = 128,
     val vibrationReleaseIntensity: Int = 64,
+    val autoStartEnabled: Boolean = false,
     val gyroEnabled: Boolean = true,
     val gyroSensitivityX: Int = 100,
     val gyroSensitivityY: Int = 100,
