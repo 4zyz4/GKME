@@ -90,15 +90,12 @@ class GamepadLayout @JvmOverloads constructor(
                     return true
                 }
                 MotionEvent.ACTION_POINTER_DOWN -> {
-                    if (touchpadTarget != null) {
-                        dispatchTouchpadPointers(touchpadTarget!!, event)
-                    }
                     pointerDown(event, event.actionIndex)
                     return true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     if (touchpadTarget != null) {
-                        dispatchTouchpadPointers(touchpadTarget!!, event)
+                        dispatchFilteredToTouchpad(touchpadTarget!!, event)
                     }
                     for ((pid, children) in touchTargets.toMap()) {
                         val idx = event.findPointerIndex(pid)
@@ -112,16 +109,21 @@ class GamepadLayout @JvmOverloads constructor(
                 }
                 MotionEvent.ACTION_POINTER_UP -> {
                     if (touchpadTarget != null) {
-                        dispatchTouchpadPointers(touchpadTarget!!, event)
+                        val idx = event.actionIndex
+                        val liftedPid = event.getPointerId(idx)
+                        if (liftedPid in touchpadPointerIds) {
+                            dispatchFilteredToTouchpad(touchpadTarget!!, event, listOf(idx))
+                        }
                     }
                     pointerUp(event, event.actionIndex)
                     return true
                 }
                 MotionEvent.ACTION_UP -> {
                     if (touchpadTarget != null) {
-                        dispatchTouchpadPointers(touchpadTarget!!, event)
+                        dispatchFilteredToTouchpad(touchpadTarget!!, event)
                         touchpadTarget = null
                     }
+                    touchpadPointerIds.clear()
                     for ((_, children) in touchTargets.toMap()) {
                         for (child in children) {
                             dispatchToChild(child, event, MotionEvent.ACTION_UP, 0)
@@ -132,9 +134,10 @@ class GamepadLayout @JvmOverloads constructor(
                 }
                 MotionEvent.ACTION_CANCEL -> {
                     if (touchpadTarget != null) {
-                        dispatchTouchpadPointers(touchpadTarget!!, event)
+                        dispatchFilteredToTouchpad(touchpadTarget!!, event)
                         touchpadTarget = null
                     }
+                    touchpadPointerIds.clear()
                     for ((_, children) in touchTargets) {
                         for (child in children) {
                             val ev = MotionEvent.obtain(
@@ -303,7 +306,10 @@ class GamepadLayout @JvmOverloads constructor(
 
     private val touchTargets = HashMap<Int, MutableList<View>>()
 
-    /** When set, touchpad-relevant pointers are routed to the touchpad child. */
+    /** Set of pointer IDs whose initial touch-down was on the touchpad. */
+    private val touchpadPointerIds = mutableSetOf<Int>()
+
+    /** When set, the touchpad child is active and receiving touchpad-pointer events. */
     private var touchpadTarget: View? = null
 
     private fun pointerDown(event: MotionEvent, idx: Int) {
@@ -315,7 +321,8 @@ class GamepadLayout @JvmOverloads constructor(
         val tp = children.firstOrNull { getButtonId(it) == "touchpad" }
         if (tp != null) {
             touchpadTarget = tp
-            dispatchTouchpadPointers(tp, event)
+            touchpadPointerIds.add(pid)
+            dispatchFilteredToTouchpad(tp, event)
             return
         }
         touchTargets[pid] = children.toMutableList()
@@ -332,11 +339,52 @@ class GamepadLayout @JvmOverloads constructor(
                 dispatchToChild(child, event, MotionEvent.ACTION_UP, idx)
             }
         }
+        touchpadPointerIds.remove(pid)
+        if (touchpadPointerIds.isEmpty()) {
+            touchpadTarget = null
+        }
     }
 
-    /** Deliver the full event to the touchpad child, offset into its local coords. */
-    private fun dispatchTouchpadPointers(child: View, event: MotionEvent) {
-        val ev = MotionEvent.obtain(event)
+    /** Deliver only touchpad-originated pointers to the touchpad child.
+     *  When [indices] is given, only those pointer indices are included;
+     *  otherwise all pointers whose ID is in [touchpadPointerIds] are included. */
+    private fun dispatchFilteredToTouchpad(child: View, event: MotionEvent, indices: List<Int>? = null) {
+        val include = indices ?: (0 until event.pointerCount).filter { event.getPointerId(it) in touchpadPointerIds }
+        if (include.isEmpty()) return
+
+        if (include.size == event.pointerCount) {
+            val ev = MotionEvent.obtain(event)
+            ev.offsetLocation(-child.left.toFloat(), -child.top.toFloat())
+            child.dispatchTouchEvent(ev)
+            ev.recycle()
+            return
+        }
+
+        val props = Array(include.size) { i ->
+            MotionEvent.PointerProperties().also { event.getPointerProperties(include[i], it) }
+        }
+        val coords = Array(include.size) { i ->
+            MotionEvent.PointerCoords().also { event.getPointerCoords(include[i], it) }
+        }
+
+        val rawAction = event.actionMasked
+        val newAction = if (include.size == 1 && rawAction == MotionEvent.ACTION_POINTER_DOWN) {
+            MotionEvent.ACTION_DOWN
+        } else if (include.size == 1 && rawAction == MotionEvent.ACTION_POINTER_UP) {
+            MotionEvent.ACTION_UP
+        } else {
+            rawAction
+        }
+
+        val ev = MotionEvent.obtain(
+            event.downTime, event.eventTime,
+            newAction, include.size,
+            props, coords,
+            event.metaState, event.buttonState,
+            event.xPrecision, event.yPrecision,
+            event.deviceId, event.edgeFlags,
+            event.source, event.flags
+        )
         ev.offsetLocation(-child.left.toFloat(), -child.top.toFloat())
         child.dispatchTouchEvent(ev)
         ev.recycle()
