@@ -91,22 +91,20 @@ class GamepadLayout @JvmOverloads constructor(
                 }
                 MotionEvent.ACTION_POINTER_DOWN -> {
                     if (touchpadTarget != null) {
-                        dispatchFullToTouchpad(touchpadTarget!!, event)
-                    } else {
-                        pointerDown(event, event.actionIndex)
+                        dispatchTouchpadPointers(touchpadTarget!!, event)
                     }
+                    pointerDown(event, event.actionIndex)
                     return true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     if (touchpadTarget != null) {
-                        dispatchFullToTouchpad(touchpadTarget!!, event)
-                    } else {
-                        for ((pid, children) in touchTargets.toMap()) {
-                            val idx = event.findPointerIndex(pid)
-                            if (idx >= 0) {
-                                for (child in children) {
-                                    dispatchToChild(child, event, MotionEvent.ACTION_MOVE, idx)
-                                }
+                        dispatchTouchpadPointers(touchpadTarget!!, event)
+                    }
+                    for ((pid, children) in touchTargets.toMap()) {
+                        val idx = event.findPointerIndex(pid)
+                        if (idx >= 0) {
+                            for (child in children) {
+                                dispatchToChild(child, event, MotionEvent.ACTION_MOVE, idx)
                             }
                         }
                     }
@@ -114,15 +112,14 @@ class GamepadLayout @JvmOverloads constructor(
                 }
                 MotionEvent.ACTION_POINTER_UP -> {
                     if (touchpadTarget != null) {
-                        dispatchFullToTouchpad(touchpadTarget!!, event)
-                    } else {
-                        pointerUp(event, event.actionIndex)
+                        dispatchTouchpadPointers(touchpadTarget!!, event)
                     }
+                    pointerUp(event, event.actionIndex)
                     return true
                 }
                 MotionEvent.ACTION_UP -> {
                     if (touchpadTarget != null) {
-                        dispatchFullToTouchpad(touchpadTarget!!, event)
+                        dispatchTouchpadPointers(touchpadTarget!!, event)
                         touchpadTarget = null
                     }
                     for ((_, children) in touchTargets.toMap()) {
@@ -135,7 +132,7 @@ class GamepadLayout @JvmOverloads constructor(
                 }
                 MotionEvent.ACTION_CANCEL -> {
                     if (touchpadTarget != null) {
-                        dispatchFullToTouchpad(touchpadTarget!!, event)
+                        dispatchTouchpadPointers(touchpadTarget!!, event)
                         touchpadTarget = null
                     }
                     for ((_, children) in touchTargets) {
@@ -306,7 +303,7 @@ class GamepadLayout @JvmOverloads constructor(
 
     private val touchTargets = HashMap<Int, MutableList<View>>()
 
-    /** When set, all pointers are routed to the touchpad child (full multi-touch). */
+    /** When set, touchpad-relevant pointers are routed to the touchpad child. */
     private var touchpadTarget: View? = null
 
     private fun pointerDown(event: MotionEvent, idx: Int) {
@@ -318,7 +315,7 @@ class GamepadLayout @JvmOverloads constructor(
         val tp = children.firstOrNull { getButtonId(it) == "touchpad" }
         if (tp != null) {
             touchpadTarget = tp
-            dispatchFullToTouchpad(tp, event)
+            dispatchTouchpadPointers(tp, event)
             return
         }
         touchTargets[pid] = children.toMutableList()
@@ -337,8 +334,8 @@ class GamepadLayout @JvmOverloads constructor(
         }
     }
 
-    /** Deliver the full (all-pointer) event to the touchpad, offset into its local coords. */
-    private fun dispatchFullToTouchpad(child: View, event: MotionEvent) {
+    /** Deliver the full event to the touchpad child, offset into its local coords. */
+    private fun dispatchTouchpadPointers(child: View, event: MotionEvent) {
         val ev = MotionEvent.obtain(event)
         ev.offsetLocation(-child.left.toFloat(), -child.top.toFloat())
         child.dispatchTouchEvent(ev)
