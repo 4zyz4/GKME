@@ -636,6 +636,7 @@ class MainActivity : ComponentActivity() {
                         android.view.Gravity.CENTER
                     )
                     setTextColor(-0x6699999a); textSize = 11f
+                    text = viewModel.connectionState.value.statusText
                 }
                 tp.addView(label)
                 touchpadLabels.add(label)
@@ -947,21 +948,22 @@ class MainActivity : ComponentActivity() {
                         this.id = View.generateViewId(); tag = d.baseId
                         setBackgroundResource(R.drawable.center_rect)
                     }
-                    val label = TextView(this).apply {
-                        layoutParams = FrameLayout.LayoutParams(
-                            ViewGroup.LayoutParams.WRAP_CONTENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT,
-                            android.view.Gravity.CENTER
-                        )
-                        setTextColor(-0x6699999a)
-                        textSize = 11f
-                    }
-                    tp.addView(label)
-                    touchpadLabels.add(label)
-                    setupTouchpadView(tp)
-                    tp
+                val label = TextView(this).apply {
+                    layoutParams = FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        android.view.Gravity.CENTER
+                    )
+                    setTextColor(-0x6699999a)
+                    textSize = 11f
+                    text = viewModel.connectionState.value.statusText
                 }
-                d.baseId in listOf("btnLB", "btnRB", "btnLT", "btnRT") -> RotatableButton(this).apply {
+                tp.addView(label)
+                touchpadLabels.add(label)
+                setupTouchpadView(tp)
+                tp
+            }
+            d.baseId in listOf("btnLB", "btnRB", "btnLT", "btnRT") -> RotatableButton(this).apply {
                     this.id = View.generateViewId(); tag = d.baseId
                     setTextColor(-0x333334); textSize = 12f
                     setTypeface(null, Typeface.BOLD)

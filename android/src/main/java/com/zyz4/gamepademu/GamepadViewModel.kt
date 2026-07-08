@@ -436,10 +436,6 @@ class GamepadViewModel @Inject constructor(
             touchpadY = primary?.y ?: 0,
             touchpadTouch = primary != null
         )
-        if (touches.isNotEmpty()) {
-            android.util.Log.d("TP", "touches=${touches.size} " +
-                touches.joinToString { "(${it.id}:${it.x},${it.y})" })
-        }
         sendInput()
     }
 
