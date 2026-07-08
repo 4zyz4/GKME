@@ -46,13 +46,13 @@ message GamepadInput {
   float accel_x = 12;
   float accel_y = 13;
   float accel_z = 14;
-  uint32 touchpad_x = 15;
-  uint32 touchpad_y = 16;
-  bool touchpad_touch = 17;
-  bool touchpad_click = 18;
-  uint32 battery_level = 19;
-  uint64 seq = 20;
-  bool is_charging = 21;
+  uint64 seq = 15;
+  uint32 battery_level = 16;
+  bool is_charging = 17;
+  uint32 touchpad_x = 18;
+  uint32 touchpad_y = 19;
+  bool touchpad_touch = 20;
+  bool touchpad_click = 21;
   repeated TouchPoint touches = 22;
 }
 

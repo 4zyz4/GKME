@@ -6,6 +6,8 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.zyz4.gamepademu.model.AppSettings
 import com.zyz4.gamepademu.model.ConnectionMode
 import com.zyz4.gamepademu.model.DisplayMode
@@ -47,7 +49,13 @@ class SettingsRepository @Inject constructor(
         val GYRO_SENSITIVITY_Y = intPreferencesKey("gyro_sensitivity_y")
         val GYRO_SENSITIVITY_Z = intPreferencesKey("gyro_sensitivity_z")
         val GYRO_ORIENTATION = intPreferencesKey("gyro_orientation")
+        val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
+        val VOLUME_UP_BITS = stringPreferencesKey("volume_up_bits")
+        val VOLUME_DOWN_BITS = stringPreferencesKey("volume_down_bits")
     }
+
+    private val gson = Gson()
+    private val listIntType = object : TypeToken<List<Int>>() {}.type
 
     val settings: Flow<AppSettings> = context.settingsDataStore.data.map { prefs ->
         AppSettings(
@@ -88,6 +96,9 @@ class SettingsRepository @Inject constructor(
             gyroOrientation = GyroOrientation.entries.getOrElse(
                 prefs[Keys.GYRO_ORIENTATION] ?: 0
             ) { GyroOrientation.LANDSCAPE },
+            keepScreenOn = prefs[Keys.KEEP_SCREEN_ON] ?: false,
+            volumeUpBits = parseBitList(prefs[Keys.VOLUME_UP_BITS]),
+            volumeDownBits = parseBitList(prefs[Keys.VOLUME_DOWN_BITS]),
         )
     }
 
@@ -114,6 +125,16 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.GYRO_SENSITIVITY_Y] = settings.gyroSensitivityY
             prefs[Keys.GYRO_SENSITIVITY_Z] = settings.gyroSensitivityZ
             prefs[Keys.GYRO_ORIENTATION] = settings.gyroOrientation.ordinal
+            prefs[Keys.KEEP_SCREEN_ON] = settings.keepScreenOn
+            prefs[Keys.VOLUME_UP_BITS] = gson.toJson(settings.volumeUpBits)
+            prefs[Keys.VOLUME_DOWN_BITS] = gson.toJson(settings.volumeDownBits)
         }
+    }
+
+    private fun parseBitList(json: String?): List<Int> {
+        if (json.isNullOrEmpty()) return emptyList()
+        return try {
+            gson.fromJson(json, listIntType) ?: emptyList()
+        } catch (_: Exception) { emptyList() }
     }
 }

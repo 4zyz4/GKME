@@ -11,14 +11,19 @@ import android.view.Display
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Typeface
+import android.media.VolumeProvider
+import android.media.session.MediaSession
+import android.media.session.PlaybackState
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.view.KeyEvent
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.LayoutInflater
@@ -79,6 +84,8 @@ class MainActivity : ComponentActivity() {
     private val controlViews = mutableMapOf<String, View>()
     private val touchpadLabels = mutableListOf<TextView>()
     private var discoverableRequested = false
+
+    private var mediaSession: MediaSession? = null
 
     private val vibrator: Vibrator by lazy {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -149,6 +156,7 @@ class MainActivity : ComponentActivity() {
         setContentView(R.layout.activity_main)
         enableEdgeToEdge()
         gamepadLayout = findViewById(R.id.gamepadLayout)
+        setupMediaSession()
         setupFloatingEditor()
         setupGamepadLayoutListener()
         createAllControls()
@@ -160,8 +168,31 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        mediaSession?.release()
         displayManager.unregisterDisplayListener(displayListener)
         super.onDestroy()
+    }
+
+    // ── MediaSession (intercept volume keys before system) ──
+
+    private fun setupMediaSession() {
+        mediaSession = MediaSession(this, "GamepadEmu").apply {
+            setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS)
+            setPlaybackState(PlaybackState.Builder()
+                .setActions(PlaybackState.ACTION_PLAY_PAUSE)
+                .setState(PlaybackState.STATE_PLAYING, 0, 0f)
+                .build()
+            )
+            val volumeProvider = object : VolumeProvider(
+                VolumeProvider.VOLUME_CONTROL_RELATIVE, 100, 50
+            ) {
+                override fun onAdjustVolume(direction: Int) {
+                    // Suppress system volume adjustment
+                }
+            }
+            setPlaybackToRemote(volumeProvider)
+            isActive = true
+        }
     }
 
     // ── Floating Editor ──────────────────────────────────────
@@ -1172,9 +1203,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun selectSettingsCategory(index: Int) {
-        val pages = listOf(R.id.pageConnection, R.id.pagePresets, R.id.pageVibration, R.id.pageGyro, R.id.pageAbout)
+        val pages = listOf(R.id.pageConnection, R.id.pagePresets, R.id.pageVibration, R.id.pageGyro, R.id.pageMisc, R.id.pageAbout)
         val buttons = listOf(
-            R.id.btnCategoryConnection, R.id.btnCategoryPresets, R.id.btnCategoryVibration, R.id.btnCategoryGyro, R.id.btnCategoryAbout
+            R.id.btnCategoryConnection, R.id.btnCategoryPresets, R.id.btnCategoryVibration, R.id.btnCategoryGyro, R.id.btnCategoryMisc, R.id.btnCategoryAbout
         )
         pages.forEachIndexed { i, id ->
             findViewById<View>(id).visibility = if (i == index) View.VISIBLE else View.GONE
@@ -1194,7 +1225,8 @@ class MainActivity : ComponentActivity() {
         findViewById<Button>(R.id.btnCategoryPresets).setOnClickListener { selectSettingsCategory(1) }
         findViewById<Button>(R.id.btnCategoryVibration).setOnClickListener { selectSettingsCategory(2) }
         findViewById<Button>(R.id.btnCategoryGyro).setOnClickListener { selectSettingsCategory(3) }
-        findViewById<Button>(R.id.btnCategoryAbout).setOnClickListener { selectSettingsCategory(4) }
+        findViewById<Button>(R.id.btnCategoryMisc).setOnClickListener { selectSettingsCategory(4) }
+        findViewById<Button>(R.id.btnCategoryAbout).setOnClickListener { selectSettingsCategory(5) }
 
         // ── Presets page ──
         findViewById<Switch>(R.id.switchEditMode).setOnCheckedChangeListener { _, isChecked ->
@@ -1434,6 +1466,9 @@ class MainActivity : ComponentActivity() {
             setOnTouchListener { _, _ -> true }
         }
 
+        // ── Misc page ──
+        setupMiscPage()
+
         // ── About page ──
         setupAboutPage()
 
@@ -1518,6 +1553,137 @@ class MainActivity : ComponentActivity() {
                 .setNegativeButton("取消", null)
                 .show()
         }
+    }
+
+    private fun bitToName(bit: Int): String {
+        return when (bit) {
+            GamepadState.A -> "A"; GamepadState.B -> "B"; GamepadState.X -> "X"; GamepadState.Y -> "Y"
+            GamepadState.LB -> "LB"; GamepadState.RB -> "RB"; GamepadState.LT -> "LT"; GamepadState.RT -> "RT"
+            GamepadState.SELECT -> "SELECT"; GamepadState.START -> "START"
+            GamepadState.L3 -> "L3"; GamepadState.R3 -> "R3"
+            GamepadState.DPAD_BIT_UP -> "上方向"; GamepadState.DPAD_BIT_DOWN -> "下方向"
+            GamepadState.DPAD_BIT_LEFT -> "左方向"; GamepadState.DPAD_BIT_RIGHT -> "右方向"
+            GamepadState.HOME -> "HOME"; GamepadState.TOUCHPAD_CLICK -> "触摸板"
+            else -> "位$bit"
+        }
+    }
+
+    private fun rebuildVolumeChips(containerId: Int, bits: List<Int>, onRemove: (Int) -> Unit) {
+        val container = findViewById<LinearLayout>(containerId)
+        container.removeAllViews()
+        val density = resources.displayMetrics.density
+        if (bits.isEmpty()) {
+            val tv = TextView(this).apply {
+                text = "未映射"
+                setTextColor(-0x777778)
+                textSize = 13f
+                setPadding(0, (4f * density).toInt(), 0, (4f * density).toInt())
+            }
+            container.addView(tv)
+            return
+        }
+        val chipsPerRow = 4
+        bits.chunked(chipsPerRow).forEach { rowBits ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            }
+            rowBits.forEach { bit ->
+                val chip = TextView(this).apply {
+                    text = bitToName(bit)
+                    setTextColor(-0x1)
+                    textSize = 11f
+                    gravity = android.view.Gravity.CENTER
+                    setBackgroundResource(R.drawable.bg_chip)
+                    setPadding((6f * density).toInt(), (2f * density).toInt(), (6f * density).toInt(), (2f * density).toInt())
+                    setOnClickListener { onRemove(bit) }
+                }
+                row.addView(chip, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { rightMargin = (4f * density).toInt() })
+            }
+            container.addView(row)
+        }
+    }
+
+    private fun updateVolumeMappingLabels() {
+        val s = viewModel.settings.value
+        rebuildVolumeChips(R.id.layoutVolumeUpChips, s.volumeUpBits) { bit ->
+            val newBits = s.volumeUpBits - bit
+            viewModel.updateVolumeUpBits(newBits)
+        }
+        rebuildVolumeChips(R.id.layoutVolumeDownChips, s.volumeDownBits) { bit ->
+            val newBits = s.volumeDownBits - bit
+            viewModel.updateVolumeDownBits(newBits)
+        }
+    }
+
+    private fun setupMiscPage() {
+        findViewById<Switch>(R.id.switchKeepScreenOn).setOnCheckedChangeListener { _, isChecked ->
+            viewModel.updateKeepScreenOn(isChecked)
+            if (isChecked) {
+                window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            } else {
+                window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
+        }
+
+        findViewById<View>(R.id.btnAddVolumeUp).setOnClickListener {
+            showOutputValuePicker(viewModel.settings.value.volumeUpBits) { newBits ->
+                viewModel.updateVolumeUpBits(newBits)
+                updateVolumeMappingLabels()
+            }
+        }
+        findViewById<View>(R.id.btnClearVolumeUp).setOnClickListener {
+            viewModel.updateVolumeUpBits(emptyList())
+            updateVolumeMappingLabels()
+        }
+        findViewById<View>(R.id.btnAddVolumeDown).setOnClickListener {
+            showOutputValuePicker(viewModel.settings.value.volumeDownBits) { newBits ->
+                viewModel.updateVolumeDownBits(newBits)
+                updateVolumeMappingLabels()
+            }
+        }
+        findViewById<View>(R.id.btnClearVolumeDown).setOnClickListener {
+            viewModel.updateVolumeDownBits(emptyList())
+            updateVolumeMappingLabels()
+        }
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        val s = viewModel.settings.value
+        when (keyCode) {
+            KeyEvent.KEYCODE_VOLUME_UP -> {
+                if (s.volumeUpBits.isNotEmpty()) {
+                    viewModel.onVolumeKeyDown(s.volumeUpBits)
+                    return true
+                }
+            }
+            KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                if (s.volumeDownBits.isNotEmpty()) {
+                    viewModel.onVolumeKeyDown(s.volumeDownBits)
+                    return true
+                }
+            }
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        val s = viewModel.settings.value
+        when (keyCode) {
+            KeyEvent.KEYCODE_VOLUME_UP -> {
+                if (s.volumeUpBits.isNotEmpty()) {
+                    viewModel.onVolumeKeyUp(s.volumeUpBits)
+                    return true
+                }
+            }
+            KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                if (s.volumeDownBits.isNotEmpty()) {
+                    viewModel.onVolumeKeyUp(s.volumeDownBits)
+                    return true
+                }
+            }
+        }
+        return super.onKeyUp(keyCode, event)
     }
 
     @SuppressLint("SetTextI18n")
@@ -1908,6 +2074,9 @@ class MainActivity : ComponentActivity() {
         val inverted = windowManager.defaultDisplay.rotation == Surface.ROTATION_270
         updateGyroLandscapeInvertedNote(inverted)
 
+        findViewById<Switch>(R.id.switchKeepScreenOn).isChecked = s.keepScreenOn
+        updateVolumeMappingLabels()
+
         refreshPresetList()
     }
 
@@ -1957,6 +2126,11 @@ class MainActivity : ComponentActivity() {
                     viewModel.settings.collect { s ->
                         controlViews["touchpad"]?.visibility = View.VISIBLE
                         updatePairedDeviceVisibility(viewModel.pairedDeviceName.value)
+                        if (s.keepScreenOn) {
+                            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        } else {
+                            window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        }
                     }
                 }
                 launch {

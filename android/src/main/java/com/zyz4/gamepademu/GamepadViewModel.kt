@@ -22,12 +22,14 @@ import com.zyz4.gamepademu.model.TouchPoint
 import com.zyz4.gamepademu.model.VibrationType
 import com.zyz4.gamepademu.service.ConnectionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -259,6 +261,18 @@ class GamepadViewModel @Inject constructor(
         }
     }
 
+    fun updateKeepScreenOn(enabled: Boolean) {
+        connectionManager.updateSettings(settings.value.copy(keepScreenOn = enabled))
+    }
+
+    fun updateVolumeUpBits(bits: List<Int>) {
+        connectionManager.updateSettings(settings.value.copy(volumeUpBits = bits))
+    }
+
+    fun updateVolumeDownBits(bits: List<Int>) {
+        connectionManager.updateSettings(settings.value.copy(volumeDownBits = bits))
+    }
+
     fun updateGyroOrientation(orientation: GyroOrientation) {
         val updated = settings.value.copy(gyroOrientation = orientation)
         connectionManager.updateSettings(updated)
@@ -395,6 +409,28 @@ class GamepadViewModel @Inject constructor(
         _gamepadState.value = _gamepadState.value.copy(buttons = b)
         onHapticFeedbackRelease?.invoke()
         sendInput()
+    }
+
+    fun onVolumeKeyDown(bits: List<Int>) {
+        var b = _gamepadState.value.buttons
+        for (bit in bits) { b = b or bit.toUInt() }
+        _gamepadState.value = _gamepadState.value.copy(buttons = b)
+        fastSend()
+    }
+
+    fun onVolumeKeyUp(bits: List<Int>) {
+        var b = _gamepadState.value.buttons
+        for (bit in bits) { b = b and (bit.toUInt().inv()) }
+        _gamepadState.value = _gamepadState.value.copy(buttons = b)
+        fastSend()
+    }
+
+    private fun fastSend() {
+        if (settings.value.connectionMode == ConnectionMode.BLUETOOTH) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val input = _gamepadState.value.toProto()
+            connectionManager.sendGamepadState(input)
+        }
     }
 
     fun onLeftStick(x: Short, y: Short) {

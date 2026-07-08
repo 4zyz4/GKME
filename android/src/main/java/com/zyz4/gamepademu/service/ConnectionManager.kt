@@ -64,7 +64,7 @@ class ConnectionManager @Inject constructor(
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
 
     private var currentPollingRate = 125
-    private var _seq = 0L
+    private val _seq = java.util.concurrent.atomic.AtomicLong(0L)
     private val _rttRing = LongArray(64) { -1L }
 
     companion object {
@@ -292,8 +292,7 @@ class ConnectionManager @Inject constructor(
         when (_settings.value.connectionMode) {
             ConnectionMode.WIFI -> {
                 if (udpService.pcAddress == null) return
-                _seq++
-                val input = state.toBuilder().setSeq(_seq).build()
+                val input = state.toBuilder().setSeq(_seq.incrementAndGet()).build()
                 udpService.sendGamepadInput(input)
             }
             ConnectionMode.BLUETOOTH -> {
