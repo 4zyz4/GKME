@@ -29,12 +29,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import java.net.DatagramPacket
-import java.net.DatagramSocket
-import java.net.InetAddress
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.time.Duration.Companion.milliseconds
 
 data class ConnectionState(
     val connected: Boolean = false,
@@ -55,11 +51,10 @@ class ConnectionManager @Inject constructor(
 
     val pairedDeviceName: StateFlow<String?> = pairingStateRepository.pairedDeviceName
         .stateIn(scope, SharingStarted.Eagerly, null)
-    private val tcpServer = TcpServerService()
+    private val udpService = UdpService()
     private var bluetoothService: BluetoothHidService? = null
     val isBluetoothRunning: Boolean get() = bluetoothService != null
     private var serverJob: Job? = null
-    private var broadcastJob: Job? = null
     private var btPhaseJob: Job? = null
 
     private val _connectionState = MutableStateFlow(ConnectionState())
@@ -74,6 +69,7 @@ class ConnectionManager @Inject constructor(
 
     companion object {
         const val POLLING_INTERVAL_MS = 8
+        const val CONNECTION_TIMEOUT_MS = 3000L
     }
 
     init {
@@ -115,34 +111,32 @@ class ConnectionManager @Inject constructor(
     private suspend fun startWifiServer(settings: AppSettings) {
         currentPollingRate = 1000 / POLLING_INTERVAL_MS
         try {
-            startBroadcast(getRealDeviceName())
+            val ip = getServerIp()
+            if (ip.isEmpty()) {
+                _connectionState.value = _connectionState.value.copy(
+                    phase = ConnectionPhase.ERROR,
+                    statusText = "无法获取本机 IP"
+                )
+                return
+            }
+            udpService.start(ip, getRealDeviceName()) { msg ->
+                handleServerToClient(msg)
+            }
             _connectionState.value = _connectionState.value.copy(
                 phase = ConnectionPhase.LISTENING,
                 statusText = "服务已启动，等待连接..."
             )
-            tcpServer.start(37284,
-                onClientConnected = {
+            while (true) {
+                delay(1000)
+                if (udpService.pcAddress != null &&
+                    System.currentTimeMillis() - udpService.lastReceiveTime > CONNECTION_TIMEOUT_MS) {
+                    udpService.clearPcAddress()
                     _connectionState.value = _connectionState.value.copy(
-                        connected = true, phase = ConnectionPhase.CONNECTED,
-                        statusText = "已连接 (WiFi)"
+                        connected = false, phase = ConnectionPhase.LISTENING,
+                        statusText = "连接已断开，等待重连..."
                     )
-                    val hello = Hello.newBuilder()
-                        .setProtocolVersion(1)
-                        .setDeviceName(getRealDeviceName())
-                        .build()
-                    val msg = ClientToServer.newBuilder()
-                        .setHello(hello)
-                        .build()
-                    scope.launch { tcpServer.send(msg) }
-                },
-                onClientDisconnected = {
-                    _connectionState.value = _connectionState.value.copy(
-                        connected = false, phase = ConnectionPhase.DISCONNECTED,
-                        statusText = "已断开"
-                    )
-                },
-                onMessage = { data -> handleClientMessage(data) }
-            )
+                }
+            }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             _connectionState.value = _connectionState.value.copy(
@@ -207,23 +201,6 @@ class ConnectionManager @Inject constructor(
         }
     }
 
-    private fun startBroadcast(deviceName: String) {
-        broadcastJob?.cancel()
-        broadcastJob = CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val socket = DatagramSocket()
-                socket.broadcast = true
-                val msg = "GAMEPAD_SERVER:$deviceName".toByteArray()
-                while (true) {
-                    val packet = DatagramPacket(msg, msg.size,
-                        InetAddress.getByName("255.255.255.255"), 37284)
-                    socket.send(packet)
-                    delay(1000.milliseconds)
-                }
-            } catch (_: Exception) {}
-        }
-    }
-
     fun unpairDevice() {
         scope.launch {
             pairingStateRepository.clearPairedDevice()
@@ -233,13 +210,11 @@ class ConnectionManager @Inject constructor(
     }
 
     fun stopServer() {
-        broadcastJob?.cancel()
-        broadcastJob = null
         serverJob?.cancel()
         serverJob = null
         btPhaseJob?.cancel()
         btPhaseJob = null
-        tcpServer.stop()
+        udpService.stop()
         stopBluetooth()
         _connectionState.value = ConnectionState()
     }
@@ -251,29 +226,43 @@ class ConnectionManager @Inject constructor(
         bluetoothService = null
     }
 
-    private fun handleClientMessage(data: ByteArray) {
-        try {
-            val msg = ServerToClient.parseFrom(data)
-            when (msg.payloadCase) {
-                ServerToClient.PayloadCase.VIBRATION -> {
-                    if (_settings.value.gameVibrationEnabled) {
-                        val v = msg.vibration
-                        triggerVibration(v.largeMotor, v.smallMotor)
-                    }
+    private fun handleServerToClient(msg: ServerToClient) {
+        if (msg.payloadCase != ServerToClient.PayloadCase.DISCONNECT &&
+            !_connectionState.value.connected
+        ) {
+            doReconnect()
+        }
+        when (msg.payloadCase) {
+            ServerToClient.PayloadCase.VIBRATION -> {
+                if (_settings.value.gameVibrationEnabled) {
+                    val v = msg.vibration
+                    triggerVibration(v.largeMotor, v.smallMotor)
                 }
-                ServerToClient.PayloadCase.DISCONNECT -> {
-                    tcpServer.stop()
-                    _connectionState.value = ConnectionState(
-                        statusText = "已断开"
-                    )
-                }
-                ServerToClient.PayloadCase.RTT_REPORT -> {
-                }
-                ServerToClient.PayloadCase.SERVER_HELLO -> {
-                }
-                else -> {}
             }
-        } catch (_: Exception) {}
+            ServerToClient.PayloadCase.DISCONNECT -> {
+                udpService.clearPcAddress()
+                _connectionState.value = ConnectionState(statusText = "已断开")
+            }
+            ServerToClient.PayloadCase.RTT_REPORT -> {}
+            else -> {}
+        }
+    }
+
+    private fun doReconnect() {
+        _connectionState.value = _connectionState.value.copy(
+            connected = true, phase = ConnectionPhase.CONNECTED,
+            statusText = "已连接 (WiFi)"
+        )
+        scope.launch {
+            val hello = Hello.newBuilder()
+                .setProtocolVersion(1)
+                .setDeviceName(getRealDeviceName())
+                .build()
+            val msg = ClientToServer.newBuilder()
+                .setHello(hello)
+                .build()
+            udpService.sendClientToServer(msg)
+        }
     }
 
     private var _vibSpeed = -1
@@ -302,14 +291,10 @@ class ConnectionManager @Inject constructor(
     suspend fun sendGamepadState(state: GamepadInput) {
         when (_settings.value.connectionMode) {
             ConnectionMode.WIFI -> {
-                if (tcpServer.isClientConnected) {
-                    _seq++
-                    val idx = (_seq % 64).toInt()
-                    _rttRing[idx] = System.nanoTime()
-                    val msg = ClientToServer.newBuilder()
-                        .setGamepadInput(state.toBuilder().setSeq(_seq).build()).build()
-                    tcpServer.send(msg)
-                }
+                if (udpService.pcAddress == null) return
+                _seq++
+                val input = state.toBuilder().setSeq(_seq).build()
+                udpService.sendGamepadInput(input)
             }
             ConnectionMode.BLUETOOTH -> {
                 val target = _settings.value.targetPlatform

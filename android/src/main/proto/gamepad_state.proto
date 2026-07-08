@@ -6,8 +6,6 @@ option java_package = "com.zyz4.gamepademu.proto";
 option java_multiple_files = true;
 option csharp_namespace = "GamepadEmu.Protocol";
 
-// ─── 枚举 ──────────────────────────────────────
-
 enum Button {
   A = 0; B = 1; X = 2; Y = 3;
   LB = 4; RB = 5;
@@ -18,8 +16,6 @@ enum Button {
   DPAD_LEFT = 14; DPAD_RIGHT = 15;
   HOME = 16; TOUCHPAD_CLICK = 17;
 }
-
-// ─── 手机 → PC ─────────────────────────────────
 
 message ClientToServer {
   oneof payload {
@@ -71,12 +67,9 @@ message KeepAlive {
   uint64 timestamp = 1;
 }
 
-// ─── PC → 手机 ─────────────────────────────────
-
 message ServerToClient {
   oneof payload {
     Vibration vibration = 1;
-    Ack ack = 2;
     Disconnect disconnect = 3;
     RttReport rtt_report = 5;
     ServerHello server_hello = 7;
@@ -99,11 +92,6 @@ message RttReport {
 message Vibration {
   uint32 large_motor = 1;
   uint32 small_motor = 2;
-}
-
-message Ack {
-  bool success = 1;
-  string message = 2;
 }
 
 message Disconnect {

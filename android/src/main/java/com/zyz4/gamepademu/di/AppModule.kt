@@ -4,7 +4,6 @@ import android.content.Context
 import com.zyz4.gamepademu.data.PairingStateRepository
 import com.zyz4.gamepademu.data.SettingsRepository
 import com.zyz4.gamepademu.service.ConnectionManager
-import com.zyz4.gamepademu.service.TcpClientService
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
