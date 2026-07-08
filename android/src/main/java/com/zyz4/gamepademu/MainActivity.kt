@@ -6,6 +6,8 @@ import android.app.AlertDialog
 import android.bluetooth.BluetoothAdapter
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.hardware.display.DisplayManager
+import android.view.Display
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Typeface
@@ -20,6 +22,7 @@ import android.os.VibratorManager
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.LayoutInflater
+import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
@@ -123,6 +126,24 @@ class MainActivity : ComponentActivity() {
         uri?.let { exportPresetToUri(it) }
     }
 
+    private val displayManager by lazy { getSystemService(DISPLAY_SERVICE) as DisplayManager }
+
+    private val displayListener = object : DisplayManager.DisplayListener {
+        override fun onDisplayAdded(displayId: Int) {}
+        override fun onDisplayRemoved(displayId: Int) {}
+        override fun onDisplayChanged(displayId: Int) {
+            if (displayId != Display.DEFAULT_DISPLAY) return
+            checkDeviceRotation()
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun checkDeviceRotation() {
+        val inverted = windowManager.defaultDisplay.rotation == Surface.ROTATION_270
+        viewModel.setDeviceInverted(inverted)
+        if (inSettings) updateGyroLandscapeInvertedNote(inverted)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -134,6 +155,13 @@ class MainActivity : ComponentActivity() {
         setupSettings()
         observeState()
         autoStartService()
+        displayManager.registerDisplayListener(displayListener, null)
+        checkDeviceRotation()
+    }
+
+    override fun onDestroy() {
+        displayManager.unregisterDisplayListener(displayListener)
+        super.onDestroy()
     }
 
     // ── Floating Editor ──────────────────────────────────────
@@ -1844,6 +1872,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun updateGyroLandscapeInvertedNote(inverted: Boolean) {
+        findViewById<TextView>(R.id.tvGyroLandscapeInvertedNote).visibility =
+            if (inverted) View.VISIBLE else View.GONE
+    }
+
     @SuppressLint("SetTextI18n")
     private fun syncSettingsUI() {
         val s = viewModel.settings.value
@@ -1870,6 +1903,10 @@ class MainActivity : ComponentActivity() {
         findViewById<TextView>(R.id.tvGyroSensitivityZ).text = "Z: 0.00"
 
         updateGyroChipsLockState(viewModel.currentPreset.value.gyroOrientation)
+
+        @Suppress("DEPRECATION")
+        val inverted = windowManager.defaultDisplay.rotation == Surface.ROTATION_270
+        updateGyroLandscapeInvertedNote(inverted)
 
         refreshPresetList()
     }

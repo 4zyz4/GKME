@@ -25,6 +25,7 @@ class SensorHandler(private val context: Context) : SensorEventListener {
     private val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
     var gyroOrientation: GyroOrientation = GyroOrientation.LANDSCAPE
+    var isDeviceInverted: Boolean = false
 
     private var _gyroX = 0f
     private var _gyroY = 0f
@@ -49,10 +50,15 @@ class SensorHandler(private val context: Context) : SensorEventListener {
     private fun remapToOrientation(
         rawX: Float, rawY: Float, rawZ: Float,
     ): Triple<Float, Float, Float> {
-        return when (gyroOrientation) {
+        val base = when (gyroOrientation) {
             GyroOrientation.LANDSCAPE -> Triple(-rawY, rawZ, -rawX)
             GyroOrientation.PORTRAIT -> Triple(rawX, rawZ, -rawY)
             GyroOrientation.PORTRAIT_INVERTED -> Triple(-rawX, rawZ, rawY)
+        }
+        return if (isDeviceInverted) {
+            Triple(-base.first, base.second, -base.third)
+        } else {
+            base
         }
     }
 

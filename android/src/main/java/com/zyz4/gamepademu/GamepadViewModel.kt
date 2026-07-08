@@ -71,6 +71,10 @@ class GamepadViewModel @Inject constructor(
             val orientation = value ?: settings.value.gyroOrientation
             sensorHandler.gyroOrientation = orientation
         }
+
+    fun setDeviceInverted(inverted: Boolean) {
+        sensorHandler.isDeviceInverted = inverted
+    }
     private var _dpadBits = 0
 
     var onHapticFeedbackPress: (() -> Unit)? = null

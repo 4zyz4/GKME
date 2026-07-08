@@ -722,6 +722,17 @@
                         android:text="倒置竖屏" />
                 </LinearLayout>
 
+                <TextView
+                    android:id="@+id/tvGyroLandscapeInvertedNote"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="当前屏幕方向会交换竖屏和倒置竖屏的效果"
+                    android:textColor="#FF9800"
+                    android:textSize="12sp"
+                    android:gravity="center"
+                    android:layout_marginBottom="12dp"
+                    android:visibility="gone" />
+
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
