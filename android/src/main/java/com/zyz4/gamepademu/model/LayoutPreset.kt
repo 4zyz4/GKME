@@ -21,7 +21,15 @@ data class LayoutPreset(
             val hasDoubleClickField = try {
                 val obj = JsonParser.parseString(json).asJsonObject
                 val arr = obj.getAsJsonArray("buttons")
-                arr != null && arr.size() > 0 && arr[0].asJsonObject.has("doubleClickEnable")
+                arr != null && arr.any { it.asJsonObject.has("doubleClickEnable") }
+            } catch (_: Exception) {
+                false
+            }
+
+            val hasFollowFingerField = try {
+                val obj = JsonParser.parseString(json).asJsonObject
+                val arr = obj.getAsJsonArray("buttons")
+                arr != null && arr.any { it.asJsonObject.has("followFinger") }
             } catch (_: Exception) {
                 false
             }
@@ -31,6 +39,9 @@ data class LayoutPreset(
                     var sanitized = b.sanitize()
                     if (!hasDoubleClickField) {
                         sanitized = sanitized.copy(doubleClickEnable = b.id.substringBefore("_") in DOUBLE_CLICK_IDS)
+                    }
+                    if (!hasFollowFingerField) {
+                        sanitized = sanitized.copy(followFinger = false)
                     }
                     sanitized
                 }
@@ -62,6 +73,7 @@ data class LayoutPreset(
             }
             if (baseId in DOUBLE_CLICK_IDS) {
                 m["doubleClickEnable"] = b.doubleClickEnable
+                m["followFinger"] = b.followFinger
             }
             list.add(m)
         }

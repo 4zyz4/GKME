@@ -25,9 +25,12 @@ class JoystickView @JvmOverloads constructor(
     var onStickClickUp: (() -> Unit)? = null
     var onStickReleased: (() -> Unit)? = null
     var doubleClickEnable: Boolean = true
+    var followFinger: Boolean = false
 
     private var centerX = 0f
     private var centerY = 0f
+    private var effectiveCenterX = 0f
+    private var effectiveCenterY = 0f
     private var baseRadius = 0f
     private var knobRadius = 0f
     private var knobX = 0f
@@ -74,18 +77,20 @@ class JoystickView @JvmOverloads constructor(
         super.onSizeChanged(w, h, oldw, oldh)
         centerX = w / 2f
         centerY = h / 2f
+        effectiveCenterX = centerX
+        effectiveCenterY = centerY
         baseRadius = minOf(w, h) / 2f
         knobRadius = baseRadius * 0.32f
-        knobX = centerX
-        knobY = centerY
+        knobX = effectiveCenterX
+        knobY = effectiveCenterY
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         canvas.save()
-        canvas.rotate(axisRotation.toFloat(), centerX, centerY)
-        canvas.drawCircle(centerX, centerY, baseRadius, if (isClicking) basePressedPaint else basePaint)
-        canvas.drawCircle(centerX, centerY, baseRadius, baseStrokePaint)
+        canvas.rotate(axisRotation.toFloat(), effectiveCenterX, effectiveCenterY)
+        canvas.drawCircle(effectiveCenterX, effectiveCenterY, baseRadius, if (isClicking) basePressedPaint else basePaint)
+        canvas.drawCircle(effectiveCenterX, effectiveCenterY, baseRadius, baseStrokePaint)
         canvas.drawCircle(knobX, knobY, knobRadius, knobPaint)
         canvas.drawCircle(knobX, knobY, knobRadius, knobStrokePaint)
         if (label.isNotEmpty()) {
@@ -118,6 +123,10 @@ class JoystickView @JvmOverloads constructor(
                     }
                 }
                 isTouching = true
+                if (followFinger) {
+                    effectiveCenterX = event.x
+                    effectiveCenterY = event.y
+                }
                 moveKnob(event.x, event.y)
                 return true
             }
@@ -138,8 +147,12 @@ class JoystickView @JvmOverloads constructor(
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 isTouching = false
                 isClicking = false
-                knobX = centerX
-                knobY = centerY
+                if (followFinger) {
+                    effectiveCenterX = centerX
+                    effectiveCenterY = centerY
+                }
+                knobX = effectiveCenterX
+                knobY = effectiveCenterY
                 invalidate()
                 if (isDoubleClick) {
                     onStickClickUp?.invoke()
@@ -155,8 +168,8 @@ class JoystickView @JvmOverloads constructor(
     }
 
     private fun moveKnob(tx: Float, ty: Float) {
-        val dx = tx - centerX
-        val dy = ty - centerY
+        val dx = tx - effectiveCenterX
+        val dy = ty - effectiveCenterY
         val maxD = baseRadius - knobRadius
         val dist = sqrt(dx * dx + dy * dy)
 
@@ -169,8 +182,8 @@ class JoystickView @JvmOverloads constructor(
 
         val clampedDist = if (dist > maxD) maxD else dist
         val scale = if (dist > 0f) clampedDist / dist else 0f
-        knobX = centerX + cdx * scale
-        knobY = centerY + cdy * scale
+        knobX = effectiveCenterX + cdx * scale
+        knobY = effectiveCenterY + cdy * scale
         invalidate()
 
         var sx = if (maxD > 0f) ((dx * scale / maxD * 32767).toInt()).toShort() else 0

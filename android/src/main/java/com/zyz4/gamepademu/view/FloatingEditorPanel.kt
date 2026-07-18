@@ -346,6 +346,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         addRotationButtons(buttonParamsInner, buttonId, density)
 
         val joystickOrTouchpadIds = setOf("leftJoystick", "rightJoystick", "touchpad")
+        val joystickIds = setOf("leftJoystick", "rightJoystick")
         if (buttonId.substringBefore("_") in joystickOrTouchpadIds) {
             val cb = CheckBox(context).apply {
                 text = "双击按下"
@@ -354,6 +355,18 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 isChecked = button.doubleClickEnable
                 setOnCheckedChangeListener { _, isChecked ->
                     currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(doubleClickEnable = isChecked)) }
+                }
+            }
+            buttonParamsInner.addView(cb, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+        }
+        if (buttonId.substringBefore("_") in joystickIds) {
+            val cb = CheckBox(context).apply {
+                text = "跟随手指"
+                setTextColor(-0x444445)
+                textSize = 14f
+                isChecked = button.followFinger
+                setOnCheckedChangeListener { _, isChecked ->
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(followFinger = isChecked)) }
                 }
             }
             buttonParamsInner.addView(cb, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })

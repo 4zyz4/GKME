@@ -18,6 +18,7 @@ class GamepadLayout @JvmOverloads constructor(
 
     init {
         setWillNotDraw(false)
+        setClipChildren(false)
     }
 
     companion object {
@@ -568,6 +569,7 @@ class GamepadLayout @JvmOverloads constructor(
             if (child is JoystickView) {
                 child.axisRotation = pos.rotation
                 child.doubleClickEnable = pos.doubleClickEnable
+                child.followFinger = pos.followFinger
             } else if (child is ViewGroup) {
                 for (j in 0 until child.childCount) {
                     child.getChildAt(j).rotation = pos.rotation.toFloat()
