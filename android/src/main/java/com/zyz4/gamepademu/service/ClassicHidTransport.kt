@@ -135,7 +135,7 @@ class ClassicHidTransport(
         reRegisterAttempts = 0
         this.onOutputReport = onOutputReport
         currentSettings = settings
-        val reportSize = if (settings.targetPlatform == TargetPlatform.ANDROID) 7 else 11
+        val reportSize = if (settings.targetPlatform == TargetPlatform.ANDROID) 8 else 11
         lastReport = ByteArray(reportSize)
         _connectionPhase.value = ConnectionPhase.REGISTERING_PROFILE
         bluetoothAdapter.getProfileProxy(context, profileListener, BluetoothProfile.HID_DEVICE)
@@ -293,79 +293,61 @@ class ClassicHidTransport(
         )
 
         /**
-         * 7‑byte report for Android Classic.
+         * 8‑byte report for Android Bluetooth (HID descriptor).
          *   byte  0    Buttons 1‑8 (bits 0‑7)
-         *   byte  1    Buttons 9‑12 (bits 0‑3) + padding (bits 4‑7)
-         *   byte  2    Hat switch (bits 0‑3) + padding (bits 4‑7)
-         *   byte  3    LX (s8)
-         *   byte  4    LY (s8)
-         *   byte  5    Z / RX (s8)
-         *   byte  6    Rz / RY (s8)
+         *   byte  1    Buttons 9‑10 (bits 0‑1) + padding (bits 2‑7)
+         *   byte  2    LX (s8)
+         *   byte  3    LY (s8)
+         *   byte  4    Z / RX (s8)
+         *   byte  5    Rx / RY (s8)
+         *   byte  6    Ry / triggers combined (s8)
+         *   byte  7    Hat switch (0‑7, 15=null)
          */
         private val ANDROID_HID_DESCRIPTOR = byteArrayOf(
-            b(0x05), b(0x01),           // Usage Page (Generic Desktop Ctrls)
+            b(0x05), b(0x01),           // Usage Page (Generic Desktop)
             b(0x09), b(0x05),           // Usage (Game Pad)
-            b(0xA1), b(0x01),           // Collection (Application)
+            b(0xa1), b(0x01),           // Collection (Application)
+            b(0xa1), b(0x00),           //   Collection (Physical)
 
-            // Byte 0: Buttons 1‑8
-            b(0x05), b(0x09),           //   Usage Page (Button)
-            b(0x09), b(0x01),           //   Usage (Button 1) A
-            b(0x09), b(0x02),           //   Usage (Button 2) B
-            b(0x09), b(0x04),           //   Usage (Button 4) X
-            b(0x09), b(0x05),           //   Usage (Button 5) Y
-            b(0x09), b(0x09),           //   Usage (Button 9) TL2/LB
-            b(0x09), b(0x0A),           //   Usage (Button 10) TR2/RB
-            b(0x09), b(0x07),           //   Usage (Button 7) TL/LT
-            b(0x09), b(0x08),           //   Usage (Button 8) TR/RT
-            b(0x15), b(0x00),           //   Logical Minimum (0)
-            b(0x25), b(0x01),           //   Logical Maximum (1)
-            b(0x75), b(0x01),           //   Report Size (1)
-            b(0x95), b(0x08),           //   Report Count (8)
-            b(0x81), b(0x02),           //   Input (Data,Var,Abs)
+            // Bytes 0‑1: Buttons 1‑10
+            b(0x05), b(0x09),           //     Usage Page (Button)
+            b(0x19), b(0x01),           //     Usage Minimum (Button 1)
+            b(0x29), b(0x0a),           //     Usage Maximum (Button 10)
+            b(0x15), b(0x00),           //     Logical Minimum (0)
+            b(0x25), b(0x01),           //     Logical Maximum (1)
+            b(0x95), b(0x0a),           //     Report Count (10)
+            b(0x75), b(0x01),           //     Report Size (1)
+            b(0x81), b(0x02),           //     Input (Data,Var,Abs)
 
-            // Byte 1 lo‑nibble: Buttons 9‑12
-            b(0x09), b(0x0B),           //   Usage (Button 11) SELECT
-            b(0x09), b(0x0C),           //   Usage (Button 12) START
-            b(0x09), b(0x0E),           //   Usage (Button 14) L3
-            b(0x09), b(0x0F),           //   Usage (Button 15) R3
-            b(0x75), b(0x01),           //   Report Size (1)
-            b(0x95), b(0x04),           //   Report Count (4)
-            b(0x81), b(0x02),           //   Input (Data,Var,Abs)
+            // Byte 1 padding
+            b(0x95), b(0x01),           //     Report Count (1)
+            b(0x75), b(0x06),           //     Report Size (6)
+            b(0x81), b(0x03),           //     Input (Cnst,Var,Abs)
 
-            // Byte 1 hi‑nibble: padding
-            b(0x75), b(0x01),           //   Report Size (1)
-            b(0x95), b(0x04),           //   Report Count (4)
-            b(0x81), b(0x01),           //   Input (Const)
+            // Bytes 2‑6: Axes (X,Y,Z,Rx,Ry) 5 × s8
+            b(0x05), b(0x01),           //     Usage Page (Generic Desktop)
+            b(0x09), b(0x30),           //     Usage (X)  → LX
+            b(0x09), b(0x31),           //     Usage (Y)  → LY
+            b(0x09), b(0x32),           //     Usage (Z)  → RX
+            b(0x09), b(0x33),           //     Usage (Rx) → RY
+            b(0x09), b(0x34),           //     Usage (Ry) → triggers
+            b(0x15), b(0x81),           //     Logical Minimum (-127)
+            b(0x25), b(0x7f),           //     Logical Maximum (127)
+            b(0x75), b(0x08),           //     Report Size (8)
+            b(0x95), b(0x05),           //     Report Count (5)
+            b(0x81), b(0x02),           //     Input (Data,Var,Abs)
 
-            // Byte 2 lo‑nibble: Hat switch
-            b(0x05), b(0x01),           //   Usage Page (Generic Desktop Ctrls)
-            b(0x09), b(0x39),           //   Usage (Hat switch)
-            b(0x15), b(0x00),           //   Logical Minimum (0)
-            b(0x25), b(0x08),           //   Logical Maximum (8)
-            b(0x35), b(0x00),           //   Physical Minimum (0)
-            b(0x46), b(0x3B), b(0x01),  //   Physical Maximum (315)
-            b(0x65), b(0x14),           //   Unit (Eng Rot: Degree)
-            b(0x75), b(0x04),           //   Report Size (4)
-            b(0x95), b(0x01),           //   Report Count (1)
-            b(0x81), b(0x02),           //   Input (Data,Var,Abs)
+            // Byte 7: Hat switch (8 directions + null)
+            b(0x05), b(0x01),           //     Usage Page (Generic Desktop)
+            b(0x09), b(0x39),           //     Usage (Hat switch)
+            b(0x15), b(0x00),           //     Logical Minimum (0)
+            b(0x25), b(0x07),           //     Logical Maximum (7)
+            b(0x75), b(0x08),           //     Report Size (8)
+            b(0x95), b(0x01),           //     Report Count (1)
+            b(0x81), b(0x42),           //     Input (Data,Var,Abs,Null)
 
-            // Byte 2 hi‑nibble: padding
-            b(0x75), b(0x04),           //   Report Size (4)
-            b(0x95), b(0x01),           //   Report Count (1)
-            b(0x81), b(0x01),           //   Input (Const)
-
-            // Bytes 3‑6: Axes (X,Y,Z,Rz) 4 × s8
-            b(0x05), b(0x01),           //   Usage Page (Generic Desktop Ctrls)
-            b(0x15), b(0x81),           //   Logical Minimum (-127)
-            b(0x25), b(0x7F),           //   Logical Maximum (127)
-            b(0x09), b(0x30),           //   Usage (X)  → LX
-            b(0x09), b(0x31),           //   Usage (Y)  → LY
-            b(0x09), b(0x32),           //   Usage (Z)  → RX
-            b(0x09), b(0x35),           //   Usage (Rz) → RY
-            b(0x75), b(0x08),           //   Report Size (8)
-            b(0x95), b(0x04),           //   Report Count (4)
-            b(0x81), b(0x02),           //   Input (Data,Var,Abs)
-            b(0xC0),                    // End Collection
+            b(0xc0),                    //   End Collection
+            b(0xc0),                    // End Collection
         )
     }
 }
