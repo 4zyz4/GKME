@@ -1089,7 +1089,7 @@ class MainActivity : ComponentActivity() {
         // Two physical slots. The framework may deliver each finger as a separate
         // 1-pointer event stream (same downTime/pointerId), so we cannot key by event
         // fields; instead we map each contact to a slot by position.
-        val slots = arrayOfNulls<TouchPoint>(2)
+        val slots = arrayOfNulls<TouchPoint>(10)
 
         fun mapPoint(px: Float, py: Float): Pair<Int, Int> {
             val w = tp.measuredWidth.coerceAtLeast(1)
@@ -1123,62 +1123,95 @@ class MainActivity : ComponentActivity() {
         }
 
         fun send() {
-            viewModel.onTouchpadTouches(slots.filterNotNull())
+            if (isDoubleClick && slots.all { it == null }) {
+                tp.isPressed = false; viewModel.onButtonUp(GamepadState.TOUCHPAD_CLICK)
+                isDoubleClick = false
+            }
+            viewModel.onTouchpadTouches(
+                slots.take(2).mapIndexed { i, tp -> tp ?: TouchPoint(id = i, active = false) }
+            )
         }
 
         tp.setOnTouchListener { v, event ->
             val btnId = v.tag as? String
             val doubleClickEnable = btnId?.let { gamepadLayout.currentButtons.find { p -> p.id == it }?.doubleClickEnable } ?: true
-            val action = event.action and MotionEvent.ACTION_MASK
-            val isDown = action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN
-            val isUp = action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_POINTER_UP || action == MotionEvent.ACTION_CANCEL
+            val masked = event.action and MotionEvent.ACTION_MASK
 
-            for (i in 0 until event.pointerCount) {
-                val (sx, sy) = mapPoint(event.getX(i), event.getY(i))
-                when {
-                    isDown -> {
-                        var slot = emptySlot()
-                        if (slot < 0) slot = nearestSlot(sx, sy)
-                        if (slot < 0) slot = 0
-                        slots[slot] = TouchPoint(id = slot, x = sx, y = sy, active = true)
-                        if (action == MotionEvent.ACTION_DOWN) {
-                            v.performClick()
-                            if (doubleClickEnable && slots.count { it != null } == 1) {
-                                val now = System.currentTimeMillis()
-                                val dx = (event.getX(i) - firstTapX) / density
-                                val dy = (event.getY(i) - firstTapY) / density
-                                val distDp = Math.sqrt((dx * dx + dy * dy).toDouble())
-                                if (now - firstTapTime < 300 && firstTapTime > 0 && distDp < 32.0) {
-                                    handler.removeCallbacks(doubleTapTimeout)
-                                    v.isPressed = true; isDoubleClick = true; firstTapTime = 0
-                                    viewModel.onButtonDown(GamepadState.TOUCHPAD_CLICK)
-                                } else {
-                                    firstTapTime = now; firstTapX = event.getX(i); firstTapY = event.getY(i); isDoubleClick = false
-                                    handler.postDelayed(doubleTapTimeout, 300)
-                                }
+            if (masked == MotionEvent.ACTION_UP) {
+                val (sx, sy) = mapPoint(event.getX(0), event.getY(0))
+                val slot = nearestSlot(sx, sy)
+                if (slot >= 0) slots[slot] = null
+                if (slots.all { it == null }) {
+                    if (isDoubleClick) { v.isPressed = false; viewModel.onButtonUp(GamepadState.TOUCHPAD_CLICK) }
+                    isDoubleClick = false
+                }
+                send()
+                return@setOnTouchListener true
+            }
+
+            if (masked == MotionEvent.ACTION_CANCEL) {
+                slots.fill(null)
+                if (isDoubleClick) { v.isPressed = false; viewModel.onButtonUp(GamepadState.TOUCHPAD_CLICK) }
+                isDoubleClick = false
+                send()
+                return@setOnTouchListener true
+            }
+
+            if (masked == MotionEvent.ACTION_DOWN || masked == MotionEvent.ACTION_POINTER_DOWN) {
+                val idx = if (masked == MotionEvent.ACTION_DOWN) 0 else event.actionIndex
+                val (sx, sy) = mapPoint(event.getX(idx), event.getY(idx))
+                var slot = emptySlot()
+                if (slot < 0) slot = nearestSlot(sx, sy)
+                if (slot < 0) slot = if (masked == MotionEvent.ACTION_DOWN) 0 else 1
+                slots[slot] = TouchPoint(id = slot, x = sx, y = sy, active = true)
+                if (masked == MotionEvent.ACTION_DOWN) {
+                    v.performClick()
+                    if (isDoubleClick) {
+                        // skip: converted ACTION_DOWN (e.g. from handleSwipeTriggerTouch)
+                    } else if (doubleClickEnable) {
+                        val now = System.currentTimeMillis()
+                        if (now - firstTapTime < 300 && firstTapTime > 0) {
+                            val dx = (event.getX(0) - firstTapX) / density
+                            val dy = (event.getY(0) - firstTapY) / density
+                            val distDp = Math.sqrt((dx * dx + dy * dy).toDouble())
+                            if (distDp < 32.0 && slots.count { it != null } < 2) {
+                                handler.removeCallbacks(doubleTapTimeout)
+                                v.isPressed = true; isDoubleClick = true; firstTapTime = 0
+                                viewModel.onButtonDown(GamepadState.TOUCHPAD_CLICK)
+                            } else {
+                                firstTapTime = now; firstTapX = event.getX(0); firstTapY = event.getY(0); isDoubleClick = false
+                                handler.postDelayed(doubleTapTimeout, 300)
                             }
-                        }
-                    }
-                    event.action and MotionEvent.ACTION_MASK == MotionEvent.ACTION_MOVE -> {
-                        val slot = nearestSlot(sx, sy)
-                        if (slot >= 0) slots[slot] = slots[slot]!!.copy(x = sx, y = sy)
-                        else { val e = emptySlot(); if (e >= 0) slots[e] = TouchPoint(id = e, x = sx, y = sy, active = true) }
-                    }
-                    isUp -> {
-                        val slot = nearestSlot(sx, sy)
-                        if (slot >= 0) slots[slot] = null
-                        else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
-                            // Stray end-of-gesture: clear everything so nothing lingers.
-                            slots[0] = null; slots[1] = null
-                        }
-                        if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
-                            if (isDoubleClick) { v.isPressed = false; viewModel.onButtonUp(GamepadState.TOUCHPAD_CLICK) }
-                            isDoubleClick = false
+                        } else {
+                            firstTapTime = now; firstTapX = event.getX(0); firstTapY = event.getY(0); isDoubleClick = false
+                            handler.postDelayed(doubleTapTimeout, 300)
                         }
                     }
                 }
+                send()
+                return@setOnTouchListener true
             }
-            send()
+
+            if (masked == MotionEvent.ACTION_POINTER_UP) {
+                val idx = event.actionIndex
+                val (sx, sy) = mapPoint(event.getX(idx), event.getY(idx))
+                val slot = nearestSlot(sx, sy)
+                if (slot >= 0) slots[slot] = null
+                send()
+                return@setOnTouchListener true
+            }
+
+            if (masked == MotionEvent.ACTION_MOVE) {
+                for (i in 0 until event.pointerCount) {
+                    val (sx, sy) = mapPoint(event.getX(i), event.getY(i))
+                    val slot = nearestSlot(sx, sy)
+                    if (slot >= 0) slots[slot] = slots[slot]!!.copy(x = sx, y = sy)
+                    else { val e = emptySlot(); if (e >= 0) slots[e] = TouchPoint(id = e, x = sx, y = sy, active = true) }
+                }
+                send()
+                return@setOnTouchListener true
+            }
+
             true
         }
     }
