@@ -89,6 +89,9 @@ class ConnectionManager @Inject constructor(
     }
 
     fun updateSettings(newSettings: AppSettings) {
+        if (!newSettings.gameVibrationEnabled) {
+            vibrator.cancel()
+        }
         _settings.value = newSettings
         scope.launch {
             settingsRepository.saveSettings(newSettings)
@@ -192,13 +195,6 @@ class ConnectionManager @Inject constructor(
     }
 
     private fun handleBtOutputReport(data: ByteArray) {
-        if (data.size < 8) return
-        if (!_settings.value.gameVibrationEnabled) return
-        val leftMotor = data[1].toInt() and 0xFF
-        val rightMotor = data[2].toInt() and 0xFF
-        if (leftMotor > 0 || rightMotor > 0) {
-            triggerVibration(leftMotor, rightMotor)
-        }
     }
 
     fun unpairDevice() {
@@ -216,6 +212,7 @@ class ConnectionManager @Inject constructor(
         btPhaseJob = null
         udpService.stop()
         stopBluetooth()
+        vibrator.cancel()
         _connectionState.value = ConnectionState()
     }
 
@@ -224,6 +221,7 @@ class ConnectionManager @Inject constructor(
         btPhaseJob = null
         bluetoothService?.stop()
         bluetoothService = null
+        vibrator.cancel()
     }
 
     private fun handleServerToClient(msg: ServerToClient) {
@@ -271,6 +269,14 @@ class ConnectionManager @Inject constructor(
         val speed = maxOf(largeMotor, smallMotor).coerceIn(0, 255)
 
         if (speed < 1) {
+            try {
+                val stopEffect = VibrationEffect.createWaveform(
+                    longArrayOf(1),
+                    intArrayOf(0),
+                    -1
+                )
+                vibrator.vibrate(stopEffect)
+            } catch (_: Exception) { }
             vibrator.cancel()
             _vibSpeed = -1
             return
@@ -280,7 +286,7 @@ class ConnectionManager @Inject constructor(
 
         _vibSpeed = speed
         val effect = VibrationEffect.createWaveform(
-            longArrayOf(1000),
+            longArrayOf(50),
             intArrayOf(speed),
             0
         )
