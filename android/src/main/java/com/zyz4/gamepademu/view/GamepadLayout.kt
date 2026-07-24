@@ -100,24 +100,50 @@ class GamepadLayout @JvmOverloads constructor(
     override fun onCapturedPointerEvent(event: MotionEvent): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return super.onCapturedPointerEvent(event)
 
-        val device = event.device
-        val xRange = device?.getMotionRange(MotionEvent.AXIS_X)
-        val yRange = device?.getMotionRange(MotionEvent.AXIS_Y)
-        val rangeX = if (xRange != null && xRange.max - xRange.min > 0) xRange.max - xRange.min else 1920f
-        val rangeY = if (yRange != null && yRange.max - yRange.min > 0) yRange.max - yRange.min else 942f
-        val minX = xRange?.min ?: 0f
-        val minY = yRange?.min ?: 0f
-
-        // Track pointer positions for slot 0 and slot 1
-        slot0Active = false
-        slot1Active = false
-        for (i in 0 until event.pointerCount) {
-            val dx = event.getAxisValue(MotionEvent.AXIS_X, i)
-            val dy = event.getAxisValue(MotionEvent.AXIS_Y, i)
-            val nx = ((dx - minX) / rangeX).coerceIn(0f, 1f)
-            val ny = ((dy - minY) / rangeY).coerceIn(0f, 1f)
-            if (i == 0) { slot0X = nx; slot0Y = ny; slot0Active = true }
-            if (i == 1) { slot1X = nx; slot1Y = ny; slot1Active = true }
+        // Track which pointerId is in which slot across events
+        // slot0Pid/-1 means no finger in slot 0
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+            if (pointerIdInSlot(event.getPointerId(0), 0)) slot0Active = true
+            else {
+                slot1Active = false
+                slot0Pid = event.getPointerId(0)
+                slot0Active = true
+                slot0X = (event.getX(0) / 1920f).coerceIn(0f, 1f)
+                slot0Y = (event.getY(0) / 942f).coerceIn(0f, 1f)
+            }
+        } else if (event.actionMasked == MotionEvent.ACTION_POINTER_DOWN) {
+            val pid = event.getPointerId(event.actionIndex)
+            if (!pointerIdInSlot(pid, 0) && !pointerIdInSlot(pid, 1)) {
+                slot1Pid = pid
+                slot1Active = true
+                slot1X = (event.getX(event.actionIndex) / 1920f).coerceIn(0f, 1f)
+                slot1Y = (event.getY(event.actionIndex) / 942f).coerceIn(0f, 1f)
+            }
+        } else if (event.actionMasked == MotionEvent.ACTION_UP) {
+            slot0Active = false
+            slot0Pid = -1
+            slot1Active = false
+            slot1Pid = -1
+        } else {
+            // MOVE, HOVER_MOVE, ACTION_POINTER_UP
+            for (i in 0 until event.pointerCount) {
+                val pid = event.getPointerId(i)
+                val nx = (event.getX(i) / 1920f).coerceIn(0f, 1f)
+                val ny = (event.getY(i) / 942f).coerceIn(0f, 1f)
+                if (pid == slot0Pid) {
+                    slot0X = nx; slot0Y = ny; slot0Active = true
+                } else if (pid == slot1Pid) {
+                    slot1X = nx; slot1Y = ny; slot1Active = true
+                }
+            }
+            if (event.actionMasked == MotionEvent.ACTION_POINTER_UP) {
+                val liftedPid = event.getPointerId(event.actionIndex)
+                if (liftedPid == slot0Pid) {
+                    slot0Pid = -1; slot0Active = false
+                } else if (liftedPid == slot1Pid) {
+                    slot1Pid = -1; slot1Active = false
+                }
+            }
         }
 
         // Track button state changes (XOR approach like moonlight)
@@ -132,14 +158,28 @@ class GamepadLayout @JvmOverloads constructor(
         }
         _lastButtonState = curBS
 
-        // Build slots list for proto
+        // Build slots list for proto (slot 0 first, slot 1 second)
         val allTouches = mutableListOf<FloatArray>()
-        if (slot0Active) allTouches.add(floatArrayOf(0f, slot0X, slot0Y))
-        if (slot1Active) allTouches.add(floatArrayOf(1f, slot1X, slot1Y))
+        if (slot0Active) allTouches.add(floatArrayOf(0f, slot0X, slot0Y, 1f))
+        if (slot1Active) allTouches.add(floatArrayOf(1f, slot1X, slot1Y, 1f))
 
-        listener?.onTouchpadEvent(slot0X, slot0Y, allTouches, slot0Active || slot1Active, _touchpadClick)
+        listener?.onTouchpadEvent(
+            if (slot0Active) slot0X else (if (slot1Active) slot1X else 0.5f),
+            if (slot0Active) slot0Y else (if (slot1Active) slot1Y else 0.5f),
+            allTouches, slot0Active || slot1Active, _touchpadClick
+        )
         return true
     }
+
+    private var slot0Pid = -1
+    private var slot1Pid = -1
+
+    private fun pointerIdInSlot(pid: Int, slot: Int): Boolean =
+        when (slot) {
+            0 -> pid == slot0Pid
+            1 -> pid == slot1Pid
+            else -> false
+        }
 
     private var slot0X = 0f
     private var slot0Y = 0f
