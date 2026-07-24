@@ -924,22 +924,26 @@ class MainActivity : ComponentActivity() {
                 findViewById<ImageButton>(R.id.btnSettings).visibility =
                     if (isEditMode) View.GONE else View.VISIBLE
             }
+
+            override fun onTouchpadEvent(
+                x: Float, y: Float,
+                touches: List<FloatArray>,
+                touchpadTouch: Boolean, touchpadClick: Boolean
+            ) {
+                val touchPoints = touches.map { arr ->
+                    com.zyz4.gamepademu.model.TouchPoint(id = arr[0].toInt(),
+                        x = (arr[1] * 1919).toInt().coerceIn(0, 1919),
+                        y = (arr[2] * 942).toInt().coerceIn(0, 942), active = true)
+                }
+                physicalControllerHandler.setCapturedTouchpadState(x, y, touchPoints, touchpadTouch, touchpadClick)
+                syncPhysicalControllerState()
+            }
         }
 
         physicalControllerHandler.onPointerCaptureNeeded = { enabled ->
             pointerCaptureNeeded = enabled
             physicalControllerHandler.isPointerCaptureActive = enabled
             gamepadLayout.setTouchpadCaptureMode(enabled)
-        }
-
-        gamepadLayout.onCapturedTouchpadEvent = { x, y, touches, touchpadTouch, touchpadClick ->
-            val touchPoints = touches.map { arr ->
-                com.zyz4.gamepademu.model.TouchPoint(id = arr[0].toInt(),
-                    x = (arr[1] * 1919).toInt().coerceIn(0, 1919),
-                    y = (arr[2] * 942).toInt().coerceIn(0, 942), active = true)
-            }
-            physicalControllerHandler.setCapturedTouchpadState(x, y, touchPoints, touchpadTouch, touchpadClick)
-            syncPhysicalControllerState()
         }
     }
 

@@ -286,7 +286,8 @@ class PhysicalControllerHandler(private val context: Context) {
 
         if (controllerTypeValue == ControllerType.PS &&
             event.source and InputDevice.SOURCE_MOUSE_RELATIVE == InputDevice.SOURCE_MOUSE_RELATIVE) {
-        // Touchpad position handled by onCapturedPointerEvent callback\n        }
+            return true
+        }
 
         if (!isGamepadDevice(device)) return false
 
@@ -350,7 +351,7 @@ class PhysicalControllerHandler(private val context: Context) {
 
     private var lastPointerButtonState = 0
 
-    // Touchpad position handled by onCapturedPointerEvent callback\n\n    private fun buildTouchPoints(event: MotionEvent): List<TouchPoint> {
+    private fun buildTouchPoints(event: MotionEvent): List<TouchPoint> {
         val xRange = event.device?.getMotionRange(MotionEvent.AXIS_X, event.source)
         val yRange = event.device?.getMotionRange(MotionEvent.AXIS_Y, event.source)
         val rangeX = if (xRange != null && xRange.max - xRange.min > 0) xRange.max - xRange.min else 1920f
