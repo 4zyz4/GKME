@@ -50,6 +50,8 @@ class SettingsRepository @Inject constructor(
         val GYRO_SENSITIVITY_Z = intPreferencesKey("gyro_sensitivity_z")
         val GYRO_ORIENTATION = intPreferencesKey("gyro_orientation")
         val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
+        val CONTROLLER_VIBRATION_ENABLED = booleanPreferencesKey("controller_vibration_enabled")
+        val CONTROLLER_GYRO_ENABLED = booleanPreferencesKey("controller_gyro_enabled")
         val VOLUME_UP_BITS = stringPreferencesKey("volume_up_bits")
         val VOLUME_DOWN_BITS = stringPreferencesKey("volume_down_bits")
     }
@@ -97,6 +99,8 @@ class SettingsRepository @Inject constructor(
                 prefs[Keys.GYRO_ORIENTATION] ?: 0
             ) { GyroOrientation.LANDSCAPE },
             keepScreenOn = prefs[Keys.KEEP_SCREEN_ON] ?: false,
+            controllerVibrationEnabled = prefs[Keys.CONTROLLER_VIBRATION_ENABLED] ?: true,
+            controllerGyroEnabled = prefs[Keys.CONTROLLER_GYRO_ENABLED] ?: true,
             volumeUpBits = parseBitList(prefs[Keys.VOLUME_UP_BITS]),
             volumeDownBits = parseBitList(prefs[Keys.VOLUME_DOWN_BITS]),
         )
@@ -126,6 +130,8 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.GYRO_SENSITIVITY_Z] = settings.gyroSensitivityZ
             prefs[Keys.GYRO_ORIENTATION] = settings.gyroOrientation.ordinal
             prefs[Keys.KEEP_SCREEN_ON] = settings.keepScreenOn
+            prefs[Keys.CONTROLLER_VIBRATION_ENABLED] = settings.controllerVibrationEnabled
+            prefs[Keys.CONTROLLER_GYRO_ENABLED] = settings.controllerGyroEnabled
             prefs[Keys.VOLUME_UP_BITS] = gson.toJson(settings.volumeUpBits)
             prefs[Keys.VOLUME_DOWN_BITS] = gson.toJson(settings.volumeDownBits)
         }

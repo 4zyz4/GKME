@@ -235,6 +235,7 @@ class ConnectionManager @Inject constructor(
                 if (_settings.value.gameVibrationEnabled) {
                     val v = msg.vibration
                     triggerVibration(v.largeMotor, v.smallMotor)
+                    onRumbleRequest?.invoke(v.largeMotor, v.smallMotor)
                 }
             }
             ServerToClient.PayloadCase.DISCONNECT -> {
@@ -262,6 +263,8 @@ class ConnectionManager @Inject constructor(
             udpService.sendClientToServer(msg)
         }
     }
+
+    var onRumbleRequest: ((largeMotor: Int, smallMotor: Int) -> Unit)? = null
 
     private var _vibSpeed = -1
 

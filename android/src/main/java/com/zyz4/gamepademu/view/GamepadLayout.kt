@@ -3,10 +3,13 @@ package com.zyz4.gamepademu.view
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.os.Build
 import android.util.AttributeSet
+import android.view.InputDevice
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import androidx.annotation.RequiresApi
 import com.zyz4.gamepademu.model.ButtonPosition
 import com.zyz4.gamepademu.model.GyroOrientation
 import com.zyz4.gamepademu.model.LayoutPreset
@@ -19,6 +22,8 @@ class GamepadLayout @JvmOverloads constructor(
     init {
         setWillNotDraw(false)
         setClipChildren(false)
+        isFocusable = true
+        isFocusableInTouchMode = true
     }
 
     companion object {
@@ -79,6 +84,72 @@ class GamepadLayout @JvmOverloads constructor(
 
     /** Set of button IDs that have swipeTrigger enabled */
     private var swipeTriggerIds: Set<String> = emptySet()
+
+    fun setTouchpadCaptureMode(enabled: Boolean) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        if (enabled == hasPointerCapture()) return
+        if (enabled) {
+            if (!isFocused) requestFocus()
+            requestPointerCapture()
+        } else {
+            releasePointerCapture()
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    override fun onCapturedPointerEvent(event: MotionEvent): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return super.onCapturedPointerEvent(event)
+
+        val device = event.device
+        val xRange = device?.getMotionRange(MotionEvent.AXIS_X)
+        val yRange = device?.getMotionRange(MotionEvent.AXIS_Y)
+        val rangeX = if (xRange != null && xRange.max - xRange.min > 0) xRange.max - xRange.min else 1920f
+        val rangeY = if (yRange != null && yRange.max - yRange.min > 0) yRange.max - yRange.min else 942f
+        val minX = xRange?.min ?: 0f
+        val minY = yRange?.min ?: 0f
+
+        // Track pointer positions for slot 0 and slot 1
+        slot0Active = false
+        slot1Active = false
+        for (i in 0 until event.pointerCount) {
+            val dx = event.getAxisValue(MotionEvent.AXIS_X, i)
+            val dy = event.getAxisValue(MotionEvent.AXIS_Y, i)
+            val nx = ((dx - minX) / rangeX).coerceIn(0f, 1f)
+            val ny = ((dy - minY) / rangeY).coerceIn(0f, 1f)
+            if (i == 0) { slot0X = nx; slot0Y = ny; slot0Active = true }
+            if (i == 1) { slot1X = nx; slot1Y = ny; slot1Active = true }
+        }
+
+        // Track button state changes (XOR approach like moonlight)
+        val curBS = event.buttonState
+        val changedBS = curBS xor _lastButtonState
+        if ((changedBS and MotionEvent.BUTTON_PRIMARY) != 0) {
+            _touchpadClick = (curBS and MotionEvent.BUTTON_PRIMARY) != 0
+        }
+        if (event.actionMasked == MotionEvent.ACTION_UP ||
+            event.actionMasked == MotionEvent.ACTION_POINTER_UP) {
+            _touchpadClick = false
+        }
+        _lastButtonState = curBS
+
+        // Build slots list for proto
+        val allTouches = mutableListOf<FloatArray>()
+        if (slot0Active) allTouches.add(floatArrayOf(0f, slot0X, slot0Y))
+        if (slot1Active) allTouches.add(floatArrayOf(1f, slot1X, slot1Y))
+
+        listener?.onTouchpadEvent(slot0X, slot0Y, allTouches, slot0Active || slot1Active, _touchpadClick)
+        return true
+    }
+
+    private var slot0X = 0f
+    private var slot0Y = 0f
+    private var slot0Active = false
+    private var slot1X = 0f
+    private var slot1Y = 0f
+    private var slot1Active = false
+
+    private var _lastButtonState = 0
+    private var _touchpadClick = false
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         if (!isEditMode) {
@@ -406,7 +477,15 @@ class GamepadLayout @JvmOverloads constructor(
     interface GamepadLayoutListener {
         fun onButtonSelected(buttonId: String?)
         fun onEditModeChanged(isEditMode: Boolean)
+        fun onTouchpadEvent(
+            x: Float, y: Float,
+            touches: List<FloatArray>,
+            touchpadTouch: Boolean, touchpadClick: Boolean
+        )
     }
+
+    var onCapturedTouchpadEvent: ((normalizedX: Float, normalizedY: Float,
+        touches: List<FloatArray>, touchpadTouch: Boolean, touchpadClick: Boolean) -> Unit)? = null
 
     fun loadPreset(preset: LayoutPreset) {
         currentButtons = preset.buttons.map {

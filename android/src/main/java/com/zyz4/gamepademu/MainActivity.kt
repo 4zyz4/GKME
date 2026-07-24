@@ -70,6 +70,7 @@ import com.zyz4.gamepademu.view.JoystickView
 import com.zyz4.gamepademu.view.RotatableButton
 import com.zyz4.gamepademu.view.PresetPreviewView
 import com.zyz4.gamepademu.view.FloatingEditorPanel
+import com.zyz4.gamepademu.input.PhysicalControllerHandler
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
@@ -135,6 +136,8 @@ class MainActivity : ComponentActivity() {
 
     private val displayManager by lazy { getSystemService(DISPLAY_SERVICE) as DisplayManager }
 
+    private val physicalControllerHandler by lazy { PhysicalControllerHandler(this) }
+
     private val displayListener = object : DisplayManager.DisplayListener {
         override fun onDisplayAdded(displayId: Int) {}
         override fun onDisplayRemoved(displayId: Int) {}
@@ -165,12 +168,25 @@ class MainActivity : ComponentActivity() {
         autoStartService()
         displayManager.registerDisplayListener(displayListener, null)
         checkDeviceRotation()
+        physicalControllerHandler.start()
     }
 
     override fun onDestroy() {
+        physicalControllerHandler.stop()
         mediaSession?.release()
         displayManager.unregisterDisplayListener(displayListener)
         super.onDestroy()
+    }
+
+    private var pointerCaptureNeeded = false
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && pointerCaptureNeeded) {
+            Handler(Looper.getMainLooper()).postDelayed({
+                gamepadLayout.setTouchpadCaptureMode(true)
+            }, 500)
+        }
     }
 
     // ── MediaSession (intercept volume keys before system) ──
@@ -909,6 +925,22 @@ class MainActivity : ComponentActivity() {
                     if (isEditMode) View.GONE else View.VISIBLE
             }
         }
+
+        physicalControllerHandler.onPointerCaptureNeeded = { enabled ->
+            pointerCaptureNeeded = enabled
+            physicalControllerHandler.isPointerCaptureActive = enabled
+            gamepadLayout.setTouchpadCaptureMode(enabled)
+        }
+
+        gamepadLayout.onCapturedTouchpadEvent = { x, y, touches, touchpadTouch, touchpadClick ->
+            val touchPoints = touches.map { arr ->
+                com.zyz4.gamepademu.model.TouchPoint(id = arr[0].toInt(),
+                    x = (arr[1] * 1919).toInt().coerceIn(0, 1919),
+                    y = (arr[2] * 942).toInt().coerceIn(0, 942), active = true)
+            }
+            physicalControllerHandler.setCapturedTouchpadState(x, y, touchPoints, touchpadTouch, touchpadClick)
+            syncPhysicalControllerState()
+        }
     }
 
     private fun performHaptic(isPress: Boolean) {
@@ -1236,9 +1268,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun selectSettingsCategory(index: Int) {
-        val pages = listOf(R.id.pageConnection, R.id.pagePresets, R.id.pageVibration, R.id.pageGyro, R.id.pageMisc, R.id.pageAbout)
+        val pages = listOf(R.id.pageConnection, R.id.pagePresets, R.id.pageVibration, R.id.pagePhysicalController, R.id.pageGyro, R.id.pageMisc, R.id.pageAbout)
         val buttons = listOf(
-            R.id.btnCategoryConnection, R.id.btnCategoryPresets, R.id.btnCategoryVibration, R.id.btnCategoryGyro, R.id.btnCategoryMisc, R.id.btnCategoryAbout
+            R.id.btnCategoryConnection, R.id.btnCategoryPresets, R.id.btnCategoryVibration, R.id.btnCategoryPhysicalController, R.id.btnCategoryGyro, R.id.btnCategoryMisc, R.id.btnCategoryAbout
         )
         pages.forEachIndexed { i, id ->
             findViewById<View>(id).visibility = if (i == index) View.VISIBLE else View.GONE
@@ -1258,8 +1290,9 @@ class MainActivity : ComponentActivity() {
         findViewById<Button>(R.id.btnCategoryPresets).setOnClickListener { selectSettingsCategory(1) }
         findViewById<Button>(R.id.btnCategoryVibration).setOnClickListener { selectSettingsCategory(2) }
         findViewById<Button>(R.id.btnCategoryGyro).setOnClickListener { selectSettingsCategory(3) }
-        findViewById<Button>(R.id.btnCategoryMisc).setOnClickListener { selectSettingsCategory(4) }
-        findViewById<Button>(R.id.btnCategoryAbout).setOnClickListener { selectSettingsCategory(5) }
+        findViewById<Button>(R.id.btnCategoryPhysicalController).setOnClickListener { selectSettingsCategory(4) }
+        findViewById<Button>(R.id.btnCategoryMisc).setOnClickListener { selectSettingsCategory(5) }
+        findViewById<Button>(R.id.btnCategoryAbout).setOnClickListener { selectSettingsCategory(6) }
 
         // ── Presets page ──
         findViewById<Switch>(R.id.switchEditMode).setOnCheckedChangeListener { _, isChecked ->
@@ -1499,6 +1532,21 @@ class MainActivity : ComponentActivity() {
             setOnTouchListener { _, _ -> true }
         }
 
+        // ── Physical Controller page ──
+        findViewById<Switch>(R.id.switchControllerVibration).setOnCheckedChangeListener { _, isChecked ->
+            viewModel.updateControllerVibrationEnabled(isChecked)
+            physicalControllerHandler.controllerVibrationEnabled = isChecked
+        }
+        findViewById<Switch>(R.id.switchControllerGyro).setOnCheckedChangeListener { _, isChecked ->
+            viewModel.updateControllerGyroEnabled(isChecked)
+            physicalControllerHandler.onControllerGyroSettingChanged(isChecked)
+            if (isChecked) {
+                findViewById<TextView>(R.id.tvControllerGyroNote).visibility = View.VISIBLE
+            } else {
+                findViewById<TextView>(R.id.tvControllerGyroNote).visibility = View.GONE
+            }
+        }
+
         // ── Misc page ──
         setupMiscPage()
 
@@ -1508,6 +1556,10 @@ class MainActivity : ComponentActivity() {
         // ── Connection page ──
         setupConnectionPage()
         setupUnpairButton()
+
+        viewModel.connectionManager.onRumbleRequest = { large, small ->
+            physicalControllerHandler.rumble(large, small)
+        }
     }
 
     private fun setupEffectSpinner(spinnerId: Int, isPress: Boolean) {
@@ -1681,7 +1733,20 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode == KeyEvent.KEYCODE_BUTTON_1 &&
+            physicalControllerHandler.handleKeyEvent(event)) {
+            syncPhysicalControllerState()
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (event != null && physicalControllerHandler.handleKeyEvent(event)) {
+            syncPhysicalControllerState()
+            return true
+        }
         val s = viewModel.settings.value
         when (keyCode) {
             KeyEvent.KEYCODE_VOLUME_UP -> {
@@ -1701,6 +1766,10 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        if (event != null && physicalControllerHandler.handleKeyEvent(event)) {
+            syncPhysicalControllerState()
+            return true
+        }
         val s = viewModel.settings.value
         when (keyCode) {
             KeyEvent.KEYCODE_VOLUME_UP -> {
@@ -1717,6 +1786,37 @@ class MainActivity : ComponentActivity() {
             }
         }
         return super.onKeyUp(keyCode, event)
+    }
+
+    override fun dispatchGenericMotionEvent(event: MotionEvent?): Boolean {
+        if (event != null && physicalControllerHandler.handleMotionEvent(event)) {
+            syncPhysicalControllerState()
+            return true
+        }
+        return super.dispatchGenericMotionEvent(event)
+    }
+
+    override fun dispatchTouchEvent(event: MotionEvent?): Boolean {
+        if (event != null && event.device?.vendorId == 0x054c &&
+            physicalControllerHandler.handleMotionEvent(event)) {
+            syncPhysicalControllerState()
+            return true
+        }
+        return super.dispatchTouchEvent(event)
+    }
+
+    private fun syncPhysicalControllerState() {
+        val state = physicalControllerHandler.controllerState.value
+        viewModel.onPhysicalControllerInput(
+            state.buttons,
+            state.leftStickX, state.leftStickY,
+            state.rightStickX, state.rightStickY,
+            state.leftTrigger, state.rightTrigger,
+            state.dpad,
+            state.touchpadX, state.touchpadY,
+            state.touchpadTouch, state.touchpadClick,
+            state.touches,
+        )
     }
 
     @SuppressLint("SetTextI18n")
@@ -2110,6 +2210,19 @@ class MainActivity : ComponentActivity() {
         findViewById<Switch>(R.id.switchKeepScreenOn).isChecked = s.keepScreenOn
         updateVolumeMappingLabels()
 
+        val physicalConnected = physicalControllerHandler.isConnected.value
+        findViewById<Switch>(R.id.switchControllerVibration).isChecked =
+            physicalConnected && s.controllerVibrationEnabled
+        findViewById<Switch>(R.id.switchControllerVibration).isEnabled = physicalConnected
+        findViewById<Switch>(R.id.switchControllerGyro).isChecked =
+            physicalConnected && s.controllerGyroEnabled
+        findViewById<Switch>(R.id.switchControllerGyro).isEnabled = physicalConnected
+        findViewById<TextView>(R.id.tvPhysicalControllerStatus).text =
+            if (physicalConnected) "已连接: ${physicalControllerHandler.controllerName.value}"
+            else "未连接手柄"
+        findViewById<TextView>(R.id.tvControllerGyroNote).visibility =
+            if (s.controllerGyroEnabled && physicalConnected) View.VISIBLE else View.GONE
+
         refreshPresetList()
     }
 
@@ -2164,6 +2277,15 @@ class MainActivity : ComponentActivity() {
                         } else {
                             window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                         }
+                        val gyroDisabled = s.controllerGyroEnabled
+                        listOf(
+                            R.id.btnGyroOriLandscape,
+                            R.id.btnGyroOriPortrait,
+                            R.id.btnGyroOriPortraitInverted,
+                        ).forEach { id ->
+                            findViewById<Button>(id).isEnabled = !gyroDisabled
+                            findViewById<Button>(id).alpha = if (gyroDisabled) 0.4f else 1.0f
+                        }
                     }
                 }
                 launch {
@@ -2193,6 +2315,35 @@ class MainActivity : ComponentActivity() {
                         findViewById<TextView>(R.id.tvGyroSensitivityX).text = "X: %.2f".format(x)
                         findViewById<TextView>(R.id.tvGyroSensitivityY).text = "Y: %.2f".format(y)
                         findViewById<TextView>(R.id.tvGyroSensitivityZ).text = "Z: %.2f".format(z)
+                    }
+                }
+                launch {
+                    physicalControllerHandler.isConnected.collect { connected ->
+                        val s = viewModel.settings.value
+                        physicalControllerHandler.controllerVibrationEnabled = s.controllerVibrationEnabled
+                        physicalControllerHandler.onControllerGyroSettingChanged(s.controllerGyroEnabled)
+                        findViewById<Switch>(R.id.switchControllerVibration).isChecked =
+                            connected && s.controllerVibrationEnabled
+                        findViewById<Switch>(R.id.switchControllerVibration).isEnabled = connected
+                        findViewById<Switch>(R.id.switchControllerGyro).isChecked =
+                            connected && s.controllerGyroEnabled
+                        findViewById<Switch>(R.id.switchControllerGyro).isEnabled = connected
+                        findViewById<TextView>(R.id.tvPhysicalControllerStatus).text =
+                            if (connected) "已连接: ${physicalControllerHandler.controllerName.value}"
+                            else "未连接手柄"
+                        findViewById<TextView>(R.id.tvControllerGyroNote).visibility =
+                            if (s.controllerGyroEnabled && connected) View.VISIBLE else View.GONE
+                    }
+                }
+                launch {
+                    physicalControllerHandler.gyroData.collect { gyro ->
+                        if (viewModel.settings.value.controllerGyroEnabled) {
+                            val accel = physicalControllerHandler.accelData.value
+                            viewModel.onPhysicalControllerGyro(
+                                gyro[0], gyro[1], gyro[2],
+                                accel[0], accel[1], accel[2],
+                            )
+                        }
                     }
                 }
             }

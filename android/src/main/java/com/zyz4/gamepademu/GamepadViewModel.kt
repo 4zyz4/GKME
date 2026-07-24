@@ -35,7 +35,7 @@ import kotlin.time.Duration.Companion.milliseconds
 
 @HiltViewModel
 class GamepadViewModel @Inject constructor(
-    private val connectionManager: ConnectionManager,
+    val connectionManager: ConnectionManager,
     private val layoutRepository: LayoutRepository,
     app: Application,
 ) : AndroidViewModel(app) {
@@ -71,7 +71,9 @@ class GamepadViewModel @Inject constructor(
         set(value) {
             field = value
             val orientation = value ?: settings.value.gyroOrientation
-            sensorHandler.gyroOrientation = orientation
+            if (!settings.value.controllerGyroEnabled) {
+                sensorHandler.gyroOrientation = orientation
+            }
         }
 
     fun setDeviceInverted(inverted: Boolean) {
@@ -276,9 +278,68 @@ class GamepadViewModel @Inject constructor(
     fun updateGyroOrientation(orientation: GyroOrientation) {
         val updated = settings.value.copy(gyroOrientation = orientation)
         connectionManager.updateSettings(updated)
-        if (currentPresetGyroOrientation == null) {
+        if (currentPresetGyroOrientation == null && !settings.value.controllerGyroEnabled) {
             sensorHandler.gyroOrientation = orientation
         }
+    }
+
+    fun updateControllerVibrationEnabled(enabled: Boolean) {
+        connectionManager.updateSettings(settings.value.copy(controllerVibrationEnabled = enabled))
+    }
+
+    fun updateControllerGyroEnabled(enabled: Boolean) {
+        connectionManager.updateSettings(settings.value.copy(controllerGyroEnabled = enabled))
+        if (enabled) {
+            sensorHandler.stop()
+            stopSensorDisplay()
+        } else {
+            if (settings.value.gyroEnabled) {
+                startSensorDisplay()
+            }
+        }
+    }
+
+    fun onPhysicalControllerInput(
+        buttons: UInt,
+        leftStickX: Short, leftStickY: Short,
+        rightStickX: Short, rightStickY: Short,
+        leftTrigger: Int, rightTrigger: Int,
+        dpad: Int,
+        touchpadX: Float = 0f, touchpadY: Float = 0f,
+        touchpadTouch: Boolean = false,
+        touchpadClick: Boolean = false,
+        touches: List<TouchPoint> = emptyList(),
+    ) {
+        val tx = (touchpadX * 1919).toInt().coerceIn(0, 1919)
+        val ty = (touchpadY * 942).toInt().coerceIn(0, 942)
+        _gamepadState.value = _gamepadState.value.copy(
+            buttons = buttons,
+            leftStickX = leftStickX,
+            leftStickY = leftStickY,
+            rightStickX = rightStickX,
+            rightStickY = rightStickY,
+            leftTrigger = leftTrigger,
+            rightTrigger = rightTrigger,
+            dpad = dpad,
+            touchpadX = tx,
+            touchpadY = ty,
+            touchpadTouch = touchpadTouch,
+            touchpadClick = touchpadClick,
+            touches = touches,
+        )
+        sendInput()
+    }
+
+    fun onPhysicalControllerGyro(gyroX: Float, gyroY: Float, gyroZ: Float, accelX: Float, accelY: Float, accelZ: Float) {
+        val s = settings.value
+        _gamepadState.value = _gamepadState.value.copy(
+            gyroX = gyroX * s.gyroSensitivityX / 100f,
+            gyroY = gyroY * s.gyroSensitivityY / 100f,
+            gyroZ = gyroZ * s.gyroSensitivityZ / 100f,
+            accelX = accelX,
+            accelY = accelY,
+            accelZ = accelZ,
+        )
     }
 
     fun startServer() {
@@ -333,6 +394,7 @@ class GamepadViewModel @Inject constructor(
     }
 
     private fun startSensorDisplay() {
+        if (settings.value.controllerGyroEnabled) return
         sensorHandler.gyroOrientation = currentPresetGyroOrientation ?: settings.value.gyroOrientation
         sensorHandler.start()
         sensorDisplayJob?.cancel()
@@ -361,17 +423,19 @@ class GamepadViewModel @Inject constructor(
                     readBattery()
                     lastBatteryRead = now
                 }
-                val sensor = sensorHandler.sensorData.value
                 val s = settings.value
-                _gyroDisplay.value = Triple(sensor.gyroX, sensor.gyroY, sensor.gyroZ)
-                _gamepadState.value = _gamepadState.value.copy(
-                    gyroX = sensor.gyroX * s.gyroSensitivityX / 100f,
-                    gyroY = sensor.gyroY * s.gyroSensitivityY / 100f,
-                    gyroZ = sensor.gyroZ * s.gyroSensitivityZ / 100f,
-                    accelX = sensor.accelX,
-                    accelY = sensor.accelY,
-                    accelZ = sensor.accelZ,
-                )
+                if (!s.controllerGyroEnabled) {
+                    val sensor = sensorHandler.sensorData.value
+                    _gyroDisplay.value = Triple(sensor.gyroX, sensor.gyroY, sensor.gyroZ)
+                    _gamepadState.value = _gamepadState.value.copy(
+                        gyroX = sensor.gyroX * s.gyroSensitivityX / 100f,
+                        gyroY = sensor.gyroY * s.gyroSensitivityY / 100f,
+                        gyroZ = sensor.gyroZ * s.gyroSensitivityZ / 100f,
+                        accelX = sensor.accelX,
+                        accelY = sensor.accelY,
+                        accelZ = sensor.accelZ,
+                    )
+                }
                 val input = _gamepadState.value.toProto()
                 connectionManager.sendGamepadState(input)
                 delay(8)

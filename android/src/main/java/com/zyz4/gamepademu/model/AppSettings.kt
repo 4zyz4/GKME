@@ -54,6 +54,8 @@ data class AppSettings(
     val gyroSensitivityZ: Int = 100,
     val gyroOrientation: GyroOrientation = GyroOrientation.LANDSCAPE,
     val keepScreenOn: Boolean = false,
+    val controllerVibrationEnabled: Boolean = true,
+    val controllerGyroEnabled: Boolean = true,
     val volumeUpBits: List<Int> = emptyList(),
     val volumeDownBits: List<Int> = emptyList(),
 )
