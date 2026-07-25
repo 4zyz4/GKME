@@ -18,9 +18,12 @@ import android.view.MotionEvent
 import com.zyz4.gamepademu.model.GamepadState
 import com.zyz4.gamepademu.model.VibrationMotor
 import com.zyz4.gamepademu.model.TouchPoint
+import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlin.math.min
+import kotlin.math.max
 
 data class PhysicalControllerState(
     val buttons: UInt = 0u,
@@ -69,6 +72,7 @@ class PhysicalControllerHandler(private val context: Context) {
     private var controllerGyroListener: SensorEventListener? = null
 
     var controllerGyroEnabled: Boolean = false
+    var nonLinearTriggerAdaptation: Boolean = false
     var controllerHasGyro: Boolean = false
     var controllerMotorCount: Int = 0
     var strongVibrationMapping: VibrationMotor = VibrationMotor.CONTROLLER_MOTOR_1
@@ -84,6 +88,8 @@ class PhysicalControllerHandler(private val context: Context) {
 
     private val _accelData = MutableStateFlow(FloatArray(3))
     val accelData: StateFlow<FloatArray> = _accelData.asStateFlow()
+
+
 
     private val deviceListener = object : InputManager.InputDeviceListener {
         override fun onInputDeviceAdded(deviceId: Int) {
@@ -109,7 +115,22 @@ class PhysicalControllerHandler(private val context: Context) {
             }
         }
 
-        override fun onInputDeviceChanged(deviceId: Int) {}
+        override fun onInputDeviceChanged(deviceId: Int) {
+        if (connectedDeviceIds.isNotEmpty() && deviceId == connectedDeviceIds.first()) {
+            val device = inputManager.getInputDevice(deviceId)
+            if (device != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val sm = device.sensorManager ?: return
+                val gyro = sm.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+                if (gyro != null && !gyroRegistered) {
+                    controllerSensorManager = sm
+                    gyroSensor = gyro
+                    accelSensor = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+                    controllerHasGyro = true
+                    registerGyro()
+                }
+            }
+        }
+    }
     }
 
     fun start() {
@@ -119,6 +140,7 @@ class PhysicalControllerHandler(private val context: Context) {
             checkDevice(id)
         }
         updateConnectedState()
+        ensureGyroRegistered()
     }
 
     fun stop() {
@@ -184,7 +206,9 @@ class PhysicalControllerHandler(private val context: Context) {
                         gyroSensor = gyro
                         accelSensor = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
                         controllerHasGyro = true
-                        registerGyro()
+                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                            registerGyro()
+                        }, 150)
                     }
                 }
             }
@@ -253,8 +277,13 @@ class PhysicalControllerHandler(private val context: Context) {
                 if (event.repeatCount == 0) {
                     buttonState[event.keyCode] = true
                     updateButtonState()
-                    if (bit == GamepadState.TOUCHPAD_CLICK) {
-                        _controllerState.value = _controllerState.value.copy(touchpadClick = true)
+                    when (bit) {
+                        GamepadState.TOUCHPAD_CLICK ->
+                            _controllerState.value = _controllerState.value.copy(touchpadClick = true)
+                        GamepadState.LT ->
+                            _controllerState.value = _controllerState.value.copy(leftTrigger = if (nonLinearTriggerAdaptation) 255 else 1)
+                        GamepadState.RT ->
+                            _controllerState.value = _controllerState.value.copy(rightTrigger = if (nonLinearTriggerAdaptation) 255 else 1)
                     }
                 }
                 return true
@@ -262,8 +291,13 @@ class PhysicalControllerHandler(private val context: Context) {
             KeyEvent.ACTION_UP -> {
                 buttonState[event.keyCode] = false
                 updateButtonState()
-                if (bit == GamepadState.TOUCHPAD_CLICK) {
-                    _controllerState.value = _controllerState.value.copy(touchpadClick = false)
+                when (bit) {
+                    GamepadState.TOUCHPAD_CLICK ->
+                        _controllerState.value = _controllerState.value.copy(touchpadClick = false)
+                        GamepadState.LT ->
+                            _controllerState.value = _controllerState.value.copy(leftTrigger = 0)
+                        GamepadState.RT ->
+                            _controllerState.value = _controllerState.value.copy(rightTrigger = 0)
                 }
                 return true
             }
@@ -281,6 +315,9 @@ class PhysicalControllerHandler(private val context: Context) {
         if (!_isConnected.value) return false
 
         if (!isGamepadDevice(device)) return false
+
+        val ltRaw = event.getAxisValue(MotionEvent.AXIS_LTRIGGER)
+        val rtRaw = event.getAxisValue(MotionEvent.AXIS_RTRIGGER)
 
         val historySize = event.historySize
         for (i in 0 until historySize) {
@@ -535,15 +572,22 @@ class PhysicalControllerHandler(private val context: Context) {
         axisLt: Float, axisRt: Float,
         hatX: Float, hatY: Float,
     ) {
+        val ltOut = (axisLt * 255f).roundToInt().coerceIn(0, 255)
+        val rtOut = (axisRt * 255f).roundToInt().coerceIn(0, 255)
+
         _controllerState.value = _controllerState.value.copy(
             leftStickX = (axisX * 32767f).toInt().coerceIn(-32768, 32767).toShort(),
             leftStickY = (axisY * 32767f).toInt().coerceIn(-32768, 32767).toShort(),
             rightStickX = (axisZ * 32767f).toInt().coerceIn(-32768, 32767).toShort(),
             rightStickY = (axisRz * 32767f).toInt().coerceIn(-32768, 32767).toShort(),
-            leftTrigger = (axisLt * 255f).toInt().coerceIn(0, 255),
-            rightTrigger = (axisRt * 255f).toInt().coerceIn(0, 255),
             dpad = computeDpad(hatX, hatY),
         )
+        if (!nonLinearTriggerAdaptation) {
+            _controllerState.value = _controllerState.value.copy(
+                leftTrigger = ltOut,
+                rightTrigger = rtOut,
+            )
+        }
     }
 
     private fun computeDpad(hatX: Float, hatY: Float): Int {
@@ -713,9 +757,19 @@ class PhysicalControllerHandler(private val context: Context) {
         }
     }
 
+    fun ensureGyroRegistered() {
+        if (controllerHasGyro && !gyroRegistered && controllerSensorManager != null) {
+            registerGyro()
+        }
+    }
+
     private fun registerGyro() {
-        if (gyroRegistered) return
         val sm = controllerSensorManager ?: return
+
+        if (gyroRegistered) {
+            controllerGyroListener?.let { sm.unregisterListener(it) }
+            gyroRegistered = false
+        }
 
         controllerGyroListener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
@@ -737,9 +791,9 @@ class PhysicalControllerHandler(private val context: Context) {
         }
 
         val rate = SensorManager.SENSOR_DELAY_GAME
-        gyroSensor?.let { sm.registerListener(controllerGyroListener, it, rate) }
-        accelSensor?.let { sm.registerListener(controllerGyroListener, it, rate) }
-        gyroRegistered = true
+        val gyroOk = gyroSensor?.let { sm.registerListener(controllerGyroListener, it, rate) } ?: true
+        val accelOk = accelSensor?.let { sm.registerListener(controllerGyroListener, it, rate) } ?: true
+        gyroRegistered = gyroOk || accelOk
     }
 
     private fun unregisterGyro() {

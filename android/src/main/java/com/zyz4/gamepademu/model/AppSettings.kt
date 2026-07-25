@@ -70,4 +70,5 @@ data class AppSettings(
     val weakVibrationMappingConnected: VibrationMotor = VibrationMotor.CONTROLLER_MOTOR_2,
     val volumeUpBits: List<Int> = emptyList(),
     val volumeDownBits: List<Int> = emptyList(),
+    val nonLinearTriggerAdaptation: Boolean = false,
 )

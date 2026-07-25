@@ -794,6 +794,32 @@
                     android:background="@color/bg_surface"
                     android:layout_marginBottom="16dp" />
 
+                <!-- Trigger Analog Simulation -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:background="@color/bg_surface"
+                    android:paddingHorizontal="12dp"
+                    android:layout_marginBottom="8dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="非线性扳机适配"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp" />
+
+
+                    <Switch
+                        android:id="@+id/switchNonLinearTriggerAdaptation"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+
+                </LinearLayout>
+
                 <!-- Shortcuts -->
                 <LinearLayout
                     android:layout_width="match_parent"

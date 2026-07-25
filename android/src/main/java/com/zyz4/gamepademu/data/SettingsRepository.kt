@@ -59,6 +59,7 @@ class SettingsRepository @Inject constructor(
         val WEAK_VIBRATION_MAPPING_CONNECTED = intPreferencesKey("weak_vibration_mapping_connected")
         val VOLUME_UP_BITS = stringPreferencesKey("volume_up_bits")
         val VOLUME_DOWN_BITS = stringPreferencesKey("volume_down_bits")
+        val NON_LINEAR_TRIGGER_ADAPTATION = booleanPreferencesKey("non_linear_trigger_adaptation")
     }
 
     private val gson = Gson()
@@ -120,6 +121,7 @@ class SettingsRepository @Inject constructor(
             ) { VibrationMotor.CONTROLLER_MOTOR_2 },
             volumeUpBits = parseBitList(prefs[Keys.VOLUME_UP_BITS]),
             volumeDownBits = parseBitList(prefs[Keys.VOLUME_DOWN_BITS]),
+            nonLinearTriggerAdaptation = prefs[Keys.NON_LINEAR_TRIGGER_ADAPTATION] ?: false,
         )
     }
 
@@ -155,6 +157,7 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.WEAK_VIBRATION_MAPPING_CONNECTED] = settings.weakVibrationMappingConnected.ordinal
             prefs[Keys.VOLUME_UP_BITS] = gson.toJson(settings.volumeUpBits)
             prefs[Keys.VOLUME_DOWN_BITS] = gson.toJson(settings.volumeDownBits)
+            prefs[Keys.NON_LINEAR_TRIGGER_ADAPTATION] = settings.nonLinearTriggerAdaptation
         }
     }
 

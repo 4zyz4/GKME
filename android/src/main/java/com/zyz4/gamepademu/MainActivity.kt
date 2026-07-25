@@ -949,6 +949,7 @@ class MainActivity : ComponentActivity() {
             physicalControllerHandler.isPointerCaptureActive = enabled
             gamepadLayout.setTouchpadCaptureMode(enabled)
         }
+
     }
 
     private fun performHaptic(isPress: Boolean) {
@@ -1597,6 +1598,11 @@ class MainActivity : ComponentActivity() {
             selectSettingsCategory(4)
         }
 
+        findViewById<Switch>(R.id.switchNonLinearTriggerAdaptation).setOnCheckedChangeListener { _, isChecked ->
+            viewModel.updateNonLinearTriggerAdaptation(isChecked)
+            physicalControllerHandler.nonLinearTriggerAdaptation = isChecked
+        }
+
         // ── Misc page ──
         setupMiscPage()
 
@@ -1923,6 +1929,7 @@ class MainActivity : ComponentActivity() {
 
     private fun syncPhysicalControllerState() {
         val state = physicalControllerHandler.controllerState.value
+
         viewModel.onPhysicalControllerInput(
             state.buttons,
             state.leftStickX, state.leftStickY,
@@ -2325,6 +2332,8 @@ class MainActivity : ComponentActivity() {
         updateGyroLandscapeInvertedNote(inverted)
 
         findViewById<Switch>(R.id.switchKeepScreenOn).isChecked = s.keepScreenOn
+        findViewById<Switch>(R.id.switchNonLinearTriggerAdaptation).isChecked = s.nonLinearTriggerAdaptation
+        physicalControllerHandler.nonLinearTriggerAdaptation = s.nonLinearTriggerAdaptation
         updateVolumeMappingLabels()
 
         val physicalConnected = physicalControllerHandler.isConnected.value
@@ -2454,6 +2463,7 @@ class MainActivity : ComponentActivity() {
                 }
                 launch {
                     physicalControllerHandler.isConnected.collect { connected ->
+                        viewModel.setPhysicalControllerConnected(connected)
                         val s = viewModel.settings.value
                         val strongMapping = if (connected) s.strongVibrationMappingConnected else s.strongVibrationMapping
                         val weakMapping = if (connected) s.weakVibrationMappingConnected else s.weakVibrationMapping

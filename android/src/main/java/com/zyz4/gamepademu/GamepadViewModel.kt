@@ -64,6 +64,9 @@ class GamepadViewModel @Inject constructor(
     private val _gyroDisplay = MutableStateFlow(Triple(0f, 0f, 0f))
     val gyroDisplay: StateFlow<Triple<Float, Float, Float>> = _gyroDisplay.asStateFlow()
 
+    private val _physicalControllerConnected = MutableStateFlow(false)
+    val physicalControllerConnected: StateFlow<Boolean> = _physicalControllerConnected.asStateFlow()
+
     private val sensorHandler = SensorHandler(app)
     private var sendJob: Job? = null
     private var sensorDisplayJob: Job? = null
@@ -77,6 +80,10 @@ class GamepadViewModel @Inject constructor(
 
     fun setDeviceInverted(inverted: Boolean) {
         sensorHandler.isDeviceInverted = inverted
+    }
+
+    fun setPhysicalControllerConnected(connected: Boolean) {
+        _physicalControllerConnected.value = connected
     }
     private var _dpadBits = 0
 
@@ -306,6 +313,10 @@ class GamepadViewModel @Inject constructor(
         connectionManager.updateSettings(settings.value.copy(controllerGyroEnabledConnected = enabled))
     }
 
+    fun updateNonLinearTriggerAdaptation(enabled: Boolean) {
+        connectionManager.updateSettings(settings.value.copy(nonLinearTriggerAdaptation = enabled))
+    }
+
     fun onPhysicalControllerInput(
         buttons: UInt,
         leftStickX: Short, leftStickY: Short,
@@ -317,6 +328,7 @@ class GamepadViewModel @Inject constructor(
         touchpadClick: Boolean = false,
         touches: List<TouchPoint> = emptyList(),
     ) {
+
         val tx = (touchpadX * 1919).toInt().coerceIn(0, 1919)
         val ty = (touchpadY * 942).toInt().coerceIn(0, 942)
         _gamepadState.value = _gamepadState.value.copy(
@@ -432,7 +444,8 @@ class GamepadViewModel @Inject constructor(
                 val s = settings.value
                 val sensor = sensorHandler.sensorData.value
                 _gyroDisplay.value = Triple(sensor.gyroX, sensor.gyroY, sensor.gyroZ)
-                if (!s.controllerGyroEnabled) {
+                val useControllerGyro = if (_physicalControllerConnected.value) s.controllerGyroEnabledConnected else s.controllerGyroEnabled
+                if (!useControllerGyro) {
                     _gamepadState.value = _gamepadState.value.copy(
                         gyroX = sensor.gyroX * s.gyroSensitivityX / 100f,
                         gyroY = sensor.gyroY * s.gyroSensitivityY / 100f,
