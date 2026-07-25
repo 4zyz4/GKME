@@ -1390,7 +1390,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        listOf(R.id.btnTargetWindows to 0, R.id.btnTargetAndroid to 1)
+        listOf(R.id.btnTargetWindows to 0, R.id.btnTargetAndroid to 1, R.id.btnTargetLinux to 2)
             .forEach { (id, idx) ->
                 findViewById<Button>(id).setOnClickListener {
                     val platform = TargetPlatform.entries[idx]
@@ -1408,7 +1408,7 @@ class MainActivity : ComponentActivity() {
                             .setNegativeButton("取消", null)
                             .show()
                     } else {
-                        selectChipGroup(listOf(R.id.btnTargetWindows, R.id.btnTargetAndroid), idx)
+                        selectChipGroup(listOf(R.id.btnTargetWindows, R.id.btnTargetAndroid, R.id.btnTargetLinux), idx)
                         viewModel.updateTargetPlatform(platform)
                     }
                 }
@@ -2308,7 +2308,7 @@ class MainActivity : ComponentActivity() {
             DisplayMode.entries.indexOf(s.displayMode).coerceAtLeast(0))
         selectChipGroup(listOf(R.id.btnConnWifi, R.id.btnConnBluetooth),
             ConnectionMode.entries.indexOf(s.connectionMode).coerceAtLeast(0))
-        selectChipGroup(listOf(R.id.btnTargetWindows, R.id.btnTargetAndroid),
+        selectChipGroup(listOf(R.id.btnTargetWindows, R.id.btnTargetAndroid, R.id.btnTargetLinux),
             TargetPlatform.entries.indexOf(s.targetPlatform).coerceAtLeast(0))
         findViewById<Switch>(R.id.switchBtnVibration).isChecked = s.vibrationEnabled
         findViewById<Switch>(R.id.switchGameVibration).isChecked = s.gameVibrationEnabled

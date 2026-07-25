@@ -2,7 +2,7 @@ package com.zyz4.gamepademu.model
 
 enum class ConnectionMode { WIFI, BLUETOOTH }
 
-enum class TargetPlatform { WINDOWS, ANDROID }
+enum class TargetPlatform { WINDOWS, ANDROID, LINUX }
 
 enum class DisplayMode { XBOX, PLAYSTATION, SWITCH }
 

@@ -10,11 +10,12 @@ object GamepadStateMapper {
         return when (target) {
             TargetPlatform.WINDOWS -> mapWindows(input)
             TargetPlatform.ANDROID -> mapAndroid(input)
+            TargetPlatform.LINUX -> mapLinux(input)
         }
     }
 
     private fun mapWindows(input: GamepadInput): ByteArray {
-        var buttons = input.buttons.toInt() and 0x1FFFF
+        var buttons = input.buttons.toInt() and 0x3FFFF
         buttons = buttons or mapDpadBits(input.dpad)
         val report = ByteArray(11)
         report[0] = (buttons and 0xFF).toByte()
@@ -53,6 +54,31 @@ object GamepadStateMapper {
 
     private fun scaleAxis(value: Int): Byte {
         return (value * 127 / 32767).coerceIn(-127, 127).toByte()
+    }
+
+    private fun mapLinux(input: GamepadInput): ByteArray {
+        val report = ByteArray(9)
+
+        // X and Y buttons swapped vs Android
+        // Android: X(bit2)→HID4, Y(bit3)→HID5
+        // Linux:   X(bit2)→HID5, Y(bit3)→HID4
+        val raw = input.buttons.toInt()
+        val buttons = (raw and 0x03) or ((raw and 0x20000) shr 15) or ((raw and 0x04) shl 2) or (raw and 0x08) or ((raw and 0x3F0) shl 2) or ((raw and 0x10000) shr 4) or ((raw and 0x400) shl 3) or ((raw and 0x800) shl 3)
+        report[0] = (buttons and 0xFF).toByte()
+        report[1] = ((buttons shr 8) and 0xFF).toByte()
+
+        report[2] = scaleAxis(input.leftStickX)
+        report[3] = scaleAxis(input.leftStickY)
+
+        report[4] = mapDpadHatAndroid(input.dpad).toByte()
+
+        // Right stick: Rx/Ry
+        report[5] = scaleAxis(input.rightStickX)
+        report[6] = scaleAxis(input.rightStickY)
+
+        report[7] = input.leftTrigger.coerceIn(0, 255).toByte()
+        report[8] = input.rightTrigger.coerceIn(0, 255).toByte()
+        return report
     }
 
     /** 1=N, 2=NE, 3=E, 4=SE, 5=S, 6=SW, 7=W, 8=NW, 0=null */

@@ -135,7 +135,7 @@ class ClassicHidTransport(
         reRegisterAttempts = 0
         this.onOutputReport = onOutputReport
         currentSettings = settings
-        val reportSize = if (settings.targetPlatform == TargetPlatform.ANDROID) 9 else 11
+        val reportSize = if (settings.targetPlatform != TargetPlatform.WINDOWS) 9 else 11
         lastReport = ByteArray(reportSize)
         _connectionPhase.value = ConnectionPhase.REGISTERING_PROFILE
         bluetoothAdapter.getProfileProxy(context, profileListener, BluetoothProfile.HID_DEVICE)
@@ -214,10 +214,10 @@ class ClassicHidTransport(
 
     private fun registerApp() {
         val subclass: Byte = 0x02
-        val desc = if (currentSettings?.targetPlatform == TargetPlatform.ANDROID) {
-            ANDROID_HID_DESCRIPTOR
-        } else {
-            HID_DESCRIPTOR
+        val desc = when (currentSettings?.targetPlatform) {
+            TargetPlatform.ANDROID -> ANDROID_HID_DESCRIPTOR
+            TargetPlatform.LINUX -> LINUX_HID_DESCRIPTOR
+            else -> WINDOWS_HID_DESCRIPTOR
         }
         val deviceName = getRealDeviceName()
         val sdp = BluetoothHidDeviceAppSdpSettings(
@@ -256,25 +256,25 @@ class ClassicHidTransport(
     private companion object {
         private fun b(v: Int) = v.toByte()
 
-        /** 11‑byte report for Windows/Apple Classic (matches XInput layout). */
-        private val HID_DESCRIPTOR = byteArrayOf(
+        /** 11‑byte report for Windows Classic (matches DInput layout). */
+        private val WINDOWS_HID_DESCRIPTOR = byteArrayOf(
             b(0x05), b(0x01),       // Usage Page (Generic Desktop)
             b(0x09), b(0x05),       // Usage (Game Pad)
             b(0xA1), b(0x01),       // Collection (Application)
             b(0x85), b(0x01),       //   Report ID (1)
 
-            // Buttons (17 buttons + 7 padding = 24 bits / 3 bytes)
+            // Buttons (18 buttons + 6 padding = 24 bits / 3 bytes)
             b(0x05), b(0x09),       //   Usage Page (Button)
             b(0x19), b(0x01),       //   Usage Minimum (1)
-            b(0x29), b(0x11),       //   Usage Maximum (17)
+            b(0x29), b(0x12),       //   Usage Maximum (18)
             b(0x15), b(0x00),       //   Logical Minimum (0)
             b(0x25), b(0x01),       //   Logical Maximum (1)
             b(0x75), b(0x01),       //   Report Size (1)
-            b(0x95), b(0x11),       //   Report Count (17)
+            b(0x95), b(0x12),       //   Report Count (18)
             b(0x81), b(0x02),       //   Input (Data,Var,Abs)
 
             b(0x75), b(0x01),       //   Report Size (1)
-            b(0x95), b(0x07),       //   Report Count (7)
+            b(0x95), b(0x06),       //   Report Count (6)
             b(0x81), b(0x01),       //   Input (Const)
 
             // Axes (LX, LY, RX, RY - 4 x 16-bit = 8 bytes)
@@ -294,15 +294,6 @@ class ClassicHidTransport(
 
         /**
          * Standard 9‑byte report for Android Bluetooth (HID descriptor, Report ID 1).
-         *   byte  0    Buttons 1‑8 (bits 0‑7)
-         *   byte  1    Buttons 9‑16 (bits 0‑7)
-         *   byte  2    LX (s8, -127..127)
-         *   byte  3    LY (s8, -127..127)
-         *   byte  4    Hat switch (nibble 0‑3, 1‑8 direction, 0=null) + padding (nibble 4‑7)
-         *   byte  5    Z / RX (s8, -127..127)
-         *   byte  6    Rz / RY (s8, -127..127)
-         *   byte  7    LT / Brake (u8, 0..255)
-         *   byte  8    RT / Accelerator (u8, 0..255)
          */
         private val ANDROID_HID_DESCRIPTOR = byteArrayOf(
             b(0x05), b(0x01),             // Usage Page (Generic Desktop)
@@ -367,6 +358,81 @@ class ClassicHidTransport(
             b(0x81), b(0x02),             //   Input (Data,Var,Abs)
 
             b(0xC0),                      // End Collection
+        )
+
+        /**
+         * 9‑byte report for Linux Bluetooth (based on Android, but X/Y swapped, right stick uses Rx/Ry).
+         *   byte  0-1  Buttons (same remap as Android)
+         *   byte  2    LY (s8, -127..127) ← swapped order
+         *   byte  3    LX (s8, -127..127) ← swapped order
+         *   byte  4    Hat switch + padding
+         *   byte  5    Rx (s8, -127..127)
+         *   byte  6    Ry (s8, -127..127)
+         *   byte  7    LT / Brake (u8, 0..255)
+         *   byte  8    RT / Accelerator (u8, 0..255)
+         */
+        private val LINUX_HID_DESCRIPTOR = byteArrayOf(
+            b(0x05), b(0x01),             // Usage Page (Generic Desktop)
+            b(0x09), b(0x05),             // Usage (Game Pad)
+            b(0xA1), b(0x01),             // Collection (Application)
+            b(0x85), b(0x01),             //   Report ID (1)
+
+            // Bytes 0‑1: 16 buttons
+            b(0x05), b(0x09),
+            b(0x19), b(0x01),
+            b(0x29), b(0x10),
+            b(0x15), b(0x00),
+            b(0x25), b(0x01),
+            b(0x95), b(0x10),
+            b(0x75), b(0x01),
+            b(0x81), b(0x02),
+
+            // Bytes 2‑3: Left stick X (X), Y (Y) — same as Android
+            b(0x05), b(0x01),
+            b(0x09), b(0x30),             // Usage (X)
+            b(0x09), b(0x31),             // Usage (Y)
+            b(0x15), b(0x81),
+            b(0x25), b(0x7F),
+            b(0x75), b(0x08),
+            b(0x95), b(0x02),
+            b(0x81), b(0x02),
+
+            // Byte 4: Hat switch + padding
+            b(0x05), b(0x01),
+            b(0x09), b(0x39),
+            b(0x15), b(0x01),
+            b(0x25), b(0x08),
+            b(0x55), b(0x00),
+            b(0x46), b(0x3B), b(0x01),
+            b(0x65), b(0x14),
+            b(0x75), b(0x04),
+            b(0x95), b(0x01),
+            b(0x81), b(0x42),
+            b(0x75), b(0x04),
+            b(0x95), b(0x01),
+            b(0x81), b(0x03),
+
+            // Bytes 5‑6: Right stick Rx, Ry
+            b(0x05), b(0x01),
+            b(0x09), b(0x33),             // Usage (Rx)
+            b(0x09), b(0x34),             // Usage (Ry)
+            b(0x15), b(0x81),
+            b(0x25), b(0x7F),
+            b(0x75), b(0x08),
+            b(0x95), b(0x02),
+            b(0x81), b(0x02),
+
+            // Bytes 7‑8: LT (Brake), RT (Accelerator)
+            b(0x05), b(0x02),
+            b(0x09), b(0xC4),
+            b(0x09), b(0xC5),
+            b(0x15), b(0x00),
+            b(0x25), b(0xFF),
+            b(0x75), b(0x08),
+            b(0x95), b(0x02),
+            b(0x81), b(0x02),
+
+            b(0xC0),
         )
     }
 }

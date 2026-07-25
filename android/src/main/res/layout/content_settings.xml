@@ -356,7 +356,13 @@
                         <Button
                             android:id="@+id/btnTargetAndroid"
                             style="@style/GamepadChip"
+                            android:layout_marginEnd="6dp"
                             android:text="ANDROID" />
+
+                        <Button
+                            android:id="@+id/btnTargetLinux"
+                            style="@style/GamepadChip"
+                            android:text="LINUX" />
                     </LinearLayout>
                 </LinearLayout>
 
