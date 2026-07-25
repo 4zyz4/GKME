@@ -1,5 +1,9 @@
 # 🎮 Gamepad Emu
 
+<p align="center">
+  <img src="android/src/main/res/mipmap/icon.png" alt="Gamepad Emu" width="128"/>
+</p>
+
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
 把你的 Android 手机变成一台虚拟游戏手柄！支持 WiFi 局域网连接和蓝牙直连。
