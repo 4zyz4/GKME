@@ -12,6 +12,7 @@ enum class VibrationMotor(val displayName: String) {
     CONTROLLER_MOTOR_1("手柄马达1"),
     CONTROLLER_MOTOR_2("手柄马达2"),
     PHONE_MOTOR("手机马达"),
+    NONE("无"),
 }
 
 enum class GyroOrientation(val displayName: String) {

@@ -658,6 +658,7 @@ class PhysicalControllerHandler(private val context: Context) {
 
         // Resolve mapping — fall back to phone when target motor doesn't exist
         fun resolveMotor(m: VibrationMotor): VibrationMotor {
+            if (m == VibrationMotor.NONE) return m
             if (m == VibrationMotor.PHONE_MOTOR) return m
             return if (m.ordinal < controllerMotorCount) m else VibrationMotor.PHONE_MOTOR
         }

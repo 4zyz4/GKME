@@ -2356,9 +2356,9 @@ class MainActivity : ComponentActivity() {
 
         // Vibration page: vibration mapping
         val motorCount = physicalControllerHandler.controllerMotorCount
-        vibrationMappingEntries = if (physicalConnected) VibrationMotor.entries.take(motorCount) + VibrationMotor.PHONE_MOTOR
-            else listOf(VibrationMotor.PHONE_MOTOR)
-        fun sel(m: VibrationMotor) = vibrationMappingEntries.indexOf(m).let { if (it >= 0) it else vibrationMappingEntries.lastIndex }
+        vibrationMappingEntries = if (physicalConnected) VibrationMotor.entries.take(motorCount) + VibrationMotor.PHONE_MOTOR + VibrationMotor.NONE
+            else listOf(VibrationMotor.PHONE_MOTOR, VibrationMotor.NONE)
+        fun sel(m: VibrationMotor) = vibrationMappingEntries.indexOf(m).let { if (it >= 0) it else vibrationMappingEntries.indexOf(VibrationMotor.PHONE_MOTOR) }
         updateMappingAdapter(findViewById(R.id.spinnerStrongVibration))
         findViewById<Spinner>(R.id.spinnerStrongVibration).setSelection(sel(strongMapping))
         updateMappingAdapter(findViewById(R.id.spinnerWeakVibration))
@@ -2487,9 +2487,9 @@ class MainActivity : ComponentActivity() {
 
                         // Vibration mapping: restrict options + select appropriate variant
                         val motorCount = physicalControllerHandler.controllerMotorCount
-                        vibrationMappingEntries = if (connected) VibrationMotor.entries.take(motorCount) + VibrationMotor.PHONE_MOTOR
-                            else listOf(VibrationMotor.PHONE_MOTOR)
-                        fun sel(m: VibrationMotor) = vibrationMappingEntries.indexOf(m).let { if (it >= 0) it else vibrationMappingEntries.lastIndex }
+                        vibrationMappingEntries = if (connected) VibrationMotor.entries.take(motorCount) + VibrationMotor.PHONE_MOTOR + VibrationMotor.NONE
+                            else listOf(VibrationMotor.PHONE_MOTOR, VibrationMotor.NONE)
+                        fun sel(m: VibrationMotor) = vibrationMappingEntries.indexOf(m).let { if (it >= 0) it else vibrationMappingEntries.indexOf(VibrationMotor.PHONE_MOTOR) }
                         updateMappingAdapter(findViewById(R.id.spinnerStrongVibration))
                         findViewById<Spinner>(R.id.spinnerStrongVibration).setSelection(sel(strongMapping))
                         updateMappingAdapter(findViewById(R.id.spinnerWeakVibration))
