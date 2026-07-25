@@ -178,7 +178,7 @@ class GamepadLayout @JvmOverloads constructor(
             }
         }
 
-        // Track button state changes (XOR approach like moonlight)
+        // Track button state changes (XOR approach from Moonlight Android)
         val curBS = event.buttonState
         val changedBS = curBS xor _lastButtonState
         if ((changedBS and MotionEvent.BUTTON_PRIMARY) != 0) {

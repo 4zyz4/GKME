@@ -399,7 +399,11 @@ class PhysicalControllerHandler(private val context: Context) {
         }
     }
 
-    /** Assign new touch points to existing slots by nearest-coordinate matching. */
+    /**
+ * DualSense touchpad slot assignment adapted from
+ * Moonlight Android (https://github.com/moonlight-stream/moonlight-android).
+ * Licensed under GPLv3.
+ */
     private fun assignSlots(
         old0: TouchPoint?, old1: TouchPoint?,
         candidates: List<TouchPoint>,
