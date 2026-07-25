@@ -2393,16 +2393,19 @@ class MainActivity : ComponentActivity() {
                         val transportType = st.transportType
                         val isClassicBt = transportType == BluetoothTransportType.CLASSIC
 
-                        if (st.phase == ConnectionPhase.DISCOVERABLE
+                         if (st.phase == ConnectionPhase.DISCOVERABLE
                             && !discoverableRequested
                             && viewModel.settings.value.connectionMode == ConnectionMode.BLUETOOTH
                             && isClassicBt
                         ) {
                             discoverableRequested = true
-                            val intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
-                                putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
+                            val hasSavedDevice = viewModel.pairedDeviceName.value != null
+                            if (!hasSavedDevice) {
+                                val intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
+                                    putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
+                                }
+                                discoverableLauncher.launch(intent)
                             }
-                            discoverableLauncher.launch(intent)
                         }
                         if (st.phase == ConnectionPhase.IDLE) {
                             discoverableRequested = false

@@ -9,7 +9,6 @@ import android.bluetooth.BluetoothHidDeviceAppQosSettings
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.content.Context
-import android.content.Intent
 import android.os.Build
 import com.zyz4.gamepademu.data.PairingStateRepository
 import com.zyz4.gamepademu.model.AppSettings
@@ -23,6 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 @SuppressLint("MissingPermission")
 class ClassicHidTransport(
@@ -46,6 +46,9 @@ class ClassicHidTransport(
     private var onOutputReport: ((ByteArray) -> Unit)? = null
     private var reRegisterAttempts = 0
 
+    private val started = AtomicBoolean(false)
+    private val stopping = AtomicBoolean(false)
+
     override val transportType: BluetoothTransportType = BluetoothTransportType.CLASSIC
 
     private val _connectionPhase = MutableStateFlow(ConnectionPhase.IDLE)
@@ -54,10 +57,12 @@ class ClassicHidTransport(
     private val deviceCallback by lazy {
         object : BluetoothHidDevice.Callback() {
             override fun onAppStatusChanged(pluggedDevice: BluetoothDevice?, registered: Boolean) {
+                if (stopping.get()) return
                 if (registered) {
                     reRegisterAttempts = 0
                     scope.launch { tryAutoReconnect() }
                 } else {
+                    if (!started.get()) return
                     if (reRegisterAttempts < 3 && _connectionPhase.value != ConnectionPhase.IDLE) {
                         reRegisterAttempts++
                         _connectionPhase.value = ConnectionPhase.REGISTERING_PROFILE
@@ -74,6 +79,7 @@ class ClassicHidTransport(
             }
 
             override fun onConnectionStateChanged(device: BluetoothDevice, state: Int) {
+                if (stopping.get()) return
                 when (state) {
                     BluetoothProfile.STATE_CONNECTED -> {
                         connectedDevice = device
@@ -81,14 +87,14 @@ class ClassicHidTransport(
                         scope.launch { pairingStateRepository.savePairedDevice(device) }
                     }
                     BluetoothProfile.STATE_DISCONNECTED -> {
-                        if (_connectionPhase.value == ConnectionPhase.RECONNECTING) {
-                            connectedDevice = null
-                            enterDiscoverable()
-                            _connectionPhase.value = ConnectionPhase.DISCOVERABLE
-                        } else {
-                            connectedDevice = null
-                            enterDiscoverable()
-                            _connectionPhase.value = ConnectionPhase.DISCOVERABLE
+                        if (!started.get()) return
+                        connectedDevice = null
+                        _connectionPhase.value = ConnectionPhase.DISCONNECTED
+                        scope.launch {
+                            delay(500)
+                            if (started.get() && !stopping.get() && _connectionPhase.value == ConnectionPhase.DISCONNECTED) {
+                                enterDiscoverable()
+                            }
                         }
                     }
                 }
@@ -109,26 +115,34 @@ class ClassicHidTransport(
             override fun onSetProtocol(device: BluetoothDevice, protocol: Byte) {}
 
             override fun onVirtualCableUnplug(device: BluetoothDevice) {
+                if (stopping.get()) return
                 connectedDevice = null
                 enterDiscoverable()
-                _connectionPhase.value = ConnectionPhase.DISCOVERABLE
             }
         }
     }
 
     private val profileListener = object : BluetoothProfile.ServiceListener {
         override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
+            if (!started.get() || stopping.get()) {
+                bluetoothAdapter.closeProfileProxy(profile, proxy)
+                return
+            }
             hidDevice = proxy as BluetoothHidDevice
             registerApp()
         }
 
         override fun onServiceDisconnected(profile: Int) {
+            if (stopping.get()) return
             hidDevice = null
         }
     }
 
     override fun start(settings: AppSettings, onOutputReport: (ByteArray) -> Unit) {
+        if (!started.compareAndSet(false, true)) return
+        stopping.set(false)
         if (!isBluetoothEnabled()) {
+            started.set(false)
             _connectionPhase.value = ConnectionPhase.ERROR
             return
         }
@@ -152,6 +166,8 @@ class ClassicHidTransport(
     }
 
     override fun stop() {
+        stopping.set(true)
+        started.set(false)
         cleanup()
         onOutputReport = null
         _connectionPhase.value = ConnectionPhase.IDLE
@@ -169,6 +185,7 @@ class ClassicHidTransport(
     }
 
     private fun restartService() {
+        if (stopping.get() || !started.get()) return
         cleanup()
         reRegisterAttempts = 0
         _connectionPhase.value = ConnectionPhase.REGISTERING_PROFILE
@@ -181,6 +198,7 @@ class ClassicHidTransport(
     }
 
     private suspend fun tryAutoReconnect() {
+        if (!started.get() || stopping.get()) return
         val address = pairingStateRepository.getPairedDeviceAddress()
         if (address != null) {
             try {
@@ -189,15 +207,12 @@ class ClassicHidTransport(
                 val ok = hidDevice?.connect(device) ?: false
                 if (!ok) {
                     enterDiscoverable()
-                    _connectionPhase.value = ConnectionPhase.DISCOVERABLE
                 }
             } catch (e: IllegalArgumentException) {
                 enterDiscoverable()
-                _connectionPhase.value = ConnectionPhase.DISCOVERABLE
             }
         } else {
             enterDiscoverable()
-            _connectionPhase.value = ConnectionPhase.DISCOVERABLE
         }
     }
 
@@ -213,6 +228,7 @@ class ClassicHidTransport(
     }
 
     private fun registerApp() {
+        if (_connectionPhase.value != ConnectionPhase.REGISTERING_PROFILE) return
         val subclass: Byte = 0x02
         val desc = when (currentSettings?.targetPlatform) {
             TargetPlatform.ANDROID -> ANDROID_HID_DESCRIPTOR
@@ -239,18 +255,7 @@ class ClassicHidTransport(
     }
 
     private fun enterDiscoverable() {
-        val hasPairedDevice = runCatching {
-            bluetoothAdapter.bondedDevices.isNotEmpty()
-        }.getOrDefault(false)
-        if (!hasPairedDevice) {
-            try {
-                val intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
-                    putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(intent)
-            } catch (_: Exception) {}
-        }
+        _connectionPhase.value = ConnectionPhase.DISCOVERABLE
     }
 
     private companion object {
@@ -292,9 +297,7 @@ class ClassicHidTransport(
             b(0xC0),                // End Collection
         )
 
-        /**
-         * Standard 9‑byte report for Android Bluetooth (HID descriptor, Report ID 1).
-         */
+        /** Standard 9‑byte report for Android Bluetooth (HID descriptor, Report ID 1). */
         private val ANDROID_HID_DESCRIPTOR = byteArrayOf(
             b(0x05), b(0x01),             // Usage Page (Generic Desktop)
             b(0x09), b(0x05),             // Usage (Game Pad)
@@ -360,17 +363,7 @@ class ClassicHidTransport(
             b(0xC0),                      // End Collection
         )
 
-        /**
-         * 9‑byte report for Linux Bluetooth (based on Android, but X/Y swapped, right stick uses Rx/Ry).
-         *   byte  0-1  Buttons (same remap as Android)
-         *   byte  2    LY (s8, -127..127) ← swapped order
-         *   byte  3    LX (s8, -127..127) ← swapped order
-         *   byte  4    Hat switch + padding
-         *   byte  5    Rx (s8, -127..127)
-         *   byte  6    Ry (s8, -127..127)
-         *   byte  7    LT / Brake (u8, 0..255)
-         *   byte  8    RT / Accelerator (u8, 0..255)
-         */
+        /** 9‑byte report for Linux Bluetooth (based on Android, but X/Y swapped, right stick uses Rx/Ry). */
         private val LINUX_HID_DESCRIPTOR = byteArrayOf(
             b(0x05), b(0x01),             // Usage Page (Generic Desktop)
             b(0x09), b(0x05),             // Usage (Game Pad)

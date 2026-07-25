@@ -155,7 +155,7 @@ class ConnectionManager @Inject constructor(
             )
             return
         }
-        stopBluetooth()
+        if (bluetoothService != null) return
 
         val transport: BluetoothHidService = ClassicHidTransport(context, pairingStateRepository)
         bluetoothService = transport
