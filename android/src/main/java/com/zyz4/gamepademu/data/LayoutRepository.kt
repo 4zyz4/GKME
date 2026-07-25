@@ -18,6 +18,7 @@ class LayoutRepository @Inject constructor(
             "完整布局" to R.raw.full,
             "左控制器" to R.raw.left,
             "右控制器" to R.raw.right,
+            "单触摸板" to R.raw.tp_only,
         )
     }
 
