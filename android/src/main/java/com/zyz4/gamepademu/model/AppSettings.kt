@@ -8,6 +8,12 @@ enum class DisplayMode { XBOX, PLAYSTATION, SWITCH }
 
 enum class VibrationType { NONE, VIEW, VIBRATION_EFFECT }
 
+enum class VibrationMotor(val displayName: String) {
+    CONTROLLER_MOTOR_1("手柄马达1"),
+    CONTROLLER_MOTOR_2("手柄马达2"),
+    PHONE_MOTOR("手机马达"),
+}
+
 enum class GyroOrientation(val displayName: String) {
     LANDSCAPE("横屏"),
     PORTRAIT("竖屏"),
@@ -54,8 +60,9 @@ data class AppSettings(
     val gyroSensitivityZ: Int = 100,
     val gyroOrientation: GyroOrientation = GyroOrientation.LANDSCAPE,
     val keepScreenOn: Boolean = false,
-    val controllerVibrationEnabled: Boolean = true,
     val controllerGyroEnabled: Boolean = true,
+    val strongVibrationMapping: VibrationMotor = VibrationMotor.CONTROLLER_MOTOR_1,
+    val weakVibrationMapping: VibrationMotor = VibrationMotor.CONTROLLER_MOTOR_2,
     val volumeUpBits: List<Int> = emptyList(),
     val volumeDownBits: List<Int> = emptyList(),
 )

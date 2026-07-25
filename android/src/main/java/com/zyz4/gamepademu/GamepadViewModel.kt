@@ -18,6 +18,7 @@ import com.zyz4.gamepademu.model.ButtonPosition
 import com.zyz4.gamepademu.model.HapticEffect
 import com.zyz4.gamepademu.model.LayoutPreset
 import com.zyz4.gamepademu.model.TargetPlatform
+import com.zyz4.gamepademu.model.VibrationMotor
 import com.zyz4.gamepademu.model.TouchPoint
 import com.zyz4.gamepademu.model.VibrationType
 import com.zyz4.gamepademu.service.ConnectionManager
@@ -283,8 +284,12 @@ class GamepadViewModel @Inject constructor(
         }
     }
 
-    fun updateControllerVibrationEnabled(enabled: Boolean) {
-        connectionManager.updateSettings(settings.value.copy(controllerVibrationEnabled = enabled))
+    fun updateStrongVibrationMapping(mapping: VibrationMotor) {
+        connectionManager.updateSettings(settings.value.copy(strongVibrationMapping = mapping))
+    }
+
+    fun updateWeakVibrationMapping(mapping: VibrationMotor) {
+        connectionManager.updateSettings(settings.value.copy(weakVibrationMapping = mapping))
     }
 
     fun updateControllerGyroEnabled(enabled: Boolean) {

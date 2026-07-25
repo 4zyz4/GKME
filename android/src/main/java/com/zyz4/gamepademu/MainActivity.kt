@@ -61,6 +61,7 @@ import com.zyz4.gamepademu.model.LayoutPreset
 import com.zyz4.gamepademu.model.TargetPlatform
 import com.zyz4.gamepademu.model.TouchPoint
 import com.zyz4.gamepademu.model.ButtonPosition
+import com.zyz4.gamepademu.model.VibrationMotor
 import com.zyz4.gamepademu.model.VibrationType
 import com.zyz4.gamepademu.service.ConnectionPhase
 import com.zyz4.gamepademu.service.BluetoothTransportType
@@ -1273,9 +1274,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun selectSettingsCategory(index: Int) {
-        val pages = listOf(R.id.pageConnection, R.id.pagePresets, R.id.pageVibration, R.id.pagePhysicalController, R.id.pageGyro, R.id.pageMisc, R.id.pageAbout)
+        val pages = listOf(R.id.pageConnection, R.id.pagePhysicalController, R.id.pagePresets, R.id.pageVibration, R.id.pageGyro, R.id.pageMisc, R.id.pageAbout)
         val buttons = listOf(
-            R.id.btnCategoryConnection, R.id.btnCategoryPresets, R.id.btnCategoryVibration, R.id.btnCategoryPhysicalController, R.id.btnCategoryGyro, R.id.btnCategoryMisc, R.id.btnCategoryAbout
+            R.id.btnCategoryConnection, R.id.btnCategoryPhysicalController, R.id.btnCategoryPresets, R.id.btnCategoryVibration, R.id.btnCategoryGyro, R.id.btnCategoryMisc, R.id.btnCategoryAbout
         )
         pages.forEachIndexed { i, id ->
             findViewById<View>(id).visibility = if (i == index) View.VISIBLE else View.GONE
@@ -1292,10 +1293,10 @@ class MainActivity : ComponentActivity() {
 
         // Category switching
         findViewById<Button>(R.id.btnCategoryConnection).setOnClickListener { selectSettingsCategory(0) }
-        findViewById<Button>(R.id.btnCategoryPresets).setOnClickListener { selectSettingsCategory(1) }
-        findViewById<Button>(R.id.btnCategoryVibration).setOnClickListener { selectSettingsCategory(2) }
-        findViewById<Button>(R.id.btnCategoryGyro).setOnClickListener { selectSettingsCategory(3) }
-        findViewById<Button>(R.id.btnCategoryPhysicalController).setOnClickListener { selectSettingsCategory(4) }
+        findViewById<Button>(R.id.btnCategoryPhysicalController).setOnClickListener { selectSettingsCategory(1) }
+        findViewById<Button>(R.id.btnCategoryPresets).setOnClickListener { selectSettingsCategory(2) }
+        findViewById<Button>(R.id.btnCategoryVibration).setOnClickListener { selectSettingsCategory(3) }
+        findViewById<Button>(R.id.btnCategoryGyro).setOnClickListener { selectSettingsCategory(4) }
         findViewById<Button>(R.id.btnCategoryMisc).setOnClickListener { selectSettingsCategory(5) }
         findViewById<Button>(R.id.btnCategoryAbout).setOnClickListener { selectSettingsCategory(6) }
 
@@ -1538,10 +1539,6 @@ class MainActivity : ComponentActivity() {
         }
 
         // ── Physical Controller page ──
-        findViewById<Switch>(R.id.switchControllerVibration).setOnCheckedChangeListener { _, isChecked ->
-            viewModel.updateControllerVibrationEnabled(isChecked)
-            physicalControllerHandler.controllerVibrationEnabled = isChecked
-        }
         findViewById<Switch>(R.id.switchControllerGyro).setOnCheckedChangeListener { _, isChecked ->
             viewModel.updateControllerGyroEnabled(isChecked)
             physicalControllerHandler.onControllerGyroSettingChanged(isChecked)
@@ -1550,6 +1547,16 @@ class MainActivity : ComponentActivity() {
             } else {
                 findViewById<TextView>(R.id.tvControllerGyroNote).visibility = View.GONE
             }
+        }
+
+        // Vibration Mapping spinners
+        setupVibrationMappingSpinner(R.id.spinnerStrongVibration) { mapping ->
+            viewModel.updateStrongVibrationMapping(mapping)
+            physicalControllerHandler.strongVibrationMapping = mapping
+        }
+        setupVibrationMappingSpinner(R.id.spinnerWeakVibration) { mapping ->
+            viewModel.updateWeakVibrationMapping(mapping)
+            physicalControllerHandler.weakVibrationMapping = mapping
         }
 
         // ── Misc page ──
@@ -1581,6 +1588,27 @@ class MainActivity : ComponentActivity() {
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
+    }
+
+    private var vibrationMappingEntries: List<VibrationMotor> = VibrationMotor.entries.toList()
+
+    private fun setupVibrationMappingSpinner(spinnerId: Int, onChanged: (VibrationMotor) -> Unit) {
+        val spinner = findViewById<Spinner>(spinnerId)
+        vibrationMappingEntries = VibrationMotor.entries.toList()
+        updateMappingAdapter(spinner)
+        spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                if (pos < vibrationMappingEntries.size) onChanged(vibrationMappingEntries[pos])
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+    }
+
+    private fun updateMappingAdapter(spinner: Spinner) {
+        val names = vibrationMappingEntries.map { it.displayName }.toTypedArray()
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, names)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinner.adapter = adapter
     }
 
     private fun updateVibrationUI() {
@@ -2216,12 +2244,17 @@ class MainActivity : ComponentActivity() {
         updateVolumeMappingLabels()
 
         val physicalConnected = physicalControllerHandler.isConnected.value
-        findViewById<Switch>(R.id.switchControllerVibration).isChecked =
-            physicalConnected && s.controllerVibrationEnabled
-        findViewById<Switch>(R.id.switchControllerVibration).isEnabled = physicalConnected
         findViewById<Switch>(R.id.switchControllerGyro).isChecked =
             physicalConnected && s.controllerGyroEnabled
         findViewById<Switch>(R.id.switchControllerGyro).isEnabled = physicalConnected
+        vibrationMappingEntries = if (physicalConnected) VibrationMotor.entries.toList()
+            else listOf(VibrationMotor.PHONE_MOTOR)
+        updateMappingAdapter(findViewById(R.id.spinnerStrongVibration))
+        updateMappingAdapter(findViewById(R.id.spinnerWeakVibration))
+        findViewById<Spinner>(R.id.spinnerStrongVibration).setSelection(
+            vibrationMappingEntries.indexOf(s.strongVibrationMapping).coerceAtLeast(0))
+        findViewById<Spinner>(R.id.spinnerWeakVibration).setSelection(
+            vibrationMappingEntries.indexOf(s.weakVibrationMapping).coerceAtLeast(0))
         findViewById<TextView>(R.id.tvPhysicalControllerStatus).text =
             if (physicalConnected) "已连接: ${physicalControllerHandler.controllerName.value}"
             else "未连接手柄"
@@ -2325,11 +2358,9 @@ class MainActivity : ComponentActivity() {
                 launch {
                     physicalControllerHandler.isConnected.collect { connected ->
                         val s = viewModel.settings.value
-                        physicalControllerHandler.controllerVibrationEnabled = s.controllerVibrationEnabled
                         physicalControllerHandler.onControllerGyroSettingChanged(s.controllerGyroEnabled)
-                        findViewById<Switch>(R.id.switchControllerVibration).isChecked =
-                            connected && s.controllerVibrationEnabled
-                        findViewById<Switch>(R.id.switchControllerVibration).isEnabled = connected
+                        physicalControllerHandler.strongVibrationMapping = s.strongVibrationMapping
+                        physicalControllerHandler.weakVibrationMapping = s.weakVibrationMapping
                         findViewById<Switch>(R.id.switchControllerGyro).isChecked =
                             connected && s.controllerGyroEnabled
                         findViewById<Switch>(R.id.switchControllerGyro).isEnabled = connected
@@ -2338,6 +2369,16 @@ class MainActivity : ComponentActivity() {
                             else "未连接手柄"
                         findViewById<TextView>(R.id.tvControllerGyroNote).visibility =
                             if (s.controllerGyroEnabled && connected) View.VISIBLE else View.GONE
+
+                        // Restrict vibration mapping options when disconnected
+                        vibrationMappingEntries = if (connected) VibrationMotor.entries.toList()
+                            else listOf(VibrationMotor.PHONE_MOTOR)
+                        updateMappingAdapter(findViewById(R.id.spinnerStrongVibration))
+                        updateMappingAdapter(findViewById(R.id.spinnerWeakVibration))
+                        findViewById<Spinner>(R.id.spinnerStrongVibration).setSelection(
+                            vibrationMappingEntries.indexOf(s.strongVibrationMapping).coerceAtLeast(0))
+                        findViewById<Spinner>(R.id.spinnerWeakVibration).setSelection(
+                            vibrationMappingEntries.indexOf(s.weakVibrationMapping).coerceAtLeast(0))
                     }
                 }
                 launch {

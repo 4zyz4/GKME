@@ -16,6 +16,7 @@ import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
 import com.zyz4.gamepademu.model.GamepadState
+import com.zyz4.gamepademu.model.VibrationMotor
 import com.zyz4.gamepademu.model.TouchPoint
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -67,9 +68,11 @@ class PhysicalControllerHandler(private val context: Context) {
     private var accelSensor: Sensor? = null
     private var controllerGyroListener: SensorEventListener? = null
 
-    var controllerVibrationEnabled: Boolean = true
     var controllerGyroEnabled: Boolean = false
+    var strongVibrationMapping: VibrationMotor = VibrationMotor.CONTROLLER_MOTOR_1
+    var weakVibrationMapping: VibrationMotor = VibrationMotor.CONTROLLER_MOTOR_2
     private var gyroRegistered = false
+    private var lastPhoneAmp = -1
 
     var onPointerCaptureNeeded: ((Boolean) -> Unit)? = null
     var isPointerCaptureActive: Boolean = false
@@ -595,57 +598,92 @@ class PhysicalControllerHandler(private val context: Context) {
     }
 
     fun rumble(lowFreqMotor: Int, highFreqMotor: Int) {
-        if (!controllerVibrationEnabled || !_isConnected.value) return
-
         val lowNorm = lowFreqMotor.coerceIn(0, 255)
         val highNorm = highFreqMotor.coerceIn(0, 255)
+
+        // Phone path — use maxOf matching original triggerVibration feel
+        var phoneAmp = 0
+        if (strongVibrationMapping == VibrationMotor.PHONE_MOTOR && lowNorm > 0) phoneAmp = maxOf(phoneAmp, lowNorm)
+        if (weakVibrationMapping == VibrationMotor.PHONE_MOTOR && highNorm > 0) phoneAmp = maxOf(phoneAmp, highNorm)
+        if (phoneAmp > 0) {
+            vibratePhone(phoneAmp)
+        } else if (lastPhoneAmp >= 0) {
+            vibratePhone(0)
+        }
+
+        // Controller path — only when connected
+        if (!_isConnected.value) return
+        val ctrlVib = mutableMapOf<Int, Int>()
+        if (strongVibrationMapping == VibrationMotor.CONTROLLER_MOTOR_1 && lowNorm > 0) ctrlVib.merge(0, lowNorm, Int::plus)
+        if (strongVibrationMapping == VibrationMotor.CONTROLLER_MOTOR_2 && lowNorm > 0) ctrlVib.merge(1, lowNorm, Int::plus)
+        if (weakVibrationMapping == VibrationMotor.CONTROLLER_MOTOR_1 && highNorm > 0) ctrlVib.merge(0, highNorm, Int::plus)
+        if (weakVibrationMapping == VibrationMotor.CONTROLLER_MOTOR_2 && highNorm > 0) ctrlVib.merge(1, highNorm, Int::plus)
+
+        if (ctrlVib.isEmpty()) {
+            controllerVibratorManager?.cancel()
+            return
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val vm = controllerVibratorManager
             if (vm != null) {
                 val ids = vm.vibratorIds
-                if (ids.size >= 2) {
-                    if (lowNorm == 0 && highNorm == 0) {
+                val combo = CombinedVibration.startParallel()
+                var hasMotor = false
+                for ((idx, intensity) in ctrlVib) {
+                    if (idx < ids.size) {
+                        combo.addVibrator(ids[idx], VibrationEffect.createOneShot(60000, intensity.coerceIn(0, 255)))
+                        hasMotor = true
+                    }
+                }
+                if (hasMotor) {
+                    try {
                         vm.cancel()
-                        return
-                    }
-                    val combo = CombinedVibration.startParallel()
-                    if (highNorm != 0) {
-                        combo.addVibrator(ids[0], VibrationEffect.createOneShot(60000, highNorm))
-                    }
-                    if (lowNorm != 0) {
-                        combo.addVibrator(ids[1], VibrationEffect.createOneShot(60000, lowNorm))
-                    }
-                    try { vm.vibrate(combo.combine()) } catch (_: Exception) {}
-                    return
+                        vm.vibrate(combo.combine())
+                    } catch (_: Exception) {}
                 }
             }
         }
+    }
 
-        val vibrator = controllerVibrator ?: try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-                vm.defaultVibrator
-            } else {
-                @Suppress("DEPRECATION")
-                context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            }
-        } catch (_: Exception) { null } ?: return
-        if (!vibrator.hasVibrator()) return
+    private fun cancelVibration() {
+        controllerVibratorManager?.cancel()
+        vibratePhone(0)
+    }
 
-        val blended = (lowNorm * 0.80f + highNorm * 0.33f).toInt().coerceIn(0, 255)
-        if (blended < 1) {
+    private fun vibratePhone(amp: Int) {
+        val vibrator = phoneVibrator() ?: return
+        val clamped = amp.coerceIn(0, 255)
+        if (clamped < 1) {
             try { vibrator.cancel() } catch (_: Exception) {}
+            lastPhoneAmp = -1
             return
         }
+        if (clamped == lastPhoneAmp) return
+        lastPhoneAmp = clamped
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator.vibrate(VibrationEffect.createOneShot(60000, blended))
+                val effect = VibrationEffect.createWaveform(
+                    longArrayOf(50),
+                    intArrayOf(clamped),
+                    0
+                )
+                vibrator.cancel()
+                vibrator.vibrate(effect)
             } else {
                 @Suppress("DEPRECATION")
                 vibrator.vibrate(60000)
             }
         } catch (_: Exception) {}
+    }
+
+    private fun phoneVibrator(): Vibrator? {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+            if (vm != null) return vm.defaultVibrator
+        }
+        @Suppress("DEPRECATION")
+        return context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
     }
 
     fun onControllerGyroSettingChanged(enabled: Boolean) {

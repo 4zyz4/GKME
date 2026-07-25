@@ -3,7 +3,6 @@ package com.zyz4.gamepademu.service
 import android.bluetooth.BluetoothAdapter
 import android.content.Context
 import android.os.Build
-import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.provider.Settings
@@ -234,7 +233,6 @@ class ConnectionManager @Inject constructor(
             ServerToClient.PayloadCase.VIBRATION -> {
                 if (_settings.value.gameVibrationEnabled) {
                     val v = msg.vibration
-                    triggerVibration(v.largeMotor, v.smallMotor)
                     onRumbleRequest?.invoke(v.largeMotor, v.smallMotor)
                 }
             }
@@ -265,37 +263,6 @@ class ConnectionManager @Inject constructor(
     }
 
     var onRumbleRequest: ((largeMotor: Int, smallMotor: Int) -> Unit)? = null
-
-    private var _vibSpeed = -1
-
-    fun triggerVibration(largeMotor: Int, smallMotor: Int) {
-        val speed = maxOf(largeMotor, smallMotor).coerceIn(0, 255)
-
-        if (speed < 1) {
-            try {
-                val stopEffect = VibrationEffect.createWaveform(
-                    longArrayOf(1),
-                    intArrayOf(0),
-                    -1
-                )
-                vibrator.vibrate(stopEffect)
-            } catch (_: Exception) { }
-            vibrator.cancel()
-            _vibSpeed = -1
-            return
-        }
-
-        if (speed == _vibSpeed) return
-
-        _vibSpeed = speed
-        val effect = VibrationEffect.createWaveform(
-            longArrayOf(50),
-            intArrayOf(speed),
-            0
-        )
-        vibrator.cancel()
-        vibrator.vibrate(effect)
-    }
 
     suspend fun sendGamepadState(state: GamepadInput) {
         when (_settings.value.connectionMode) {
