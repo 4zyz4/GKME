@@ -16,7 +16,7 @@ android {
         minSdk = 26
         //noinspection OldTargetApi
         targetSdk = 36
-        versionCode = 13
+        versionCode = 14
         versionName = "1.5.1"
     }
 
