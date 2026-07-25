@@ -69,6 +69,8 @@ class PhysicalControllerHandler(private val context: Context) {
     private var controllerGyroListener: SensorEventListener? = null
 
     var controllerGyroEnabled: Boolean = false
+    var controllerHasGyro: Boolean = false
+    var controllerMotorCount: Int = 0
     var strongVibrationMapping: VibrationMotor = VibrationMotor.CONTROLLER_MOTOR_1
     var weakVibrationMapping: VibrationMotor = VibrationMotor.CONTROLLER_MOTOR_2
     private var gyroRegistered = false
@@ -95,9 +97,11 @@ class PhysicalControllerHandler(private val context: Context) {
                 unregisterGyro()
                 controllerVibratorManager = null
                 controllerVibrator = null
+                controllerMotorCount = 0
                 controllerSensorManager = null
                 gyroSensor = null
                 accelSensor = null
+                controllerHasGyro = false
                 if (controllerTypeValue == ControllerType.PS) {
                     onPointerCaptureNeeded?.invoke(false)
                 }
@@ -123,9 +127,11 @@ class PhysicalControllerHandler(private val context: Context) {
         connectedDeviceIds.clear()
         controllerVibratorManager = null
         controllerVibrator = null
+        controllerMotorCount = 0
         controllerSensorManager = null
         gyroSensor = null
         accelSensor = null
+        controllerHasGyro = false
         controllerTypeValue = ControllerType.UNKNOWN
         _isConnected.value = false
         _controllerName.value = ""
@@ -146,7 +152,6 @@ class PhysicalControllerHandler(private val context: Context) {
         if (!isGamepadDevice(device)) return
 
         connectedDeviceIds.add(deviceId)
-        updateConnectedState()
 
         if (connectedDeviceIds.size == 1) {
             controllerTypeValue = detectControllerType(device)
@@ -161,11 +166,13 @@ class PhysicalControllerHandler(private val context: Context) {
                     val ids = vm.vibratorIds
                     if (ids.size >= 2) {
                         controllerVibratorManager = vm
+                        controllerMotorCount = ids.size
                     }
                 }
             }
             if (controllerVibratorManager == null && device.vibrator.hasVibrator()) {
                 controllerVibrator = device.vibrator
+                controllerMotorCount = 1
             }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -176,10 +183,14 @@ class PhysicalControllerHandler(private val context: Context) {
                         controllerSensorManager = sm
                         gyroSensor = gyro
                         accelSensor = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+                        controllerHasGyro = true
+                        registerGyro()
                     }
                 }
             }
         }
+
+        updateConnectedState()
     }
 
     private fun updateConnectedState() {
@@ -601,10 +612,19 @@ class PhysicalControllerHandler(private val context: Context) {
         val lowNorm = lowFreqMotor.coerceIn(0, 255)
         val highNorm = highFreqMotor.coerceIn(0, 255)
 
+        // Resolve mapping — fall back to phone when target motor doesn't exist
+        fun resolveMotor(m: VibrationMotor): VibrationMotor {
+            if (m == VibrationMotor.PHONE_MOTOR) return m
+            return if (m.ordinal < controllerMotorCount) m else VibrationMotor.PHONE_MOTOR
+        }
+
+        val strongEff = resolveMotor(strongVibrationMapping)
+        val weakEff = resolveMotor(weakVibrationMapping)
+
         // Phone path — use maxOf matching original triggerVibration feel
         var phoneAmp = 0
-        if (strongVibrationMapping == VibrationMotor.PHONE_MOTOR && lowNorm > 0) phoneAmp = maxOf(phoneAmp, lowNorm)
-        if (weakVibrationMapping == VibrationMotor.PHONE_MOTOR && highNorm > 0) phoneAmp = maxOf(phoneAmp, highNorm)
+        if (strongEff == VibrationMotor.PHONE_MOTOR && lowNorm > 0) phoneAmp = maxOf(phoneAmp, lowNorm)
+        if (weakEff == VibrationMotor.PHONE_MOTOR && highNorm > 0) phoneAmp = maxOf(phoneAmp, highNorm)
         if (phoneAmp > 0) {
             vibratePhone(phoneAmp)
         } else if (lastPhoneAmp >= 0) {
@@ -614,10 +634,10 @@ class PhysicalControllerHandler(private val context: Context) {
         // Controller path — only when connected
         if (!_isConnected.value) return
         val ctrlVib = mutableMapOf<Int, Int>()
-        if (strongVibrationMapping == VibrationMotor.CONTROLLER_MOTOR_1 && lowNorm > 0) ctrlVib.merge(0, lowNorm, Int::plus)
-        if (strongVibrationMapping == VibrationMotor.CONTROLLER_MOTOR_2 && lowNorm > 0) ctrlVib.merge(1, lowNorm, Int::plus)
-        if (weakVibrationMapping == VibrationMotor.CONTROLLER_MOTOR_1 && highNorm > 0) ctrlVib.merge(0, highNorm, Int::plus)
-        if (weakVibrationMapping == VibrationMotor.CONTROLLER_MOTOR_2 && highNorm > 0) ctrlVib.merge(1, highNorm, Int::plus)
+        if (strongEff == VibrationMotor.CONTROLLER_MOTOR_1 && lowNorm > 0) ctrlVib.merge(0, lowNorm, Int::plus)
+        if (strongEff == VibrationMotor.CONTROLLER_MOTOR_2 && lowNorm > 0) ctrlVib.merge(1, lowNorm, Int::plus)
+        if (weakEff == VibrationMotor.CONTROLLER_MOTOR_1 && highNorm > 0) ctrlVib.merge(0, highNorm, Int::plus)
+        if (weakEff == VibrationMotor.CONTROLLER_MOTOR_2 && highNorm > 0) ctrlVib.merge(1, highNorm, Int::plus)
 
         if (ctrlVib.isEmpty()) {
             controllerVibratorManager?.cancel()
@@ -688,10 +708,8 @@ class PhysicalControllerHandler(private val context: Context) {
 
     fun onControllerGyroSettingChanged(enabled: Boolean) {
         controllerGyroEnabled = enabled
-        if (enabled && controllerSensorManager != null) {
+        if (controllerSensorManager != null) {
             registerGyro()
-        } else {
-            unregisterGyro()
         }
     }
 

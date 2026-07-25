@@ -23,6 +23,7 @@ import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.provider.Settings
 import android.view.KeyEvent
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
@@ -86,6 +87,7 @@ class MainActivity : ComponentActivity() {
     private val controlViews = mutableMapOf<String, View>()
     private val touchpadLabels = mutableListOf<TextView>()
     private var discoverableRequested = false
+    private var vibrationPollingJob: kotlinx.coroutines.Job? = null
 
     private var mediaSession: MediaSession? = null
 
@@ -1269,6 +1271,7 @@ class MainActivity : ComponentActivity() {
 
     private fun hideSettings() {
         inSettings = false
+        vibrationPollingJob?.cancel()
         findViewById<View>(R.id.gamepadPanel).visibility = View.VISIBLE
         findViewById<View>(R.id.settingsPanel).visibility = View.GONE
     }
@@ -1285,6 +1288,15 @@ class MainActivity : ComponentActivity() {
             findViewById<Button>(id).setTextColor(
                 if (i == index) -0x1 else -0x777778
             )
+        }
+        vibrationPollingJob?.cancel()
+        if (index == 3) {
+            vibrationPollingJob = lifecycleScope.launch {
+                while (true) {
+                    checkVibrationRedirect()
+                    kotlinx.coroutines.delay(1000)
+                }
+            }
         }
     }
 
@@ -1497,6 +1509,24 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // Vibration Mapping spinners (save to connected/disconnected variant)
+        setupVibrationMappingSpinner(R.id.spinnerStrongVibration) { mapping ->
+            if (physicalControllerHandler.isConnected.value) {
+                viewModel.updateStrongVibrationMappingConnected(mapping)
+            } else {
+                viewModel.updateStrongVibrationMapping(mapping)
+            }
+            physicalControllerHandler.strongVibrationMapping = mapping
+        }
+        setupVibrationMappingSpinner(R.id.spinnerWeakVibration) { mapping ->
+            if (physicalControllerHandler.isConnected.value) {
+                viewModel.updateWeakVibrationMappingConnected(mapping)
+            } else {
+                viewModel.updateWeakVibrationMapping(mapping)
+            }
+            physicalControllerHandler.weakVibrationMapping = mapping
+        }
+
         // ── Gyro page ──
         findViewById<Switch>(R.id.switchGyroEnabled).setOnCheckedChangeListener { _, isChecked ->
             viewModel.updateGyroEnabled(isChecked)
@@ -1538,25 +1568,33 @@ class MainActivity : ComponentActivity() {
             setOnTouchListener { _, _ -> true }
         }
 
-        // ── Physical Controller page ──
+        // Controller gyro toggle (save to connected/disconnected variant)
         findViewById<Switch>(R.id.switchControllerGyro).setOnCheckedChangeListener { _, isChecked ->
-            viewModel.updateControllerGyroEnabled(isChecked)
-            physicalControllerHandler.onControllerGyroSettingChanged(isChecked)
-            if (isChecked) {
-                findViewById<TextView>(R.id.tvControllerGyroNote).visibility = View.VISIBLE
+            if (physicalControllerHandler.isConnected.value) {
+                viewModel.updateControllerGyroEnabledConnected(isChecked)
             } else {
-                findViewById<TextView>(R.id.tvControllerGyroNote).visibility = View.GONE
+                viewModel.updateControllerGyroEnabled(isChecked)
+            }
+            physicalControllerHandler.onControllerGyroSettingChanged(isChecked)
+            findViewById<TextView>(R.id.tvControllerGyroNote).visibility =
+                if (isChecked) View.VISIBLE else View.GONE
+        }
+
+        // Controller gyro seekBars (read-only)
+        listOf(R.id.seekControllerGyroX, R.id.seekControllerGyroY, R.id.seekControllerGyroZ).forEach { id ->
+            findViewById<SeekBar>(id).apply {
+                min = -3000
+                isEnabled = false
+                setOnTouchListener { _, _ -> true }
             }
         }
 
-        // Vibration Mapping spinners
-        setupVibrationMappingSpinner(R.id.spinnerStrongVibration) { mapping ->
-            viewModel.updateStrongVibrationMapping(mapping)
-            physicalControllerHandler.strongVibrationMapping = mapping
+        // ── Physical Controller page ──
+        findViewById<Button>(R.id.btnGoVibration).setOnClickListener {
+            selectSettingsCategory(3)
         }
-        setupVibrationMappingSpinner(R.id.spinnerWeakVibration) { mapping ->
-            viewModel.updateWeakVibrationMapping(mapping)
-            physicalControllerHandler.weakVibrationMapping = mapping
+        findViewById<Button>(R.id.btnGoGyro).setOnClickListener {
+            selectSettingsCategory(4)
         }
 
         // ── Misc page ──
@@ -1639,6 +1677,51 @@ class MainActivity : ComponentActivity() {
         findViewById<TextView>(R.id.tvReleaseIntensity).text = "强度: ${s.vibrationReleaseIntensity}"
         findViewById<SeekBar>(R.id.seekReleaseDuration).progress = s.vibrationReleaseDuration
         findViewById<SeekBar>(R.id.seekReleaseIntensity).progress = s.vibrationReleaseIntensity
+    }
+
+    @SuppressLint("SetTextI18n")
+    private fun checkVibrationRedirect() {
+        val statusView = findViewById<TextView>(R.id.tvVibrationRedirectStatus)
+        val noteView = findViewById<TextView>(R.id.tvVibrationRedirectNote)
+        val value = readVibrationRedirectSetting()
+        noteView.text = "开启震动重定向后，手机震动会自动变为手柄马达1震动。\n本应用的手柄震动不受此设置影响。\n如果要在本应用中使用手机震动，请在系统设置-更多设置-语言与输入法中关闭震动重定向。"
+        noteView.visibility = View.VISIBLE
+        when (value) {
+            "0" -> {
+                statusView.text = "震动重定向：已关闭"
+                statusView.setTextColor(0xFF4CAF50.toInt())
+            }
+            "1" -> {
+                statusView.text = "震动重定向：已开启"
+                statusView.setTextColor(0xFFFF5252.toInt())
+            }
+            else -> {
+                statusView.text = "震动重定向：没有这个设置项"
+                statusView.setTextColor(0xFFBBBBBB.toInt())
+            }
+        }
+    }
+
+    private fun readVibrationRedirectSetting(): String? {
+        val key = "vibrate_input_devices"
+        try {
+            Settings.System.getString(contentResolver, key)?.let { return it }
+        } catch (_: SecurityException) {}
+        try {
+            Settings.Global.getString(contentResolver, key)?.let { return it }
+        } catch (_: SecurityException) {}
+        try {
+            Settings.Secure.getString(contentResolver, key)?.let { return it }
+        } catch (_: SecurityException) {}
+        try {
+            val process = ProcessBuilder("/system/bin/sh", "-c", "settings get system $key")
+                .redirectErrorStream(true)
+                .start()
+            val output = process.inputStream.bufferedReader().use { it.readText().trim() }
+            process.waitFor()
+            if (output.isNotEmpty() && output != "null") return output
+        } catch (_: Exception) {}
+        return null
     }
 
     private fun testHaptic(isPress: Boolean) {
@@ -2223,6 +2306,7 @@ class MainActivity : ComponentActivity() {
         findViewById<Switch>(R.id.switchBtnVibration).isChecked = s.vibrationEnabled
         findViewById<Switch>(R.id.switchGameVibration).isChecked = s.gameVibrationEnabled
         updateVibrationUI()
+        checkVibrationRedirect()
         updateSettingsVisibility(s.connectionMode)
 
         findViewById<Switch>(R.id.switchAutoStart).isChecked = s.autoStartEnabled
@@ -2244,22 +2328,37 @@ class MainActivity : ComponentActivity() {
         updateVolumeMappingLabels()
 
         val physicalConnected = physicalControllerHandler.isConnected.value
+        val strongMapping = if (physicalConnected) s.strongVibrationMappingConnected else s.strongVibrationMapping
+        val weakMapping = if (physicalConnected) s.weakVibrationMappingConnected else s.weakVibrationMapping
+        val gyroEnabled = if (physicalConnected) s.controllerGyroEnabledConnected else s.controllerGyroEnabled
+
+        // Gyro page: controller gyro toggle + display
         findViewById<Switch>(R.id.switchControllerGyro).isChecked =
-            physicalConnected && s.controllerGyroEnabled
+            physicalConnected && gyroEnabled
         findViewById<Switch>(R.id.switchControllerGyro).isEnabled = physicalConnected
-        vibrationMappingEntries = if (physicalConnected) VibrationMotor.entries.toList()
+        findViewById<TextView>(R.id.tvControllerGyroNote).visibility =
+            if (gyroEnabled && physicalConnected) View.VISIBLE else View.GONE
+        findViewById<TextView>(R.id.tvControllerGyroX).text = "X: 0.00"
+        findViewById<TextView>(R.id.tvControllerGyroY).text = "Y: 0.00"
+        findViewById<TextView>(R.id.tvControllerGyroZ).text = "Z: 0.00"
+        findViewById<SeekBar>(R.id.seekControllerGyroX).progress = 0
+        findViewById<SeekBar>(R.id.seekControllerGyroY).progress = 0
+        findViewById<SeekBar>(R.id.seekControllerGyroZ).progress = 0
+
+        // Vibration page: vibration mapping
+        val motorCount = physicalControllerHandler.controllerMotorCount
+        vibrationMappingEntries = if (physicalConnected) VibrationMotor.entries.take(motorCount) + VibrationMotor.PHONE_MOTOR
             else listOf(VibrationMotor.PHONE_MOTOR)
+        fun sel(m: VibrationMotor) = vibrationMappingEntries.indexOf(m).let { if (it >= 0) it else vibrationMappingEntries.lastIndex }
         updateMappingAdapter(findViewById(R.id.spinnerStrongVibration))
+        findViewById<Spinner>(R.id.spinnerStrongVibration).setSelection(sel(strongMapping))
         updateMappingAdapter(findViewById(R.id.spinnerWeakVibration))
-        findViewById<Spinner>(R.id.spinnerStrongVibration).setSelection(
-            vibrationMappingEntries.indexOf(s.strongVibrationMapping).coerceAtLeast(0))
-        findViewById<Spinner>(R.id.spinnerWeakVibration).setSelection(
-            vibrationMappingEntries.indexOf(s.weakVibrationMapping).coerceAtLeast(0))
+        findViewById<Spinner>(R.id.spinnerWeakVibration).setSelection(sel(weakMapping))
+
+        // Physical controller page: connection status
         findViewById<TextView>(R.id.tvPhysicalControllerStatus).text =
             if (physicalConnected) "已连接: ${physicalControllerHandler.controllerName.value}"
             else "未连接手柄"
-        findViewById<TextView>(R.id.tvControllerGyroNote).visibility =
-            if (s.controllerGyroEnabled && physicalConnected) View.VISIBLE else View.GONE
 
         refreshPresetList()
     }
@@ -2315,14 +2414,12 @@ class MainActivity : ComponentActivity() {
                         } else {
                             window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                         }
-                        val gyroDisabled = s.controllerGyroEnabled
                         listOf(
                             R.id.btnGyroOriLandscape,
                             R.id.btnGyroOriPortrait,
                             R.id.btnGyroOriPortraitInverted,
                         ).forEach { id ->
-                            findViewById<Button>(id).isEnabled = !gyroDisabled
-                            findViewById<Button>(id).alpha = if (gyroDisabled) 0.4f else 1.0f
+                            findViewById<Button>(id).alpha = 1.0f
                         }
                     }
                 }
@@ -2358,37 +2455,51 @@ class MainActivity : ComponentActivity() {
                 launch {
                     physicalControllerHandler.isConnected.collect { connected ->
                         val s = viewModel.settings.value
-                        physicalControllerHandler.onControllerGyroSettingChanged(s.controllerGyroEnabled)
-                        physicalControllerHandler.strongVibrationMapping = s.strongVibrationMapping
-                        physicalControllerHandler.weakVibrationMapping = s.weakVibrationMapping
-                        findViewById<Switch>(R.id.switchControllerGyro).isChecked =
-                            connected && s.controllerGyroEnabled
-                        findViewById<Switch>(R.id.switchControllerGyro).isEnabled = connected
+                        val strongMapping = if (connected) s.strongVibrationMappingConnected else s.strongVibrationMapping
+                        val weakMapping = if (connected) s.weakVibrationMappingConnected else s.weakVibrationMapping
+                        val gyroEnabled = if (connected) s.controllerGyroEnabledConnected else s.controllerGyroEnabled
+
+                        physicalControllerHandler.strongVibrationMapping = strongMapping
+                        physicalControllerHandler.weakVibrationMapping = weakMapping
+                        physicalControllerHandler.onControllerGyroSettingChanged(gyroEnabled)
+
+                        // Physical controller page: status
                         findViewById<TextView>(R.id.tvPhysicalControllerStatus).text =
                             if (connected) "已连接: ${physicalControllerHandler.controllerName.value}"
                             else "未连接手柄"
-                        findViewById<TextView>(R.id.tvControllerGyroNote).visibility =
-                            if (s.controllerGyroEnabled && connected) View.VISIBLE else View.GONE
 
-                        // Restrict vibration mapping options when disconnected
-                        vibrationMappingEntries = if (connected) VibrationMotor.entries.toList()
+                        // Gyro page: controller gyro toggle
+                        findViewById<Switch>(R.id.switchControllerGyro).isChecked =
+                            connected && gyroEnabled
+                        findViewById<Switch>(R.id.switchControllerGyro).isEnabled = connected
+                        findViewById<TextView>(R.id.tvControllerGyroNote).visibility =
+                            if (gyroEnabled && connected) View.VISIBLE else View.GONE
+
+                        // Vibration mapping: restrict options + select appropriate variant
+                        val motorCount = physicalControllerHandler.controllerMotorCount
+                        vibrationMappingEntries = if (connected) VibrationMotor.entries.take(motorCount) + VibrationMotor.PHONE_MOTOR
                             else listOf(VibrationMotor.PHONE_MOTOR)
+                        fun sel(m: VibrationMotor) = vibrationMappingEntries.indexOf(m).let { if (it >= 0) it else vibrationMappingEntries.lastIndex }
                         updateMappingAdapter(findViewById(R.id.spinnerStrongVibration))
+                        findViewById<Spinner>(R.id.spinnerStrongVibration).setSelection(sel(strongMapping))
                         updateMappingAdapter(findViewById(R.id.spinnerWeakVibration))
-                        findViewById<Spinner>(R.id.spinnerStrongVibration).setSelection(
-                            vibrationMappingEntries.indexOf(s.strongVibrationMapping).coerceAtLeast(0))
-                        findViewById<Spinner>(R.id.spinnerWeakVibration).setSelection(
-                            vibrationMappingEntries.indexOf(s.weakVibrationMapping).coerceAtLeast(0))
+                        findViewById<Spinner>(R.id.spinnerWeakVibration).setSelection(sel(weakMapping))
                     }
                 }
                 launch {
                     physicalControllerHandler.gyroData.collect { gyro ->
-                        if (viewModel.settings.value.controllerGyroEnabled) {
+                        val x = gyro[0]; val y = gyro[1]; val z = gyro[2]
+                        findViewById<TextView>(R.id.tvControllerGyroX).text = "X: %.2f".format(x)
+                        findViewById<TextView>(R.id.tvControllerGyroY).text = "Y: %.2f".format(y)
+                        findViewById<TextView>(R.id.tvControllerGyroZ).text = "Z: %.2f".format(z)
+                        findViewById<SeekBar>(R.id.seekControllerGyroX).progress = (x * 100).toInt().coerceIn(-3000, 3000)
+                        findViewById<SeekBar>(R.id.seekControllerGyroY).progress = (y * 100).toInt().coerceIn(-3000, 3000)
+                        findViewById<SeekBar>(R.id.seekControllerGyroZ).progress = (z * 100).toInt().coerceIn(-3000, 3000)
+                        val s = viewModel.settings.value
+                        val gyroEnabled = if (physicalControllerHandler.isConnected.value) s.controllerGyroEnabledConnected else s.controllerGyroEnabled
+                        if (gyroEnabled && physicalControllerHandler.controllerHasGyro) {
                             val accel = physicalControllerHandler.accelData.value
-                            viewModel.onPhysicalControllerGyro(
-                                gyro[0], gyro[1], gyro[2],
-                                accel[0], accel[1], accel[2],
-                            )
+                            viewModel.onPhysicalControllerGyro(x, y, z, accel[0], accel[1], accel[2])
                         }
                     }
                 }

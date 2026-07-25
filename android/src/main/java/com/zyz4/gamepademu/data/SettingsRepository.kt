@@ -54,6 +54,9 @@ class SettingsRepository @Inject constructor(
         val CONTROLLER_GYRO_ENABLED = booleanPreferencesKey("controller_gyro_enabled")
         val STRONG_VIBRATION_MAPPING = intPreferencesKey("strong_vibration_mapping")
         val WEAK_VIBRATION_MAPPING = intPreferencesKey("weak_vibration_mapping")
+        val CONTROLLER_GYRO_ENABLED_CONNECTED = booleanPreferencesKey("controller_gyro_enabled_connected")
+        val STRONG_VIBRATION_MAPPING_CONNECTED = intPreferencesKey("strong_vibration_mapping_connected")
+        val WEAK_VIBRATION_MAPPING_CONNECTED = intPreferencesKey("weak_vibration_mapping_connected")
         val VOLUME_UP_BITS = stringPreferencesKey("volume_up_bits")
         val VOLUME_DOWN_BITS = stringPreferencesKey("volume_down_bits")
     }
@@ -101,12 +104,19 @@ class SettingsRepository @Inject constructor(
                 prefs[Keys.GYRO_ORIENTATION] ?: 0
             ) { GyroOrientation.LANDSCAPE },
             keepScreenOn = prefs[Keys.KEEP_SCREEN_ON] ?: false,
-            controllerGyroEnabled = prefs[Keys.CONTROLLER_GYRO_ENABLED] ?: true,
+            controllerGyroEnabled = prefs[Keys.CONTROLLER_GYRO_ENABLED] ?: false,
             strongVibrationMapping = VibrationMotor.entries.getOrElse(
-                prefs[Keys.STRONG_VIBRATION_MAPPING] ?: VibrationMotor.CONTROLLER_MOTOR_1.ordinal
-            ) { VibrationMotor.CONTROLLER_MOTOR_1 },
+                prefs[Keys.STRONG_VIBRATION_MAPPING] ?: VibrationMotor.PHONE_MOTOR.ordinal
+            ) { VibrationMotor.PHONE_MOTOR },
             weakVibrationMapping = VibrationMotor.entries.getOrElse(
-                prefs[Keys.WEAK_VIBRATION_MAPPING] ?: VibrationMotor.CONTROLLER_MOTOR_2.ordinal
+                prefs[Keys.WEAK_VIBRATION_MAPPING] ?: VibrationMotor.PHONE_MOTOR.ordinal
+            ) { VibrationMotor.PHONE_MOTOR },
+            controllerGyroEnabledConnected = prefs[Keys.CONTROLLER_GYRO_ENABLED_CONNECTED] ?: true,
+            strongVibrationMappingConnected = VibrationMotor.entries.getOrElse(
+                prefs[Keys.STRONG_VIBRATION_MAPPING_CONNECTED] ?: VibrationMotor.CONTROLLER_MOTOR_1.ordinal
+            ) { VibrationMotor.CONTROLLER_MOTOR_1 },
+            weakVibrationMappingConnected = VibrationMotor.entries.getOrElse(
+                prefs[Keys.WEAK_VIBRATION_MAPPING_CONNECTED] ?: VibrationMotor.CONTROLLER_MOTOR_2.ordinal
             ) { VibrationMotor.CONTROLLER_MOTOR_2 },
             volumeUpBits = parseBitList(prefs[Keys.VOLUME_UP_BITS]),
             volumeDownBits = parseBitList(prefs[Keys.VOLUME_DOWN_BITS]),
@@ -140,6 +150,9 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.CONTROLLER_GYRO_ENABLED] = settings.controllerGyroEnabled
             prefs[Keys.STRONG_VIBRATION_MAPPING] = settings.strongVibrationMapping.ordinal
             prefs[Keys.WEAK_VIBRATION_MAPPING] = settings.weakVibrationMapping.ordinal
+            prefs[Keys.CONTROLLER_GYRO_ENABLED_CONNECTED] = settings.controllerGyroEnabledConnected
+            prefs[Keys.STRONG_VIBRATION_MAPPING_CONNECTED] = settings.strongVibrationMappingConnected.ordinal
+            prefs[Keys.WEAK_VIBRATION_MAPPING_CONNECTED] = settings.weakVibrationMappingConnected.ordinal
             prefs[Keys.VOLUME_UP_BITS] = gson.toJson(settings.volumeUpBits)
             prefs[Keys.VOLUME_DOWN_BITS] = gson.toJson(settings.volumeDownBits)
         }

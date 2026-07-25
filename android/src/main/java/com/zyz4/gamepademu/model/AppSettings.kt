@@ -60,9 +60,14 @@ data class AppSettings(
     val gyroSensitivityZ: Int = 100,
     val gyroOrientation: GyroOrientation = GyroOrientation.LANDSCAPE,
     val keepScreenOn: Boolean = false,
-    val controllerGyroEnabled: Boolean = true,
-    val strongVibrationMapping: VibrationMotor = VibrationMotor.CONTROLLER_MOTOR_1,
-    val weakVibrationMapping: VibrationMotor = VibrationMotor.CONTROLLER_MOTOR_2,
+    // Disconnected state
+    val controllerGyroEnabled: Boolean = false,
+    val strongVibrationMapping: VibrationMotor = VibrationMotor.PHONE_MOTOR,
+    val weakVibrationMapping: VibrationMotor = VibrationMotor.PHONE_MOTOR,
+    // Connected state
+    val controllerGyroEnabledConnected: Boolean = true,
+    val strongVibrationMappingConnected: VibrationMotor = VibrationMotor.CONTROLLER_MOTOR_1,
+    val weakVibrationMappingConnected: VibrationMotor = VibrationMotor.CONTROLLER_MOTOR_2,
     val volumeUpBits: List<Int> = emptyList(),
     val volumeDownBits: List<Int> = emptyList(),
 )

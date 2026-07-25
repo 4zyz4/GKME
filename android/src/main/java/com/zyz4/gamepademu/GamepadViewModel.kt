@@ -72,9 +72,7 @@ class GamepadViewModel @Inject constructor(
         set(value) {
             field = value
             val orientation = value ?: settings.value.gyroOrientation
-            if (!settings.value.controllerGyroEnabled) {
-                sensorHandler.gyroOrientation = orientation
-            }
+            sensorHandler.gyroOrientation = orientation
         }
 
     fun setDeviceInverted(inverted: Boolean) {
@@ -279,7 +277,7 @@ class GamepadViewModel @Inject constructor(
     fun updateGyroOrientation(orientation: GyroOrientation) {
         val updated = settings.value.copy(gyroOrientation = orientation)
         connectionManager.updateSettings(updated)
-        if (currentPresetGyroOrientation == null && !settings.value.controllerGyroEnabled) {
+        if (currentPresetGyroOrientation == null) {
             sensorHandler.gyroOrientation = orientation
         }
     }
@@ -288,20 +286,24 @@ class GamepadViewModel @Inject constructor(
         connectionManager.updateSettings(settings.value.copy(strongVibrationMapping = mapping))
     }
 
+    fun updateStrongVibrationMappingConnected(mapping: VibrationMotor) {
+        connectionManager.updateSettings(settings.value.copy(strongVibrationMappingConnected = mapping))
+    }
+
     fun updateWeakVibrationMapping(mapping: VibrationMotor) {
         connectionManager.updateSettings(settings.value.copy(weakVibrationMapping = mapping))
     }
 
+    fun updateWeakVibrationMappingConnected(mapping: VibrationMotor) {
+        connectionManager.updateSettings(settings.value.copy(weakVibrationMappingConnected = mapping))
+    }
+
     fun updateControllerGyroEnabled(enabled: Boolean) {
         connectionManager.updateSettings(settings.value.copy(controllerGyroEnabled = enabled))
-        if (enabled) {
-            sensorHandler.stop()
-            stopSensorDisplay()
-        } else {
-            if (settings.value.gyroEnabled) {
-                startSensorDisplay()
-            }
-        }
+    }
+
+    fun updateControllerGyroEnabledConnected(enabled: Boolean) {
+        connectionManager.updateSettings(settings.value.copy(controllerGyroEnabledConnected = enabled))
     }
 
     fun onPhysicalControllerInput(
@@ -399,7 +401,6 @@ class GamepadViewModel @Inject constructor(
     }
 
     private fun startSensorDisplay() {
-        if (settings.value.controllerGyroEnabled) return
         sensorHandler.gyroOrientation = currentPresetGyroOrientation ?: settings.value.gyroOrientation
         sensorHandler.start()
         sensorDisplayJob?.cancel()
@@ -429,9 +430,9 @@ class GamepadViewModel @Inject constructor(
                     lastBatteryRead = now
                 }
                 val s = settings.value
+                val sensor = sensorHandler.sensorData.value
+                _gyroDisplay.value = Triple(sensor.gyroX, sensor.gyroY, sensor.gyroZ)
                 if (!s.controllerGyroEnabled) {
-                    val sensor = sensorHandler.sensorData.value
-                    _gyroDisplay.value = Triple(sensor.gyroX, sensor.gyroY, sensor.gyroZ)
                     _gamepadState.value = _gamepadState.value.copy(
                         gyroX = sensor.gyroX * s.gyroSensitivityX / 100f,
                         gyroY = sensor.gyroY * s.gyroSensitivityY / 100f,

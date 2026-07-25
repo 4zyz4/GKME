@@ -488,6 +488,43 @@
                     android:fontFamily="sans-serif-medium"
                     android:layout_marginBottom="16dp" />
 
+                <!-- Vibration Redirect Detection -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="@color/bg_surface"
+                    android:padding="12dp"
+                    android:layout_marginBottom="8dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="震动重定向检测"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:layout_marginBottom="4dp" />
+
+                    <TextView
+                        android:id="@+id/tvVibrationRedirectStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="检测中..."
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp"
+                        android:layout_marginBottom="6dp" />
+
+                    <TextView
+                        android:id="@+id/tvVibrationRedirectNote"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text=""
+                        android:textColor="#FF9800"
+                        android:textSize="11sp"
+                        android:visibility="gone" />
+                </LinearLayout>
+
                 <!-- Button Vibration Master Toggle -->
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -661,52 +698,17 @@
                         android:layout_height="wrap_content" />
                 </LinearLayout>
 
-            </LinearLayout>
-        </ScrollView>
-
-        <!-- Page 4: 物理手柄 -->
-        <ScrollView
-            android:id="@+id/pagePhysicalController"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:visibility="gone">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="物理手柄"
-                    android:textColor="@color/text_primary"
-                    android:textSize="18sp"
-                    android:fontFamily="sans-serif-medium"
-                    android:layout_marginBottom="16dp" />
-
-                <!-- Connection Status -->
-                <TextView
-                    android:id="@+id/tvPhysicalControllerStatus"
-                    android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:gravity="center"
-                    android:text="未连接手柄"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="14sp"
-                    android:background="@color/bg_surface"
-                    android:layout_marginBottom="16dp" />
-
-                <!-- Vibration Mapping -->
+                <!-- Vibration Mapping (under Game Vibration) -->
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="震动映射"
-                    android:textColor="@color/text_primary"
-                    android:textSize="14sp"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
                     android:fontFamily="sans-serif-medium"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginBottom="8dp" />
+                    android:layout_marginTop="4dp"
+                    android:layout_marginBottom="4dp"
+                    android:layout_marginStart="12dp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -756,42 +758,62 @@
                         android:minWidth="100dp" />
                 </LinearLayout>
 
-                <!-- Controller Gyro Toggle -->
-                <LinearLayout
-                    android:id="@+id/layoutControllerGyro"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:background="@color/bg_surface"
-                    android:paddingHorizontal="12dp"
-                    android:layout_marginBottom="8dp">
+            </LinearLayout>
+        </ScrollView>
 
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="手柄陀螺仪"
-                        android:textColor="@color/text_primary"
-                        android:textSize="14sp" />
+        <!-- Page 4: 物理手柄 -->
+        <ScrollView
+            android:id="@+id/pagePhysicalController"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone">
 
-                    <Switch
-                        android:id="@+id/switchControllerGyro"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
-                </LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
 
-                <!-- Note when gyro is using controller sensors -->
                 <TextView
-                    android:id="@+id/tvControllerGyroNote"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="物理手柄"
+                    android:textColor="@color/text_primary"
+                    android:textSize="18sp"
+                    android:fontFamily="sans-serif-medium"
+                    android:layout_marginBottom="16dp" />
+
+                <!-- Connection Status -->
+                <TextView
+                    android:id="@+id/tvPhysicalControllerStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="40dp"
+                    android:gravity="center"
+                    android:text="未连接手柄"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="14sp"
+                    android:background="@color/bg_surface"
+                    android:layout_marginBottom="16dp" />
+
+                <!-- Shortcuts -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="使用手柄陀螺仪后，体感方向由手柄决定，不可调节"
-                    android:textColor="#FF9800"
-                    android:textSize="12sp"
+                    android:orientation="vertical"
                     android:gravity="center"
-                    android:layout_marginTop="8dp"
-                    android:visibility="gone" />
+                    android:layout_marginTop="16dp">
+
+                    <Button
+                        android:id="@+id/btnGoVibration"
+                        style="@style/GamepadChip"
+                        android:layout_marginBottom="8dp"
+                        android:text="震动设置" />
+
+                    <Button
+                        android:id="@+id/btnGoGyro"
+                        style="@style/GamepadChip"
+                        android:text="体感设置" />
+
+                </LinearLayout>
 
             </LinearLayout>
         </ScrollView>
@@ -887,82 +909,202 @@
                     android:layout_marginBottom="12dp"
                     android:visibility="gone" />
 
+                <!-- Controller Gyro Toggle -->
+                <LinearLayout
+                    android:id="@+id/layoutControllerGyro"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:background="@color/bg_surface"
+                    android:paddingHorizontal="12dp"
+                    android:layout_marginBottom="4dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="使用手柄陀螺仪"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp" />
+
+                    <Switch
+                        android:id="@+id/switchControllerGyro"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <!-- Note when gyro is using controller sensors -->
+                <TextView
+                    android:id="@+id/tvControllerGyroNote"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="使用手柄陀螺仪后，体感方向由手柄决定，不可调节"
+                    android:textColor="#FF9800"
+                    android:textSize="12sp"
+                    android:gravity="center"
+                    android:layout_marginBottom="12dp"
+                    android:visibility="gone" />
+
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
                     android:background="@color/bg_surface_light"
                     android:layout_marginBottom="12dp" />
 
-                <!-- Gyro Real-time Display -->
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="陀螺仪实时值"
-                    android:textColor="@color/text_primary"
-                    android:textSize="14sp"
-                    android:fontFamily="sans-serif-medium"
-                    android:layout_marginBottom="8dp" />
-
+                <!-- Gyro Real-time Display (side by side) -->
                 <LinearLayout
-                    android:id="@+id/layoutGyroSensitivity"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:background="@color/bg_surface"
-                    android:padding="12dp">
+                    android:orientation="horizontal"
+                    android:weightSum="2">
 
-                    <TextView
-                        android:id="@+id/tvGyroSensitivityX"
-                        android:layout_width="wrap_content"
+                    <!-- Phone Gyro Column -->
+                    <LinearLayout
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:text="X: 0.00"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp" />
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:background="@color/bg_surface"
+                        android:padding="8dp"
+                        android:layout_marginEnd="4dp">
 
-                    <SeekBar
-                        android:id="@+id/seekGyroSensitivityX"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:max="3000"
-                        android:progress="0"
-                        android:layout_marginBottom="8dp"
-                        android:clickable="false"
-                        android:focusable="false" />
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="手机陀螺仪"
+                            android:textColor="@color/text_primary"
+                            android:textSize="12sp"
+                            android:fontFamily="sans-serif-medium"
+                            android:layout_marginBottom="4dp" />
 
-                    <TextView
-                        android:id="@+id/tvGyroSensitivityY"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Y: 0.00"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp" />
+                        <TextView
+                            android:id="@+id/tvGyroSensitivityX"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="X: 0.00"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="11sp" />
 
-                    <SeekBar
-                        android:id="@+id/seekGyroSensitivityY"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:max="3000"
-                        android:progress="0"
-                        android:layout_marginBottom="8dp"
-                        android:clickable="false"
-                        android:focusable="false" />
+                        <SeekBar
+                            android:id="@+id/seekGyroSensitivityX"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:max="3000"
+                            android:progress="0"
+                            android:layout_marginBottom="4dp"
+                            android:clickable="false"
+                            android:focusable="false" />
 
-                    <TextView
-                        android:id="@+id/tvGyroSensitivityZ"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Z: 0.00"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp" />
+                        <TextView
+                            android:id="@+id/tvGyroSensitivityY"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Y: 0.00"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="11sp" />
 
-                    <SeekBar
-                        android:id="@+id/seekGyroSensitivityZ"
-                        android:layout_width="match_parent"
+                        <SeekBar
+                            android:id="@+id/seekGyroSensitivityY"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:max="3000"
+                            android:progress="0"
+                            android:layout_marginBottom="4dp"
+                            android:clickable="false"
+                            android:focusable="false" />
+
+                        <TextView
+                            android:id="@+id/tvGyroSensitivityZ"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Z: 0.00"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="11sp" />
+
+                        <SeekBar
+                            android:id="@+id/seekGyroSensitivityZ"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:max="3000"
+                            android:progress="0"
+                            android:clickable="false"
+                            android:focusable="false" />
+                    </LinearLayout>
+
+                    <!-- Controller Gyro Column -->
+                    <LinearLayout
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:max="3000"
-                        android:progress="0"
-                        android:clickable="false"
-                        android:focusable="false" />
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:background="@color/bg_surface"
+                        android:padding="8dp"
+                        android:layout_marginStart="4dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="手柄陀螺仪"
+                            android:textColor="@color/text_primary"
+                            android:textSize="12sp"
+                            android:fontFamily="sans-serif-medium"
+                            android:layout_marginBottom="4dp" />
+
+                        <TextView
+                            android:id="@+id/tvControllerGyroX"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="X: 0.00"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="11sp" />
+
+                        <SeekBar
+                            android:id="@+id/seekControllerGyroX"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:max="3000"
+                            android:progress="0"
+                            android:layout_marginBottom="4dp"
+                            android:clickable="false"
+                            android:focusable="false" />
+
+                        <TextView
+                            android:id="@+id/tvControllerGyroY"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Y: 0.00"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="11sp" />
+
+                        <SeekBar
+                            android:id="@+id/seekControllerGyroY"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:max="3000"
+                            android:progress="0"
+                            android:layout_marginBottom="4dp"
+                            android:clickable="false"
+                            android:focusable="false" />
+
+                        <TextView
+                            android:id="@+id/tvControllerGyroZ"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Z: 0.00"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="11sp" />
+
+                        <SeekBar
+                            android:id="@+id/seekControllerGyroZ"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:max="3000"
+                            android:progress="0"
+                            android:clickable="false"
+                            android:focusable="false" />
+                    </LinearLayout>
+
                 </LinearLayout>
 
             </LinearLayout>
