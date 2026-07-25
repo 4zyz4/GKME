@@ -15,6 +15,7 @@ import android.os.VibratorManager
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
+import android.util.Log
 import com.zyz4.gamepademu.model.GamepadState
 import com.zyz4.gamepademu.model.TouchPoint
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -260,6 +261,8 @@ class PhysicalControllerHandler(private val context: Context) {
     fun handleMotionEvent(event: MotionEvent): Boolean {
         val device = inputManager.getInputDevice(event.deviceId) ?: return false
 
+        Log.i(TAG, "handleMotionEvent: src=0x${event.source.toString(16)} device='${device.name}' vendorId=0x${device.vendorId.toString(16)} productId=0x${device.productId.toString(16)} isGamepad=${isGamepadDevice(device)}")
+
         if (isTouchpadDevice(device)) {
             return handleTouchpadMotion(event)
         }
@@ -342,6 +345,10 @@ class PhysicalControllerHandler(private val context: Context) {
         )
     }
 
+    private companion object {
+        private const val TAG = "GamepadTouch"
+    }
+
     private var slot0X = 0f
     private var slot0Y = 0f
     private var slot0Active = false
@@ -352,89 +359,196 @@ class PhysicalControllerHandler(private val context: Context) {
     private var lastPointerButtonState = 0
 
     private fun buildTouchPoints(event: MotionEvent): List<TouchPoint> {
-        val xRange = event.device?.getMotionRange(MotionEvent.AXIS_X, event.source)
-        val yRange = event.device?.getMotionRange(MotionEvent.AXIS_Y, event.source)
+        var xRange = event.device?.getMotionRange(MotionEvent.AXIS_X, InputDevice.SOURCE_TOUCHPAD)
+        var yRange = event.device?.getMotionRange(MotionEvent.AXIS_Y, InputDevice.SOURCE_TOUCHPAD)
+        // Fallback: try with event.source in case SOURCE_TOUCHPAD range isn't registered
+        if (xRange == null) xRange = event.device?.getMotionRange(MotionEvent.AXIS_X, event.source)
+        if (yRange == null) yRange = event.device?.getMotionRange(MotionEvent.AXIS_Y, event.source)
         val rangeX = if (xRange != null && xRange.max - xRange.min > 0) xRange.max - xRange.min else 1920f
         val rangeY = if (yRange != null && yRange.max - yRange.min > 0) yRange.max - yRange.min else 942f
-        val minX = xRange?.min ?: 0f
-        val minY = yRange?.min ?: 0f
         if (event.pointerCount <= 0) return emptyList()
         return (0 until event.pointerCount).map { i ->
-            val nx = ((event.getAxisValue(MotionEvent.AXIS_X, i) - minX) / rangeX).coerceIn(0f, 1f)
-            val ny = ((event.getAxisValue(MotionEvent.AXIS_Y, i) - minY) / rangeY).coerceIn(0f, 1f)
+            val px = event.getX(i)
+            val py = event.getY(i)
+            val nx = ((px - (xRange?.min ?: 0f)) / rangeX).coerceIn(0f, 1f)
+            val ny = ((py - (yRange?.min ?: 0f)) / rangeY).coerceIn(0f, 1f)
             TouchPoint(id = event.getPointerId(i),
                 x = (nx * 1919).toInt().coerceIn(0, 1919),
                 y = (ny * 942).toInt().coerceIn(0, 942), active = true)
         }
     }
 
+    /** Assign new touch points to existing slots by nearest-coordinate matching. */
+    private fun assignSlots(
+        old0: TouchPoint?, old1: TouchPoint?,
+        candidates: List<TouchPoint>,
+    ): Pair<TouchPoint?, TouchPoint?> {
+        // Assign candidates to slots so that each slot is the nearest to its old position.
+        // With 0 fingers: null, null
+        // With 1 finger: assign to whichever slot it's closer to.
+        // With 2 fingers: assign greedily — first pick assignment for the slot with
+        //   the smallest distance to its old position, then the other finger to the
+        //   remaining slot.
+
+        if (candidates.isEmpty()) {
+            Log.i(TAG, "assignSlots: 0 candidates → both null")
+            return null to null
+        }
+
+        if (candidates.size == 1) {
+            val c = candidates[0]
+            val d0 = distSq(old0, c)
+            val d1 = distSq(old1, c)
+            val result = if (d0 < d1) (c to null) else (null to c)
+            Log.i(TAG, "assignSlots: 1 candidate id=${c.id} (${c.x},${c.y}) " +
+                    "d0=$d0 d1=$d1 → slot${if (d0 < d1) 0 else 1}")
+            return result
+        }
+
+        // Two candidates: try all 4 permutations and pick the one with the lowest cost.
+        val c0 = candidates[0]
+        val c1 = candidates[1]
+
+        // Assignment: slot0=c0, slot1=c1
+        var cost00 = distSq(old0, c0)
+        var cost11 = distSq(old1, c1)
+        var best = cost00 + cost11
+        var bestAssign: Pair<TouchPoint?, TouchPoint?> = (c0 to c1)
+
+        // Assignment: slot0=c1, slot1=c0
+        val cost10 = distSq(old0, c1)
+        val cost01 = distSq(old1, c0)
+        val total = cost10 + cost01
+        if (total < best) {
+            best = total
+            bestAssign = (c1 to c0)
+        }
+
+        Log.i(TAG, "assignSlots: 2 candidates → s0=id${bestAssign.first?.id}(${bestAssign.first?.x},${bestAssign.first?.y}) " +
+                "s1=id${bestAssign.second?.id}(${bestAssign.second?.x},${bestAssign.second?.y})")
+        return bestAssign
+    }
+
+    private fun distSq(ref: TouchPoint?, pt: TouchPoint): Float {
+        if (ref == null) return 1e8f
+        val dx = (ref.x - pt.x) * 1f
+        val dy = (ref.y - pt.y) * 1f
+        return dx * dx + dy * dy
+    }
+
     private fun handleTouchpadMotion(event: MotionEvent): Boolean {
-        val xRange = event.device?.getMotionRange(MotionEvent.AXIS_X, event.source)
-        val yRange = event.device?.getMotionRange(MotionEvent.AXIS_Y, event.source)
+        var xRange = event.device?.getMotionRange(MotionEvent.AXIS_X, InputDevice.SOURCE_TOUCHPAD)
+        var yRange = event.device?.getMotionRange(MotionEvent.AXIS_Y, InputDevice.SOURCE_TOUCHPAD)
+        if (xRange == null) xRange = event.device?.getMotionRange(MotionEvent.AXIS_X, event.source)
+        if (yRange == null) yRange = event.device?.getMotionRange(MotionEvent.AXIS_Y, event.source)
 
         val rangeX = if (xRange != null && xRange.max - xRange.min > 0) {
             xRange.max - xRange.min
-        } else if (event.source == InputDevice.SOURCE_MOUSE) {
-            context.resources.displayMetrics.widthPixels.toFloat()
         } else {
             1920f
         }
         val rangeY = if (yRange != null && yRange.max - yRange.min > 0) {
             yRange.max - yRange.min
-        } else if (event.source == InputDevice.SOURCE_MOUSE) {
-            context.resources.displayMetrics.heightPixels.toFloat()
         } else {
             942f
         }
         val minX = xRange?.min ?: 0f
         val minY = yRange?.min ?: 0f
+        val action = event.actionMasked
 
-        val touchPoints = buildTouchPoints(event)
+        val actionName = when (action) {
+            MotionEvent.ACTION_DOWN -> "DOWN"
+            MotionEvent.ACTION_POINTER_DOWN -> "POINTER_DOWN"
+            MotionEvent.ACTION_MOVE -> "MOVE"
+            MotionEvent.ACTION_POINTER_UP -> "POINTER_UP"
+            MotionEvent.ACTION_UP -> "UP"
+            MotionEvent.ACTION_CANCEL -> "CANCEL"
+            else -> "OTHER($action)"
+        }
 
-        when (event.actionMasked) {
+        // Read previous slot state so we can track which finger is which
+        val oldState = _controllerState.value
+        val old0 = oldState.touches.getOrNull(0)
+        val old1 = oldState.touches.getOrNull(1)
+
+        // Collect fresh coordinates for all active pointers (independent of pointerId)
+        val candidates = (0 until event.pointerCount).map { i ->
+            val px = event.getX(i)
+            val py = event.getY(i)
+            val nx = ((px - minX) / rangeX).coerceIn(0f, 1f)
+            val ny = ((py - minY) / rangeY).coerceIn(0f, 1f)
+            TouchPoint(
+                id = event.getPointerId(i),
+                x = (nx * 1919).toInt().coerceIn(0, 1919),
+                y = (ny * 942).toInt().coerceIn(0, 942),
+                active = true,
+            )
+        }
+
+        // Assign to slots by nearest-coordinate matching
+        val (s0, s1) = assignSlots(old0, old1, candidates)
+
+        Log.i(TAG, "handleTouchpadMotion: $actionName ptrCount=${event.pointerCount} " +
+                "old0=(${old0?.x},${old0?.y}) old1=(${old1?.x},${old1?.y}) " +
+                "s0=(${s0?.x},${s0?.y}) s1=(${s1?.x},${s1?.y})" +
+                (if (action == MotionEvent.ACTION_MOVE) " touchpadX=${_controllerState.value.touchpadX} touchpadY=${_controllerState.value.touchpadY}" else ""))
+
+        when (action) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
-                val x = ((event.getAxisValue(MotionEvent.AXIS_X, event.actionIndex) - minX) / rangeX).coerceIn(0f, 1f)
-                val y = ((event.getAxisValue(MotionEvent.AXIS_Y, event.actionIndex) - minY) / rangeY).coerceIn(0f, 1f)
+                val idx = event.actionIndex
+                val px = event.getX(idx)
+                val py = event.getY(idx)
+                val x = ((px - minX) / rangeX).coerceIn(0f, 1f)
+                val y = ((py - minY) / rangeY).coerceIn(0f, 1f)
                 _controllerState.value = _controllerState.value.copy(
                     touchpadX = x, touchpadY = y, touchpadTouch = true,
-                    touches = touchPoints
+                    touches = listOfNotNull(s0, s1)
                 )
             }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
-                _controllerState.value = _controllerState.value.copy(
-                    touchpadTouch = touchPoints.isNotEmpty(),
-                    touches = touchPoints
-                )
-            }
-            MotionEvent.ACTION_MOVE -> {
-                if (event.pointerCount > 0) {
-                    val x = ((event.getAxisValue(MotionEvent.AXIS_X, 0) - minX) / rangeX).coerceIn(0f, 1f)
-                    val y = ((event.getAxisValue(MotionEvent.AXIS_Y, 0) - minY) / rangeY).coerceIn(0f, 1f)
+            MotionEvent.ACTION_POINTER_UP -> {
+                if (event.pointerCount == 0) {
                     _controllerState.value = _controllerState.value.copy(
-                        touchpadX = x, touchpadY = y, touchpadTouch = true,
-                        touches = touchPoints
+                        touchpadTouch = false,
+                        touchpadX = 0f,
+                        touchpadY = 0f,
+                        touches = emptyList()
+                    )
+                } else {
+                    val primary = s0 ?: s1
+                    _controllerState.value = _controllerState.value.copy(
+                        touchpadX = if (primary != null) (primary.x / 1919f).coerceIn(0f, 1f) else _controllerState.value.touchpadX,
+                        touchpadY = if (primary != null) (primary.y / 942f).coerceIn(0f, 1f) else _controllerState.value.touchpadY,
+                        touchpadTouch = true,
+                        touches = listOfNotNull(s0, s1)
                     )
                 }
             }
-            MotionEvent.ACTION_HOVER_MOVE -> {
-                val x = ((event.getAxisValue(MotionEvent.AXIS_X) - minX) / rangeX).coerceIn(0f, 1f)
-                val y = ((event.getAxisValue(MotionEvent.AXIS_Y) - minY) / rangeY).coerceIn(0f, 1f)
+            MotionEvent.ACTION_UP -> {
                 _controllerState.value = _controllerState.value.copy(
-                    touchpadX = x, touchpadY = y, touchpadTouch = true,
-                    touches = touchPoints
+                    touchpadTouch = false,
+                    touchpadX = 0f,
+                    touchpadY = 0f,
+                    touches = emptyList()
                 )
             }
-            MotionEvent.ACTION_HOVER_ENTER, MotionEvent.ACTION_HOVER_EXIT -> {
-                val x = ((event.getAxisValue(MotionEvent.AXIS_X) - minX) / rangeX).coerceIn(0f, 1f)
-                val y = ((event.getAxisValue(MotionEvent.AXIS_Y) - minY) / rangeY).coerceIn(0f, 1f)
-                val touching = event.actionMasked == MotionEvent.ACTION_HOVER_ENTER
-                _controllerState.value = _controllerState.value.copy(
-                    touchpadX = x, touchpadY = y, touchpadTouch = touching,
-                    touches = touchPoints
-                )
+            MotionEvent.ACTION_MOVE -> {
+                val primary = s0 ?: s1
+                if (primary != null) {
+                    val x = (primary.x / 1919f).coerceIn(0f, 1f)
+                    val y = (primary.y / 942f).coerceIn(0f, 1f)
+                    _controllerState.value = _controllerState.value.copy(
+                        touchpadX = x, touchpadY = y, touchpadTouch = true,
+                        touches = listOfNotNull(s0, s1)
+                    )
+                }
             }
             MotionEvent.ACTION_CANCEL -> {
-                _controllerState.value = _controllerState.value.copy(touchpadTouch = false, touches = emptyList())
+                _controllerState.value = _controllerState.value.copy(
+                    touchpadTouch = false,
+                    touchpadX = 0f,
+                    touchpadY = 0f,
+                    touches = emptyList()
+                )
             }
             MotionEvent.ACTION_BUTTON_PRESS -> {
                 if (event.actionButton == MotionEvent.BUTTON_PRIMARY) {
@@ -455,6 +569,7 @@ class PhysicalControllerHandler(private val context: Context) {
                 }
             }
         }
+
         // Fallback: check button state for captured click events
         if ((event.buttonState and MotionEvent.BUTTON_PRIMARY) != 0) {
             val current = _controllerState.value

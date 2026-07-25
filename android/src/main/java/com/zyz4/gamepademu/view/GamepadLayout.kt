@@ -9,6 +9,7 @@ import android.view.InputDevice
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.util.Log
 import androidx.annotation.RequiresApi
 import com.zyz4.gamepademu.model.ButtonPosition
 import com.zyz4.gamepademu.model.GyroOrientation
@@ -100,48 +101,95 @@ class GamepadLayout @JvmOverloads constructor(
     override fun onCapturedPointerEvent(event: MotionEvent): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return super.onCapturedPointerEvent(event)
 
-        // Track which pointerId is in which slot across events
-        // slot0Pid/-1 means no finger in slot 0
-        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
-            if (pointerIdInSlot(event.getPointerId(0), 0)) slot0Active = true
-            else {
-                slot1Active = false
-                slot0Pid = event.getPointerId(0)
-                slot0Active = true
-                slot0X = (event.getX(0) / 1920f).coerceIn(0f, 1f)
-                slot0Y = (event.getY(0) / 942f).coerceIn(0f, 1f)
-            }
-        } else if (event.actionMasked == MotionEvent.ACTION_POINTER_DOWN) {
-            val pid = event.getPointerId(event.actionIndex)
-            if (!pointerIdInSlot(pid, 0) && !pointerIdInSlot(pid, 1)) {
-                slot1Pid = pid
-                slot1Active = true
-                slot1X = (event.getX(event.actionIndex) / 1920f).coerceIn(0f, 1f)
-                slot1Y = (event.getY(event.actionIndex) / 942f).coerceIn(0f, 1f)
-            }
-        } else if (event.actionMasked == MotionEvent.ACTION_UP) {
-            slot0Active = false
-            slot0Pid = -1
-            slot1Active = false
-            slot1Pid = -1
+        val action = event.actionMasked
+        val actionName = when (action) {
+            MotionEvent.ACTION_DOWN -> "DOWN"
+            MotionEvent.ACTION_POINTER_DOWN -> "POINTER_DOWN"
+            MotionEvent.ACTION_MOVE -> "MOVE"
+            MotionEvent.ACTION_POINTER_UP -> "POINTER_UP"
+            MotionEvent.ACTION_UP -> "UP"
+            MotionEvent.ACTION_CANCEL -> "CANCEL"
+            else -> "OTHER($action)"
+        }
+
+        Log.i("GamepadTouch", "ptrCapture: $actionName count=${event.pointerCount} " +
+                "slot0=(${"%.2f".format(slot0X)},${"%.2f".format(slot0Y)},act=$slot0Active) " +
+                "slot1=(${"%.2f".format(slot1X)},${"%.2f".format(slot1Y)},act=$slot1Active)")
+
+        // Terminal actions: clear everything
+        if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+            slot0Active = false; slot0Pid = -1
+            slot1Active = false; slot1Pid = -1
         } else {
-            // MOVE, HOVER_MOVE, ACTION_POINTER_UP
-            for (i in 0 until event.pointerCount) {
-                val pid = event.getPointerId(i)
-                val nx = (event.getX(i) / 1920f).coerceIn(0f, 1f)
-                val ny = (event.getY(i) / 942f).coerceIn(0f, 1f)
-                if (pid == slot0Pid) {
-                    slot0X = nx; slot0Y = ny; slot0Active = true
-                } else if (pid == slot1Pid) {
-                    slot1X = nx; slot1Y = ny; slot1Active = true
+            // Collect old slot positions for coordinate matching
+            val old0 = if (slot0Active) floatArrayOf(slot0X, slot0Y) else null
+            val old1 = if (slot1Active) floatArrayOf(slot1X, slot1Y) else null
+
+            // Build candidates from current event (all pointers including released in POINTER_UP)
+            val candidates = (0 until event.pointerCount).map { i ->
+                floatArrayOf(
+                    event.getPointerId(i).toFloat(),
+                    (event.getX(i) / 1920f).coerceIn(0f, 1f),
+                    (event.getY(i) / 942f).coerceIn(0f, 1f),
+                )
+            }
+
+            // For POINTER_UP: remove released finger from candidates and clear its slot
+            if (action == MotionEvent.ACTION_POINTER_UP) {
+                val rIdx = event.actionIndex
+                val rx = (event.getX(rIdx) / 1920f).coerceIn(0f, 1f)
+                val ry = (event.getY(rIdx) / 942f).coerceIn(0f, 1f)
+                if (slot0Active && slot1Active) {
+                    // Two fingers: clear the slot nearest to the released position
+                    val d0 = (slot0X - rx) * (slot0X - rx) + (slot0Y - ry) * (slot0Y - ry)
+                    val d1 = (slot1X - rx) * (slot1X - rx) + (slot1Y - ry) * (slot1Y - ry)
+                    if (d0 <= d1) { slot0Active = false; slot0Pid = -1 }
+                    else { slot1Active = false; slot1Pid = -1 }
+                } else if (slot0Active) {
+                    slot0Active = false; slot0Pid = -1
+                } else if (slot1Active) {
+                    slot1Active = false; slot1Pid = -1
                 }
             }
-            if (event.actionMasked == MotionEvent.ACTION_POINTER_UP) {
-                val liftedPid = event.getPointerId(event.actionIndex)
-                if (liftedPid == slot0Pid) {
-                    slot0Pid = -1; slot0Active = false
-                } else if (liftedPid == slot1Pid) {
-                    slot1Pid = -1; slot1Active = false
+
+            // Rebuild remaining slots after potential clearing
+            val remainingSlots = mutableListOf<Int>()
+            if (slot0Active) remainingSlots.add(0)
+            if (slot1Active) remainingSlots.add(1)
+
+            // Match remaining candidates (after removing released finger) to remaining slots
+            val remainingCandidates = if (action == MotionEvent.ACTION_POINTER_UP) {
+                candidates.filterIndexed { i, _ -> i != event.actionIndex }
+            } else {
+                candidates
+            }
+
+            if (remainingCandidates.isNotEmpty()) {
+                val usedCand = mutableSetOf<Int>()
+                for (slotIdx in remainingSlots) {
+                    val refX = if (slotIdx == 0) slot0X else slot1X
+                    val refY = if (slotIdx == 0) slot0Y else slot1Y
+                    var best = -1; var bestD = Float.MAX_VALUE
+                    for (ci in remainingCandidates.indices) {
+                        if (ci in usedCand) continue
+                        val dx = refX - remainingCandidates[ci][1]
+                        val dy = refY - remainingCandidates[ci][2]
+                        val d = dx * dx + dy * dy
+                        if (d < bestD) { bestD = d; best = ci }
+                    }
+                    if (best >= 0) {
+                        val (pid, nx, ny) = remainingCandidates[best]
+                        if (slotIdx == 0) { slot0X = nx; slot0Y = ny; slot0Pid = pid.toInt(); slot0Active = true }
+                        else { slot1X = nx; slot1Y = ny; slot1Pid = pid.toInt(); slot1Active = true }
+                        usedCand.add(best)
+                    }
+                }
+                // Any unmatched candidates go to empty slots
+                for (ci in remainingCandidates.indices) {
+                    if (ci in usedCand) continue
+                    val (pid, nx, ny) = remainingCandidates[ci]
+                    if (!slot0Active) { slot0X = nx; slot0Y = ny; slot0Pid = pid.toInt(); slot0Active = true }
+                    else if (!slot1Active) { slot1X = nx; slot1Y = ny; slot1Pid = pid.toInt(); slot1Active = true }
                 }
             }
         }
@@ -160,8 +208,8 @@ class GamepadLayout @JvmOverloads constructor(
 
         // Build slots list for proto (slot 0 first, slot 1 second)
         val allTouches = mutableListOf<FloatArray>()
-        if (slot0Active) allTouches.add(floatArrayOf(0f, slot0X, slot0Y, 1f))
-        if (slot1Active) allTouches.add(floatArrayOf(1f, slot1X, slot1Y, 1f))
+        allTouches.add(floatArrayOf(0f, slot0X, slot0Y, if (slot0Active) 1f else 0f))
+        allTouches.add(floatArrayOf(1f, slot1X, slot1Y, if (slot1Active) 1f else 0f))
 
         listener?.onTouchpadEvent(
             if (slot0Active) slot0X else (if (slot1Active) slot1X else 0.5f),
