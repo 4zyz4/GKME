@@ -135,7 +135,7 @@ class ClassicHidTransport(
         reRegisterAttempts = 0
         this.onOutputReport = onOutputReport
         currentSettings = settings
-        val reportSize = if (settings.targetPlatform == TargetPlatform.ANDROID) 8 else 11
+        val reportSize = if (settings.targetPlatform == TargetPlatform.ANDROID) 9 else 11
         lastReport = ByteArray(reportSize)
         _connectionPhase.value = ConnectionPhase.REGISTERING_PROFILE
         bluetoothAdapter.getProfileProxy(context, profileListener, BluetoothProfile.HID_DEVICE)
@@ -145,7 +145,7 @@ class ClassicHidTransport(
         val device = connectedDevice ?: return
         val hid = hidDevice ?: return
         lastReport = report
-        val reportId = if (currentSettings?.targetPlatform == TargetPlatform.ANDROID) 0 else 1
+        val reportId = 1
         try {
             hid.sendReport(device, reportId, report)
         } catch (_: Exception) {}
@@ -293,61 +293,80 @@ class ClassicHidTransport(
         )
 
         /**
-         * 8‑byte report for Android Bluetooth (HID descriptor).
+         * Standard 9‑byte report for Android Bluetooth (HID descriptor, Report ID 1).
          *   byte  0    Buttons 1‑8 (bits 0‑7)
-         *   byte  1    Buttons 9‑10 (bits 0‑1) + padding (bits 2‑7)
-         *   byte  2    LX (s8)
-         *   byte  3    LY (s8)
-         *   byte  4    Z / RX (s8)
-         *   byte  5    Rx / RY (s8)
-         *   byte  6    Ry / triggers combined (s8)
-         *   byte  7    Hat switch (0‑7, 15=null)
+         *   byte  1    Buttons 9‑16 (bits 0‑7)
+         *   byte  2    LX (s8, -127..127)
+         *   byte  3    LY (s8, -127..127)
+         *   byte  4    Hat switch (nibble 0‑3, 1‑8 direction, 0=null) + padding (nibble 4‑7)
+         *   byte  5    Z / RX (s8, -127..127)
+         *   byte  6    Rz / RY (s8, -127..127)
+         *   byte  7    LT / Brake (u8, 0..255)
+         *   byte  8    RT / Accelerator (u8, 0..255)
          */
         private val ANDROID_HID_DESCRIPTOR = byteArrayOf(
-            b(0x05), b(0x01),           // Usage Page (Generic Desktop)
-            b(0x09), b(0x05),           // Usage (Game Pad)
-            b(0xa1), b(0x01),           // Collection (Application)
-            b(0xa1), b(0x00),           //   Collection (Physical)
+            b(0x05), b(0x01),             // Usage Page (Generic Desktop)
+            b(0x09), b(0x05),             // Usage (Game Pad)
+            b(0xA1), b(0x01),             // Collection (Application)
+            b(0x85), b(0x01),             //   Report ID (1)
 
-            // Bytes 0‑1: Buttons 1‑10
-            b(0x05), b(0x09),           //     Usage Page (Button)
-            b(0x19), b(0x01),           //     Usage Minimum (Button 1)
-            b(0x29), b(0x0a),           //     Usage Maximum (Button 10)
-            b(0x15), b(0x00),           //     Logical Minimum (0)
-            b(0x25), b(0x01),           //     Logical Maximum (1)
-            b(0x95), b(0x0a),           //     Report Count (10)
-            b(0x75), b(0x01),           //     Report Size (1)
-            b(0x81), b(0x02),           //     Input (Data,Var,Abs)
+            // Bytes 0‑1: 16 buttons
+            b(0x05), b(0x09),             //   Usage Page (Button)
+            b(0x19), b(0x01),             //   Usage Minimum (1)
+            b(0x29), b(0x10),             //   Usage Maximum (16)
+            b(0x15), b(0x00),             //   Logical Minimum (0)
+            b(0x25), b(0x01),             //   Logical Maximum (1)
+            b(0x95), b(0x10),             //   Report Count (16)
+            b(0x75), b(0x01),             //   Report Size (1)
+            b(0x81), b(0x02),             //   Input (Data,Var,Abs)
 
-            // Byte 1 padding
-            b(0x95), b(0x01),           //     Report Count (1)
-            b(0x75), b(0x06),           //     Report Size (6)
-            b(0x81), b(0x03),           //     Input (Cnst,Var,Abs)
+            // Bytes 2‑3: Left stick X (X), Y (Y)
+            b(0x05), b(0x01),             //   Usage Page (Generic Desktop)
+            b(0x09), b(0x30),             //   Usage (X)
+            b(0x09), b(0x31),             //   Usage (Y)
+            b(0x15), b(0x81),             //   Logical Minimum (-127)
+            b(0x25), b(0x7F),             //   Logical Maximum (127)
+            b(0x75), b(0x08),             //   Report Size (8)
+            b(0x95), b(0x02),             //   Report Count (2)
+            b(0x81), b(0x02),             //   Input (Data,Var,Abs)
 
-            // Bytes 2‑6: Axes (X,Y,Z,Rx,Ry) 5 × s8
-            b(0x05), b(0x01),           //     Usage Page (Generic Desktop)
-            b(0x09), b(0x30),           //     Usage (X)  → LX
-            b(0x09), b(0x31),           //     Usage (Y)  → LY
-            b(0x09), b(0x32),           //     Usage (Z)  → RX
-            b(0x09), b(0x33),           //     Usage (Rx) → RY
-            b(0x09), b(0x34),           //     Usage (Ry) → triggers
-            b(0x15), b(0x81),           //     Logical Minimum (-127)
-            b(0x25), b(0x7f),           //     Logical Maximum (127)
-            b(0x75), b(0x08),           //     Report Size (8)
-            b(0x95), b(0x05),           //     Report Count (5)
-            b(0x81), b(0x02),           //     Input (Data,Var,Abs)
+            // Byte 4: Hat switch (D-Pad, 4 bits) + padding (4 bits)
+            b(0x05), b(0x01),             //   Usage Page (Generic Desktop)
+            b(0x09), b(0x39),             //   Usage (Hat switch)
+            b(0x15), b(0x01),             //   Logical Minimum (1)
+            b(0x25), b(0x08),             //   Logical Maximum (8)
+            b(0x55), b(0x00),             //   Unit Exponent (0)
+            b(0x46), b(0x3B), b(0x01),    //   Physical Maximum (315)
+            b(0x65), b(0x14),             //   Unit (System: English Rotation, Length: Centimeter)
+            b(0x75), b(0x04),             //   Report Size (4)
+            b(0x95), b(0x01),             //   Report Count (1)
+            b(0x81), b(0x42),             //   Input (Data,Var,Abs,Null State)
 
-            // Byte 7: Hat switch (8 directions + null)
-            b(0x05), b(0x01),           //     Usage Page (Generic Desktop)
-            b(0x09), b(0x39),           //     Usage (Hat switch)
-            b(0x15), b(0x00),           //     Logical Minimum (0)
-            b(0x25), b(0x07),           //     Logical Maximum (7)
-            b(0x75), b(0x08),           //     Report Size (8)
-            b(0x95), b(0x01),           //     Report Count (1)
-            b(0x81), b(0x42),           //     Input (Data,Var,Abs,Null)
+            b(0x75), b(0x04),             //   Report Size (4)
+            b(0x95), b(0x01),             //   Report Count (1)
+            b(0x81), b(0x03),             //   Input (Const,Var,Abs)
 
-            b(0xc0),                    //   End Collection
-            b(0xc0),                    // End Collection
+            // Bytes 5‑6: Right stick X (Z), Y (Rz)
+            b(0x05), b(0x01),             //   Usage Page (Generic Desktop)
+            b(0x09), b(0x32),             //   Usage (Z)
+            b(0x09), b(0x35),             //   Usage (Rz)
+            b(0x15), b(0x81),             //   Logical Minimum (-127)
+            b(0x25), b(0x7F),             //   Logical Maximum (127)
+            b(0x75), b(0x08),             //   Report Size (8)
+            b(0x95), b(0x02),             //   Report Count (2)
+            b(0x81), b(0x02),             //   Input (Data,Var,Abs)
+
+            // Bytes 7‑8: LT (Brake), RT (Accelerator)
+            b(0x05), b(0x02),             //   Usage Page (Sim Ctrls)
+            b(0x09), b(0xC4),             //   Usage (Brake)
+            b(0x09), b(0xC5),             //   Usage (Accelerator)
+            b(0x15), b(0x00),             //   Logical Minimum (0)
+            b(0x25), b(0xFF),             //   Logical Maximum (255)
+            b(0x75), b(0x08),             //   Report Size (8)
+            b(0x95), b(0x02),             //   Report Count (2)
+            b(0x81), b(0x02),             //   Input (Data,Var,Abs)
+
+            b(0xC0),                      // End Collection
         )
     }
 }
