@@ -9,7 +9,6 @@ import android.view.InputDevice
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import android.util.Log
 import androidx.annotation.RequiresApi
 import com.zyz4.gamepademu.model.ButtonPosition
 import com.zyz4.gamepademu.model.GyroOrientation
@@ -102,19 +101,6 @@ class GamepadLayout @JvmOverloads constructor(
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return super.onCapturedPointerEvent(event)
 
         val action = event.actionMasked
-        val actionName = when (action) {
-            MotionEvent.ACTION_DOWN -> "DOWN"
-            MotionEvent.ACTION_POINTER_DOWN -> "POINTER_DOWN"
-            MotionEvent.ACTION_MOVE -> "MOVE"
-            MotionEvent.ACTION_POINTER_UP -> "POINTER_UP"
-            MotionEvent.ACTION_UP -> "UP"
-            MotionEvent.ACTION_CANCEL -> "CANCEL"
-            else -> "OTHER($action)"
-        }
-
-        Log.i("GamepadTouch", "ptrCapture: $actionName count=${event.pointerCount} " +
-                "slot0=(${"%.2f".format(slot0X)},${"%.2f".format(slot0Y)},act=$slot0Active) " +
-                "slot1=(${"%.2f".format(slot1X)},${"%.2f".format(slot1Y)},act=$slot1Active)")
 
         // Terminal actions: clear everything
         if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
@@ -122,8 +108,6 @@ class GamepadLayout @JvmOverloads constructor(
             slot1Active = false; slot1Pid = -1
         } else {
             // Collect old slot positions for coordinate matching
-            val old0 = if (slot0Active) floatArrayOf(slot0X, slot0Y) else null
-            val old1 = if (slot1Active) floatArrayOf(slot1X, slot1Y) else null
 
             // Build candidates from current event (all pointers including released in POINTER_UP)
             val candidates = (0 until event.pointerCount).map { i ->

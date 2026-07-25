@@ -15,7 +15,6 @@ import android.os.VibratorManager
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
-import android.util.Log
 import com.zyz4.gamepademu.model.GamepadState
 import com.zyz4.gamepademu.model.TouchPoint
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -261,36 +260,11 @@ class PhysicalControllerHandler(private val context: Context) {
     fun handleMotionEvent(event: MotionEvent): Boolean {
         val device = inputManager.getInputDevice(event.deviceId) ?: return false
 
-        Log.i(TAG, "handleMotionEvent: src=0x${event.source.toString(16)} device='${device.name}' vendorId=0x${device.vendorId.toString(16)} productId=0x${device.productId.toString(16)} isGamepad=${isGamepadDevice(device)}")
-
         if (isTouchpadDevice(device)) {
             return handleTouchpadMotion(event)
         }
 
         if (!_isConnected.value) return false
-
-        if (event.source and InputDevice.SOURCE_TOUCHPAD == InputDevice.SOURCE_TOUCHPAD &&
-            device.vendorId == 0x054c) {
-            return handleTouchpadMotion(event)
-        }
-
-        if (controllerTypeValue == ControllerType.PS &&
-            event.source == InputDevice.SOURCE_MOUSE &&
-            device.vendorId == 0x054c &&
-            !isGamepadDevice(device)) {
-            return handleTouchpadMotion(event)
-        }
-
-        if (controllerTypeValue == ControllerType.PS &&
-            event.source == InputDevice.SOURCE_MOUSE &&
-            isGamepadDevice(device)) {
-            return handleTouchpadMotion(event)
-        }
-
-        if (controllerTypeValue == ControllerType.PS &&
-            event.source and InputDevice.SOURCE_MOUSE_RELATIVE == InputDevice.SOURCE_MOUSE_RELATIVE) {
-            return true
-        }
 
         if (!isGamepadDevice(device)) return false
 
@@ -345,10 +319,6 @@ class PhysicalControllerHandler(private val context: Context) {
         )
     }
 
-    private companion object {
-        private const val TAG = "GamepadTouch"
-    }
-
     private var slot0X = 0f
     private var slot0Y = 0f
     private var slot0Active = false
@@ -383,49 +353,28 @@ class PhysicalControllerHandler(private val context: Context) {
         old0: TouchPoint?, old1: TouchPoint?,
         candidates: List<TouchPoint>,
     ): Pair<TouchPoint?, TouchPoint?> {
-        // Assign candidates to slots so that each slot is the nearest to its old position.
-        // With 0 fingers: null, null
-        // With 1 finger: assign to whichever slot it's closer to.
-        // With 2 fingers: assign greedily — first pick assignment for the slot with
-        //   the smallest distance to its old position, then the other finger to the
-        //   remaining slot.
-
-        if (candidates.isEmpty()) {
-            Log.i(TAG, "assignSlots: 0 candidates → both null")
-            return null to null
-        }
+        if (candidates.isEmpty()) return null to null
 
         if (candidates.size == 1) {
             val c = candidates[0]
             val d0 = distSq(old0, c)
             val d1 = distSq(old1, c)
-            val result = if (d0 < d1) (c to null) else (null to c)
-            Log.i(TAG, "assignSlots: 1 candidate id=${c.id} (${c.x},${c.y}) " +
-                    "d0=$d0 d1=$d1 → slot${if (d0 < d1) 0 else 1}")
-            return result
+            return if (d0 < d1) (c to null) else (null to c)
         }
 
-        // Two candidates: try all 4 permutations and pick the one with the lowest cost.
+        // Two candidates: try both permutations and pick the lowest cost.
         val c0 = candidates[0]
         val c1 = candidates[1]
-
-        // Assignment: slot0=c0, slot1=c1
         var cost00 = distSq(old0, c0)
         var cost11 = distSq(old1, c1)
         var best = cost00 + cost11
         var bestAssign: Pair<TouchPoint?, TouchPoint?> = (c0 to c1)
-
-        // Assignment: slot0=c1, slot1=c0
         val cost10 = distSq(old0, c1)
         val cost01 = distSq(old1, c0)
         val total = cost10 + cost01
         if (total < best) {
-            best = total
             bestAssign = (c1 to c0)
         }
-
-        Log.i(TAG, "assignSlots: 2 candidates → s0=id${bestAssign.first?.id}(${bestAssign.first?.x},${bestAssign.first?.y}) " +
-                "s1=id${bestAssign.second?.id}(${bestAssign.second?.x},${bestAssign.second?.y})")
         return bestAssign
     }
 
@@ -456,16 +405,6 @@ class PhysicalControllerHandler(private val context: Context) {
         val minY = yRange?.min ?: 0f
         val action = event.actionMasked
 
-        val actionName = when (action) {
-            MotionEvent.ACTION_DOWN -> "DOWN"
-            MotionEvent.ACTION_POINTER_DOWN -> "POINTER_DOWN"
-            MotionEvent.ACTION_MOVE -> "MOVE"
-            MotionEvent.ACTION_POINTER_UP -> "POINTER_UP"
-            MotionEvent.ACTION_UP -> "UP"
-            MotionEvent.ACTION_CANCEL -> "CANCEL"
-            else -> "OTHER($action)"
-        }
-
         // Read previous slot state so we can track which finger is which
         val oldState = _controllerState.value
         val old0 = oldState.touches.getOrNull(0)
@@ -487,11 +426,6 @@ class PhysicalControllerHandler(private val context: Context) {
 
         // Assign to slots by nearest-coordinate matching
         val (s0, s1) = assignSlots(old0, old1, candidates)
-
-        Log.i(TAG, "handleTouchpadMotion: $actionName ptrCount=${event.pointerCount} " +
-                "old0=(${old0?.x},${old0?.y}) old1=(${old1?.x},${old1?.y}) " +
-                "s0=(${s0?.x},${s0?.y}) s1=(${s1?.x},${s1?.y})" +
-                (if (action == MotionEvent.ACTION_MOVE) " touchpadX=${_controllerState.value.touchpadX} touchpadY=${_controllerState.value.touchpadY}" else ""))
 
         when (action) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {

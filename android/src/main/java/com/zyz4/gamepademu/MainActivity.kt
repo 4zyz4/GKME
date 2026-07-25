@@ -26,7 +26,6 @@ import android.os.VibratorManager
 import android.view.KeyEvent
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.Surface
 import android.view.View
@@ -1795,24 +1794,18 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun dispatchGenericMotionEvent(event: MotionEvent?): Boolean {
-        if (event != null) {
-            Log.i("GamepadTouch", "dispatchGenericMotionEvent: src=0x${event.source.toString(16)} deviceId=${event.deviceId} action=${event.actionMasked} pointerCount=${event.pointerCount}")
-            if (physicalControllerHandler.handleMotionEvent(event)) {
-                syncPhysicalControllerState()
-                return true
-            }
+        if (event != null && physicalControllerHandler.handleMotionEvent(event)) {
+            syncPhysicalControllerState()
+            return true
         }
         return super.dispatchGenericMotionEvent(event)
     }
 
     override fun dispatchTouchEvent(event: MotionEvent?): Boolean {
-        if (event != null) {
-            val vid = event.device?.vendorId
-            Log.i("GamepadTouch", "dispatchTouchEvent: src=0x${event.source.toString(16)} deviceId=${event.deviceId} vid=0x${vid?.toString(16) ?: "null"} action=${event.actionMasked}")
-            if (vid == 0x054c && physicalControllerHandler.handleMotionEvent(event)) {
-                syncPhysicalControllerState()
-                return true
-            }
+        if (event != null && event.device?.vendorId == 0x054c &&
+            physicalControllerHandler.handleMotionEvent(event)) {
+            syncPhysicalControllerState()
+            return true
         }
         return super.dispatchTouchEvent(event)
     }
