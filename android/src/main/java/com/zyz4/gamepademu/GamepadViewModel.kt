@@ -86,6 +86,8 @@ class GamepadViewModel @Inject constructor(
         _physicalControllerConnected.value = connected
     }
     private var _dpadBits = 0
+    private var phoneButtons: UInt = 0u
+    private var phoneTouches: List<TouchPoint> = emptyList()
 
     var onHapticFeedbackPress: (() -> Unit)? = null
     var onHapticFeedbackRelease: (() -> Unit)? = null
@@ -331,8 +333,9 @@ class GamepadViewModel @Inject constructor(
 
         val tx = (touchpadX * 1919).toInt().coerceIn(0, 1919)
         val ty = (touchpadY * 942).toInt().coerceIn(0, 942)
+        val hasPhoneTouch = phoneTouches.any { it.active }
         _gamepadState.value = _gamepadState.value.copy(
-            buttons = buttons,
+            buttons = phoneButtons or buttons,
             leftStickX = leftStickX,
             leftStickY = leftStickY,
             rightStickX = rightStickX,
@@ -340,11 +343,11 @@ class GamepadViewModel @Inject constructor(
             leftTrigger = leftTrigger,
             rightTrigger = rightTrigger,
             dpad = dpad,
-            touchpadX = tx,
-            touchpadY = ty,
-            touchpadTouch = touchpadTouch,
+            touchpadX = if (hasPhoneTouch) _gamepadState.value.touchpadX else tx,
+            touchpadY = if (hasPhoneTouch) _gamepadState.value.touchpadY else ty,
+            touchpadTouch = if (hasPhoneTouch) _gamepadState.value.touchpadTouch else touchpadTouch,
             touchpadClick = touchpadClick,
-            touches = touches,
+            touches = if (hasPhoneTouch) phoneTouches else touches,
         )
         sendInput()
     }
@@ -463,6 +466,7 @@ class GamepadViewModel @Inject constructor(
     }
 
     fun onButtonDown(bit: Int) {
+        phoneButtons = phoneButtons or bit.toUInt()
         _gamepadState.value = _gamepadState.value.copy(
             buttons = _gamepadState.value.buttons or bit.toUInt()
         )
@@ -471,6 +475,7 @@ class GamepadViewModel @Inject constructor(
     }
 
     fun onButtonUp(bit: Int) {
+        phoneButtons = phoneButtons and (bit.toUInt().inv())
         _gamepadState.value = _gamepadState.value.copy(
             buttons = _gamepadState.value.buttons and (bit.toUInt().inv())
         )
@@ -479,6 +484,9 @@ class GamepadViewModel @Inject constructor(
     }
 
     fun onCustomButtonDown(bits: List<Int>) {
+        var pb = phoneButtons
+        for (bit in bits) { pb = pb or bit.toUInt() }
+        phoneButtons = pb
         var b = _gamepadState.value.buttons
         for (bit in bits) { b = b or bit.toUInt() }
         _gamepadState.value = _gamepadState.value.copy(buttons = b)
@@ -487,6 +495,9 @@ class GamepadViewModel @Inject constructor(
     }
 
     fun onCustomButtonUp(bits: List<Int>) {
+        var pb = phoneButtons
+        for (bit in bits) { pb = pb and (bit.toUInt().inv()) }
+        phoneButtons = pb
         var b = _gamepadState.value.buttons
         for (bit in bits) { b = b and (bit.toUInt().inv()) }
         _gamepadState.value = _gamepadState.value.copy(buttons = b)
@@ -495,6 +506,9 @@ class GamepadViewModel @Inject constructor(
     }
 
     fun onVolumeKeyDown(bits: List<Int>) {
+        var pb = phoneButtons
+        for (bit in bits) { pb = pb or bit.toUInt() }
+        phoneButtons = pb
         var b = _gamepadState.value.buttons
         for (bit in bits) { b = b or bit.toUInt() }
         _gamepadState.value = _gamepadState.value.copy(buttons = b)
@@ -502,6 +516,9 @@ class GamepadViewModel @Inject constructor(
     }
 
     fun onVolumeKeyUp(bits: List<Int>) {
+        var pb = phoneButtons
+        for (bit in bits) { pb = pb and (bit.toUInt().inv()) }
+        phoneButtons = pb
         var b = _gamepadState.value.buttons
         for (bit in bits) { b = b and (bit.toUInt().inv()) }
         _gamepadState.value = _gamepadState.value.copy(buttons = b)
@@ -556,6 +573,7 @@ class GamepadViewModel @Inject constructor(
     }
 
     fun onTouchpadTouches(touches: List<TouchPoint>) {
+        phoneTouches = touches
         val primary = touches.firstOrNull { it.active }
         _gamepadState.value = _gamepadState.value.copy(
             touches = touches,
