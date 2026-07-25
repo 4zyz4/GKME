@@ -11,7 +11,7 @@
         android:id="@+id/presetPreview"
         android:layout_width="match_parent"
         android:layout_height="90dp"
-        android:background="#FF1A1A1A" />
+        android:background="@color/bg_dark" />
 
     <TextView
         android:id="@+id/presetName"

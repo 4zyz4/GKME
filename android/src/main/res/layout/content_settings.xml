@@ -29,8 +29,8 @@
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="#444"
-            android:layout_marginVertical="8dp" />
+                android:background="@color/bg_surface_light"
+                android:layout_marginVertical="8dp" />
 
         <Button
             android:id="@+id/btnCategoryConnection"
@@ -168,7 +168,7 @@
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:background="#444"
+                    android:background="@color/bg_surface_light"
                     android:layout_marginBottom="12dp" />
 
                 <!-- Presets -->
@@ -440,7 +440,7 @@
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:background="#444"
+                    android:background="@color/bg_surface_light"
                     android:layout_marginBottom="16dp" />
 
                 <!-- Broadcast / Server Info -->
@@ -609,7 +609,7 @@
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:background="#444"
+                    android:background="@color/bg_surface_light"
                     android:layout_marginVertical="8dp" />
 
                 <!-- Test Button (circular) -->
@@ -634,7 +634,7 @@
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:background="#444"
+                    android:background="@color/bg_surface_light"
                     android:layout_marginBottom="8dp" />
 
                 <!-- Game Vibration -->
@@ -758,7 +758,7 @@
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:background="#444"
+                    android:background="@color/bg_surface_light"
                     android:layout_marginBottom="12dp" />
 
                 <!-- Gyro Real-time Display -->
@@ -982,7 +982,7 @@
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:background="#444"
+                    android:background="@color/bg_surface_light"
                     android:layout_marginBottom="16dp" />
 
                 <!-- Volume Key Mapping -->
