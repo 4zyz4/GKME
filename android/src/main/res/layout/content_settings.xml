@@ -44,79 +44,86 @@
                 <Button
                     android:id="@+id/btnCategoryConnection"
                     android:layout_width="match_parent"
-                    android:layout_height="44dp"
+                    android:layout_height="48dp"
                     android:gravity="center"
                     android:paddingHorizontal="8dp"
                     android:text="连接"
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp"
-                    android:stateListAnimator="@null" />
+                    android:stateListAnimator="@null"
+                    android:background="@drawable/bg_sidebar_item" />
 
                 <Button
                     android:id="@+id/btnCategoryPhysicalController"
                     android:layout_width="match_parent"
-                    android:layout_height="44dp"
+                    android:layout_height="48dp"
                     android:gravity="center"
                     android:paddingHorizontal="8dp"
                     android:text="物理手柄"
                     android:textColor="@color/text_primary"
                     android:textSize="13sp"
-                    android:stateListAnimator="@null" />
+                    android:stateListAnimator="@null"
+                    android:background="@drawable/bg_sidebar_item" />
 
                 <Button
                     android:id="@+id/btnCategoryPresets"
                     android:layout_width="match_parent"
-                    android:layout_height="44dp"
+                    android:layout_height="48dp"
                     android:gravity="center"
                     android:paddingHorizontal="8dp"
                     android:text="布局"
                     android:textColor="@color/text_primary"
                     android:textSize="13sp"
-                    android:stateListAnimator="@null" />
+                    android:stateListAnimator="@null"
+                    android:background="@drawable/bg_sidebar_item" />
 
                 <Button
                     android:id="@+id/btnCategoryVibration"
                     android:layout_width="match_parent"
-                    android:layout_height="44dp"
+                    android:layout_height="48dp"
                     android:gravity="center"
                     android:paddingHorizontal="8dp"
                     android:text="震动"
                     android:textColor="@color/text_primary"
                     android:textSize="13sp"
-                    android:stateListAnimator="@null" />
+                    android:stateListAnimator="@null"
+                    android:background="@drawable/bg_sidebar_item" />
 
                 <Button
                     android:id="@+id/btnCategoryGyro"
                     android:layout_width="match_parent"
-                    android:layout_height="44dp"
+                    android:layout_height="48dp"
                     android:gravity="center"
                     android:paddingHorizontal="8dp"
                     android:text="体感"
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp"
-                    android:stateListAnimator="@null" />
+                    android:stateListAnimator="@null"
+                    android:background="@drawable/bg_sidebar_item" />
 
                 <Button
                     android:id="@+id/btnCategoryMisc"
                     android:layout_width="match_parent"
-                    android:layout_height="44dp"
+                    android:layout_height="48dp"
                     android:gravity="center"
                     android:paddingHorizontal="8dp"
                     android:text="杂项"
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp"
-                    android:stateListAnimator="@null" />
+                    android:stateListAnimator="@null"
+                    android:background="@drawable/bg_sidebar_item" />
 
                 <Button
                     android:id="@+id/btnCategoryAbout"
                     android:layout_width="match_parent"
-                    android:layout_height="44dp"
+                    android:layout_height="48dp"
                     android:gravity="center"
                     android:paddingHorizontal="8dp"
                     android:text="关于"
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp"
-                    android:stateListAnimator="@null" />
+                    android:stateListAnimator="@null"
+                    android:background="@drawable/bg_sidebar_item" />
 
             </LinearLayout>
         </ScrollView>

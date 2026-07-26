@@ -1286,6 +1286,7 @@ class MainActivity : ComponentActivity() {
             findViewById<View>(id).visibility = if (i == index) View.VISIBLE else View.GONE
         }
         buttons.forEachIndexed { i, id ->
+            findViewById<Button>(id).isSelected = i == index
             findViewById<Button>(id).setTextColor(
                 if (i == index) -0x1 else -0x777778
             )
