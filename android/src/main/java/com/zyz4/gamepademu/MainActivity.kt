@@ -43,6 +43,7 @@ import android.widget.Spinner
 import android.widget.Switch
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
@@ -1278,9 +1279,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun selectSettingsCategory(index: Int) {
-        val pages = listOf(R.id.pageConnection, R.id.pagePhysicalController, R.id.pagePresets, R.id.pageVibration, R.id.pageGyro, R.id.pageMisc, R.id.pageAbout)
+        val pages = listOf(R.id.pageConnection, R.id.pagePresets, R.id.pagePhysicalController, R.id.pageVibration, R.id.pageGyro, R.id.pageMisc, R.id.pageAbout)
         val buttons = listOf(
-            R.id.btnCategoryConnection, R.id.btnCategoryPhysicalController, R.id.btnCategoryPresets, R.id.btnCategoryVibration, R.id.btnCategoryGyro, R.id.btnCategoryMisc, R.id.btnCategoryAbout
+            R.id.btnCategoryConnection, R.id.btnCategoryPresets, R.id.btnCategoryPhysicalController, R.id.btnCategoryVibration, R.id.btnCategoryGyro, R.id.btnCategoryMisc, R.id.btnCategoryAbout
         )
         pages.forEachIndexed { i, id ->
             findViewById<View>(id).visibility = if (i == index) View.VISIBLE else View.GONE
@@ -1307,12 +1308,23 @@ class MainActivity : ComponentActivity() {
 
         // Category switching
         findViewById<Button>(R.id.btnCategoryConnection).setOnClickListener { selectSettingsCategory(0) }
-        findViewById<Button>(R.id.btnCategoryPhysicalController).setOnClickListener { selectSettingsCategory(1) }
-        findViewById<Button>(R.id.btnCategoryPresets).setOnClickListener { selectSettingsCategory(2) }
+        findViewById<Button>(R.id.btnCategoryPresets).setOnClickListener { selectSettingsCategory(1) }
+        findViewById<Button>(R.id.btnCategoryPhysicalController).setOnClickListener { selectSettingsCategory(2) }
         findViewById<Button>(R.id.btnCategoryVibration).setOnClickListener { selectSettingsCategory(3) }
         findViewById<Button>(R.id.btnCategoryGyro).setOnClickListener { selectSettingsCategory(4) }
         findViewById<Button>(R.id.btnCategoryMisc).setOnClickListener { selectSettingsCategory(5) }
         findViewById<Button>(R.id.btnCategoryAbout).setOnClickListener { selectSettingsCategory(6) }
+
+        // Sidebar scrollbar: only show when "关于" is less than 50% visible
+        findViewById<ScrollView>(R.id.scrollSidebar).apply {
+            viewTreeObserver.addOnGlobalLayoutListener {
+                val aboutBtn = findViewById<View>(R.id.btnCategoryAbout)
+                val visibleTop = maxOf(0, aboutBtn.top - scrollY)
+                val visibleBottom = minOf(height, aboutBtn.bottom - scrollY)
+                val visibleRatio = maxOf(0, visibleBottom - visibleTop).toFloat() / aboutBtn.height
+                isVerticalScrollBarEnabled = visibleRatio < 0.5f
+            }
+        }
 
         // ── Presets page ──
         findViewById<Switch>(R.id.switchEditMode).setOnCheckedChangeListener { _, isChecked ->

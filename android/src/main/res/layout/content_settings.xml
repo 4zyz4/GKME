@@ -33,8 +33,13 @@
             android:layout_marginVertical="8dp" />
 
         <ScrollView
+            android:id="@+id/scrollSidebar"
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="match_parent"
+            android:scrollbars="vertical"
+            android:fadeScrollbars="false"
+            android:scrollbarThumbVertical="@drawable/scrollbar_sidebar"
+            android:scrollbarTrackVertical="@android:color/transparent">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -54,24 +59,24 @@
                     android:background="@drawable/bg_sidebar_item" />
 
                 <Button
-                    android:id="@+id/btnCategoryPhysicalController"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:gravity="center"
-                    android:paddingHorizontal="8dp"
-                    android:text="物理手柄"
-                    android:textColor="@color/text_primary"
-                    android:textSize="13sp"
-                    android:stateListAnimator="@null"
-                    android:background="@drawable/bg_sidebar_item" />
-
-                <Button
                     android:id="@+id/btnCategoryPresets"
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
                     android:gravity="center"
                     android:paddingHorizontal="8dp"
                     android:text="布局"
+                    android:textColor="@color/text_primary"
+                    android:textSize="13sp"
+                    android:stateListAnimator="@null"
+                    android:background="@drawable/bg_sidebar_item" />
+
+                <Button
+                    android:id="@+id/btnCategoryPhysicalController"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:gravity="center"
+                    android:paddingHorizontal="8dp"
+                    android:text="物理手柄"
                     android:textColor="@color/text_primary"
                     android:textSize="13sp"
                     android:stateListAnimator="@null"
