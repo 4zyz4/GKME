@@ -20,6 +20,8 @@ import android.view.MotionEvent
 import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsets
+import android.view.WindowInsetsController
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.ImageButton
@@ -123,6 +125,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         enableEdgeToEdge()
+        hideSystemBars()
         gamepadLayout = findViewById(R.id.gamepadLayout)
         physicalControllerHandler = PhysicalControllerHandler(this)
         setupMediaSession()
@@ -137,6 +140,22 @@ class MainActivity : ComponentActivity() {
         physicalControllerHandler.start()
     }
 
+    @SuppressLint("ObsoleteSdkInt")
+    private fun hideSystemBars() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.insetsController?.hide(WindowInsets.Type.navigationBars())
+            window.insetsController?.systemBarsBehavior =
+                WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        } else {
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = (
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            )
+        }
+    }
+
     override fun onDestroy() {
         physicalControllerHandler.stop()
         mediaSession?.release()
@@ -148,10 +167,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus && pointerCaptureNeeded) {
-            Handler(Looper.getMainLooper()).postDelayed({
-                gamepadLayout.setTouchpadCaptureMode(true)
-            }, 500)
+        if (hasFocus) {
+            hideSystemBars()
+            if (pointerCaptureNeeded) {
+                Handler(Looper.getMainLooper()).postDelayed({
+                    gamepadLayout.setTouchpadCaptureMode(true)
+                }, 500)
+            }
         }
     }
 
