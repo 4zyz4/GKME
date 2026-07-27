@@ -599,7 +599,7 @@ internal fun MainActivity.setupAboutPage() {
     val packageInfo = a.packageManager.getPackageInfo(a.packageName, 0)
     a.findViewById<TextView>(R.id.tvAppName).text = "Gamepad Emu"
     a.findViewById<TextView>(R.id.tvAppVersion).text = "版本 ${packageInfo.versionName}"
-    a.findViewById<TextView>(R.id.tvAppDescription).text = "作者：4zyz4\n\n" +
+    a.findViewById<TextView>(R.id.tvAppDescription).text = "作者：4zyz4  软件Q群：639317971\n\n" +
             "开源地址：https://github.com/4zyz4/gamepad-emu-android\n" +
             "注意：本软件不是Emotion，请进入Q群1045923515以下载正版Emotion"
 
