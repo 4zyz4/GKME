@@ -16,6 +16,10 @@ data class ButtonPosition(
     val roundShape: Boolean = true,
     val doubleClickEnable: Boolean = true,
     val followFinger: Boolean = false,
+    val leftHalfTrigger: Boolean = false,
+    val rightHalfTrigger: Boolean = false,
+    val sensitivityCurve: List<Float>? = null,
+    val deadZone: Int = 0,
 ) {
     fun sanitize(): ButtonPosition = if (isCustom) {
         copy(customText = customText ?: "自定义", customBits = customBits ?: emptyList(), id = id ?: "")

@@ -370,6 +370,78 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 }
             }
             buttonParamsInner.addView(cb, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+
+            val cbLeft = CheckBox(context).apply {
+                text = "左半屏触发"
+                setTextColor(-0x444445)
+                textSize = 14f
+                isChecked = button.leftHalfTrigger
+                setOnCheckedChangeListener { _, isChecked ->
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(leftHalfTrigger = isChecked)) }
+                }
+            }
+            buttonParamsInner.addView(cbLeft, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt() })
+
+            val cbRight = CheckBox(context).apply {
+                text = "右半屏触发"
+                setTextColor(-0x444445)
+                textSize = 14f
+                isChecked = button.rightHalfTrigger
+                setOnCheckedChangeListener { _, isChecked ->
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(rightHalfTrigger = isChecked)) }
+                }
+            }
+            buttonParamsInner.addView(cbRight, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt() })
+
+            addSeekbar(buttonParamsInner, "死区(%)", button.deadZone, 0, 100) { value ->
+                currentButton = currentButton?.copy(deadZone = value)
+                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+            }
+
+            val tvCurve = TextView(context).apply {
+                text = "灵敏度曲线"
+                setTextColor(-0x444445)
+                textSize = 13f
+            }
+            buttonParamsInner.addView(tvCurve, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (10f * density).toInt(); bottomMargin = (4f * density).toInt() })
+
+            val curveH = (200f * density).toInt()
+            val curveView = CurveEditorView(context).apply {
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, curveH)
+                setFromFlatList(button.sensitivityCurve)
+                onPointsChanged = { newList ->
+                    currentButton?.let {
+                        editorListener?.onButtonUpdated(buttonId, it.copy(sensitivityCurve = newList))
+                    }
+                }
+            }
+            buttonParamsInner.addView(curveView)
+
+            val curveBtnRow = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            }
+            val btnDeletePoint = Button(context).apply {
+                text = "删除选中点"
+                setTextColor(-0x1)
+                textSize = 12f
+                setBackgroundResource(R.drawable.button_flat)
+                setOnClickListener { curveView.deleteSelected() }
+            }
+            val btnResetCurve = Button(context).apply {
+                text = "重置为直线"
+                setTextColor(-0x1)
+                textSize = 12f
+                setBackgroundResource(R.drawable.button_flat)
+                setOnClickListener {
+                    currentButton = currentButton?.copy(sensitivityCurve = null)
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                    curveView.setFromFlatList(null)
+                }
+            }
+            curveBtnRow.addView(btnDeletePoint, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = (4f * density).toInt() })
+            curveBtnRow.addView(btnResetCurve, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            buttonParamsInner.addView(curveBtnRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
         }
 
         if (isButton(buttonId)) {

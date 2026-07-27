@@ -13,6 +13,7 @@ data class LayoutPreset(
     companion object {
         private val gson = Gson()
         private val DOUBLE_CLICK_IDS = setOf("leftJoystick", "rightJoystick", "touchpad")
+        private val JOYSTICK_IDS = setOf("leftJoystick", "rightJoystick")
 
         fun fromJson(json: String): LayoutPreset {
             val type = object : TypeToken<LayoutPreset>() {}.type
@@ -34,14 +35,48 @@ data class LayoutPreset(
                 false
             }
 
+            val hasHalfTriggerField = try {
+                val obj = JsonParser.parseString(json).asJsonObject
+                val arr = obj.getAsJsonArray("buttons")
+                arr != null && arr.any { it.asJsonObject.has("leftHalfTrigger") }
+            } catch (_: Exception) {
+                false
+            }
+
+            val hasCurveField = try {
+                val obj = JsonParser.parseString(json).asJsonObject
+                val arr = obj.getAsJsonArray("buttons")
+                arr != null && arr.any { it.asJsonObject.has("sensitivityCurve") }
+            } catch (_: Exception) {
+                false
+            }
+
+            val hasDeadZoneField = try {
+                val obj = JsonParser.parseString(json).asJsonObject
+                val arr = obj.getAsJsonArray("buttons")
+                arr != null && arr.any { it.asJsonObject.has("deadZone") }
+            } catch (_: Exception) {
+                false
+            }
+
             return preset.copy(
                 buttons = (preset.buttons ?: emptyList()).map { b ->
                     var sanitized = b.sanitize()
+                    val baseId = b.id.substringBefore("_")
                     if (!hasDoubleClickField) {
-                        sanitized = sanitized.copy(doubleClickEnable = b.id.substringBefore("_") in DOUBLE_CLICK_IDS)
+                        sanitized = sanitized.copy(doubleClickEnable = baseId in DOUBLE_CLICK_IDS)
                     }
                     if (!hasFollowFingerField) {
                         sanitized = sanitized.copy(followFinger = false)
+                    }
+                    if (!hasHalfTriggerField && baseId in JOYSTICK_IDS) {
+                        sanitized = sanitized.copy(leftHalfTrigger = false, rightHalfTrigger = false)
+                    }
+                    if (!hasCurveField && baseId in JOYSTICK_IDS) {
+                        sanitized = sanitized.copy(sensitivityCurve = null)
+                    }
+                    if (!hasDeadZoneField && baseId in JOYSTICK_IDS) {
+                        sanitized = sanitized.copy(deadZone = 0)
                     }
                     sanitized
                 }
@@ -74,6 +109,14 @@ data class LayoutPreset(
             if (baseId in DOUBLE_CLICK_IDS) {
                 m["doubleClickEnable"] = b.doubleClickEnable
                 m["followFinger"] = b.followFinger
+            }
+            if (baseId in JOYSTICK_IDS) {
+                m["leftHalfTrigger"] = b.leftHalfTrigger
+                m["rightHalfTrigger"] = b.rightHalfTrigger
+                m["deadZone"] = b.deadZone
+                if (b.sensitivityCurve != null && b.sensitivityCurve!!.isNotEmpty()) {
+                    m["sensitivityCurve"] = b.sensitivityCurve
+                }
             }
             list.add(m)
         }

@@ -273,6 +273,7 @@ class GamepadLayout @JvmOverloads constructor(
                             dispatchToChild(child, event, MotionEvent.ACTION_UP, 0)
                         }
                     }
+                    resetForceFollowFinger()
                     touchTargets.clear()
                     return true
                 }
@@ -292,6 +293,7 @@ class GamepadLayout @JvmOverloads constructor(
                             ev.recycle()
                         }
                     }
+                    resetForceFollowFinger()
                     touchTargets.clear()
                     return true
                 }
@@ -315,6 +317,10 @@ class GamepadLayout @JvmOverloads constructor(
                 val y = event.y
                 val pid = event.getPointerId(0)
                 val children = findAllChildrenAt(x, y)
+                val nonJoystickChildren = children.filter { it !is JoystickView }
+                if (nonJoystickChildren.isEmpty()) {
+                    if (tryHalfScreenTrigger(x, pid, event, 0)) return true
+                }
                 val regularChildren = children.filter { getButtonId(it) !in swipeTriggerIds }
                 if (regularChildren.isNotEmpty()) {
                     touchTargets[pid] = regularChildren.toMutableList()
@@ -331,6 +337,10 @@ class GamepadLayout @JvmOverloads constructor(
                 val x = event.getX(idx)
                 val y = event.getY(idx)
                 val children = findAllChildrenAt(x, y)
+                val nonJoystickChildren = children.filter { it !is JoystickView }
+                if (nonJoystickChildren.isEmpty()) {
+                    if (tryHalfScreenTrigger(x, pid, event, idx)) return true
+                }
                 val regularChildren = children.filter { getButtonId(it) !in swipeTriggerIds }
                 if (regularChildren.isNotEmpty()) {
                     touchTargets[pid] = regularChildren.toMutableList()
@@ -362,6 +372,7 @@ class GamepadLayout @JvmOverloads constructor(
                 if (children != null) {
                     for (child in children) {
                         dispatchToChild(child, event, MotionEvent.ACTION_UP, idx)
+                        if (child is JoystickView) child.forceFollowFinger = false
                     }
                 }
                 // Re-evaluate swipe buttons excluding the lifted pointer
@@ -380,6 +391,7 @@ class GamepadLayout @JvmOverloads constructor(
                     }
                 }
                 touchTargets.clear()
+                resetForceFollowFinger()
                 // Release all active swipe buttons
                 for ((_, child) in activeSwipeButtons) {
                     val ev = MotionEvent.obtain(
@@ -461,7 +473,13 @@ class GamepadLayout @JvmOverloads constructor(
         val x = event.getX(idx)
         val y = event.getY(idx)
         val children = findAllChildrenAt(x, y)
-        if (children.isEmpty()) return
+        val nonJoystickChildren = children.filter { it !is JoystickView }
+
+        if (nonJoystickChildren.isEmpty()) {
+            if (tryHalfScreenTrigger(x, pid, event, idx)) return
+            if (children.isEmpty()) return
+        }
+
         val tp = children.firstOrNull { getButtonId(it) == "touchpad" }
         if (tp != null) {
             touchpadTarget = tp
@@ -481,6 +499,7 @@ class GamepadLayout @JvmOverloads constructor(
         if (children != null) {
             for (child in children) {
                 dispatchToChild(child, event, MotionEvent.ACTION_UP, idx)
+                if (child is JoystickView) child.forceFollowFinger = false
             }
         }
         touchpadPointerIds.remove(pid)
@@ -585,6 +604,7 @@ class GamepadLayout @JvmOverloads constructor(
     fun exitEditMode() {
         isEditMode = false
         selectedButtonId = null
+        syncJoystickSelection()
         draggingChild = null
         resizingChild = null
         editSnapshot = null
@@ -638,7 +658,10 @@ class GamepadLayout @JvmOverloads constructor(
                 break
             }
         }
-        if (selectedButtonId == id) selectedButtonId = null
+        if (selectedButtonId == id) {
+            selectedButtonId = null
+            syncJoystickSelection()
+        }
         hasChanges = true
         refreshSwipeTriggers()
         requestLayout()
@@ -647,8 +670,22 @@ class GamepadLayout @JvmOverloads constructor(
     fun setSelectedButton(id: String?) {
         if (selectedButtonId != id) {
             selectedButtonId = id
+            syncJoystickSelection()
             listener?.onButtonSelected(id)
             invalidate()
+        }
+    }
+
+    private fun syncJoystickSelection() {
+        for (i in 0 until childCount) {
+            val child = getChildAt(i)
+            if (child is JoystickView) {
+                val newVal = child.showDeadZoneIndicator && getButtonId(child) == selectedButtonId
+                if (child.isSelectedInEditor != newVal) {
+                    child.isSelectedInEditor = newVal
+                    child.invalidate()
+                }
+            }
         }
     }
 
@@ -658,21 +695,48 @@ class GamepadLayout @JvmOverloads constructor(
         if (child != null) {
             val cid = getButtonId(child)
             if (cid != null) {
-                selectedButtonId = cid
-                listener?.onButtonSelected(cid)
-                invalidate()
+                setSelectedButton(cid)
             }
         } else {
-            if (selectedButtonId != null) {
-                selectedButtonId = null
-                listener?.onButtonSelected(null)
-                invalidate()
-            }
+            setSelectedButton(null)
         }
     }
 
     private fun refreshSwipeTriggers() {
         swipeTriggerIds = currentButtons.filter { it.swipeTrigger }.map { it.id }.toSet()
+    }
+
+    /** Activate half-screen trigger for a joystick at the given screen x-coordinate.
+     *  Returns true if a matching joystick was found and dispatched. */
+    private fun tryHalfScreenTrigger(x: Float, pid: Int, event: MotionEvent, idx: Int): Boolean {
+        val screenW = width.toFloat()
+        val halfX = x
+        for (i in 0 until childCount) {
+            val child = getChildAt(i)
+            if (child.visibility != View.VISIBLE) continue
+            val cid = getButtonId(child) ?: continue
+            val pos = currentButtons.find { it.id == cid } ?: continue
+            if (child is JoystickView) {
+                val triggerOnLeft = pos.leftHalfTrigger && halfX < screenW / 2f
+                val triggerOnRight = pos.rightHalfTrigger && halfX >= screenW / 2f
+                if (triggerOnLeft || triggerOnRight) {
+                    child.forceFollowFinger = true
+                    touchTargets[pid] = mutableListOf(child)
+                    dispatchToChild(child, event, MotionEvent.ACTION_DOWN, idx)
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    private fun resetForceFollowFinger() {
+        for (i in 0 until childCount) {
+            val child = getChildAt(i)
+            if (child is JoystickView) {
+                child.forceFollowFinger = false
+            }
+        }
     }
 
     private fun getButtonId(child: View): String? {
@@ -721,6 +785,11 @@ class GamepadLayout @JvmOverloads constructor(
                 child.axisRotation = pos.rotation
                 child.doubleClickEnable = pos.doubleClickEnable
                 child.followFinger = pos.followFinger
+                child.sensitivityCurve = pos.sensitivityCurve
+                child.deadZone = pos.deadZone
+                child.forceFollowFinger = false
+                child.showDeadZoneIndicator = isEditMode
+                child.isSelectedInEditor = id == selectedButtonId
             } else if (child is ViewGroup) {
                 for (j in 0 until child.childCount) {
                     child.getChildAt(j).rotation = pos.rotation.toFloat()
@@ -804,9 +873,7 @@ class GamepadLayout @JvmOverloads constructor(
                     dragOffsetY = event.y - draggingChild!!.top
                     val cid = getButtonId(draggingChild!!)
                     if (cid != null) {
-                        selectedButtonId = cid
-                        listener?.onButtonSelected(cid)
-                        invalidate()
+                        setSelectedButton(cid)
                     }
                 } else {
                     selectChildAt(event.x, event.y)

@@ -26,6 +26,11 @@ class JoystickView @JvmOverloads constructor(
     var onStickReleased: (() -> Unit)? = null
     var doubleClickEnable: Boolean = true
     var followFinger: Boolean = false
+    var forceFollowFinger: Boolean = false
+    var sensitivityCurve: List<Float>? = null
+    var deadZone: Int = 0
+    var showDeadZoneIndicator: Boolean = false
+    var isSelectedInEditor: Boolean = false
 
     private var centerX = 0f
     private var centerY = 0f
@@ -46,6 +51,11 @@ class JoystickView @JvmOverloads constructor(
     }
     private val baseStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = -0xaaaaab
+        style = Paint.Style.STROKE
+        strokeWidth = 2f
+    }
+    private val deadZonePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = -0x330000ff
         style = Paint.Style.STROKE
         strokeWidth = 2f
     }
@@ -93,6 +103,10 @@ class JoystickView @JvmOverloads constructor(
         canvas.drawCircle(effectiveCenterX, effectiveCenterY, baseRadius, baseStrokePaint)
         canvas.drawCircle(knobX, knobY, knobRadius, knobPaint)
         canvas.drawCircle(knobX, knobY, knobRadius, knobStrokePaint)
+        if (deadZone > 0 && showDeadZoneIndicator && isSelectedInEditor) {
+            val dzRadius = baseRadius * (deadZone / 100f)
+            canvas.drawCircle(effectiveCenterX, effectiveCenterY, dzRadius, deadZonePaint)
+        }
         if (label.isNotEmpty()) {
             if (labelPaint.textSize == 0f)
                 labelPaint.textSize = knobRadius * 1.1f
@@ -123,7 +137,7 @@ class JoystickView @JvmOverloads constructor(
                     }
                 }
                 isTouching = true
-                if (followFinger) {
+                if (forceFollowFinger || followFinger) {
                     effectiveCenterX = event.x
                     effectiveCenterY = event.y
                 }
@@ -147,7 +161,7 @@ class JoystickView @JvmOverloads constructor(
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 isTouching = false
                 isClicking = false
-                if (followFinger) {
+                if (forceFollowFinger || followFinger) {
                     effectiveCenterX = centerX
                     effectiveCenterY = centerY
                 }
@@ -173,7 +187,6 @@ class JoystickView @JvmOverloads constructor(
         val maxD = baseRadius - knobRadius
         val dist = sqrt(dx * dx + dy * dy)
 
-        // Transform to canvas (rotated) space for visual knob position
         val r = axisRotation * Math.PI / 180.0
         val cosR = Math.cos(-r).toFloat()
         val sinR = Math.sin(-r).toFloat()
@@ -181,13 +194,20 @@ class JoystickView @JvmOverloads constructor(
         val cdy = dx * sinR + dy * cosR
 
         val clampedDist = if (dist > maxD) maxD else dist
-        val scale = if (dist > 0f) clampedDist / dist else 0f
+        val normalized = if (maxD > 0f) clampedDist / maxD else 0f
+        val dz = (deadZone / 100f).coerceIn(0f, 0.99f)
+        val afterDeadZone = if (normalized <= dz) 0f else (normalized - dz) / (1f - dz)
+        val afterCurve = evaluateCurve(afterDeadZone)
+        val finalDist = afterCurve * maxD
+
+        val scale = if (dist > 0f) finalDist / dist else 0f
         knobX = effectiveCenterX + cdx * scale
         knobY = effectiveCenterY + cdy * scale
         invalidate()
 
-        var sx = if (maxD > 0f) ((dx * scale / maxD * 32767).toInt()).toShort() else 0
-        var sy = if (maxD > 0f) ((dy * scale / maxD * 32767).toInt()).toShort() else 0
+        val dirScale = if (dist > 0f) afterCurve / dist else 0f
+        var sx = if (maxD > 0f) ((dx * dirScale * 32767).toInt()).toShort() else 0
+        var sy = if (maxD > 0f) ((dy * dirScale * 32767).toInt()).toShort() else 0
 
         when (axisRotation % 360) {
             90 -> { val tmp = sx; sx = sy; sy = (-tmp).toShort() }
@@ -195,5 +215,45 @@ class JoystickView @JvmOverloads constructor(
             270 -> { val tmp = sx; sx = (-sy).toShort(); sy = tmp }
         }
         onStickMoved?.invoke(sx, sy)
+    }
+
+    private fun evaluateCurve(t: Float): Float {
+        if (sensitivityCurve == null || sensitivityCurve!!.size < 2) return t
+        val pts = mutableListOf<Pair<Float, Float>>()
+        for (i in sensitivityCurve!!.indices step 2) {
+            if (i + 1 < sensitivityCurve!!.size) {
+                pts.add(Pair(sensitivityCurve!![i], sensitivityCurve!![i + 1]))
+            }
+        }
+        if (pts.isEmpty()) return t
+        val sorted = pts.sortedBy { it.first }
+
+        val inVal = t.coerceIn(0f, 1f)
+        if (inVal <= sorted.first().first) {
+            if (sorted.first().first > 0f) return sorted.first().second * inVal / sorted.first().first
+            return sorted.first().second
+        }
+        if (inVal >= sorted.last().first) {
+            if (sorted.last().first < 1f) return sorted.last().second + (1f - sorted.last().second) * (inVal - sorted.last().first) / (1f - sorted.last().first)
+            return sorted.last().second
+        }
+
+        for (i in 0 until sorted.size - 1) {
+            val p0 = sorted[i]
+            val p1 = sorted[i + 1]
+            if (inVal >= p0.first && inVal < p1.first) {
+                val localT = (inVal - p0.first) / (p1.first - p0.first)
+                val pm1 = if (i > 0) sorted[i - 1] else Pair(-(p1.first - p0.first), -(p1.second - p0.second))
+                val p2 = if (i < sorted.size - 2) sorted[i + 2] else Pair(p1.first + (p1.first - p0.first), p1.second + (p1.second - p0.second))
+                return catmullRom(pm1.second, p0.second, p1.second, p2.second, localT)
+            }
+        }
+        return inVal
+    }
+
+    private fun catmullRom(p0: Float, p1: Float, p2: Float, p3: Float, t: Float): Float {
+        val t2 = t * t
+        val t3 = t2 * t
+        return 0.5f * ((2f * p1) + (-p0 + p2) * t + (2f * p0 - 5f * p1 + 4f * p2 - p3) * t2 + (-p0 + 3f * p1 - 3f * p2 + p3) * t3)
     }
 }
