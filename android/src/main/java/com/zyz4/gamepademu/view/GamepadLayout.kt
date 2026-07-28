@@ -36,7 +36,7 @@ class GamepadLayout @JvmOverloads constructor(
     }
 
     private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = -0x55000001
+        color = android.graphics.Color.rgb(120, 120, 120)
         strokeWidth = 1f
     }
 
@@ -861,7 +861,14 @@ class GamepadLayout @JvmOverloads constructor(
                 MeasureSpec.makeMeasureSpec(childH, MeasureSpec.EXACTLY),
             )
             child.layout(left, top, left + childW, top + childH)
-            child.alpha = 1f - (pos.idleTransparency.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
+            if (isEditMode && previewTransparency && id == previewButtonId) {
+                val transVal = if (previewIdleTransparency) pos.idleTransparency else pos.activeTransparency
+                child.alpha = 1f - (transVal.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
+            } else if (isEditMode) {
+                child.alpha = 1f
+            } else {
+                child.alpha = 1f - (pos.idleTransparency.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
+            }
             if (child is JoystickView) {
                 child.axisRotation = pos.rotation
                 child.doubleClickEnable = pos.doubleClickEnable
@@ -908,6 +915,7 @@ class GamepadLayout @JvmOverloads constructor(
 
         if (!isEditMode) return
 
+        gridPaint.alpha = (gridAlpha * 255).toInt().coerceIn(0, 255)
         val rows = (height / cellH).toInt() + 1
         for (col in 0..GRID_COLS) {
             val x = col * cellW
@@ -972,6 +980,7 @@ class GamepadLayout @JvmOverloads constructor(
                         followAreaStartH = selPos.followAreaH
                         resizeStartGridX = (event.x / cellW).toInt()
                         resizeStartGridY = (event.y / cellH).toInt()
+                        animateGridTo(1f)
                         return true
                     }
                     // Check if tapping within follow area (drag)
@@ -981,6 +990,7 @@ class GamepadLayout @JvmOverloads constructor(
                         followAreaStartY = selPos.followAreaY
                         followAreaDragStartX = (event.x / cellW).toInt()
                         followAreaDragStartY = (event.y / cellH).toInt()
+                        animateGridTo(1f)
                         return true
                     }
                     // Tapping outside follow area does nothing during adjustment
@@ -996,6 +1006,7 @@ class GamepadLayout @JvmOverloads constructor(
                     resizeStartH = pos.height
                     resizeStartGridX = (event.x / cellW).toInt()
                     resizeStartGridY = (event.y / cellH).toInt()
+                    animateGridTo(1f)
                     return true
                 }
 
@@ -1007,6 +1018,7 @@ class GamepadLayout @JvmOverloads constructor(
                     if (cid != null) {
                         setSelectedButton(cid)
                     }
+                    animateGridTo(1f)
                 } else {
                     selectChildAt(event.x, event.y)
                 }
@@ -1119,6 +1131,7 @@ class GamepadLayout @JvmOverloads constructor(
                     }
                     resizingFollowArea = false
                     draggingFollowArea = false
+                    animateGridTo(0f)
                     return true
                 }
                 if (resizingChild != null) {
@@ -1138,6 +1151,7 @@ class GamepadLayout @JvmOverloads constructor(
                     }
                     draggingChild = null
                 }
+                animateGridTo(0f)
                 return true
             }
         }

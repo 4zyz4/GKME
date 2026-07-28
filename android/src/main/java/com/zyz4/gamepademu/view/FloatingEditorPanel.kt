@@ -38,6 +38,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         fun onGyroOrientationChanged(orientation: GyroOrientation?)
         fun onEnterFollowAreaAdjust(buttonId: String)
         fun onExitFollowAreaAdjust()
+        fun onTransparencyPreviewStart(buttonId: String, isIdle: Boolean)
+        fun onTransparencyPreviewEnd(buttonId: String)
     }
 
     var editorListener: EditorListener? = null
@@ -129,7 +131,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         panelX = screenW - panelW - (12f * density)
         panelY = ((screenH - panelH) / 2f).coerceAtLeast(12f * density)
 
-        setPadding(0, 0, 0, 0)
+        setPadding((4f * density).toInt(), (4f * density).toInt(), (4f * density).toInt(), (4f * density).toInt())
         background = GradientDrawable().apply {
             setColor(-0x33E5E5E6)
             setStroke(Math.round(1f * density), -0x666667)
@@ -341,19 +343,23 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
         if (isAdjustingFollowArea) {
             // Only show follow area dimensions + follow area transparency + return button
-            addSeekbar(buttonParamsInner, "区域宽度", button.followAreaW, 1, 40) { value ->
+            addSeekbar(buttonParamsInner, "区域宽度", button.followAreaW, 1, 40, onChange = { value ->
                 currentButton = currentButton?.copy(followAreaW = value)
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
-            }
-            addSeekbar(buttonParamsInner, "区域高度", button.followAreaH, 1, 40) { value ->
+            })
+            addSeekbar(buttonParamsInner, "区域高度", button.followAreaH, 1, 40, onChange = { value ->
                 currentButton = currentButton?.copy(followAreaH = value)
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
-            }
-            addSeekbar(buttonParamsInner, "矩形区域透明度(%)", (button.followAreaTransparency * 100 / 255).coerceIn(0, 100), 0, 100) { value ->
-                val transVal = (value * 255 / 100).coerceIn(0, 255)
-                currentButton = currentButton?.copy(followAreaTransparency = transVal)
-                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
-            }
+            })
+            addSeekbar(buttonParamsInner, "矩形区域透明度(%)", (button.followAreaTransparency * 100 / 255).coerceIn(0, 100), 0, 100,
+                onChange = { value ->
+                    val transVal = (value * 255 / 100).coerceIn(0, 255)
+                    currentButton = currentButton?.copy(followAreaTransparency = transVal)
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                },
+                onStartTracking = { editorListener?.onTransparencyPreviewStart(buttonId, true) },
+                onStopTracking = { editorListener?.onTransparencyPreviewEnd(buttonId) }
+            )
             val btnReturn = Button(context).apply {
                 text = "返回摇杆调节"
                 setTextColor(-0x1)
@@ -367,43 +373,51 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
 
         if (button.lockAspect) {
-            addSeekbar(buttonParamsInner, "大小", button.width, 1, 40) { value ->
+            addSeekbar(buttonParamsInner, "大小", button.width, 1, 40, onChange = { value ->
                 currentButton = currentButton?.copy(width = value, height = value)
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
-            }
+            })
         } else {
             val isSwapped = button.rotation == 90 || button.rotation == 270
-            addSeekbar(buttonParamsInner, "宽度", if (isSwapped) button.height else button.width, 1, 40) { value ->
+            addSeekbar(buttonParamsInner, "宽度", if (isSwapped) button.height else button.width, 1, 40, onChange = { value ->
                 if (isSwapped) {
                     currentButton = currentButton?.copy(height = value)
                 } else {
                     currentButton = currentButton?.copy(width = value)
                 }
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
-            }
-            addSeekbar(buttonParamsInner, "高度", if (isSwapped) button.width else button.height, 1, 40) { value ->
+            })
+            addSeekbar(buttonParamsInner, "高度", if (isSwapped) button.width else button.height, 1, 40, onChange = { value ->
                 if (isSwapped) {
                     currentButton = currentButton?.copy(width = value)
                 } else {
                     currentButton = currentButton?.copy(height = value)
                 }
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
-            }
+            })
         }
 
         addRotationButtons(buttonParamsInner, buttonId, density)
 
         // ── Transparency for all controls (0=opaque, 100=invisible) ──
-        addSeekbar(buttonParamsInner, "空闲时透明度(%)", (button.idleTransparency * 100 / 255).coerceIn(0, 100), 0, 100) { value ->
-            val transVal = (value * 255 / 100).coerceIn(0, 255)
-            currentButton = currentButton?.copy(idleTransparency = transVal)
-            currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
-        }
-        addSeekbar(buttonParamsInner, "操作时透明度(%)", (button.activeTransparency * 100 / 255).coerceIn(0, 100), 0, 100) { value ->
-            val transVal = (value * 255 / 100).coerceIn(0, 255)
-            currentButton = currentButton?.copy(activeTransparency = transVal)
-            currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
-        }
+        addSeekbar(buttonParamsInner, "空闲时透明度(%)", (button.idleTransparency * 100 / 255).coerceIn(0, 100), 0, 100,
+            onChange = { value ->
+                val transVal = (value * 255 / 100).coerceIn(0, 255)
+                currentButton = currentButton?.copy(idleTransparency = transVal)
+                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+            },
+            onStartTracking = { editorListener?.onTransparencyPreviewStart(buttonId, true) },
+            onStopTracking = { editorListener?.onTransparencyPreviewEnd(buttonId) }
+        )
+        addSeekbar(buttonParamsInner, "操作时透明度(%)", (button.activeTransparency * 100 / 255).coerceIn(0, 100), 0, 100,
+            onChange = { value ->
+                val transVal = (value * 255 / 100).coerceIn(0, 255)
+                currentButton = currentButton?.copy(activeTransparency = transVal)
+                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+            },
+            onStartTracking = { editorListener?.onTransparencyPreviewStart(buttonId, false) },
+            onStopTracking = { editorListener?.onTransparencyPreviewEnd(buttonId) }
+        )
 
         val joystickOrTouchpadIds = setOf("leftJoystick", "rightJoystick", "touchpad")
         val joystickIds = setOf("leftJoystick", "rightJoystick")
@@ -467,10 +481,10 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 buttonParamsInner.addView(btnRow)
             }
 
-            addSeekbar(buttonParamsInner, "死区(%)", button.deadZone, 0, 100) { value ->
+            addSeekbar(buttonParamsInner, "死区(%)", button.deadZone, 0, 100, onChange = { value ->
                 currentButton = currentButton?.copy(deadZone = value)
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
-            }
+            })
 
             val tvCurve = TextView(context).apply {
                 text = "灵敏度曲线"
@@ -757,7 +771,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
     }
 
-    private fun addSeekbar(container: LinearLayout, label: String, value: Int, min: Int, max: Int, onChange: (Int) -> Unit) {
+    private fun addSeekbar(container: LinearLayout, label: String, value: Int, min: Int, max: Int, onChange: (Int) -> Unit, onStartTracking: (() -> Unit)? = null, onStopTracking: (() -> Unit)? = null) {
         val density = context.resources.displayMetrics.density
         val btnSize = (32f * density).toInt()
         var currentValue = value.coerceIn(min, max)
@@ -873,8 +887,12 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                         onChange(newVal)
                     }
                 }
-                override fun onStartTrackingTouch(sb: SeekBar) {}
-                override fun onStopTrackingTouch(sb: SeekBar) {}
+                override fun onStartTrackingTouch(sb: SeekBar) {
+                    onStartTracking?.invoke()
+                }
+                override fun onStopTrackingTouch(sb: SeekBar) {
+                    onStopTracking?.invoke()
+                }
             })
         }
 

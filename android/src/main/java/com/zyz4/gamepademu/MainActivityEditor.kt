@@ -103,6 +103,14 @@ internal fun MainActivity.setupFloatingEditor() {
                     a.floatingEditor.showParameters(a.gamepadLayout.selectedButtonId!!, pos)
                 }
             }
+
+            override fun onTransparencyPreviewStart(buttonId: String, isIdle: Boolean) {
+                a.gamepadLayout.setTransparencyPreview(buttonId, isIdle, true)
+            }
+
+            override fun onTransparencyPreviewEnd(buttonId: String) {
+                a.gamepadLayout.setTransparencyPreview(buttonId, true, false)
+            }
         }
     }
     (a.findViewById<View>(android.R.id.content) as ViewGroup).addView(
