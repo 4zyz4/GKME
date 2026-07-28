@@ -60,6 +60,13 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
     private var currentButton: ButtonPosition? = null
     var isAdjustingFollowArea: Boolean = false
+        set(value) {
+            field = value
+            val vis = if (value) View.GONE else View.VISIBLE
+            actionBtnRow?.visibility = vis
+            gyroSpinnerRow?.visibility = vis
+            separatorLine?.visibility = vis
+        }
     private var panelX = 0f
     private var panelY = 0f
     private var dragStartX = 0f
@@ -68,6 +75,9 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
     private lateinit var paramsContainer: LinearLayout
     private lateinit var buttonParamsInner: LinearLayout
+    private var actionBtnRow: LinearLayout? = null
+    private var gyroSpinnerRow: View? = null
+    private var separatorLine: View? = null
     private var contentW = 0
     private var panelW = 0
 
@@ -173,6 +183,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             orientation = LinearLayout.HORIZONTAL
         }
+        actionBtnRow = btnRow
         val btnSpacing = (4f * density).toInt()
         val btnSave = Button(context).apply {
             text = "保存"
@@ -201,15 +212,22 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         paramsContainer.addView(btnRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
 
         // Gyro orientation selector
-        buildGyroSelector(density)
+        val gyroContainer = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        gyroSpinnerRow = gyroContainer
+        buildGyroSelector(density, gyroContainer)
+        paramsContainer.addView(gyroContainer)
 
         // Separator
-        paramsContainer.addView(View(context).apply {
+        val sep = View(context).apply {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (1f * density).toInt()).apply {
                 bottomMargin = (8f * density).toInt()
             }
             background = GradientDrawable().apply { setColor(-0x444445) }
-        })
+        }
+        separatorLine = sep
+        paramsContainer.addView(sep)
 
         // Button-specific params
         buttonParamsInner = LinearLayout(context).apply {
@@ -222,13 +240,13 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         addView(root)
     }
 
-    private fun buildGyroSelector(density: Float) {
+    private fun buildGyroSelector(density: Float, container: LinearLayout) {
         val tv = TextView(context).apply {
             text = "体感握持方向"
             setTextColor(-0x1)
             textSize = 14f
         }
-        paramsContainer.addView(tv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (6f * density).toInt() })
+        container.addView(tv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (6f * density).toInt() })
 
         val items = listOf("不指定", "横屏", "竖屏", "倒置竖屏")
         val spinner = Spinner(context).apply {
@@ -249,7 +267,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             }
         }
         gyroSpinner = spinner
-        paramsContainer.addView(spinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
+        container.addView(spinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
     }
 
     private fun buildGripBar(density: Float): View {
@@ -322,13 +340,18 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         buttonParamsInner.addView(tvId, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
 
         if (isAdjustingFollowArea) {
-            // Only show follow area dimensions + return button
+            // Only show follow area dimensions + follow area transparency + return button
             addSeekbar(buttonParamsInner, "区域宽度", button.followAreaW, 1, 40) { value ->
                 currentButton = currentButton?.copy(followAreaW = value)
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             }
             addSeekbar(buttonParamsInner, "区域高度", button.followAreaH, 1, 40) { value ->
                 currentButton = currentButton?.copy(followAreaH = value)
+                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+            }
+            addSeekbar(buttonParamsInner, "矩形区域透明度(%)", (button.followAreaTransparency * 100 / 255).coerceIn(0, 100), 0, 100) { value ->
+                val transVal = (value * 255 / 100).coerceIn(0, 255)
+                currentButton = currentButton?.copy(followAreaTransparency = transVal)
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             }
             val btnReturn = Button(context).apply {
@@ -370,10 +393,15 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
         addRotationButtons(buttonParamsInner, buttonId, density)
 
-        // ── Opacity (alpha) for all controls (0-100%) ──
-        addSeekbar(buttonParamsInner, "透明度(%)", (button.alpha * 100 / 255).coerceIn(0, 100), 0, 100) { value ->
-            val alphaVal = (value * 255 / 100).coerceIn(0, 255)
-            currentButton = currentButton?.copy(alpha = alphaVal)
+        // ── Transparency for all controls (0=opaque, 100=invisible) ──
+        addSeekbar(buttonParamsInner, "空闲时透明度(%)", (button.idleTransparency * 100 / 255).coerceIn(0, 100), 0, 100) { value ->
+            val transVal = (value * 255 / 100).coerceIn(0, 255)
+            currentButton = currentButton?.copy(idleTransparency = transVal)
+            currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+        }
+        addSeekbar(buttonParamsInner, "操作时透明度(%)", (button.activeTransparency * 100 / 255).coerceIn(0, 100), 0, 100) { value ->
+            val transVal = (value * 255 / 100).coerceIn(0, 255)
+            currentButton = currentButton?.copy(activeTransparency = transVal)
             currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
         }
 

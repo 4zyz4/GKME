@@ -214,11 +214,21 @@ internal fun MainActivity.createAllControls() {
 @SuppressLint("ClickableViewAccessibility")
 internal fun MainActivity.setupTouchHandler(view: View, bit: Int, isDpad: Boolean, isTrigger: Boolean, isJoystick: Boolean) {
     val a = this
+    fun applyActiveAlpha() {
+        val id = view.tag as? String ?: return
+        val pos = a.gamepadLayout.currentButtons.find { it.id == id } ?: return
+        view.alpha = 1f - (pos.activeTransparency.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
+    }
+    fun applyIdleAlpha() {
+        val id = view.tag as? String ?: return
+        val pos = a.gamepadLayout.currentButtons.find { it.id == id } ?: return
+        view.alpha = 1f - (pos.idleTransparency.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
+    }
     when {
         isDpad -> view.setOnTouchListener { v, e ->
             when (e.action) {
-                MotionEvent.ACTION_DOWN -> { v.isPressed = true; v.performClick(); a.viewModel.onDpad(bit, true); true }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.isPressed = false; a.viewModel.onDpad(bit, false); true }
+                MotionEvent.ACTION_DOWN -> { v.isPressed = true; v.performClick(); applyActiveAlpha(); a.viewModel.onDpad(bit, true); true }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.isPressed = false; applyIdleAlpha(); a.viewModel.onDpad(bit, false); true }
                 else -> true
             }
         }
@@ -226,16 +236,16 @@ internal fun MainActivity.setupTouchHandler(view: View, bit: Int, isDpad: Boolea
             val analogFn: (Int) -> Unit = if (bit == GamepadState.LT) a.viewModel::onLeftTrigger else a.viewModel::onRightTrigger
             view.setOnTouchListener { v, e ->
                 when (e.action) {
-                    MotionEvent.ACTION_DOWN -> { v.isPressed = true; v.performClick(); a.viewModel.onButtonDown(bit); analogFn(255); true }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.isPressed = false; a.viewModel.onButtonUp(bit); analogFn(0); true }
+                    MotionEvent.ACTION_DOWN -> { v.isPressed = true; v.performClick(); applyActiveAlpha(); a.viewModel.onButtonDown(bit); analogFn(255); true }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.isPressed = false; applyIdleAlpha(); a.viewModel.onButtonUp(bit); analogFn(0); true }
                     else -> true
                 }
             }
         }
         !isJoystick -> view.setOnTouchListener { v, e ->
             when (e.action) {
-                MotionEvent.ACTION_DOWN -> { v.isPressed = true; v.performClick(); if (bit != 0) a.viewModel.onButtonDown(bit); true }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.isPressed = false; if (bit != 0) a.viewModel.onButtonUp(bit); true }
+                MotionEvent.ACTION_DOWN -> { v.isPressed = true; v.performClick(); applyActiveAlpha(); if (bit != 0) a.viewModel.onButtonDown(bit); true }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.isPressed = false; applyIdleAlpha(); if (bit != 0) a.viewModel.onButtonUp(bit); true }
                 else -> true
             }
         }
@@ -293,6 +303,12 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
         )
     }
 
+    fun touchpadAlpha(active: Boolean) {
+        val id = tp.tag as? String ?: return
+        val pos = a.gamepadLayout.currentButtons.find { it.id == id } ?: return
+        tp.alpha = 1f - ((if (active) pos.activeTransparency else pos.idleTransparency).coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
+    }
+
     tp.setOnTouchListener { v, event ->
         val btnId = v.tag as? String
         val doubleClickEnable = btnId?.let { a.gamepadLayout.currentButtons.find { p -> p.id == it }?.doubleClickEnable } ?: true
@@ -305,6 +321,7 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
             if (slots.all { it == null }) {
                 if (isDoubleClick) { v.isPressed = false; a.viewModel.onButtonUp(GamepadState.TOUCHPAD_CLICK) }
                 isDoubleClick = false
+                touchpadAlpha(false)
             }
             send()
             return@setOnTouchListener true
@@ -314,6 +331,7 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
             slots.fill(null)
             if (isDoubleClick) { v.isPressed = false; a.viewModel.onButtonUp(GamepadState.TOUCHPAD_CLICK) }
             isDoubleClick = false
+            touchpadAlpha(false)
             send()
             return@setOnTouchListener true
         }
@@ -325,6 +343,7 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
             if (slot < 0) slot = nearestSlot(sx, sy)
             if (slot < 0) slot = if (masked == MotionEvent.ACTION_DOWN) 0 else 1
             slots[slot] = TouchPoint(id = slot, x = sx, y = sy, active = true)
+            touchpadAlpha(true)
             if (masked == MotionEvent.ACTION_DOWN) {
                 v.performClick()
                 if (isDoubleClick) {
@@ -357,6 +376,7 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
             val (sx, sy) = mapPoint(event.getX(idx), event.getY(idx))
             val slot = nearestSlot(sx, sy)
             if (slot >= 0) slots[slot] = null
+            if (slots.all { it == null }) touchpadAlpha(false)
             send()
             return@setOnTouchListener true
         }
@@ -384,13 +404,17 @@ internal fun MainActivity.setupCustomTouchHandler(view: View) {
         when (e.action) {
             MotionEvent.ACTION_DOWN -> {
                 v.isPressed = true; v.performClick()
-                val bits = a.gamepadLayout.currentButtons.find { it.id == id }?.customBits.orEmpty()
+                val pos = a.gamepadLayout.currentButtons.find { it.id == id }
+                if (pos != null) view.alpha = 1f - (pos.activeTransparency.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
+                val bits = pos?.customBits.orEmpty()
                 a.viewModel.onCustomButtonDown(bits)
                 true
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 v.isPressed = false
-                val bits = a.gamepadLayout.currentButtons.find { it.id == id }?.customBits.orEmpty()
+                val pos = a.gamepadLayout.currentButtons.find { it.id == id }
+                if (pos != null) view.alpha = 1f - (pos.idleTransparency.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
+                val bits = pos?.customBits.orEmpty()
                 a.viewModel.onCustomButtonUp(bits)
                 true
             }

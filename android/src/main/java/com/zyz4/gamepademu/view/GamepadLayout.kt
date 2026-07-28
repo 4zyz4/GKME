@@ -1,5 +1,6 @@
 package com.zyz4.gamepademu.view
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -30,6 +31,7 @@ class GamepadLayout @JvmOverloads constructor(
         const val GRID_COLS = 120
         private const val HANDLE_SIZE_DP = 8f
         private const val HANDLE_HIT_DP = 16f
+        private const val GRID_BASE_ALPHA = 170
         private val JOYSTICK_IDS = setOf("leftJoystick", "rightJoystick")
     }
 
@@ -55,26 +57,21 @@ class GamepadLayout @JvmOverloads constructor(
     }
 
     private val followAreaPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = -0x100  // yellow
+        color = -0x666667  // gray
         style = Paint.Style.STROKE
-        strokeWidth = 2f
+        strokeWidth = 3f
     }
 
-    private val followAreaAdjustPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = -0x10000  // red
-        style = Paint.Style.STROKE
-        strokeWidth = 2f
-    }
+    // Grid fade animation
+    private var gridAlpha = 0f
+    private var gridAnimator: ValueAnimator? = null
 
-    private val followAreaFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = -0x3300ffff
-        style = Paint.Style.FILL
-    }
+    // Transparency preview
+    private var previewTransparency = false
+    private var previewIdleTransparency = true
+    private var previewButtonId: String? = null
 
-    private val followAreaAdjustFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = -0x33ff0000
-        style = Paint.Style.FILL
-    }
+
 
     private var cellW = 0f
     private var cellH = 0f
@@ -115,6 +112,26 @@ class GamepadLayout @JvmOverloads constructor(
     private var followAreaDragStartY = 0
 
     var listener: GamepadLayoutListener? = null
+
+    private fun animateGridTo(targetAlpha: Float) {
+        gridAnimator?.cancel()
+        if (gridAlpha == targetAlpha) return
+        gridAnimator = ValueAnimator.ofFloat(gridAlpha, targetAlpha).apply {
+            duration = 200L
+            addUpdateListener { anim ->
+                gridAlpha = anim.animatedValue as Float
+                invalidate()
+            }
+            start()
+        }
+    }
+
+    fun setTransparencyPreview(buttonId: String, isIdle: Boolean, previewing: Boolean) {
+        previewTransparency = previewing
+        previewIdleTransparency = isIdle
+        previewButtonId = if (previewing) buttonId else null
+        requestLayout()
+    }
 
     /** Swipe-trigger state: tracks which buttons are currently pressed (buttonId -> child View) */
     private val activeSwipeButtons = HashMap<String, View>()
@@ -633,6 +650,9 @@ class GamepadLayout @JvmOverloads constructor(
         editSnapshot = getPreset()
         isEditMode = true
         hasChanges = false
+        previewTransparency = false
+        previewButtonId = null
+        animateGridTo(0f)
         listener?.onEditModeChanged(true)
         invalidate()
         requestLayout()
@@ -647,6 +667,9 @@ class GamepadLayout @JvmOverloads constructor(
         draggingChild = null
         resizingChild = null
         editSnapshot = null
+        previewTransparency = false
+        previewButtonId = null
+        animateGridTo(0f)
         listener?.onEditModeChanged(false)
         invalidate()
         requestLayout()
@@ -838,7 +861,7 @@ class GamepadLayout @JvmOverloads constructor(
                 MeasureSpec.makeMeasureSpec(childH, MeasureSpec.EXACTLY),
             )
             child.layout(left, top, left + childW, top + childH)
-            child.alpha = (pos.alpha.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
+            child.alpha = 1f - (pos.idleTransparency.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
             if (child is JoystickView) {
                 child.axisRotation = pos.rotation
                 child.doubleClickEnable = pos.doubleClickEnable
@@ -847,6 +870,8 @@ class GamepadLayout @JvmOverloads constructor(
                 child.forceFollowFinger = false
                 child.showDeadZoneIndicator = isEditMode
                 child.isSelectedInEditor = id == selectedButtonId
+                child.idleTransparency = pos.idleTransparency.coerceIn(0, 255)
+                child.activeTransparency = pos.activeTransparency.coerceIn(0, 255)
             } else if (child is ViewGroup) {
                 for (j in 0 until child.childCount) {
                     child.getChildAt(j).rotation = pos.rotation.toFloat()
@@ -861,6 +886,26 @@ class GamepadLayout @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+
+        // Draw follow area rectangles for all joysticks (always visible when enabled, even outside edit mode)
+        for (pos in currentButtons) {
+            if (pos.id.substringBefore("_") in JOYSTICK_IDS && pos.followAreaEnabled) {
+                val fLeft = (pos.followAreaX * cellW).toInt().toFloat()
+                val fTop = (pos.followAreaY * cellH).toInt().toFloat()
+                val fRight = ((pos.followAreaX + pos.followAreaW) * cellW).toInt().toFloat()
+                val fBottom = ((pos.followAreaY + pos.followAreaH) * cellH).toInt().toFloat()
+
+                followAreaPaint.alpha = (255 - pos.followAreaTransparency.coerceIn(0, 255)).coerceIn(0, 255)
+                canvas.drawRect(fLeft, fTop, fRight, fBottom, followAreaPaint)
+                followAreaPaint.alpha = 255
+
+                if (pos.id == adjustingFollowAreaId && isAdjustingFollowArea) {
+                    val handleDp2 = HANDLE_SIZE_DP * density
+                    canvas.drawRect(fRight - handleDp2, fBottom - handleDp2, fRight, fBottom, handlePaint)
+                }
+            }
+        }
+
         if (!isEditMode) return
 
         val rows = (height / cellH).toInt() + 1
@@ -881,26 +926,10 @@ class GamepadLayout @JvmOverloads constructor(
         val vbw = (vb[2] * cellW).toInt().toFloat()
         val vbh = (vb[3] * cellH).toInt().toFloat()
 
-        // Draw follow area rectangle for joysticks
-        if (pos.id.substringBefore("_") in JOYSTICK_IDS && pos.followAreaEnabled) {
-            val fLeft = (pos.followAreaX * cellW).toInt().toFloat()
-            val fTop = (pos.followAreaY * cellH).toInt().toFloat()
-            val fRight = ((pos.followAreaX + pos.followAreaW) * cellW).toInt().toFloat()
-            val fBottom = ((pos.followAreaY + pos.followAreaH) * cellH).toInt().toFloat()
-
-            if (pos.id == adjustingFollowAreaId && isAdjustingFollowArea) {
-                canvas.drawRect(fLeft, fTop, fRight, fBottom, followAreaAdjustFillPaint)
-                canvas.drawRect(fLeft, fTop, fRight, fBottom, followAreaAdjustPaint)
-                // Draw resize handle
-                val handleDp2 = HANDLE_SIZE_DP * density
-                canvas.drawRect(fRight - handleDp2, fBottom - handleDp2, fRight, fBottom, handlePaint)
-            } else {
-                canvas.drawRect(fLeft, fTop, fRight, fBottom, followAreaPaint)
-            }
+        if (!isAdjustingFollowArea) {
+            selectionPaint.setStrokeWidth(3f * density)
+            canvas.drawRect(vl, vt, vl + vbw, vt + vbh, selectionPaint)
         }
-
-        selectionPaint.setStrokeWidth(3f * density)
-        canvas.drawRect(vl, vt, vl + vbw, vt + vbh, selectionPaint)
 
         val handleDp = HANDLE_SIZE_DP * density
         val handleX = vl + vbw - handleDp
@@ -917,10 +946,12 @@ class GamepadLayout @JvmOverloads constructor(
             270 -> Triple(vl - markerDist, vt + vbh / 2, 270f)
             else -> Triple(vl + vbw / 2, vt - markerDist, 0f)
         }
-        canvas.save()
-        canvas.rotate(markAngle, markX, markY)
-        canvas.drawText("上", markX, markY, markPaint)
-        canvas.restore()
+        if (!isAdjustingFollowArea) {
+            canvas.save()
+            canvas.rotate(markAngle, markX, markY)
+            canvas.drawText("上", markX, markY, markPaint)
+            canvas.restore()
+        }
     }
 
     override fun onInterceptTouchEvent(event: MotionEvent): Boolean {
