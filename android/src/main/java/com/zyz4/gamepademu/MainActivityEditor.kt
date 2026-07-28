@@ -88,6 +88,21 @@ internal fun MainActivity.setupFloatingEditor() {
                 a.viewModel.currentPresetGyroOrientation = orientation
                 a.floatingEditor.presetGyroOrientation = orientation
             }
+
+            override fun onEnterFollowAreaAdjust(buttonId: String) {
+                a.floatingEditor.isAdjustingFollowArea = true
+                a.gamepadLayout.enterFollowAreaAdjust(buttonId)
+            }
+
+            override fun onExitFollowAreaAdjust() {
+                a.floatingEditor.isAdjustingFollowArea = false
+                a.gamepadLayout.exitFollowAreaAdjust()
+                // Re-show the joystick's parameters
+                val pos = a.gamepadLayout.currentButtons.find { it.id == a.gamepadLayout.selectedButtonId }
+                if (pos != null) {
+                    a.floatingEditor.showParameters(a.gamepadLayout.selectedButtonId!!, pos)
+                }
+            }
         }
     }
     (a.findViewById<View>(android.R.id.content) as ViewGroup).addView(

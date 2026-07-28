@@ -25,7 +25,6 @@ class JoystickView @JvmOverloads constructor(
     var onStickClickUp: (() -> Unit)? = null
     var onStickReleased: (() -> Unit)? = null
     var doubleClickEnable: Boolean = true
-    var followFinger: Boolean = false
     var forceFollowFinger: Boolean = false
     var sensitivityCurve: List<Float>? = null
     var deadZone: Int = 0
@@ -137,7 +136,7 @@ class JoystickView @JvmOverloads constructor(
                     }
                 }
                 isTouching = true
-                if (forceFollowFinger || followFinger) {
+                if (forceFollowFinger) {
                     effectiveCenterX = event.x
                     effectiveCenterY = event.y
                 }
@@ -161,7 +160,7 @@ class JoystickView @JvmOverloads constructor(
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 isTouching = false
                 isClicking = false
-                if (forceFollowFinger || followFinger) {
+                if (forceFollowFinger) {
                     effectiveCenterX = centerX
                     effectiveCenterY = centerY
                 }

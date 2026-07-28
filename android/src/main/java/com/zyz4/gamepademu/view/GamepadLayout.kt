@@ -30,6 +30,7 @@ class GamepadLayout @JvmOverloads constructor(
         const val GRID_COLS = 120
         private const val HANDLE_SIZE_DP = 8f
         private const val HANDLE_HIT_DP = 16f
+        private val JOYSTICK_IDS = setOf("leftJoystick", "rightJoystick")
     }
 
     private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -53,6 +54,28 @@ class GamepadLayout @JvmOverloads constructor(
         textAlign = Paint.Align.CENTER
     }
 
+    private val followAreaPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = -0x100  // yellow
+        style = Paint.Style.STROKE
+        strokeWidth = 2f
+    }
+
+    private val followAreaAdjustPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = -0x10000  // red
+        style = Paint.Style.STROKE
+        strokeWidth = 2f
+    }
+
+    private val followAreaFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = -0x3300ffff
+        style = Paint.Style.FILL
+    }
+
+    private val followAreaAdjustFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = -0x33ff0000
+        style = Paint.Style.FILL
+    }
+
     private var cellW = 0f
     private var cellH = 0f
 
@@ -67,6 +90,10 @@ class GamepadLayout @JvmOverloads constructor(
     var hasChanges = false
         private set
 
+    var isAdjustingFollowArea = false
+        private set
+    var adjustingFollowAreaId: String? = null
+
     private var draggingChild: View? = null
     private var dragOffsetX = 0f
     private var dragOffsetY = 0f
@@ -76,6 +103,16 @@ class GamepadLayout @JvmOverloads constructor(
     private var resizeStartH = 0
     private var resizeStartGridX = 0
     private var resizeStartGridY = 0
+
+    // Follow area drag/resize state
+    private var draggingFollowArea = false
+    private var resizingFollowArea = false
+    private var followAreaStartX = 0
+    private var followAreaStartY = 0
+    private var followAreaStartW = 0
+    private var followAreaStartH = 0
+    private var followAreaDragStartX = 0
+    private var followAreaDragStartY = 0
 
     var listener: GamepadLayoutListener? = null
 
@@ -319,7 +356,7 @@ class GamepadLayout @JvmOverloads constructor(
                 val children = findAllChildrenAt(x, y)
                 val nonJoystickChildren = children.filter { it !is JoystickView }
                 if (nonJoystickChildren.isEmpty()) {
-                    if (tryHalfScreenTrigger(x, pid, event, 0)) return true
+                    if (tryFollowAreaTrigger(x, y, pid, event, 0)) return true
                 }
                 val regularChildren = children.filter { getButtonId(it) !in swipeTriggerIds }
                 if (regularChildren.isNotEmpty()) {
@@ -339,7 +376,7 @@ class GamepadLayout @JvmOverloads constructor(
                 val children = findAllChildrenAt(x, y)
                 val nonJoystickChildren = children.filter { it !is JoystickView }
                 if (nonJoystickChildren.isEmpty()) {
-                    if (tryHalfScreenTrigger(x, pid, event, idx)) return true
+                    if (tryFollowAreaTrigger(x, y, pid, event, idx)) return true
                 }
                 val regularChildren = children.filter { getButtonId(it) !in swipeTriggerIds }
                 if (regularChildren.isNotEmpty()) {
@@ -476,7 +513,7 @@ class GamepadLayout @JvmOverloads constructor(
         val nonJoystickChildren = children.filter { it !is JoystickView }
 
         if (nonJoystickChildren.isEmpty()) {
-            if (tryHalfScreenTrigger(x, pid, event, idx)) return
+            if (tryFollowAreaTrigger(x, y, pid, event, idx)) return
             if (children.isEmpty()) return
         }
 
@@ -604,6 +641,8 @@ class GamepadLayout @JvmOverloads constructor(
     fun exitEditMode() {
         isEditMode = false
         selectedButtonId = null
+        isAdjustingFollowArea = false
+        adjustingFollowAreaId = null
         syncJoystickSelection()
         draggingChild = null
         resizingChild = null
@@ -611,6 +650,20 @@ class GamepadLayout @JvmOverloads constructor(
         listener?.onEditModeChanged(false)
         invalidate()
         requestLayout()
+    }
+
+    fun enterFollowAreaAdjust(buttonId: String) {
+        isAdjustingFollowArea = true
+        adjustingFollowAreaId = buttonId
+        setSelectedButton(buttonId)
+        listener?.onButtonSelected(buttonId)
+        invalidate()
+    }
+
+    fun exitFollowAreaAdjust() {
+        isAdjustingFollowArea = false
+        adjustingFollowAreaId = null
+        invalidate()
     }
 
     fun isEditModeActive(): Boolean = isEditMode
@@ -668,6 +721,10 @@ class GamepadLayout @JvmOverloads constructor(
     }
 
     fun setSelectedButton(id: String?) {
+        // Prevent deselection or switching controls during follow area adjustment
+        if (isAdjustingFollowArea && adjustingFollowAreaId != null) {
+            if (id != adjustingFollowAreaId) return
+        }
         if (selectedButtonId != id) {
             selectedButtonId = id
             syncJoystickSelection()
@@ -706,20 +763,20 @@ class GamepadLayout @JvmOverloads constructor(
         swipeTriggerIds = currentButtons.filter { it.swipeTrigger }.map { it.id }.toSet()
     }
 
-    /** Activate half-screen trigger for a joystick at the given screen x-coordinate.
+    /** Activate follow-area trigger for a joystick.
      *  Returns true if a matching joystick was found and dispatched. */
-    private fun tryHalfScreenTrigger(x: Float, pid: Int, event: MotionEvent, idx: Int): Boolean {
-        val screenW = width.toFloat()
-        val halfX = x
+    private fun tryFollowAreaTrigger(x: Float, y: Float, pid: Int, event: MotionEvent, idx: Int): Boolean {
         for (i in 0 until childCount) {
             val child = getChildAt(i)
             if (child.visibility != View.VISIBLE) continue
             val cid = getButtonId(child) ?: continue
             val pos = currentButtons.find { it.id == cid } ?: continue
-            if (child is JoystickView) {
-                val triggerOnLeft = pos.leftHalfTrigger && halfX < screenW / 2f
-                val triggerOnRight = pos.rightHalfTrigger && halfX >= screenW / 2f
-                if (triggerOnLeft || triggerOnRight) {
+            if (child is JoystickView && pos.followAreaEnabled) {
+                val areaLeft = pos.followAreaX * cellW
+                val areaTop = pos.followAreaY * cellH
+                val areaRight = (pos.followAreaX + pos.followAreaW) * cellW
+                val areaBottom = (pos.followAreaY + pos.followAreaH) * cellH
+                if (x >= areaLeft && x <= areaRight && y >= areaTop && y <= areaBottom) {
                     child.forceFollowFinger = true
                     touchTargets[pid] = mutableListOf(child)
                     dispatchToChild(child, event, MotionEvent.ACTION_DOWN, idx)
@@ -781,10 +838,10 @@ class GamepadLayout @JvmOverloads constructor(
                 MeasureSpec.makeMeasureSpec(childH, MeasureSpec.EXACTLY),
             )
             child.layout(left, top, left + childW, top + childH)
+            child.alpha = (pos.alpha.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
             if (child is JoystickView) {
                 child.axisRotation = pos.rotation
                 child.doubleClickEnable = pos.doubleClickEnable
-                child.followFinger = pos.followFinger
                 child.sensitivityCurve = pos.sensitivityCurve
                 child.deadZone = pos.deadZone
                 child.forceFollowFinger = false
@@ -824,13 +881,33 @@ class GamepadLayout @JvmOverloads constructor(
         val vbw = (vb[2] * cellW).toInt().toFloat()
         val vbh = (vb[3] * cellH).toInt().toFloat()
 
+        // Draw follow area rectangle for joysticks
+        if (pos.id.substringBefore("_") in JOYSTICK_IDS && pos.followAreaEnabled) {
+            val fLeft = (pos.followAreaX * cellW).toInt().toFloat()
+            val fTop = (pos.followAreaY * cellH).toInt().toFloat()
+            val fRight = ((pos.followAreaX + pos.followAreaW) * cellW).toInt().toFloat()
+            val fBottom = ((pos.followAreaY + pos.followAreaH) * cellH).toInt().toFloat()
+
+            if (pos.id == adjustingFollowAreaId && isAdjustingFollowArea) {
+                canvas.drawRect(fLeft, fTop, fRight, fBottom, followAreaAdjustFillPaint)
+                canvas.drawRect(fLeft, fTop, fRight, fBottom, followAreaAdjustPaint)
+                // Draw resize handle
+                val handleDp2 = HANDLE_SIZE_DP * density
+                canvas.drawRect(fRight - handleDp2, fBottom - handleDp2, fRight, fBottom, handlePaint)
+            } else {
+                canvas.drawRect(fLeft, fTop, fRight, fBottom, followAreaPaint)
+            }
+        }
+
         selectionPaint.setStrokeWidth(3f * density)
         canvas.drawRect(vl, vt, vl + vbw, vt + vbh, selectionPaint)
 
         val handleDp = HANDLE_SIZE_DP * density
         val handleX = vl + vbw - handleDp
         val handleY = vt + vbh - handleDp
-        canvas.drawRect(handleX, handleY, handleX + handleDp, handleY + handleDp, handlePaint)
+        if (!isAdjustingFollowArea) {
+            canvas.drawRect(handleX, handleY, handleX + handleDp, handleY + handleDp, handlePaint)
+        }
 
         markPaint.textSize = 14f * density
         val markerDist = 4f * density
@@ -855,6 +932,30 @@ class GamepadLayout @JvmOverloads constructor(
 
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                if (isAdjustingFollowArea && adjustingFollowAreaId != null) {
+                    val selPos = currentButtons.find { it.id == adjustingFollowAreaId } ?: return true
+                    // Check if tapping on follow area resize handle
+                    if (isOnFollowAreaHandle(event.x, event.y, selPos)) {
+                        resizingFollowArea = true
+                        followAreaStartW = selPos.followAreaW
+                        followAreaStartH = selPos.followAreaH
+                        resizeStartGridX = (event.x / cellW).toInt()
+                        resizeStartGridY = (event.y / cellH).toInt()
+                        return true
+                    }
+                    // Check if tapping within follow area (drag)
+                    if (isInFollowArea(event.x, event.y, selPos)) {
+                        draggingFollowArea = true
+                        followAreaStartX = selPos.followAreaX
+                        followAreaStartY = selPos.followAreaY
+                        followAreaDragStartX = (event.x / cellW).toInt()
+                        followAreaDragStartY = (event.y / cellH).toInt()
+                        return true
+                    }
+                    // Tapping outside follow area does nothing during adjustment
+                    return true
+                }
+
                 val id = selectedButtonId
                 if (id != null && isOnHandle(event.x, event.y, id)) {
                     val child = findChildAt(event.x, event.y) ?: return true
@@ -881,6 +982,47 @@ class GamepadLayout @JvmOverloads constructor(
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
+                if (resizingFollowArea && adjustingFollowAreaId != null) {
+                    val gridX = (event.x / cellW).toInt().coerceAtLeast(0)
+                    val gridY = (event.y / cellH).toInt().coerceAtLeast(0)
+                    val idx = currentButtons.indexOfFirst { it.id == adjustingFollowAreaId }
+                    if (idx >= 0) {
+                        val old = currentButtons[idx]
+                        val deltaX = gridX - resizeStartGridX
+                        val deltaY = gridY - resizeStartGridY
+                        val newW = (followAreaStartW + deltaX).coerceAtLeast(1)
+                        val newH = (followAreaStartH + deltaY).coerceAtLeast(1)
+                        if (newW != old.followAreaW || newH != old.followAreaH) {
+                            currentButtons = currentButtons.toMutableList().also {
+                                it[idx] = old.copy(followAreaW = newW, followAreaH = newH)
+                            }
+                            hasChanges = true
+                            invalidate()
+                        }
+                    }
+                    return true
+                }
+                if (draggingFollowArea && adjustingFollowAreaId != null) {
+                    val gridX = (event.x / cellW).toInt().coerceIn(0, GRID_COLS - 1)
+                    val gridY = (event.y / cellH).toInt().coerceAtLeast(0)
+                    val idx = currentButtons.indexOfFirst { it.id == adjustingFollowAreaId }
+                    if (idx >= 0) {
+                        val old = currentButtons[idx]
+                        val deltaX = gridX - followAreaDragStartX
+                        val deltaY = gridY - followAreaDragStartY
+                        val newX = (followAreaStartX + deltaX).coerceIn(0, GRID_COLS - 1)
+                        val newY = (followAreaStartY + deltaY).coerceAtLeast(0)
+                        if (newX != old.followAreaX || newY != old.followAreaY) {
+                            currentButtons = currentButtons.toMutableList().also {
+                                it[idx] = old.copy(followAreaX = newX, followAreaY = newY)
+                            }
+                            hasChanges = true
+                            invalidate()
+                        }
+                    }
+                    return true
+                }
+
                 if (resizingChild != null) {
                     val gridX = (event.x / cellW).toInt().coerceAtLeast(0)
                     val gridY = (event.y / cellH).toInt().coerceAtLeast(0)
@@ -939,6 +1081,15 @@ class GamepadLayout @JvmOverloads constructor(
                 return true
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                if (resizingFollowArea || draggingFollowArea) {
+                    val id = adjustingFollowAreaId
+                    if (id != null) {
+                        listener?.onButtonSelected(id)
+                    }
+                    resizingFollowArea = false
+                    draggingFollowArea = false
+                    return true
+                }
                 if (resizingChild != null) {
                     val id = getButtonId(resizingChild!!)
                     if (id != null) {
@@ -960,6 +1111,25 @@ class GamepadLayout @JvmOverloads constructor(
             }
         }
         return false
+    }
+
+    private fun isOnFollowAreaHandle(x: Float, y: Float, pos: ButtonPosition): Boolean {
+        val fLeft = pos.followAreaX * cellW
+        val fTop = pos.followAreaY * cellH
+        val fRight = (pos.followAreaX + pos.followAreaW) * cellW
+        val fBottom = (pos.followAreaY + pos.followAreaH) * cellH
+        val handleHit = HANDLE_HIT_DP * density
+        val hx = fRight - handleHit
+        val hy = fBottom - handleHit
+        return x >= hx && x <= fRight && y >= hy && y <= fBottom
+    }
+
+    private fun isInFollowArea(x: Float, y: Float, pos: ButtonPosition): Boolean {
+        val fLeft = pos.followAreaX * cellW
+        val fTop = pos.followAreaY * cellH
+        val fRight = (pos.followAreaX + pos.followAreaW) * cellW
+        val fBottom = (pos.followAreaY + pos.followAreaH) * cellH
+        return x >= fLeft && x <= fRight && y >= fTop && y <= fBottom
     }
 
     private fun isOnHandle(x: Float, y: Float, buttonId: String): Boolean {

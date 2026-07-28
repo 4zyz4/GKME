@@ -15,11 +15,14 @@ data class ButtonPosition(
     val customBits: List<Int>? = null,
     val roundShape: Boolean = true,
     val doubleClickEnable: Boolean = true,
-    val followFinger: Boolean = false,
-    val leftHalfTrigger: Boolean = false,
-    val rightHalfTrigger: Boolean = false,
     val sensitivityCurve: List<Float>? = null,
     val deadZone: Int = 0,
+    val alpha: Int = 255,
+    val followAreaEnabled: Boolean = false,
+    val followAreaX: Int = 0,
+    val followAreaY: Int = 0,
+    val followAreaW: Int = 0,
+    val followAreaH: Int = 0,
 ) {
     fun sanitize(): ButtonPosition = if (isCustom) {
         copy(customText = customText ?: "自定义", customBits = customBits ?: emptyList(), id = id ?: "")

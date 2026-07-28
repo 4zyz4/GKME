@@ -36,6 +36,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         fun onButtonUpdated(buttonId: String, updated: ButtonPosition)
         fun onPickOutputValues(buttonId: String, currentBits: List<Int>, onResult: (List<Int>) -> Unit)
         fun onGyroOrientationChanged(orientation: GyroOrientation?)
+        fun onEnterFollowAreaAdjust(buttonId: String)
+        fun onExitFollowAreaAdjust()
     }
 
     var editorListener: EditorListener? = null
@@ -57,6 +59,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     )
 
     private var currentButton: ButtonPosition? = null
+    var isAdjustingFollowArea: Boolean = false
     private var panelX = 0f
     private var panelY = 0f
     private var dragStartX = 0f
@@ -318,6 +321,28 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
         buttonParamsInner.addView(tvId, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
 
+        if (isAdjustingFollowArea) {
+            // Only show follow area dimensions + return button
+            addSeekbar(buttonParamsInner, "区域宽度", button.followAreaW, 1, 40) { value ->
+                currentButton = currentButton?.copy(followAreaW = value)
+                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+            }
+            addSeekbar(buttonParamsInner, "区域高度", button.followAreaH, 1, 40) { value ->
+                currentButton = currentButton?.copy(followAreaH = value)
+                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+            }
+            val btnReturn = Button(context).apply {
+                text = "返回摇杆调节"
+                setTextColor(-0x1)
+                textSize = 13f
+                setBackgroundResource(R.drawable.button_flat)
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (16f * density).toInt() }
+                setOnClickListener { editorListener?.onExitFollowAreaAdjust() }
+            }
+            buttonParamsInner.addView(btnReturn)
+            return
+        }
+
         if (button.lockAspect) {
             addSeekbar(buttonParamsInner, "大小", button.width, 1, 40) { value ->
                 currentButton = currentButton?.copy(width = value, height = value)
@@ -345,6 +370,13 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
         addRotationButtons(buttonParamsInner, buttonId, density)
 
+        // ── Opacity (alpha) for all controls (0-100%) ──
+        addSeekbar(buttonParamsInner, "透明度(%)", (button.alpha * 100 / 255).coerceIn(0, 100), 0, 100) { value ->
+            val alphaVal = (value * 255 / 100).coerceIn(0, 255)
+            currentButton = currentButton?.copy(alpha = alphaVal)
+            currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+        }
+
         val joystickOrTouchpadIds = setOf("leftJoystick", "rightJoystick", "touchpad")
         val joystickIds = setOf("leftJoystick", "rightJoystick")
         if (buttonId.substringBefore("_") in joystickOrTouchpadIds) {
@@ -360,38 +392,52 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             buttonParamsInner.addView(cb, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
         }
         if (buttonId.substringBefore("_") in joystickIds) {
-            val cb = CheckBox(context).apply {
-                text = "跟随手指"
+            // ── Rectangular area follow ──
+            val cbFollowArea = CheckBox(context).apply {
+                text = "矩形区域内跟随"
                 setTextColor(-0x444445)
                 textSize = 14f
-                isChecked = button.followFinger
+                isChecked = button.followAreaEnabled
                 setOnCheckedChangeListener { _, isChecked ->
-                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(followFinger = isChecked)) }
+                    val current = currentButton ?: return@setOnCheckedChangeListener
+                    val updated = if (isChecked && current.followAreaW == 0) {
+                        // Initialize follow area to match joystick position and size
+                        current.copy(
+                            followAreaEnabled = true,
+                            followAreaX = current.x,
+                            followAreaY = current.y,
+                            followAreaW = current.width,
+                            followAreaH = current.height
+                        )
+                    } else {
+                        current.copy(followAreaEnabled = isChecked)
+                    }
+                    currentButton = updated
+                    editorListener?.onButtonUpdated(buttonId, updated)
+                    // Refresh UI to show/hide "进入调节" button immediately
+                    showParameters(buttonId, updated)
                 }
             }
-            buttonParamsInner.addView(cb, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+            buttonParamsInner.addView(cbFollowArea, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
 
-            val cbLeft = CheckBox(context).apply {
-                text = "左半屏触发"
-                setTextColor(-0x444445)
-                textSize = 14f
-                isChecked = button.leftHalfTrigger
-                setOnCheckedChangeListener { _, isChecked ->
-                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(leftHalfTrigger = isChecked)) }
+            if (button.followAreaEnabled) {
+                val btnRow = LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt() }
                 }
-            }
-            buttonParamsInner.addView(cbLeft, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt() })
-
-            val cbRight = CheckBox(context).apply {
-                text = "右半屏触发"
-                setTextColor(-0x444445)
-                textSize = 14f
-                isChecked = button.rightHalfTrigger
-                setOnCheckedChangeListener { _, isChecked ->
-                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(rightHalfTrigger = isChecked)) }
+                val btnEnterAdjust = Button(context).apply {
+                    text = "进入调节"
+                    setTextColor(-0x1)
+                    textSize = 13f
+                    setBackgroundResource(R.drawable.button_flat)
+                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                    setOnClickListener {
+                        editorListener?.onEnterFollowAreaAdjust(buttonId)
+                    }
                 }
+                btnRow.addView(btnEnterAdjust)
+                buttonParamsInner.addView(btnRow)
             }
-            buttonParamsInner.addView(cbRight, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt() })
 
             addSeekbar(buttonParamsInner, "死区(%)", button.deadZone, 0, 100) { value ->
                 currentButton = currentButton?.copy(deadZone = value)
