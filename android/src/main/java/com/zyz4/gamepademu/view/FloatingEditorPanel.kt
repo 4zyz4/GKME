@@ -360,6 +360,17 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 onStartTracking = { editorListener?.onTransparencyPreviewStart(buttonId, true) },
                 onStopTracking = { editorListener?.onTransparencyPreviewEnd(buttonId) }
             )
+            val cbFollowOverlap = CheckBox(context).apply {
+                text = "触发矩形区域重叠触发"
+                setTextColor(-0x444445)
+                textSize = 14f
+                isChecked = button.followAreaOverlapTrigger
+                setOnCheckedChangeListener { _, isChecked ->
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(followAreaOverlapTrigger = isChecked)) }
+                }
+            }
+            buttonParamsInner.addView(cbFollowOverlap, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+
             val btnReturn = Button(context).apply {
                 text = "返回摇杆调节"
                 setTextColor(-0x1)
@@ -418,6 +429,18 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             onStartTracking = { editorListener?.onTransparencyPreviewStart(buttonId, false) },
             onStopTracking = { editorListener?.onTransparencyPreviewEnd(buttonId) }
         )
+
+        // ── Overlap trigger for all controls ──
+        val cbOverlap = CheckBox(context).apply {
+            text = "重叠区域触发"
+            setTextColor(-0x444445)
+            textSize = 14f
+            isChecked = button.overlapTrigger
+            setOnCheckedChangeListener { _, isChecked ->
+                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(overlapTrigger = isChecked)) }
+            }
+        }
+        buttonParamsInner.addView(cbOverlap, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
 
         val joystickOrTouchpadIds = setOf("leftJoystick", "rightJoystick", "touchpad")
         val joystickIds = setOf("leftJoystick", "rightJoystick")

@@ -370,10 +370,13 @@ class GamepadLayout @JvmOverloads constructor(
                 val x = event.x
                 val y = event.y
                 val pid = event.getPointerId(0)
-                val children = findAllChildrenAt(x, y)
+                val allChildren = findAllChildrenAt(x, y)
+                val children = filterOverlapChildren(allChildren)
                 val nonJoystickChildren = children.filter { it !is JoystickView }
                 if (nonJoystickChildren.isEmpty()) {
                     if (tryFollowAreaTrigger(x, y, pid, event, 0)) return true
+                } else {
+                    if (tryFollowAreaOverlapTrigger(x, y, pid, event, 0)) return true
                 }
                 val regularChildren = children.filter { getButtonId(it) !in swipeTriggerIds }
                 if (regularChildren.isNotEmpty()) {
@@ -390,10 +393,13 @@ class GamepadLayout @JvmOverloads constructor(
                 val pid = event.getPointerId(idx)
                 val x = event.getX(idx)
                 val y = event.getY(idx)
-                val children = findAllChildrenAt(x, y)
+                val allChildren = findAllChildrenAt(x, y)
+                val children = filterOverlapChildren(allChildren)
                 val nonJoystickChildren = children.filter { it !is JoystickView }
                 if (nonJoystickChildren.isEmpty()) {
                     if (tryFollowAreaTrigger(x, y, pid, event, idx)) return true
+                } else {
+                    if (tryFollowAreaOverlapTrigger(x, y, pid, event, idx)) return true
                 }
                 val regularChildren = children.filter { getButtonId(it) !in swipeTriggerIds }
                 if (regularChildren.isNotEmpty()) {
@@ -471,12 +477,17 @@ class GamepadLayout @JvmOverloads constructor(
             if (child.visibility != View.VISIBLE) continue
             val cid = getButtonId(child) ?: continue
             if (cid !in swipeTriggerIds) continue
+            val pos = currentButtons.find { it.id == cid } ?: continue
             for (pi in 0 until event.pointerCount) {
                 val pid = event.getPointerId(pi)
                 if (pid in excludePointerIds) continue
                 val x = event.getX(pi)
                 val y = event.getY(pi)
                 if (x >= child.left && x <= child.right && y >= child.top && y <= child.bottom) {
+                    if (!pos.overlapTrigger) {
+                        val allAt = findAllChildrenAt(x, y)
+                        if (allAt.any { getButtonId(it) != cid }) continue
+                    }
                     newlyActive[cid] = child
                     break
                 }
@@ -526,12 +537,15 @@ class GamepadLayout @JvmOverloads constructor(
         val pid = event.getPointerId(idx)
         val x = event.getX(idx)
         val y = event.getY(idx)
-        val children = findAllChildrenAt(x, y)
+        val allChildren = findAllChildrenAt(x, y)
+        val children = filterOverlapChildren(allChildren)
         val nonJoystickChildren = children.filter { it !is JoystickView }
 
         if (nonJoystickChildren.isEmpty()) {
             if (tryFollowAreaTrigger(x, y, pid, event, idx)) return
             if (children.isEmpty()) return
+        } else {
+            if (tryFollowAreaOverlapTrigger(x, y, pid, event, idx)) return
         }
 
         val tp = children.firstOrNull { getButtonId(it) == "touchpad" }
@@ -800,6 +814,26 @@ class GamepadLayout @JvmOverloads constructor(
                 val areaRight = (pos.followAreaX + pos.followAreaW) * cellW
                 val areaBottom = (pos.followAreaY + pos.followAreaH) * cellH
                 if (x >= areaLeft && x <= areaRight && y >= areaTop && y <= areaBottom) {
+                    child.forceFollowFinger = true
+                    touchTargets[pid] = mutableListOf(child)
+                    dispatchToChild(child, event, MotionEvent.ACTION_DOWN, idx)
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    /** Activate follow-area trigger even when overlapping non-joystick controls,
+     *  only for joysticks with [followAreaOverlapTrigger] = true. */
+    private fun tryFollowAreaOverlapTrigger(x: Float, y: Float, pid: Int, event: MotionEvent, idx: Int): Boolean {
+        for (i in 0 until childCount) {
+            val child = getChildAt(i)
+            if (child.visibility != View.VISIBLE) continue
+            val cid = getButtonId(child) ?: continue
+            val pos = currentButtons.find { it.id == cid } ?: continue
+            if (child is JoystickView && pos.followAreaEnabled && pos.followAreaOverlapTrigger) {
+                if (isInFollowArea(x, y, pos)) {
                     child.forceFollowFinger = true
                     touchTargets[pid] = mutableListOf(child)
                     dispatchToChild(child, event, MotionEvent.ACTION_DOWN, idx)
@@ -1212,6 +1246,15 @@ class GamepadLayout @JvmOverloads constructor(
             }
         }
         return result
+    }
+
+    /** When multiple children overlap, exclude those with [overlapTrigger] = false. */
+    private fun filterOverlapChildren(children: List<View>): List<View> {
+        if (children.size <= 1) return children
+        return children.filter { child ->
+            val id = getButtonId(child)
+            id == null || currentButtons.find { it.id == id }?.overlapTrigger != false
+        }
     }
 
     /** Returns [left, top, width, height] in grid coordinates for the visual extent. */

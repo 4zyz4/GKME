@@ -25,6 +25,8 @@ data class ButtonPosition(
     val followAreaY: Int = 0,
     val followAreaW: Int = 0,
     val followAreaH: Int = 0,
+    val overlapTrigger: Boolean = true,
+    val followAreaOverlapTrigger: Boolean = false,
 ) {
     fun sanitize(): ButtonPosition = if (isCustom) {
         copy(customText = customText ?: "自定义", customBits = customBits ?: emptyList(), id = id ?: "")

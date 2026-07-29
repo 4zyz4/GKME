@@ -1,6 +1,7 @@
 package com.zyz4.gamepademu.model
 
 import com.google.gson.Gson
+import com.google.gson.JsonObject
 import com.google.gson.reflect.TypeToken
 import java.util.LinkedHashMap
 
@@ -16,7 +17,21 @@ data class LayoutPreset(
 
         fun fromJson(json: String): LayoutPreset {
             val type = object : TypeToken<LayoutPreset>() {}.type
-            return gson.fromJson(json, type)
+            val preset: LayoutPreset = gson.fromJson(json, type)
+            val root = gson.fromJson(json, JsonObject::class.java)
+            val buttonsArray = root.getAsJsonArray("buttons")
+            val fixedButtons = preset.buttons.mapIndexed { index, b ->
+                val btnObj = buttonsArray[index].asJsonObject
+                var fixed = b
+                if (!btnObj.has("overlapTrigger")) {
+                    fixed = fixed.copy(overlapTrigger = true)
+                }
+                if (!btnObj.has("followAreaOverlapTrigger")) {
+                    fixed = fixed.copy(followAreaOverlapTrigger = false)
+                }
+                fixed
+            }
+            return preset.copy(buttons = fixedButtons)
         }
 
         fun toJson(preset: LayoutPreset): String = preset.toJson()
@@ -45,6 +60,8 @@ data class LayoutPreset(
             m["idleTransparency"] = b.idleTransparency
             m["activeTransparency"] = b.activeTransparency
             m["followAreaTransparency"] = b.followAreaTransparency
+            m["overlapTrigger"] = b.overlapTrigger
+            m["followAreaOverlapTrigger"] = b.followAreaOverlapTrigger
             if (baseId in DOUBLE_CLICK_IDS) {
                 m["doubleClickEnable"] = b.doubleClickEnable
             }
