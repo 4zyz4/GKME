@@ -524,4 +524,7 @@ internal fun MainActivity.updateButtonLabels(mode: DisplayMode) {
             }
         }
     }
+
+    // Re-apply custom appearance after label updates
+    a.gamepadLayout.applyAppearance(a.viewModel.settings.value)
 }

@@ -11,6 +11,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import androidx.annotation.RequiresApi
+import com.zyz4.gamepademu.model.AppSettings
 import com.zyz4.gamepademu.model.ButtonPosition
 import com.zyz4.gamepademu.model.GyroOrientation
 import com.zyz4.gamepademu.model.LayoutPreset
@@ -656,6 +657,16 @@ class GamepadLayout @JvmOverloads constructor(
         requestLayout()
     }
 
+    fun setFollowAreaAppearance(color: Int, strokeWidth: Int) {
+        followAreaPaint.color = color
+        followAreaPaint.strokeWidth = strokeWidth.toFloat()
+        invalidate()
+    }
+
+    fun applyAppearance(settings: AppSettings) {
+        AppearanceApplier.applyToGamepadLayout(this, settings)
+    }
+
     fun getPreset(): LayoutPreset {
         return LayoutPreset(version = 1, buttons = currentButtons.toList(), gyroOrientation = currentGyroOrientation)
     }
@@ -936,9 +947,11 @@ class GamepadLayout @JvmOverloads constructor(
                 val fRight = ((pos.followAreaX + pos.followAreaW) * cellW).toInt().toFloat()
                 val fBottom = ((pos.followAreaY + pos.followAreaH) * cellH).toInt().toFloat()
 
-                followAreaPaint.alpha = (255 - pos.followAreaTransparency.coerceIn(0, 255)).coerceIn(0, 255)
-                canvas.drawRect(fLeft, fTop, fRight, fBottom, followAreaPaint)
-                followAreaPaint.alpha = 255
+                if (followAreaPaint.strokeWidth > 0f) {
+                    followAreaPaint.alpha = (255 - pos.followAreaTransparency.coerceIn(0, 255)).coerceIn(0, 255)
+                    canvas.drawRect(fLeft, fTop, fRight, fBottom, followAreaPaint)
+                    followAreaPaint.alpha = 255
+                }
 
                 if (pos.id == adjustingFollowAreaId && isAdjustingFollowArea) {
                     val handleDp2 = HANDLE_SIZE_DP * density

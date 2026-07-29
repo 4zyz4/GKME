@@ -10,8 +10,10 @@ import androidx.lifecycle.viewModelScope
 import com.zyz4.gamepademu.data.LayoutRepository
 import com.zyz4.gamepademu.input.SensorHandler
 import com.zyz4.gamepademu.input.toProto
+import com.zyz4.gamepademu.model.AppSettings
 import com.zyz4.gamepademu.model.ConnectionMode
 import com.zyz4.gamepademu.model.DisplayMode
+import com.zyz4.gamepademu.model.FillType
 import com.zyz4.gamepademu.model.GamepadState
 import com.zyz4.gamepademu.model.GyroOrientation
 import com.zyz4.gamepademu.model.ButtonPosition
@@ -317,6 +319,11 @@ class GamepadViewModel @Inject constructor(
 
     fun updateNonLinearTriggerAdaptation(enabled: Boolean) {
         connectionManager.updateSettings(settings.value.copy(nonLinearTriggerAdaptation = enabled))
+    }
+
+    // ── Appearance updates ──
+    fun updateAppearance(transform: (AppSettings) -> AppSettings) {
+        connectionManager.updateSettings(transform(settings.value))
     }
 
     fun onPhysicalControllerInput(

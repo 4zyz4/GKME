@@ -1,8 +1,13 @@
 package com.zyz4.gamepademu.view
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.BitmapShader
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Shader
 import android.os.Handler
 import android.os.Looper
 import android.util.AttributeSet
@@ -42,33 +47,24 @@ class JoystickView @JvmOverloads constructor(
     private var knobX = 0f
     private var knobY = 0f
 
-    private val basePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = -0xdddddd
-        style = Paint.Style.FILL
-    }
-    private val basePressedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = -0x555556
-        style = Paint.Style.FILL
-    }
-    private val baseStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = -0xaaaaab
-        style = Paint.Style.STROKE
-        strokeWidth = 2f
-    }
+    // Appearance properties
+    var appearanceBaseColor: Int = -0xdddddd
+    var appearanceBaseBitmap: Bitmap? = null
+    var appearanceBaseOutlineColor: Int = -0xaaaaab
+    var appearanceBaseOutlineWidth: Float = 2f
+    var appearanceCapColor: Int = -0xaaaaab
+    var appearanceCapBitmap: Bitmap? = null
+    var appearanceCapOutlineColor: Int = -0x888889
+    var appearanceCapOutlineWidth: Float = 1.5f
+    private val basePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val baseStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val deadZonePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = -0x330000ff
         style = Paint.Style.STROKE
         strokeWidth = 2f
     }
-    private val knobPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = -0xaaaaab
-        style = Paint.Style.FILL
-    }
-    private val knobStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = -0x888889
-        style = Paint.Style.STROKE
-        strokeWidth = 1.5f
-    }
+    private val knobPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val knobStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = -0x555556
         textAlign = Paint.Align.CENTER
@@ -100,10 +96,43 @@ class JoystickView @JvmOverloads constructor(
         super.onDraw(canvas)
         canvas.save()
         canvas.rotate(axisRotation.toFloat(), effectiveCenterX, effectiveCenterY)
-        canvas.drawCircle(effectiveCenterX, effectiveCenterY, baseRadius, if (isClicking) basePressedPaint else basePaint)
-        canvas.drawCircle(effectiveCenterX, effectiveCenterY, baseRadius, baseStrokePaint)
+
+        val active = isClicking
+
+        // Base fill
+        if (appearanceBaseBitmap != null) {
+            ShapeImageUtil.applyCenterCrop(basePaint, appearanceBaseBitmap!!, baseRadius * 2, baseRadius * 2)
+        } else {
+            basePaint.shader = null
+            basePaint.color = if (active) highlightColor(appearanceBaseColor, 0.3f) else appearanceBaseColor
+        }
+        canvas.drawCircle(effectiveCenterX, effectiveCenterY, baseRadius, basePaint)
+        basePaint.shader = null
+
+        // Base outline
+        if (appearanceBaseOutlineWidth > 0f) {
+            baseStrokePaint.color = if (active) highlightColor(appearanceBaseOutlineColor, 0.3f) else appearanceBaseOutlineColor
+            baseStrokePaint.strokeWidth = appearanceBaseOutlineWidth
+            canvas.drawCircle(effectiveCenterX, effectiveCenterY, baseRadius - appearanceBaseOutlineWidth / 2f, baseStrokePaint)
+        }
+
+        // Cap fill
+        if (appearanceCapBitmap != null) {
+            ShapeImageUtil.applyCenterCrop(knobPaint, appearanceCapBitmap!!, knobRadius * 2, knobRadius * 2)
+        } else {
+            knobPaint.shader = null
+            knobPaint.color = if (active) highlightColor(appearanceCapColor, 0.3f) else appearanceCapColor
+        }
         canvas.drawCircle(knobX, knobY, knobRadius, knobPaint)
-        canvas.drawCircle(knobX, knobY, knobRadius, knobStrokePaint)
+        knobPaint.shader = null
+
+        // Cap outline
+        if (appearanceCapOutlineWidth > 0f) {
+            knobStrokePaint.color = if (active) highlightColor(appearanceCapOutlineColor, 0.3f) else appearanceCapOutlineColor
+            knobStrokePaint.strokeWidth = appearanceCapOutlineWidth
+            canvas.drawCircle(knobX, knobY, knobRadius - appearanceCapOutlineWidth / 2f, knobStrokePaint)
+        }
+
         if (deadZone > 0 && showDeadZoneIndicator && isSelectedInEditor) {
             val dzRadius = baseRadius * (deadZone / 100f)
             canvas.drawCircle(effectiveCenterX, effectiveCenterY, dzRadius, deadZonePaint)
@@ -258,5 +287,12 @@ class JoystickView @JvmOverloads constructor(
         val t2 = t * t
         val t3 = t2 * t
         return 0.5f * ((2f * p1) + (-p0 + p2) * t + (2f * p0 - 5f * p1 + 4f * p2 - p3) * t2 + (-p0 + 3f * p1 - 3f * p2 + p3) * t3)
+    }
+
+    private fun highlightColor(color: Int, factor: Float): Int {
+        val r = (Color.red(color) + (255 - Color.red(color)) * factor).toInt().coerceIn(0, 255)
+        val g = (Color.green(color) + (255 - Color.green(color)) * factor).toInt().coerceIn(0, 255)
+        val b = (Color.blue(color) + (255 - Color.blue(color)) * factor).toInt().coerceIn(0, 255)
+        return Color.rgb(r, g, b)
     }
 }

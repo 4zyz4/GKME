@@ -11,6 +11,7 @@ import com.google.gson.reflect.TypeToken
 import com.zyz4.gamepademu.model.AppSettings
 import com.zyz4.gamepademu.model.ConnectionMode
 import com.zyz4.gamepademu.model.DisplayMode
+import com.zyz4.gamepademu.model.FillType
 import com.zyz4.gamepademu.model.GyroOrientation
 import com.zyz4.gamepademu.model.HapticEffect
 import com.zyz4.gamepademu.model.TargetPlatform
@@ -60,6 +61,32 @@ class SettingsRepository @Inject constructor(
         val VOLUME_UP_BITS = stringPreferencesKey("volume_up_bits")
         val VOLUME_DOWN_BITS = stringPreferencesKey("volume_down_bits")
         val NON_LINEAR_TRIGGER_ADAPTATION = booleanPreferencesKey("non_linear_trigger_adaptation")
+        // Appearance
+        val BG_FILL_TYPE = intPreferencesKey("bg_fill_type")
+        val BG_COLOR = intPreferencesKey("bg_color")
+        val BG_IMAGE_PATH = stringPreferencesKey("bg_image_path")
+        val BTN_FILL_TYPE = intPreferencesKey("btn_fill_type")
+        val BTN_COLOR = intPreferencesKey("btn_color")
+        val BTN_IMAGE_PATH = stringPreferencesKey("btn_image_path")
+        val BTN_OUTLINE_COLOR = intPreferencesKey("btn_outline_color")
+        val BTN_OUTLINE_WIDTH = intPreferencesKey("btn_outline_width")
+        val JOY_BASE_FILL_TYPE = intPreferencesKey("joy_base_fill_type")
+        val JOY_BASE_COLOR = intPreferencesKey("joy_base_color")
+        val JOY_BASE_IMAGE_PATH = stringPreferencesKey("joy_base_image_path")
+        val JOY_BASE_OUTLINE_COLOR = intPreferencesKey("joy_base_outline_color")
+        val JOY_BASE_OUTLINE_WIDTH = intPreferencesKey("joy_base_outline_width")
+        val JOY_CAP_FILL_TYPE = intPreferencesKey("joy_cap_fill_type")
+        val JOY_CAP_COLOR = intPreferencesKey("joy_cap_color")
+        val JOY_CAP_IMAGE_PATH = stringPreferencesKey("joy_cap_image_path")
+        val JOY_CAP_OUTLINE_COLOR = intPreferencesKey("joy_cap_outline_color")
+        val JOY_CAP_OUTLINE_WIDTH = intPreferencesKey("joy_cap_outline_width")
+        val JOY_TRIGGER_OUTLINE_COLOR = intPreferencesKey("joy_trigger_outline_color")
+        val JOY_TRIGGER_OUTLINE_WIDTH = intPreferencesKey("joy_trigger_outline_width")
+        val TP_FILL_TYPE = intPreferencesKey("tp_fill_type")
+        val TP_COLOR = intPreferencesKey("tp_color")
+        val TP_IMAGE_PATH = stringPreferencesKey("tp_image_path")
+        val TP_OUTLINE_COLOR = intPreferencesKey("tp_outline_color")
+        val TP_OUTLINE_WIDTH = intPreferencesKey("tp_outline_width")
     }
 
     private val gson = Gson()
@@ -122,6 +149,31 @@ class SettingsRepository @Inject constructor(
             volumeUpBits = parseBitList(prefs[Keys.VOLUME_UP_BITS]),
             volumeDownBits = parseBitList(prefs[Keys.VOLUME_DOWN_BITS]),
             nonLinearTriggerAdaptation = prefs[Keys.NON_LINEAR_TRIGGER_ADAPTATION] ?: false,
+            bgFillType = FillType.entries.getOrElse(prefs[Keys.BG_FILL_TYPE] ?: 0) { FillType.SOLID_COLOR },
+            bgColor = prefs[Keys.BG_COLOR] ?: 0xFF000000.toInt(),
+            bgImagePath = prefs[Keys.BG_IMAGE_PATH],
+            btnFillType = FillType.entries.getOrElse(prefs[Keys.BTN_FILL_TYPE] ?: 0) { FillType.SOLID_COLOR },
+            btnColor = prefs[Keys.BTN_COLOR] ?: 0xFF1A1A1A.toInt(),
+            btnImagePath = prefs[Keys.BTN_IMAGE_PATH],
+            btnOutlineColor = prefs[Keys.BTN_OUTLINE_COLOR] ?: 0xFF666666.toInt(),
+            btnOutlineWidth = prefs[Keys.BTN_OUTLINE_WIDTH] ?: 4,
+            joyBaseFillType = FillType.entries.getOrElse(prefs[Keys.JOY_BASE_FILL_TYPE] ?: 0) { FillType.SOLID_COLOR },
+            joyBaseColor = prefs[Keys.JOY_BASE_COLOR] ?: -0xdddddd,
+            joyBaseImagePath = prefs[Keys.JOY_BASE_IMAGE_PATH],
+            joyBaseOutlineColor = prefs[Keys.JOY_BASE_OUTLINE_COLOR] ?: -0xaaaaab,
+            joyBaseOutlineWidth = prefs[Keys.JOY_BASE_OUTLINE_WIDTH] ?: 4,
+            joyCapFillType = FillType.entries.getOrElse(prefs[Keys.JOY_CAP_FILL_TYPE] ?: 0) { FillType.SOLID_COLOR },
+            joyCapColor = prefs[Keys.JOY_CAP_COLOR] ?: -0xaaaaab,
+            joyCapImagePath = prefs[Keys.JOY_CAP_IMAGE_PATH],
+            joyCapOutlineColor = prefs[Keys.JOY_CAP_OUTLINE_COLOR] ?: -0x888889,
+            joyCapOutlineWidth = prefs[Keys.JOY_CAP_OUTLINE_WIDTH] ?: 4,
+            joyTriggerOutlineColor = prefs[Keys.JOY_TRIGGER_OUTLINE_COLOR] ?: -0x666667,
+            joyTriggerOutlineWidth = prefs[Keys.JOY_TRIGGER_OUTLINE_WIDTH] ?: 4,
+            tpFillType = FillType.entries.getOrElse(prefs[Keys.TP_FILL_TYPE] ?: 0) { FillType.SOLID_COLOR },
+            tpColor = prefs[Keys.TP_COLOR] ?: 0xFF121212.toInt(),
+            tpImagePath = prefs[Keys.TP_IMAGE_PATH],
+            tpOutlineColor = prefs[Keys.TP_OUTLINE_COLOR] ?: 0xFF666666.toInt(),
+            tpOutlineWidth = prefs[Keys.TP_OUTLINE_WIDTH] ?: 4,
         )
     }
 
@@ -158,6 +210,31 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.VOLUME_UP_BITS] = gson.toJson(settings.volumeUpBits)
             prefs[Keys.VOLUME_DOWN_BITS] = gson.toJson(settings.volumeDownBits)
             prefs[Keys.NON_LINEAR_TRIGGER_ADAPTATION] = settings.nonLinearTriggerAdaptation
+            prefs[Keys.BG_FILL_TYPE] = settings.bgFillType.ordinal
+            prefs[Keys.BG_COLOR] = settings.bgColor
+            if (settings.bgImagePath != null) prefs[Keys.BG_IMAGE_PATH] = settings.bgImagePath else prefs.remove(Keys.BG_IMAGE_PATH)
+            prefs[Keys.BTN_FILL_TYPE] = settings.btnFillType.ordinal
+            prefs[Keys.BTN_COLOR] = settings.btnColor
+            if (settings.btnImagePath != null) prefs[Keys.BTN_IMAGE_PATH] = settings.btnImagePath else prefs.remove(Keys.BTN_IMAGE_PATH)
+            prefs[Keys.BTN_OUTLINE_COLOR] = settings.btnOutlineColor
+            prefs[Keys.BTN_OUTLINE_WIDTH] = settings.btnOutlineWidth
+            prefs[Keys.JOY_BASE_FILL_TYPE] = settings.joyBaseFillType.ordinal
+            prefs[Keys.JOY_BASE_COLOR] = settings.joyBaseColor
+            if (settings.joyBaseImagePath != null) prefs[Keys.JOY_BASE_IMAGE_PATH] = settings.joyBaseImagePath else prefs.remove(Keys.JOY_BASE_IMAGE_PATH)
+            prefs[Keys.JOY_BASE_OUTLINE_COLOR] = settings.joyBaseOutlineColor
+            prefs[Keys.JOY_BASE_OUTLINE_WIDTH] = settings.joyBaseOutlineWidth
+            prefs[Keys.JOY_CAP_FILL_TYPE] = settings.joyCapFillType.ordinal
+            prefs[Keys.JOY_CAP_COLOR] = settings.joyCapColor
+            if (settings.joyCapImagePath != null) prefs[Keys.JOY_CAP_IMAGE_PATH] = settings.joyCapImagePath else prefs.remove(Keys.JOY_CAP_IMAGE_PATH)
+            prefs[Keys.JOY_CAP_OUTLINE_COLOR] = settings.joyCapOutlineColor
+            prefs[Keys.JOY_CAP_OUTLINE_WIDTH] = settings.joyCapOutlineWidth
+            prefs[Keys.JOY_TRIGGER_OUTLINE_COLOR] = settings.joyTriggerOutlineColor
+            prefs[Keys.JOY_TRIGGER_OUTLINE_WIDTH] = settings.joyTriggerOutlineWidth
+            prefs[Keys.TP_FILL_TYPE] = settings.tpFillType.ordinal
+            prefs[Keys.TP_COLOR] = settings.tpColor
+            if (settings.tpImagePath != null) prefs[Keys.TP_IMAGE_PATH] = settings.tpImagePath else prefs.remove(Keys.TP_IMAGE_PATH)
+            prefs[Keys.TP_OUTLINE_COLOR] = settings.tpOutlineColor
+            prefs[Keys.TP_OUTLINE_WIDTH] = settings.tpOutlineWidth
         }
     }
 

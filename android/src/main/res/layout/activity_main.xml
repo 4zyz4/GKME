@@ -16,4 +16,20 @@
         android:layout_height="match_parent"
         android:visibility="gone" />
 
+        <FrameLayout
+            android:id="@+id/previewZoomOverlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#CC000000"
+            android:clickable="true"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/zoomImage"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="fitCenter" />
+
+        </FrameLayout>
+
 </FrameLayout>

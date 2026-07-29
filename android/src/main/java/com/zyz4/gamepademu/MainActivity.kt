@@ -1,7 +1,7 @@
 package com.zyz4.gamepademu
 
 import android.annotation.SuppressLint
-import android.app.AlertDialog
+import android.app.Dialog
 import android.hardware.display.DisplayManager
 import android.view.Display
 import android.media.VolumeProvider
@@ -28,6 +28,7 @@ import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -132,7 +133,28 @@ class MainActivity : ComponentActivity() {
         setupFloatingEditor()
         setupGamepadLayoutListener()
         createAllControls()
+        gamepadLayout.applyAppearance(viewModel.settings.value)
         setupSettings()
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                when {
+                    previewZoomVisible -> hidePreviewZoom()
+                    gamepadLayout.isEditModeActive() -> {
+                        CustomDialog.showConfirm(
+                            context = this@MainActivity,
+                            title = "退出编辑",
+                            message = "是否放弃更改？",
+                            positiveText = "放弃",
+                            onPositive = {
+                                gamepadLayout.discardToSnapshot()
+                                gamepadLayout.exitEditMode()
+                            }
+                        )
+                    }
+                    inSettings -> hideSettings()
+                }
+            }
+        })
         observeState()
         autoStartService()
         displayManager.registerDisplayListener(displayListener, null)
@@ -200,12 +222,19 @@ class MainActivity : ComponentActivity() {
 
     // ── Dialog fields ──────────────────────────────────────
 
-    internal var addDialog: AlertDialog? = null
+    internal var addDialog: Dialog? = null
     internal var addCounter = 0
     internal var inSettings = false
-    internal var outputPickerDialog: AlertDialog? = null
+    internal var outputPickerDialog: Dialog? = null
 
     internal var vibrationMappingEntries: List<VibrationMotor> = VibrationMotor.entries.toList()
+
+    // Appearance image pickers
+    internal var bgImagePickerLauncher: androidx.activity.result.ActivityResultLauncher<String>? = null
+    internal var btnImagePickerLauncher: androidx.activity.result.ActivityResultLauncher<String>? = null
+    internal var joyBaseImagePickerLauncher: androidx.activity.result.ActivityResultLauncher<String>? = null
+    internal var joyCapImagePickerLauncher: androidx.activity.result.ActivityResultLauncher<String>? = null
+    internal var tpImagePickerLauncher: androidx.activity.result.ActivityResultLauncher<String>? = null
 
     // ── Input dispatch ─────────────────────────────────────
 
@@ -299,7 +328,7 @@ class MainActivity : ComponentActivity() {
     // ── Toast ──────────────────────────────────────────────
 
     internal fun showToast(msg: String) {
-        android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_SHORT).show()
+        CustomDialog.showToast(this, msg)
     }
 
     // ── Haptic ─────────────────────────────────────────────

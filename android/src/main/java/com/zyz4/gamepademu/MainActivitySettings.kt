@@ -2,7 +2,6 @@ package com.zyz4.gamepademu
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.app.AlertDialog
 import android.bluetooth.BluetoothAdapter
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -65,9 +64,9 @@ internal fun MainActivity.hideSettings() {
 
 internal fun MainActivity.selectSettingsCategory(index: Int) {
     val a = this
-    val pages = listOf(R.id.pageConnection, R.id.pagePresets, R.id.pagePhysicalController, R.id.pageVibration, R.id.pageGyro, R.id.pageMisc, R.id.pageAbout)
+    val pages = listOf(R.id.pageConnection, R.id.pagePresets, R.id.pageAppearance, R.id.pagePhysicalController, R.id.pageVibration, R.id.pageGyro, R.id.pageMisc, R.id.pageAbout)
     val buttons = listOf(
-        R.id.btnCategoryConnection, R.id.btnCategoryPresets, R.id.btnCategoryPhysicalController, R.id.btnCategoryVibration, R.id.btnCategoryGyro, R.id.btnCategoryMisc, R.id.btnCategoryAbout
+        R.id.btnCategoryConnection, R.id.btnCategoryPresets, R.id.btnCategoryAppearance, R.id.btnCategoryPhysicalController, R.id.btnCategoryVibration, R.id.btnCategoryGyro, R.id.btnCategoryMisc, R.id.btnCategoryAbout
     )
     pages.forEachIndexed { i, id ->
         a.findViewById<View>(id).visibility = if (i == index) View.VISIBLE else View.GONE
@@ -79,7 +78,12 @@ internal fun MainActivity.selectSettingsCategory(index: Int) {
         )
     }
     a.vibrationPollingJob?.cancel()
-    if (index == 3) {
+    if (index == 2) {
+        a.findViewById<View>(R.id.previewContainer).post {
+            a.updateAppearancePreview()
+        }
+    }
+    if (index == 4) {
         a.vibrationPollingJob = a.lifecycleScope.launch {
             while (true) {
                 a.checkVibrationRedirect()
@@ -96,11 +100,12 @@ internal fun MainActivity.setupSettings() {
     // Category switching
     a.findViewById<Button>(R.id.btnCategoryConnection).setOnClickListener { a.selectSettingsCategory(0) }
     a.findViewById<Button>(R.id.btnCategoryPresets).setOnClickListener { a.selectSettingsCategory(1) }
-    a.findViewById<Button>(R.id.btnCategoryPhysicalController).setOnClickListener { a.selectSettingsCategory(2) }
-    a.findViewById<Button>(R.id.btnCategoryVibration).setOnClickListener { a.selectSettingsCategory(3) }
-    a.findViewById<Button>(R.id.btnCategoryGyro).setOnClickListener { a.selectSettingsCategory(4) }
-    a.findViewById<Button>(R.id.btnCategoryMisc).setOnClickListener { a.selectSettingsCategory(5) }
-    a.findViewById<Button>(R.id.btnCategoryAbout).setOnClickListener { a.selectSettingsCategory(6) }
+    a.findViewById<Button>(R.id.btnCategoryAppearance).setOnClickListener { a.selectSettingsCategory(2) }
+    a.findViewById<Button>(R.id.btnCategoryPhysicalController).setOnClickListener { a.selectSettingsCategory(3) }
+    a.findViewById<Button>(R.id.btnCategoryVibration).setOnClickListener { a.selectSettingsCategory(4) }
+    a.findViewById<Button>(R.id.btnCategoryGyro).setOnClickListener { a.selectSettingsCategory(5) }
+    a.findViewById<Button>(R.id.btnCategoryMisc).setOnClickListener { a.selectSettingsCategory(6) }
+    a.findViewById<Button>(R.id.btnCategoryAbout).setOnClickListener { a.selectSettingsCategory(7) }
 
     // Sidebar scrollbar
     a.findViewById<ScrollView>(R.id.scrollSidebar).apply {
@@ -160,12 +165,8 @@ internal fun MainActivity.setupSettings() {
         val idx = infos.indexOfFirst { it.name == current }
         val selected = if (idx >= 0) infos[idx].name else infos.firstOrNull()?.name ?: return@setOnClickListener
         if (a.viewModel.isBuiltInPreset(selected)) { a.showToast("内置布局禁止删除"); return@setOnClickListener }
-        AlertDialog.Builder(a)
-            .setTitle("删除预设")
-            .setMessage("确定删除「$selected」？")
-            .setPositiveButton("删除") { _, _ -> a.viewModel.deletePreset(selected); a.refreshPresetList() }
-            .setNegativeButton("取消", null)
-            .show()
+        CustomDialog.showConfirm(a, "删除预设", "确定删除「$selected」？",
+            positiveText = "删除", onPositive = { a.viewModel.deletePreset(selected); a.refreshPresetList() })
     }
 
     // ── Controller page ──
@@ -198,15 +199,8 @@ internal fun MainActivity.setupSettings() {
                 val needsRestart = a.viewModel.settings.value.connectionMode == ConnectionMode.BLUETOOTH
                     && a.viewModel.isBluetoothRunning
                 if (needsRestart) {
-                    AlertDialog.Builder(a)
-                        .setTitle("切换目标平台")
-                        .setMessage("切换目标平台需要重启应用，是否继续？")
-                        .setPositiveButton("确定") { _, _ ->
-                            a.viewModel.updateTargetPlatform(platform)
-                            a.finishAffinity()
-                        }
-                        .setNegativeButton("取消", null)
-                        .show()
+                    CustomDialog.showConfirm(a, "切换目标平台", "切换目标平台需要重启应用，是否继续？",
+                        positiveText = "确定", onPositive = { a.viewModel.updateTargetPlatform(platform); a.finishAffinity() })
                 } else {
                     a.selectChipGroup(listOf(R.id.btnTargetWindows, R.id.btnTargetAndroid, R.id.btnTargetLinux), idx)
                     a.viewModel.updateTargetPlatform(platform)
@@ -400,6 +394,9 @@ internal fun MainActivity.setupSettings() {
     // ── Misc page ──
     a.setupMiscPage()
 
+    // ── Appearance page ──
+    a.setupAppearancePage()
+
     // ── About page ──
     a.setupAboutPage()
 
@@ -551,12 +548,9 @@ internal fun MainActivity.setupUnpairButton() {
     val nameView = a.findViewById<TextView>(R.id.tvPairedDeviceName)
     a.findViewById<Button>(R.id.btnUnpairDevice).setOnClickListener {
         val deviceName = nameView.text.toString()
-        AlertDialog.Builder(a)
-            .setTitle("取消配对")
-            .setMessage("确定取消与「$deviceName」的配对？下次连接需要重新配对。")
-            .setPositiveButton("取消配对") { _, _ -> a.viewModel.unpairDevice() }
-            .setNegativeButton("取消", null)
-            .show()
+        CustomDialog.showConfirm(a, "取消配对",
+            "确定取消与「$deviceName」的配对？下次连接需要重新配对。",
+            positiveText = "取消配对", onPositive = { a.viewModel.unpairDevice() })
     }
 }
 
@@ -617,12 +611,12 @@ internal fun MainActivity.showSponsorDialog() {
         setScaleType(ImageView.ScaleType.FIT_CENTER)
         setPadding(40, 0, 40, 0)
     }
-    AlertDialog.Builder(a)
-        .setTitle("赞助")
-        .setMessage("感谢您的支持！")
-        .setView(imageView)
-        .setNegativeButton("关闭", null)
-        .show()
+    val content = LinearLayout(a).apply {
+        orientation = LinearLayout.VERTICAL
+        addView(TextView(a).apply { text = "感谢您的支持！"; textSize = 14f; setTextColor(-0x777778); gravity = Gravity.CENTER })
+        addView(imageView)
+    }
+    CustomDialog.showCustomView(a, "赞助", content, negativeText = "关闭")
 }
 
 internal fun MainActivity.setupConnectionPage() {
@@ -705,50 +699,33 @@ internal fun MainActivity.loadPresetByName(name: String) {
 }
 
 internal fun MainActivity.showNewPresetDialog() {
-    val a = this
-    val input = EditText(a)
-    input.setHint("输入新预设名称")
-    AlertDialog.Builder(a)
-        .setTitle("新建布局")
-        .setMessage("创建新布局")
-        .setView(input)
-        .setPositiveButton("创建") { _, _ ->
-            val name = input.text.toString().trim()
+    CustomDialog.showInput(this, "新建布局", hint = "输入新预设名称",
+        positiveText = "创建", onPositive = { name ->
             if (name.isNotEmpty()) {
-                val preset = a.viewModel.createDefaultLayout()
-                a.viewModel.savePreset(name, preset)
-                a.applyPreset(preset)
-                a.refreshPresetList()
-                a.showToast("已创建「$name」")
+                val preset = viewModel.createDefaultLayout()
+                viewModel.savePreset(name, preset)
+                applyPreset(preset)
+                refreshPresetList()
+                showToast("已创建「$name」")
             }
-        }
-        .setNegativeButton("取消", null)
-        .show()
+        })
 }
 
 internal fun MainActivity.importPresetFromUri(uri: Uri) {
-    val a = this
     try {
-        val json = a.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: return
+        val json = contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: return
         val preset = LayoutPreset.fromJson(json)
-        val nameInput = EditText(a)
-        nameInput.setHint("输入预设名称")
-        AlertDialog.Builder(a)
-            .setTitle("导入布局")
-            .setView(nameInput)
-            .setPositiveButton("保存") { _, _ ->
-                val name = nameInput.text.toString().trim()
+        CustomDialog.showInput(this, "导入布局", hint = "输入预设名称",
+            positiveText = "保存", onPositive = { name ->
                 if (name.isNotEmpty()) {
-                    a.viewModel.savePreset(name, preset)
-                    a.applyPreset(preset)
-                    a.refreshPresetList()
-                    a.showToast("已导入「$name」")
+                    viewModel.savePreset(name, preset)
+                    applyPreset(preset)
+                    refreshPresetList()
+                    showToast("已导入「$name」")
                 }
-            }
-            .setNegativeButton("取消", null)
-            .show()
+            })
     } catch (e: Exception) {
-        a.showToast("导入失败: ${e.message}")
+        showToast("导入失败: ${e.message}")
     }
 }
 
@@ -764,22 +741,14 @@ internal fun MainActivity.exportPresetToUri(uri: Uri) {
 }
 
 internal fun MainActivity.showRenameDialog(oldName: String) {
-    val a = this
-    val input = EditText(a)
-    input.setText(oldName)
-    AlertDialog.Builder(a)
-        .setTitle("重命名")
-        .setView(input)
-        .setPositiveButton("确定") { _, _ ->
-            val newName = input.text.toString().trim()
+    CustomDialog.showInput(this, "重命名", prefill = oldName,
+        positiveText = "确定", onPositive = { newName ->
             if (newName.isNotEmpty() && newName != oldName) {
-                a.viewModel.renamePreset(oldName, newName)
-                a.refreshPresetList()
-                a.showToast("已重命名为「$newName」")
+                viewModel.renamePreset(oldName, newName)
+                refreshPresetList()
+                showToast("已重命名为「$newName」")
             }
-        }
-        .setNegativeButton("取消", null)
-        .show()
+        })
 }
 
 @SuppressLint("SetTextI18n")
@@ -887,6 +856,9 @@ internal fun MainActivity.syncSettingsUI() {
     a.findViewById<Switch>(R.id.switchNonLinearTriggerAdaptation).isChecked = s.nonLinearTriggerAdaptation
     a.physicalControllerHandler.nonLinearTriggerAdaptation = s.nonLinearTriggerAdaptation
     a.updateVolumeMappingLabels()
+
+    a.syncAppearanceUI()
+    a.gamepadLayout.applyAppearance(s)
 
     val physicalConnected = a.physicalControllerHandler.isConnected.value
     val strongMapping = if (physicalConnected) s.strongVibrationMappingConnected else s.strongVibrationMapping

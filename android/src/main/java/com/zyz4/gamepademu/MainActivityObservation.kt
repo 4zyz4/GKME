@@ -78,6 +78,7 @@ internal fun MainActivity.observeState() {
                     ).forEach { id ->
                         a.findViewById<Button>(id).alpha = 1.0f
                     }
+                    a.gamepadLayout.applyAppearance(s)
                 }
             }
             launch {

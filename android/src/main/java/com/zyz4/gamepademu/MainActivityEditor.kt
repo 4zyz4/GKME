@@ -1,7 +1,6 @@
 package com.zyz4.gamepademu
 
 import android.annotation.SuppressLint
-import android.app.AlertDialog
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Typeface
@@ -44,17 +43,13 @@ internal fun MainActivity.setupFloatingEditor() {
                     a.applyPreset(a.viewModel.currentPreset.value)
                     return
                 }
-                AlertDialog.Builder(a)
-                    .setTitle("放弃修改")
-                    .setMessage("确定放弃当前布局修改？")
-                    .setPositiveButton("放弃") { _, _ ->
+                CustomDialog.showConfirm(a, "放弃修改", "确定放弃当前布局修改？",
+                    positiveText = "放弃", onPositive = {
                         a.gamepadLayout.discardToSnapshot()
                         a.gamepadLayout.exitEditMode()
                         a.viewModel.updateEditMode(false)
                         a.applyPreset(a.viewModel.currentPreset.value)
-                    }
-                    .setNegativeButton("取消", null)
-                    .show()
+                    })
             }
 
             override fun onAddButton() {
@@ -62,15 +57,11 @@ internal fun MainActivity.setupFloatingEditor() {
             }
 
             override fun onDeleteButton(buttonId: String) {
-                AlertDialog.Builder(a)
-                    .setTitle("删除控件")
-                    .setMessage("确定删除该控件？")
-                    .setPositiveButton("删除") { _, _ ->
+                CustomDialog.showConfirm(a, "删除控件", "确定删除该控件？",
+                    positiveText = "删除", onPositive = {
                         a.gamepadLayout.removeButtonPosition(buttonId)
                         a.floatingEditor.clearParameters()
-                    }
-                    .setNegativeButton("取消", null)
-                    .show()
+                    })
             }
 
             override fun onButtonUpdated(buttonId: String, updated: ButtonPosition) {
@@ -305,11 +296,7 @@ internal fun MainActivity.showAddButtonDialog() {
     }
 
     content.addView(grid)
-    a.addDialog = AlertDialog.Builder(a)
-        .setTitle("添加控件")
-        .setView(content)
-        .setNegativeButton("取消", null)
-        .show()
+    a.addDialog = CustomDialog.showCustomView(a, "添加控件", content, negativeText = "取消", scrollable = true)
 }
 
 @SuppressLint("ClickableViewAccessibility")
@@ -667,9 +654,5 @@ internal fun MainActivity.showOutputValuePicker(currentBits: List<Int>, onResult
     }
 
     content.addView(grid)
-    a.outputPickerDialog = AlertDialog.Builder(a)
-        .setTitle("选择传出值")
-        .setView(content)
-        .setPositiveButton("取消", null)
-        .show()
+    a.outputPickerDialog = CustomDialog.showCustomView(a, "选择传出值", content, negativeText = "取消", scrollable = true)
 }

@@ -36,6 +36,8 @@ enum class HapticEffect(val displayName: String) {
     VIRTUAL_KEY_RELEASE("虚拟键释放"),
 }
 
+enum class FillType { SOLID_COLOR, IMAGE }
+
 data class AppSettings(
     val connectionMode: ConnectionMode = ConnectionMode.WIFI,
     val targetPlatform: TargetPlatform = TargetPlatform.WINDOWS,
@@ -72,4 +74,30 @@ data class AppSettings(
     val volumeUpBits: List<Int> = emptyList(),
     val volumeDownBits: List<Int> = emptyList(),
     val nonLinearTriggerAdaptation: Boolean = false,
+    // ── Appearance ──
+    val bgFillType: FillType = FillType.SOLID_COLOR,
+    val bgColor: Int = 0xFF000000.toInt(),
+    val bgImagePath: String? = null,
+    val btnFillType: FillType = FillType.SOLID_COLOR,
+    val btnColor: Int = 0xFF1A1A1A.toInt(),
+    val btnImagePath: String? = null,
+    val btnOutlineColor: Int = 0xFF666666.toInt(),
+    val btnOutlineWidth: Int = 4,
+    val joyBaseFillType: FillType = FillType.SOLID_COLOR,
+    val joyBaseColor: Int = -0xdddddd,
+    val joyBaseImagePath: String? = null,
+    val joyBaseOutlineColor: Int = -0xaaaaab,
+    val joyBaseOutlineWidth: Int = 4,
+    val joyCapFillType: FillType = FillType.SOLID_COLOR,
+    val joyCapColor: Int = -0xaaaaab,
+    val joyCapImagePath: String? = null,
+    val joyCapOutlineColor: Int = -0x888889,
+    val joyCapOutlineWidth: Int = 4,
+    val joyTriggerOutlineColor: Int = -0x666667,
+    val joyTriggerOutlineWidth: Int = 4,
+    val tpFillType: FillType = FillType.SOLID_COLOR,
+    val tpColor: Int = 0xFF121212.toInt(),
+    val tpImagePath: String? = null,
+    val tpOutlineColor: Int = 0xFF666666.toInt(),
+    val tpOutlineWidth: Int = 4,
 )
