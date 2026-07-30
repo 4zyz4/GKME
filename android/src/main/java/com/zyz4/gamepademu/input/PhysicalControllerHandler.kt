@@ -660,7 +660,6 @@ class PhysicalControllerHandler(private val context: Context) {
         val lowNorm = lowFreqMotor.coerceIn(0, 255)
         val highNorm = highFreqMotor.coerceIn(0, 255)
 
-        // Resolve mapping — fall back to phone when target motor doesn't exist
         fun resolveMotor(m: VibrationMotor): VibrationMotor {
             if (m == VibrationMotor.NONE) return m
             if (m == VibrationMotor.PHONE_MOTOR) return m
@@ -670,7 +669,6 @@ class PhysicalControllerHandler(private val context: Context) {
         val strongEff = resolveMotor(strongVibrationMapping)
         val weakEff = resolveMotor(weakVibrationMapping)
 
-        // Phone path — use maxOf matching original triggerVibration feel
         var phoneAmp = 0
         if (strongEff == VibrationMotor.PHONE_MOTOR && lowNorm > 0) phoneAmp = maxOf(phoneAmp, lowNorm)
         if (weakEff == VibrationMotor.PHONE_MOTOR && highNorm > 0) phoneAmp = maxOf(phoneAmp, highNorm)
@@ -680,7 +678,6 @@ class PhysicalControllerHandler(private val context: Context) {
             vibratePhone(0)
         }
 
-        // Controller path — only when connected
         if (!_isConnected.value) return
         val ctrlVib = mutableMapOf<Int, Int>()
         if (strongEff == VibrationMotor.CONTROLLER_MOTOR_1 && lowNorm > 0) ctrlVib.merge(0, lowNorm, Int::plus)

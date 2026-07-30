@@ -34,6 +34,9 @@ class DsuService(
     private var lastGamepadState: GamepadState = GamepadState()
     private var localIpBytes: ByteArray? = null
 
+    @Volatile
+    var lastPacketTime: Long = 0L
+
     fun start(): Boolean {
         stop()
         try {
@@ -83,7 +86,7 @@ class DsuService(
                     if (from in localAddresses) continue
                     if (data.size >= 20) {
                         val header = codec.decodeHeader(data)
-                        if (header != null && header.crcValid) {
+                        if (header != null) {
                             handleDsuPacket(ds, from, port, header)
                         }
                     }
@@ -100,9 +103,10 @@ class DsuService(
                     val packet = DatagramPacket(buf, buf.size)
                     dt.receive(packet)
                     val data = packet.data.copyOf(packet.length)
-                    val header = codec.decodeHeader(data) ?: continue
-                    if (!header.crcValid) continue
-                    handleDsuPacket(dt, packet.address, packet.port, header)
+                    val header = codec.decodeHeader(data)
+                    if (header != null) {
+                        handleDsuPacket(dt, packet.address, packet.port, header)
+                    }
                 } catch (_: Exception) {
                     if (!isActive) break
                 }
@@ -135,6 +139,7 @@ class DsuService(
         pcAddress = from
         pcPort = port
         clientId = header.clientId
+        lastPacketTime = System.currentTimeMillis()
 
         when (header.eventType) {
             DsuConstants.TYPE_CONTROLLER_INFO -> {
@@ -157,10 +162,9 @@ class DsuService(
             }
             DsuConstants.TYPE_RUMBLE -> {
                 val rumble = codec.parseRumbleRequest(header)
+                android.util.Log.d("DsuService", "TYPE_RUMBLE payloadSize=${header.payload.size} rumble=$rumble")
                 if (rumble != null) {
-                    val motor = if (rumble.motorId == 0) rumble.intensity else 0
-                    val small = if (rumble.motorId == 1) rumble.intensity else 0
-                    onRumble?.invoke(motor, small)
+                    onRumble?.invoke(rumble.largeMotor, rumble.smallMotor)
                 }
             }
         }

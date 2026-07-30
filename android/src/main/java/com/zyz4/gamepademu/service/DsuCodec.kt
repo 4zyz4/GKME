@@ -119,7 +119,7 @@ class DsuCodec {
         }
         val computedCrc = crc32.value.toInt()
 
-        val payload = buffer.copyOfRange(DsuConstants.HEADER_SIZE, totalPacket)
+        val payload = buffer.copyOfRange(DsuConstants.HEADER_SIZE, buffer.size)
         val eventTypeBB = ByteBuffer.wrap(payload, 0, 4).order(ByteOrder.LITTLE_ENDIAN)
         val eventType = eventTypeBB.getInt()
 
@@ -280,16 +280,12 @@ class DsuCodec {
         val data = packetHeader.payload
         if (data.size < 14) return null
         val bb = ByteBuffer.wrap(data, 4, 10).order(ByteOrder.LITTLE_ENDIAN)
-        val slot = bb.get().toInt() and 0xFF
-        bb.get()
-        bb.get()
-        bb.get()
         val mac = ByteArray(6)
         bb.get(mac)
-        bb.get()
-        val motorId = bb.get().toInt() and 0xFF
-        val intensity = bb.get().toInt() and 0xFF
-        return RumbleRequest(slot, motorId, intensity)
+        bb.getShort()
+        val smallMotor = bb.get().toInt() and 0xFF
+        val largeMotor = bb.get().toInt() and 0xFF
+        return RumbleRequest(largeMotor = largeMotor, smallMotor = smallMotor)
     }
 
     fun parseControllerDataRequest(packetHeader: DsuPacketHeader): ControllerDataRequest? {
@@ -340,7 +336,9 @@ data class ControllerDataRequest(
 )
 
 data class RumbleRequest(
-    val slot: Int,
-    val motorId: Int,
-    val intensity: Int
+    val slot: Int = 0,
+    val motorId: Int = 0,
+    val intensity: Int = 0,
+    val largeMotor: Int = 0,
+    val smallMotor: Int = 0
 )

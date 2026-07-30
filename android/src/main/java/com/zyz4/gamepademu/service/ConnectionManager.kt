@@ -3,6 +3,7 @@ package com.zyz4.gamepademu.service
 import android.bluetooth.BluetoothAdapter
 import android.content.Context
 import android.os.Build
+import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.provider.Settings
@@ -73,11 +74,6 @@ class ConnectionManager @Inject constructor(
     private val _seq = java.util.concurrent.atomic.AtomicLong(0L)
     private val _rttRing = LongArray(64) { -1L }
 
-    companion object {
-        const val POLLING_INTERVAL_MS = 8
-        const val CONNECTION_TIMEOUT_MS = 3000L
-    }
-
     init {
         _settings.value = runBlocking(Dispatchers.IO) {
             settingsRepository.settings.first()
@@ -125,19 +121,39 @@ class ConnectionManager @Inject constructor(
         }
     }
 
+    companion object {
+        const val POLLING_INTERVAL_MS = 8
+        const val CONNECTION_TIMEOUT_MS = 3000L
+        const val EMOTION_TIMEOUT_MS = 5000L
+    }
+
     private suspend fun watchdogLoop() {
         while (true) {
             delay(1000)
-            if (activeProtocol == ActiveProtocol.WIFI) {
-                if (udpService.pcAddress != null &&
-                    System.currentTimeMillis() - udpService.lastReceiveTime > CONNECTION_TIMEOUT_MS) {
-                    udpService.clearPcAddress()
-                    activeProtocol = ActiveProtocol.NONE
-                    _connectionState.value = _connectionState.value.copy(
-                        connected = false, phase = ConnectionPhase.LISTENING,
-                        statusText = "连接已断开，等待重连..."
-                    )
+            when (activeProtocol) {
+                ActiveProtocol.WIFI -> {
+                    if (udpService.pcAddress != null &&
+                        System.currentTimeMillis() - udpService.lastReceiveTime > CONNECTION_TIMEOUT_MS) {
+                        udpService.clearPcAddress()
+                        activeProtocol = ActiveProtocol.NONE
+                        _connectionState.value = _connectionState.value.copy(
+                            connected = false, phase = ConnectionPhase.LISTENING,
+                            statusText = "连接已断开，等待重连..."
+                        )
+                    }
                 }
+                ActiveProtocol.EMOTION -> {
+                    val dsu = dsuService
+                    if (dsu != null && dsu.lastPacketTime != 0L &&
+                        System.currentTimeMillis() - dsu.lastPacketTime > EMOTION_TIMEOUT_MS) {
+                        activeProtocol = ActiveProtocol.NONE
+                        _connectionState.value = _connectionState.value.copy(
+                            connected = false, phase = ConnectionPhase.LISTENING,
+                            statusText = "连接已断开，等待重连..."
+                        )
+                    }
+                }
+                else -> {}
             }
         }
     }
@@ -194,9 +210,7 @@ class ConnectionManager @Inject constructor(
                 scope = scope,
                 serverIp = ip,
                 onRumble = { largeMotor, smallMotor ->
-                    if (_settings.value.gameVibrationEnabled) {
-                        onRumbleRequest?.invoke(largeMotor, smallMotor)
-                    }
+                    onRumbleRequest?.invoke(largeMotor, smallMotor)
                 },
                 onError = { msg ->
                     if (activeProtocol == ActiveProtocol.EMOTION) {
