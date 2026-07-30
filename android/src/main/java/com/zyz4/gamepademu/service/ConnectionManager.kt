@@ -10,6 +10,7 @@ import com.zyz4.gamepademu.data.PairingStateRepository
 import com.zyz4.gamepademu.data.SettingsRepository
 import com.zyz4.gamepademu.model.AppSettings
 import com.zyz4.gamepademu.model.ConnectionMode
+import com.zyz4.gamepademu.model.GamepadState
 import com.zyz4.gamepademu.proto.ClientToServer
 import com.zyz4.gamepademu.proto.GamepadInput
 import com.zyz4.gamepademu.proto.Hello
@@ -53,6 +54,7 @@ class ConnectionManager @Inject constructor(
     private val udpService = UdpService()
     private var bluetoothService: BluetoothHidService? = null
     val isBluetoothRunning: Boolean get() = bluetoothService != null
+    private var dsuService: DsuService? = null
     private var serverJob: Job? = null
     private var btPhaseJob: Job? = null
 
@@ -107,6 +109,9 @@ class ConnectionManager @Inject constructor(
             ConnectionMode.BLUETOOTH -> {
                 startBluetooth(scope, s)
             }
+            ConnectionMode.CEMUHOOK -> {
+                serverJob = scope.launch { startDsuServer(s) }
+            }
         }
     }
 
@@ -144,6 +149,61 @@ class ConnectionManager @Inject constructor(
             _connectionState.value = _connectionState.value.copy(
                 connected = false, phase = ConnectionPhase.ERROR,
                 statusText = "服务异常: ${e.message}"
+            )
+        }
+    }
+
+    private suspend fun startDsuServer(settings: AppSettings) {
+        try {
+            val ip = getServerIp()
+            if (ip.isEmpty()) {
+                _connectionState.value = _connectionState.value.copy(
+                    phase = ConnectionPhase.ERROR,
+                    statusText = "无法获取本机 IP"
+                )
+                return
+            }
+            dsuService = DsuService(
+                scope = scope,
+                serverIp = ip,
+                onRumble = { largeMotor, smallMotor ->
+                    if (_settings.value.gameVibrationEnabled) {
+                        onRumbleRequest?.invoke(largeMotor, smallMotor)
+                    }
+                },
+                onError = { msg ->
+                    _connectionState.value = _connectionState.value.copy(
+                        statusText = "DSU 错误: $msg"
+                    )
+                },
+                onConnected = {
+                    _connectionState.value = _connectionState.value.copy(
+                        connected = true,
+                        phase = ConnectionPhase.CONNECTED,
+                        statusText = "已连接 (DSU)"
+                    )
+                }
+            )
+            val started = dsuService?.start() ?: false
+            if (!started) {
+                _connectionState.value = _connectionState.value.copy(
+                    phase = ConnectionPhase.ERROR,
+                    statusText = "DSU 服务启动失败"
+                )
+                return
+            }
+            _connectionState.value = _connectionState.value.copy(
+                phase = ConnectionPhase.LISTENING,
+                statusText = "DSU 服务已启动，等待连接..."
+            )
+            while (true) {
+                delay(1000)
+            }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            _connectionState.value = _connectionState.value.copy(
+                connected = false, phase = ConnectionPhase.ERROR,
+                statusText = "DSU 服务异常: ${e.message}"
             )
         }
     }
@@ -211,6 +271,8 @@ class ConnectionManager @Inject constructor(
         btPhaseJob = null
         udpService.stop()
         stopBluetooth()
+        dsuService?.stop()
+        dsuService = null
         vibrator.cancel()
         _connectionState.value = ConnectionState()
     }
@@ -275,6 +337,36 @@ class ConnectionManager @Inject constructor(
                 val target = _settings.value.targetPlatform
                 val report = GamepadStateMapper.map(state, target)
                 bluetoothService?.sendReport(report)
+            }
+            ConnectionMode.CEMUHOOK -> {
+                val gs = GamepadState(
+                    buttons = state.buttons.toUInt(),
+                    leftStickX = state.leftStickX.toShort(),
+                    leftStickY = state.leftStickY.toShort(),
+                    rightStickX = state.rightStickX.toShort(),
+                    rightStickY = state.rightStickY.toShort(),
+                    leftTrigger = state.leftTrigger,
+                    rightTrigger = state.rightTrigger,
+                    dpad = state.dpad,
+                    gyroX = state.gyroX,
+                    gyroY = state.gyroY,
+                    gyroZ = state.gyroZ,
+                    accelX = state.accelX,
+                    accelY = state.accelY,
+                    accelZ = state.accelZ,
+                    touchpadX = state.touchpadX,
+                    touchpadY = state.touchpadY,
+                    touchpadTouch = state.touchpadTouch,
+                    touchpadClick = state.touchpadClick,
+                    batteryLevel = state.batteryLevel,
+                    isCharging = state.isCharging,
+                    touches = state.touchesList.map { tp ->
+                        com.zyz4.gamepademu.model.TouchPoint(
+                            id = tp.id, x = tp.x, y = tp.y, active = tp.active
+                        )
+                    }
+                )
+                dsuService?.updateGamepadState(gs)
             }
         }
     }
