@@ -104,8 +104,8 @@ class ColorPickerView @JvmOverloads constructor(
 
         // ── hue strip ──
         val hueColors = intArrayOf(
-            -0x10000, -0x100, -0x1000000, -0xff0100, -0xff01,
-            -0xff0101, -0x10000
+            -0x10000, -0x100, -0xff0100, -0xff0001, -0xffff01,
+            -0xff01, -0x10000
         )
         val huePos = floatArrayOf(0f, 0.17f, 0.33f, 0.5f, 0.67f, 0.83f, 1f)
         val hGrad2 = LinearGradient(0f, sT, 0f, sT + sS, hueColors, huePos, Shader.TileMode.CLAMP)
