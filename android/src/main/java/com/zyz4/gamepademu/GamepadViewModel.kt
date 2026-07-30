@@ -259,9 +259,7 @@ class GamepadViewModel @Inject constructor(
         connectionManager.updateSettings(updated)
         if (enabled) {
             startSensorDisplay()
-            if (settings.value.connectionMode == ConnectionMode.WIFI ||
-                settings.value.connectionMode == ConnectionMode.CEMUHOOK
-            ) {
+            if (settings.value.connectionMode == ConnectionMode.WIFI) {
                 startSensorSendLoop()
             }
         } else {
@@ -376,16 +374,16 @@ class GamepadViewModel @Inject constructor(
     fun startServer() {
         connectionManager.startServer(viewModelScope)
         if (settings.value.connectionMode == ConnectionMode.WIFI ||
-            settings.value.connectionMode == ConnectionMode.BLUETOOTH ||
-            settings.value.connectionMode == ConnectionMode.CEMUHOOK
+            settings.value.connectionMode == ConnectionMode.BLUETOOTH
         ) {
-            startPeriodicSendLoop()
+            if (settings.value.gyroEnabled) {
+                startSensorSendLoop()
+            } else {
+                startPeriodicSendLoop()
+            }
         }
         if (settings.value.gyroEnabled) {
             startSensorDisplay()
-            if (settings.value.connectionMode == ConnectionMode.WIFI) {
-                startSensorSendLoop()
-            }
         }
     }
 

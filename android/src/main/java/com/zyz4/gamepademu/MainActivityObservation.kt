@@ -28,12 +28,10 @@ internal fun MainActivity.observeState() {
                     a.findViewById<TextView>(R.id.tvConnectionStatus).text = st.statusText
                     val btn = a.findViewById<Button>(R.id.btnConnectAction)
                     btn.text = if (st.phase != ConnectionPhase.IDLE) "停止服务" else "启动服务"
-                    val ip = if ((a.viewModel.settings.value.connectionMode == ConnectionMode.WIFI ||
-                                a.viewModel.settings.value.connectionMode == ConnectionMode.CEMUHOOK) &&
+                    val ip = if (a.viewModel.settings.value.connectionMode == ConnectionMode.WIFI &&
                         st.statusText != "未启动"
                     ) {
-                        val modeLabel = if (a.viewModel.settings.value.connectionMode == ConnectionMode.CEMUHOOK) " / DSU 模式" else ""
-                        "本机 IP: ${a.viewModel.getServerIp()}$modeLabel"
+                        "本机 IP: ${a.viewModel.getServerIp()}"
                     } else ""
                     a.findViewById<TextView>(R.id.tvServerIp).text = ip
 

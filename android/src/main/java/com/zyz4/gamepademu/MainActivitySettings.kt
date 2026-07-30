@@ -178,13 +178,13 @@ internal fun MainActivity.setupSettings() {
             }
         }
 
-    listOf(R.id.btnConnWifi to 0, R.id.btnConnBluetooth to 1, R.id.btnConnCemuhook to 2).forEach { (id, idx) ->
+    listOf(R.id.btnConnWifi to 0, R.id.btnConnBluetooth to 1).forEach { (id, idx) ->
         a.findViewById<Button>(id).setOnClickListener {
             if (a.viewModel.connectionState.value.phase != ConnectionPhase.IDLE) {
                 a.showToast("请先停止服务")
                 return@setOnClickListener
             }
-            a.selectChipGroup(listOf(R.id.btnConnWifi, R.id.btnConnBluetooth, R.id.btnConnCemuhook), idx)
+            a.selectChipGroup(listOf(R.id.btnConnWifi, R.id.btnConnBluetooth), idx)
             val mode = ConnectionMode.entries[idx]
             a.viewModel.updateConnectionMode(mode)
             a.updateSettingsVisibility(mode)
@@ -786,9 +786,9 @@ internal class PresetGridAdapter(
 internal fun MainActivity.updateSettingsVisibility(mode: ConnectionMode) {
     val a = this
     val isBt = mode == ConnectionMode.BLUETOOTH
-    val isWifiOrDsu = mode == ConnectionMode.WIFI || mode == ConnectionMode.CEMUHOOK
+    val isWifi = mode == ConnectionMode.WIFI
     a.findViewById<View>(R.id.sectionTargetPlatform).visibility = if (isBt) View.VISIBLE else View.GONE
-    a.findViewById<View>(R.id.tvServerIp).visibility = if (isWifiOrDsu) View.VISIBLE else View.GONE
+    a.findViewById<View>(R.id.tvServerIp).visibility = if (isWifi) View.VISIBLE else View.GONE
     a.updatePairedDeviceVisibility(a.viewModel.pairedDeviceName.value)
 }
 
@@ -829,7 +829,7 @@ internal fun MainActivity.syncSettingsUI() {
 
     a.selectChipGroup(listOf(R.id.btnDisplayXbox, R.id.btnDisplayPlaystation, R.id.btnDisplaySwitch),
         DisplayMode.entries.indexOf(s.displayMode).coerceAtLeast(0))
-    a.selectChipGroup(listOf(R.id.btnConnWifi, R.id.btnConnBluetooth, R.id.btnConnCemuhook),
+    a.selectChipGroup(listOf(R.id.btnConnWifi, R.id.btnConnBluetooth),
         ConnectionMode.entries.indexOf(s.connectionMode).coerceAtLeast(0))
     a.selectChipGroup(listOf(R.id.btnTargetWindows, R.id.btnTargetAndroid, R.id.btnTargetLinux),
         TargetPlatform.entries.indexOf(s.targetPlatform).coerceAtLeast(0))

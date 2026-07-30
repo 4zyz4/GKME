@@ -32,6 +32,8 @@ import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 import javax.inject.Singleton
 
+private enum class ActiveProtocol { NONE, WIFI, EMOTION }
+
 data class ConnectionState(
     val connected: Boolean = false,
     val statusText: String = "未启动",
@@ -57,6 +59,9 @@ class ConnectionManager @Inject constructor(
     private var dsuService: DsuService? = null
     private var serverJob: Job? = null
     private var btPhaseJob: Job? = null
+    private var watchdogJob: Job? = null
+
+    private var activeProtocol = ActiveProtocol.NONE
 
     private val _connectionState = MutableStateFlow(ConnectionState())
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
@@ -101,16 +106,38 @@ class ConnectionManager @Inject constructor(
 
     fun startServer(scope: CoroutineScope) {
         val s = _settings.value
+        activeProtocol = ActiveProtocol.NONE
         _connectionState.value = _connectionState.value.copy(statusText = "启动服务...")
         when (s.connectionMode) {
             ConnectionMode.WIFI -> {
-                serverJob = scope.launch { startWifiServer(s) }
+                serverJob = scope.launch {
+                    // Start both WiFi UDP and DSU servers simultaneously for auto-detection
+                    val wifiJob = launch { startWifiServer(s) }
+                    val dsuJob = launch { startDsuServer(s) }
+                    watchdogJob = launch { watchdogLoop() }
+                    wifiJob.join()
+                    dsuJob.join()
+                }
             }
             ConnectionMode.BLUETOOTH -> {
                 startBluetooth(scope, s)
             }
-            ConnectionMode.CEMUHOOK -> {
-                serverJob = scope.launch { startDsuServer(s) }
+        }
+    }
+
+    private suspend fun watchdogLoop() {
+        while (true) {
+            delay(1000)
+            if (activeProtocol == ActiveProtocol.WIFI) {
+                if (udpService.pcAddress != null &&
+                    System.currentTimeMillis() - udpService.lastReceiveTime > CONNECTION_TIMEOUT_MS) {
+                    udpService.clearPcAddress()
+                    activeProtocol = ActiveProtocol.NONE
+                    _connectionState.value = _connectionState.value.copy(
+                        connected = false, phase = ConnectionPhase.LISTENING,
+                        statusText = "连接已断开，等待重连..."
+                    )
+                }
             }
         }
     }
@@ -120,36 +147,34 @@ class ConnectionManager @Inject constructor(
         try {
             val ip = getServerIp()
             if (ip.isEmpty()) {
-                _connectionState.value = _connectionState.value.copy(
-                    phase = ConnectionPhase.ERROR,
-                    statusText = "无法获取本机 IP"
-                )
+                if (activeProtocol == ActiveProtocol.NONE) {
+                    _connectionState.value = _connectionState.value.copy(
+                        phase = ConnectionPhase.ERROR,
+                        statusText = "无法获取本机 IP"
+                    )
+                }
                 return
             }
             udpService.start(ip, getRealDeviceName()) { msg ->
                 handleServerToClient(msg)
             }
-            _connectionState.value = _connectionState.value.copy(
-                phase = ConnectionPhase.LISTENING,
-                statusText = "服务已启动，等待连接..."
-            )
+            if (activeProtocol == ActiveProtocol.NONE) {
+                _connectionState.value = _connectionState.value.copy(
+                    phase = ConnectionPhase.LISTENING,
+                    statusText = "服务已启动，等待连接..."
+                )
+            }
             while (true) {
                 delay(1000)
-                if (udpService.pcAddress != null &&
-                    System.currentTimeMillis() - udpService.lastReceiveTime > CONNECTION_TIMEOUT_MS) {
-                    udpService.clearPcAddress()
-                    _connectionState.value = _connectionState.value.copy(
-                        connected = false, phase = ConnectionPhase.LISTENING,
-                        statusText = "连接已断开，等待重连..."
-                    )
-                }
             }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
-            _connectionState.value = _connectionState.value.copy(
-                connected = false, phase = ConnectionPhase.ERROR,
-                statusText = "服务异常: ${e.message}"
-            )
+            if (activeProtocol == ActiveProtocol.NONE) {
+                _connectionState.value = _connectionState.value.copy(
+                    connected = false, phase = ConnectionPhase.ERROR,
+                    statusText = "服务异常: ${e.message}"
+                )
+            }
         }
     }
 
@@ -157,10 +182,12 @@ class ConnectionManager @Inject constructor(
         try {
             val ip = getServerIp()
             if (ip.isEmpty()) {
-                _connectionState.value = _connectionState.value.copy(
-                    phase = ConnectionPhase.ERROR,
-                    statusText = "无法获取本机 IP"
-                )
+                if (activeProtocol == ActiveProtocol.NONE) {
+                    _connectionState.value = _connectionState.value.copy(
+                        phase = ConnectionPhase.ERROR,
+                        statusText = "无法获取本机 IP"
+                    )
+                }
                 return
             }
             dsuService = DsuService(
@@ -172,39 +199,40 @@ class ConnectionManager @Inject constructor(
                     }
                 },
                 onError = { msg ->
-                    _connectionState.value = _connectionState.value.copy(
-                        statusText = "DSU 错误: $msg"
-                    )
+                    if (activeProtocol == ActiveProtocol.EMOTION) {
+                        _connectionState.value = _connectionState.value.copy(
+                            statusText = "Emotion 错误: $msg"
+                        )
+                    }
                 },
                 onConnected = {
+                    activeProtocol = ActiveProtocol.EMOTION
                     _connectionState.value = _connectionState.value.copy(
                         connected = true,
                         phase = ConnectionPhase.CONNECTED,
-                        statusText = "已连接 (DSU)"
+                        statusText = "已连接（Emotion兼容）"
                     )
                 }
             )
             val started = dsuService?.start() ?: false
-            if (!started) {
+            if (!started && activeProtocol == ActiveProtocol.NONE) {
                 _connectionState.value = _connectionState.value.copy(
                     phase = ConnectionPhase.ERROR,
-                    statusText = "DSU 服务启动失败"
+                    statusText = "Emotion 服务启动失败"
                 )
                 return
             }
-            _connectionState.value = _connectionState.value.copy(
-                phase = ConnectionPhase.LISTENING,
-                statusText = "DSU 服务已启动，等待连接..."
-            )
             while (true) {
                 delay(1000)
             }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
-            _connectionState.value = _connectionState.value.copy(
-                connected = false, phase = ConnectionPhase.ERROR,
-                statusText = "DSU 服务异常: ${e.message}"
-            )
+            if (activeProtocol == ActiveProtocol.EMOTION) {
+                _connectionState.value = _connectionState.value.copy(
+                    connected = false, phase = ConnectionPhase.ERROR,
+                    statusText = "Emotion 服务异常: ${e.message}"
+                )
+            }
         }
     }
 
@@ -267,6 +295,8 @@ class ConnectionManager @Inject constructor(
     fun stopServer() {
         serverJob?.cancel()
         serverJob = null
+        watchdogJob?.cancel()
+        watchdogJob = null
         btPhaseJob?.cancel()
         btPhaseJob = null
         udpService.stop()
@@ -274,6 +304,7 @@ class ConnectionManager @Inject constructor(
         dsuService?.stop()
         dsuService = null
         vibrator.cancel()
+        activeProtocol = ActiveProtocol.NONE
         _connectionState.value = ConnectionState()
     }
 
@@ -287,7 +318,7 @@ class ConnectionManager @Inject constructor(
 
     private fun handleServerToClient(msg: ServerToClient) {
         if (msg.payloadCase != ServerToClient.PayloadCase.DISCONNECT &&
-            !_connectionState.value.connected
+            activeProtocol != ActiveProtocol.WIFI
         ) {
             doReconnect()
         }
@@ -300,6 +331,7 @@ class ConnectionManager @Inject constructor(
             }
             ServerToClient.PayloadCase.DISCONNECT -> {
                 udpService.clearPcAddress()
+                activeProtocol = ActiveProtocol.NONE
                 _connectionState.value = ConnectionState(statusText = "已断开")
             }
             ServerToClient.PayloadCase.RTT_REPORT -> {}
@@ -308,9 +340,10 @@ class ConnectionManager @Inject constructor(
     }
 
     private fun doReconnect() {
+        activeProtocol = ActiveProtocol.WIFI
         _connectionState.value = _connectionState.value.copy(
             connected = true, phase = ConnectionPhase.CONNECTED,
-            statusText = "已连接 (WiFi)"
+            statusText = "已连接（WiFi）"
         )
         scope.launch {
             val hello = Hello.newBuilder()
@@ -329,44 +362,48 @@ class ConnectionManager @Inject constructor(
     suspend fun sendGamepadState(state: GamepadInput) {
         when (_settings.value.connectionMode) {
             ConnectionMode.WIFI -> {
-                if (udpService.pcAddress == null) return
-                val input = state.toBuilder().setSeq(_seq.incrementAndGet()).build()
-                udpService.sendGamepadInput(input)
+                when (activeProtocol) {
+                    ActiveProtocol.EMOTION -> {
+                        val gs = GamepadState(
+                            buttons = state.buttons.toUInt(),
+                            leftStickX = state.leftStickX.toShort(),
+                            leftStickY = state.leftStickY.toShort(),
+                            rightStickX = state.rightStickX.toShort(),
+                            rightStickY = state.rightStickY.toShort(),
+                            leftTrigger = state.leftTrigger,
+                            rightTrigger = state.rightTrigger,
+                            dpad = state.dpad,
+                            gyroX = state.gyroX,
+                            gyroY = state.gyroY,
+                            gyroZ = state.gyroZ,
+                            accelX = state.accelX,
+                            accelY = state.accelY,
+                            accelZ = state.accelZ,
+                            touchpadX = state.touchpadX,
+                            touchpadY = state.touchpadY,
+                            touchpadTouch = state.touchpadTouch,
+                            touchpadClick = state.touchpadClick,
+                            batteryLevel = state.batteryLevel,
+                            isCharging = state.isCharging,
+                            touches = state.touchesList.map { tp ->
+                                com.zyz4.gamepademu.model.TouchPoint(
+                                    id = tp.id, x = tp.x, y = tp.y, active = tp.active
+                                )
+                            }
+                        )
+                        dsuService?.updateGamepadState(gs)
+                    }
+                    else -> {
+                        if (udpService.pcAddress == null) return
+                        val input = state.toBuilder().setSeq(_seq.incrementAndGet()).build()
+                        udpService.sendGamepadInput(input)
+                    }
+                }
             }
             ConnectionMode.BLUETOOTH -> {
                 val target = _settings.value.targetPlatform
                 val report = GamepadStateMapper.map(state, target)
                 bluetoothService?.sendReport(report)
-            }
-            ConnectionMode.CEMUHOOK -> {
-                val gs = GamepadState(
-                    buttons = state.buttons.toUInt(),
-                    leftStickX = state.leftStickX.toShort(),
-                    leftStickY = state.leftStickY.toShort(),
-                    rightStickX = state.rightStickX.toShort(),
-                    rightStickY = state.rightStickY.toShort(),
-                    leftTrigger = state.leftTrigger,
-                    rightTrigger = state.rightTrigger,
-                    dpad = state.dpad,
-                    gyroX = state.gyroX,
-                    gyroY = state.gyroY,
-                    gyroZ = state.gyroZ,
-                    accelX = state.accelX,
-                    accelY = state.accelY,
-                    accelZ = state.accelZ,
-                    touchpadX = state.touchpadX,
-                    touchpadY = state.touchpadY,
-                    touchpadTouch = state.touchpadTouch,
-                    touchpadClick = state.touchpadClick,
-                    batteryLevel = state.batteryLevel,
-                    isCharging = state.isCharging,
-                    touches = state.touchesList.map { tp ->
-                        com.zyz4.gamepademu.model.TouchPoint(
-                            id = tp.id, x = tp.x, y = tp.y, active = tp.active
-                        )
-                    }
-                )
-                dsuService?.updateGamepadState(gs)
             }
         }
     }

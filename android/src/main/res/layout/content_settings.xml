@@ -1079,12 +1079,9 @@
                         style="@style/GamepadChip"
                         android:layout_marginEnd="6dp"
                         android:text="蓝牙" />
-
-                    <Button
-                        android:id="@+id/btnConnCemuhook"
-                        style="@style/GamepadChip"
-                        android:text="Cemuhook" />
                 </LinearLayout>
+
+
 
                 <!-- Target Platform (conditional: Bluetooth) -->
                 <LinearLayout

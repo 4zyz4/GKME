@@ -197,10 +197,8 @@ class DsuCodec {
                 (if (buttons and GamepadState.DPAD_BIT_DOWN != 0) 0x40 else 0) or
                 (if (buttons and GamepadState.DPAD_BIT_RIGHT != 0) 0x20 else 0) or
                 (if (buttons and GamepadState.DPAD_BIT_UP != 0) 0x10 else 0) or
-                (if (buttons and GamepadState.START != 0) 0x08 else 0) or
-                (if (buttons and GamepadState.R3 != 0) 0x04 else 0) or
-                (if (buttons and GamepadState.L3 != 0) 0x02 else 0) or
-                (if (buttons and GamepadState.SELECT != 0) 0x01 else 0)).toByte()
+                (if (buttons and GamepadState.L3 != 0) 0x04 else 0) or
+                (if (buttons and GamepadState.R3 != 0) 0x02 else 0)).toByte()
         dataBuf.put(b16)
 
         val b17 = ((if (buttons and GamepadState.Y != 0) 0x80 else 0) or
@@ -213,19 +211,13 @@ class DsuCodec {
                 (if (buttons and GamepadState.LT != 0) 0x01 else 0)).toByte()
         dataBuf.put(b17)
 
-        val b18 = ((if (buttons and GamepadState.HOME != 0) 0x01 else 0) or
-                (if (buttons and GamepadState.TOUCHPAD_CLICK != 0) 0x02 else 0)).toByte()
-        dataBuf.put(b18)
-        dataBuf.put(0)
+        dataBuf.put((if (buttons and GamepadState.START != 0) 255 else 0).toByte())
+        dataBuf.put((if (buttons and GamepadState.SELECT != 0) 255 else 0).toByte())
 
-        val lx = mapStick(state.leftStickX)
-        val ly = mapStick(state.leftStickY)
-        val rx = mapStick(state.rightStickX)
-        val ry = mapStick(state.rightStickY)
-        dataBuf.put(lx.toByte())
-        dataBuf.put(ly.toByte())
-        dataBuf.put(rx.toByte())
-        dataBuf.put(ry.toByte())
+        dataBuf.put((state.leftStickX.toInt() shr 8).toByte())
+        dataBuf.put(((-state.leftStickY.toInt()).coerceAtMost(32767) shr 8).toByte())
+        dataBuf.put((state.rightStickX.toInt() shr 8).toByte())
+        dataBuf.put(((-state.rightStickY.toInt()).coerceAtMost(32767) shr 8).toByte())
 
         val dpad = state.dpad
         val dpadLeft = if (dpad == GamepadState.DPAD_LEFT || dpad == GamepadState.DPAD_UP_LEFT || dpad == GamepadState.DPAD_DOWN_LEFT) 255 else 0
@@ -264,11 +256,11 @@ class DsuCodec {
         dataBuf.putLong(touchTimestamp)
 
         val gyroX = state.gyroX * 180.0f / kotlin.math.PI.toFloat()
-        val gyroY = state.gyroY * 180.0f / kotlin.math.PI.toFloat()
-        val gyroZ = state.gyroZ * 180.0f / kotlin.math.PI.toFloat()
-        val accelX = state.accelX / 9.80665f
-        val accelY = state.accelY / 9.80665f
-        val accelZ = state.accelZ / 9.80665f
+        val gyroY = -state.gyroY * 180.0f / kotlin.math.PI.toFloat()
+        val gyroZ = -state.gyroZ * 180.0f / kotlin.math.PI.toFloat()
+        val accelX = -state.accelX / 9.80665f
+        val accelY = -state.accelY / 9.80665f
+        val accelZ = -state.accelZ / 9.80665f
 
         dataBuf.putFloat(accelX)
         dataBuf.putFloat(accelY)
@@ -281,10 +273,6 @@ class DsuCodec {
         payloadWithType.putInt(DsuConstants.TYPE_CONTROLLER_DATA)
         payloadWithType.put(dataBuf.array())
         return encodeHeader(DsuConstants.MAGIC_SERVER, clientId, payloadWithType.array())
-    }
-
-    private fun mapStick(value: Short): Int {
-        return ((value.toInt() + 32768) * 255 / 65535).coerceIn(0, 255)
     }
 
     fun parseRumbleRequest(packetHeader: DsuPacketHeader): RumbleRequest? {
