@@ -74,9 +74,11 @@ object AppearanceApplier {
             getIconDrawable(view, settings)
         } else null
 
-        if (icon != null && Build.VERSION.SDK_INT >= 23) {
+        if (icon != null) {
             view.foreground = icon
             view.foregroundGravity = getIconGravity(baseId)
+        } else if (baseId in iconButtonIds) {
+            view.foreground = null
         }
 
         if (settings.btnFillType == FillType.SOLID_COLOR) {

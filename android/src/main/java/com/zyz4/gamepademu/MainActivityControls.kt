@@ -452,17 +452,21 @@ internal fun MainActivity.updateButtonLabels(mode: DisplayMode) {
                         DisplayMode.XBOX -> {
                             text = listOf("A", "B", "X", "Y")[idx]; textSize = 20f
                             setBackgroundResource(R.drawable.button_circle)
+                            foreground = null
                         }
                         DisplayMode.PLAYSTATION -> {
                             text = ""; textSize = 12f
-                            setBackgroundResource(intArrayOf(
-                                R.drawable.btn_ps_cross, R.drawable.btn_ps_circle,
-                                R.drawable.btn_ps_square, R.drawable.btn_ps_triangle
+                            setBackgroundResource(R.drawable.button_circle)
+                            foreground = context.getDrawable(intArrayOf(
+                                R.drawable.ic_ps_cross, R.drawable.ic_ps_circle,
+                                R.drawable.ic_ps_square, R.drawable.ic_ps_triangle
                             )[idx])
+                            foregroundGravity = android.view.Gravity.CENTER
                         }
                         DisplayMode.SWITCH -> {
                             text = listOf("B", "A", "Y", "X")[idx]; textSize = 20f
                             setBackgroundResource(R.drawable.button_circle)
+                            foreground = null
                         }
                     }
                 }
