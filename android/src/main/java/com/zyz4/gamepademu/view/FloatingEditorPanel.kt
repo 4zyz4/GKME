@@ -13,13 +13,15 @@ import android.view.inputmethod.EditorInfo
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.Spinner
 import androidx.core.widget.NestedScrollView
 import android.widget.SeekBar
-import android.widget.CheckBox
 import android.widget.TextView
 import com.zyz4.gamepademu.R
 import com.zyz4.gamepademu.model.ButtonPosition
@@ -43,6 +45,15 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     }
 
     var editorListener: EditorListener? = null
+
+    /** Invoked when the panel is collapsed/expanded via the header toggle button. */
+    var onToggleCollapsed: ((collapsed: Boolean) -> Unit)? = null
+
+    private var collapsed = false
+    private var expandedHeight = 0
+    private var headerView: View? = null
+    private var scrollView: View? = null
+    private var toggleBtn: ImageButton? = null
 
     var presetGyroOrientation: GyroOrientation? = null
         set(value) {
@@ -88,6 +99,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         return base in BUTTON_IDS || base.startsWith("btnCustom")
     }
 
+    private fun isSettingsButton(id: String): Boolean = id == GamepadLayout.SETTINGS_BUTTON_ID
+
     private fun getChineseName(buttonId: String): String {
         val base = buttonId.substringBefore("_")
         return when (base) {
@@ -114,6 +127,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             "touchpad" -> "触摸板"
             "btnCustomCircle" -> "自定义(圆)"
             "btnCustomRect" -> "自定义(方)"
+            "btnSettings" -> "设置按钮"
             "btn" -> "按钮"
             "joystick" -> "摇杆"
             else -> buttonId
@@ -144,7 +158,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         super.onAttachedToWindow()
         val lp = layoutParams as FrameLayout.LayoutParams
         lp.width = panelW
-        lp.height = (context.resources.displayMetrics.heightPixels * 0.8f).toInt()
+        expandedHeight = (context.resources.displayMetrics.heightPixels * 0.8f).toInt()
+        lp.height = expandedHeight
         requestLayout()
     }
 
@@ -166,15 +181,35 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
         val header = LinearLayout(context).apply {
             layoutParams = LinearLayout.LayoutParams(contentW, ViewGroup.LayoutParams.WRAP_CONTENT)
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
             setOnTouchListener { _, event -> handleDrag(event); true }
         }
-        header.addView(buildGripBar(density))
+        val gripBar = buildGripBar(density)
+        header.addView(gripBar, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+        val btnToggle = ImageButton(context).apply {
+            setImageResource(R.drawable.ic_arrow_up)
+            setBackgroundResource(R.drawable.bg_small_btn)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            setPadding(
+                (6f * density).toInt(), (6f * density).toInt(),
+                (6f * density).toInt(), (6f * density).toInt()
+            )
+            contentDescription = "收起/展开面板"
+            setOnClickListener { toggleCollapsed() }
+        }
+        toggleBtn = btnToggle
+        header.addView(btnToggle, LinearLayout.LayoutParams((34f * density).toInt(), (34f * density).toInt()).apply {
+            leftMargin = (4f * density).toInt()
+        })
+        headerView = header
         root.addView(header)
 
         val scroll = NestedScrollView(context).apply {
             layoutParams = LinearLayout.LayoutParams(contentW, ViewGroup.LayoutParams.MATCH_PARENT)
             isFillViewport = true
         }
+        scrollView = scroll
         paramsContainer = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding((8f * density).toInt(), (12f * density).toInt(), (8f * density).toInt(), (12f * density).toInt())
@@ -324,6 +359,28 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         return true
     }
 
+    private fun toggleCollapsed() {
+        setCollapsed(!collapsed)
+    }
+
+    /** Collapses the panel to show only the drag handle + toggle button. */
+    fun setCollapsed(collapsed: Boolean) {
+        if (this.collapsed == collapsed) return
+        this.collapsed = collapsed
+        val lp = layoutParams as? FrameLayout.LayoutParams ?: return
+        scrollView?.visibility = if (collapsed) View.GONE else View.VISIBLE
+        toggleBtn?.setImageResource(if (collapsed) R.drawable.ic_arrow_down else R.drawable.ic_arrow_up)
+        lp.height = if (collapsed) {
+            val headerH = headerView?.height ?: 0
+            (if (headerH > 0) headerH else (36f * resources.displayMetrics.density).toInt()) +
+                paddingTop + paddingBottom
+        } else {
+            expandedHeight
+        }
+        requestLayout()
+        onToggleCollapsed?.invoke(collapsed)
+    }
+
     fun clearParameters() {
         buttonParamsInner.removeAllViews()
     }
@@ -331,6 +388,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     fun showParameters(buttonId: String, button: ButtonPosition) {
         currentButton = button
         val density = context.resources.displayMetrics.density
+        setCollapsed(false)
 
         buttonParamsInner.removeAllViews()
 
@@ -408,39 +466,43 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             })
         }
 
-        addRotationButtons(buttonParamsInner, buttonId, density)
+        addRotationButtons(buttonParamsInner, buttonId, density, isSettingsButton(buttonId))
 
-        // ── Transparency for all controls (0=opaque, 100=invisible) ──
-        addSeekbar(buttonParamsInner, "空闲时透明度(%)", (button.idleTransparency * 100 / 255).coerceIn(0, 100), 0, 100,
-            onChange = { value ->
-                val transVal = (value * 255 / 100).coerceIn(0, 255)
-                currentButton = currentButton?.copy(idleTransparency = transVal)
-                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
-            },
-            onStartTracking = { editorListener?.onTransparencyPreviewStart(buttonId, true) },
-            onStopTracking = { editorListener?.onTransparencyPreviewEnd(buttonId) }
-        )
-        addSeekbar(buttonParamsInner, "操作时透明度(%)", (button.activeTransparency * 100 / 255).coerceIn(0, 100), 0, 100,
-            onChange = { value ->
-                val transVal = (value * 255 / 100).coerceIn(0, 255)
-                currentButton = currentButton?.copy(activeTransparency = transVal)
-                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
-            },
-            onStartTracking = { editorListener?.onTransparencyPreviewStart(buttonId, false) },
-            onStopTracking = { editorListener?.onTransparencyPreviewEnd(buttonId) }
-        )
+        // ── Transparency (hidden for settings button) ──
+        if (!isSettingsButton(buttonId)) {
+            addSeekbar(buttonParamsInner, "空闲时透明度(%)", (button.idleTransparency * 100 / 255).coerceIn(0, 100), 0, 100,
+                onChange = { value ->
+                    val transVal = (value * 255 / 100).coerceIn(0, 255)
+                    currentButton = currentButton?.copy(idleTransparency = transVal)
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                },
+                onStartTracking = { editorListener?.onTransparencyPreviewStart(buttonId, true) },
+                onStopTracking = { editorListener?.onTransparencyPreviewEnd(buttonId) }
+            )
+            addSeekbar(buttonParamsInner, "操作时透明度(%)", (button.activeTransparency * 100 / 255).coerceIn(0, 100), 0, 100,
+                onChange = { value ->
+                    val transVal = (value * 255 / 100).coerceIn(0, 255)
+                    currentButton = currentButton?.copy(activeTransparency = transVal)
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                },
+                onStartTracking = { editorListener?.onTransparencyPreviewStart(buttonId, false) },
+                onStopTracking = { editorListener?.onTransparencyPreviewEnd(buttonId) }
+            )
+        }
 
         // ── Overlap trigger for all controls ──
-        val cbOverlap = CheckBox(context).apply {
-            text = "重叠区域触发"
-            setTextColor(-0x444445)
-            textSize = 14f
-            isChecked = button.overlapTrigger
-            setOnCheckedChangeListener { _, isChecked ->
-                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(overlapTrigger = isChecked)) }
+        if (!isSettingsButton(buttonId)) {
+            val cbOverlap = CheckBox(context).apply {
+                text = "重叠区域触发"
+                setTextColor(-0x444445)
+                textSize = 14f
+                isChecked = button.overlapTrigger
+                setOnCheckedChangeListener { _, isChecked ->
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(overlapTrigger = isChecked)) }
+                }
             }
+            buttonParamsInner.addView(cbOverlap, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
         }
-        buttonParamsInner.addView(cbOverlap, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
 
         val joystickOrTouchpadIds = setOf("leftJoystick", "rightJoystick", "touchpad")
         val joystickIds = setOf("leftJoystick", "rightJoystick")
@@ -685,17 +747,20 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             buttonParamsInner.addView(btnOutputRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12f * density).toInt() })
         }
 
-        val btnDelete = Button(context).apply {
-            text = "删除"
-            setTextColor(-0x1)
-            textSize = 14f
-            setBackgroundResource(R.drawable.button_flat)
-            setOnClickListener { editorListener?.onDeleteButton(buttonId) }
+        if (!isSettingsButton(buttonId)) {
+            val btnDelete = Button(context).apply {
+                text = "删除"
+                setTextColor(-0x1)
+                textSize = 14f
+                setBackgroundResource(R.drawable.button_flat)
+                setOnClickListener { editorListener?.onDeleteButton(buttonId) }
+            }
+            buttonParamsInner.addView(btnDelete, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (16f * density).toInt() })
         }
-        buttonParamsInner.addView(btnDelete, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (16f * density).toInt() })
     }
 
-    private fun addRotationButtons(container: LinearLayout, buttonId: String, density: Float) {
+    private fun addRotationButtons(container: LinearLayout, buttonId: String, density: Float, hide: Boolean = false) {
+        if (hide) return
         val row = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER

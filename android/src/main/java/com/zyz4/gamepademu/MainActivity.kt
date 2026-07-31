@@ -24,7 +24,6 @@ import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.widget.Button
 import android.widget.FrameLayout
-import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
@@ -47,8 +46,6 @@ class MainActivity : ComponentActivity() {
     internal val viewModel: GamepadViewModel by viewModels()
     internal lateinit var gamepadLayout: GamepadLayout
     internal lateinit var floatingEditor: FloatingEditorPanel
-    internal lateinit var btnToggleEditor: ImageButton
-    internal var editorVisible = true
     internal val controlViews = mutableMapOf<String, View>()
     internal val touchpadLabels = mutableListOf<TextView>()
     internal var discoverableRequested = false

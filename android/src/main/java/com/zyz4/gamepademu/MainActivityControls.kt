@@ -82,10 +82,7 @@ internal fun MainActivity.setupGamepadLayoutListener() {
         }
 
         override fun onEditModeChanged(isEditMode: Boolean) {
-            a.floatingEditor.visibility = if (isEditMode && a.editorVisible) View.VISIBLE else View.GONE
-            a.btnToggleEditor.visibility = if (isEditMode) View.VISIBLE else View.GONE
-            a.findViewById<ImageButton>(R.id.btnSettings).visibility =
-                if (isEditMode) View.GONE else View.VISIBLE
+            a.floatingEditor.visibility = if (isEditMode) View.VISIBLE else View.GONE
         }
 
         override fun onTouchpadEvent(
@@ -207,8 +204,31 @@ internal fun MainActivity.createAllControls() {
         a.controlViews[d.baseId] = view
     }
 
-    a.findViewById<ImageButton>(R.id.btnSettings).setOnClickListener { a.showSettings() }
+    a.createSettingsButtonView()
+    a.gamepadLayout.bringSettingsToFront()
     a.updateButtonLabels(a.viewModel.settings.value.displayMode)
+}
+
+@SuppressLint("ClickableViewAccessibility")
+internal fun MainActivity.createSettingsButtonView(): View {
+    val a = this
+    val view = ImageButton(a).apply {
+        id = View.generateViewId()
+        tag = GamepadLayout.SETTINGS_BUTTON_ID
+        setBackgroundResource(R.drawable.bg_small_btn)
+        setImageResource(R.drawable.ic_settings)
+        scaleType = ImageView.ScaleType.CENTER_INSIDE
+        setPadding(
+            (8f * a.resources.displayMetrics.density).toInt(),
+            (8f * a.resources.displayMetrics.density).toInt(),
+            (8f * a.resources.displayMetrics.density).toInt(),
+            (8f * a.resources.displayMetrics.density).toInt()
+        )
+        contentDescription = "Settings"
+        setOnClickListener { a.showSettings() }
+    }
+    a.gamepadLayout.addView(view)
+    return view
 }
 
 @SuppressLint("ClickableViewAccessibility")

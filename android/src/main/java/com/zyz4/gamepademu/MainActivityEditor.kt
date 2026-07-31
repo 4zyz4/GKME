@@ -19,6 +19,7 @@ import com.zyz4.gamepademu.model.ButtonPosition
 import com.zyz4.gamepademu.model.DisplayMode
 import com.zyz4.gamepademu.model.GamepadState
 import com.zyz4.gamepademu.view.FloatingEditorPanel
+import com.zyz4.gamepademu.view.GamepadLayout
 import com.zyz4.gamepademu.view.JoystickView
 import com.zyz4.gamepademu.view.RotatableButton
 
@@ -110,27 +111,6 @@ internal fun MainActivity.setupFloatingEditor() {
             (a.resources.displayMetrics.widthPixels * 0.4f).toInt(),
             (a.resources.displayMetrics.heightPixels * 0.8f).toInt()
         )
-    )
-
-    a.btnToggleEditor = ImageButton(a).apply {
-        visibility = View.GONE
-        setBackgroundResource(R.drawable.bg_small_btn)
-        setImageResource(R.drawable.ic_arrow_up)
-        scaleType = ImageView.ScaleType.CENTER_INSIDE
-        setPadding((8f * a.resources.displayMetrics.density).toInt(), (8f * a.resources.displayMetrics.density).toInt(),
-            (8f * a.resources.displayMetrics.density).toInt(), (8f * a.resources.displayMetrics.density).toInt())
-        setOnClickListener {
-            a.editorVisible = !a.editorVisible
-            a.floatingEditor.visibility = if (a.editorVisible) View.VISIBLE else View.GONE
-            setImageResource(if (a.editorVisible) R.drawable.ic_arrow_up else R.drawable.ic_arrow_down)
-        }
-    }
-    (a.findViewById<View>(android.R.id.content) as ViewGroup).addView(
-        a.btnToggleEditor,
-        FrameLayout.LayoutParams((36f * a.resources.displayMetrics.density).toInt(), (36f * a.resources.displayMetrics.density).toInt()).apply {
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            topMargin = (6f * a.resources.displayMetrics.density).toInt()
-        }
     )
 }
 
@@ -434,12 +414,17 @@ internal fun MainActivity.ensureViewsForAllPresetButtons() {
 
     for (pos in buttons) {
         if (pos.id in existingIds) continue
+        if (pos.id == GamepadLayout.SETTINGS_BUTTON_ID) {
+            a.createSettingsButtonView()
+            continue
+        }
         if (pos.isCustom) {
             a.createCustomButtonView(pos)
         } else {
             a.createStandardControlView(pos)
         }
     }
+    a.gamepadLayout.bringSettingsToFront()
     a.updateButtonLabels(a.viewModel.settings.value.displayMode)
 }
 

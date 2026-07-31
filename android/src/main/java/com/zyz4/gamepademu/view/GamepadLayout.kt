@@ -30,6 +30,7 @@ class GamepadLayout @JvmOverloads constructor(
 
     companion object {
         const val GRID_COLS = 120
+        const val SETTINGS_BUTTON_ID = "btnSettings"
         private const val HANDLE_SIZE_DP = 8f
         private const val HANDLE_HIT_DP = 16f
         private const val GRID_BASE_ALPHA = 170
@@ -373,6 +374,13 @@ class GamepadLayout @JvmOverloads constructor(
                 val pid = event.getPointerId(0)
                 val allChildren = findAllChildrenAt(x, y)
                 val children = filterOverlapChildren(allChildren)
+                // Settings button is always the topmost control: a tap on it only opens settings.
+                val settingsChild = children.firstOrNull { getButtonId(it) == SETTINGS_BUTTON_ID }
+                if (settingsChild != null) {
+                    touchTargets[pid] = mutableListOf(settingsChild)
+                    dispatchToChild(settingsChild, event, MotionEvent.ACTION_DOWN, 0)
+                    return true
+                }
                 val nonJoystickChildren = children.filter { it !is JoystickView }
                 if (nonJoystickChildren.isEmpty()) {
                     if (tryFollowAreaTrigger(x, y, pid, event, 0)) return true
@@ -396,6 +404,13 @@ class GamepadLayout @JvmOverloads constructor(
                 val y = event.getY(idx)
                 val allChildren = findAllChildrenAt(x, y)
                 val children = filterOverlapChildren(allChildren)
+                // Settings button is always the topmost control: a tap on it only opens settings.
+                val settingsChild = children.firstOrNull { getButtonId(it) == SETTINGS_BUTTON_ID }
+                if (settingsChild != null) {
+                    touchTargets[pid] = mutableListOf(settingsChild)
+                    dispatchToChild(settingsChild, event, MotionEvent.ACTION_DOWN, idx)
+                    return true
+                }
                 val nonJoystickChildren = children.filter { it !is JoystickView }
                 if (nonJoystickChildren.isEmpty()) {
                     if (tryFollowAreaTrigger(x, y, pid, event, idx)) return true
@@ -441,11 +456,16 @@ class GamepadLayout @JvmOverloads constructor(
                 return true
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                val terminalAction = if (event.actionMasked == MotionEvent.ACTION_UP) {
+                    MotionEvent.ACTION_UP
+                } else {
+                    MotionEvent.ACTION_CANCEL
+                }
                 for ((_, children) in touchTargets) {
                     for (child in children) {
                         val ev = MotionEvent.obtain(
                             event.downTime, event.eventTime,
-                            MotionEvent.ACTION_CANCEL, 0f, 0f, 0
+                            terminalAction, 0f, 0f, 0
                         )
                         child.dispatchTouchEvent(ev)
                         ev.recycle()
@@ -541,6 +561,14 @@ class GamepadLayout @JvmOverloads constructor(
         val allChildren = findAllChildrenAt(x, y)
         val children = filterOverlapChildren(allChildren)
         val nonJoystickChildren = children.filter { it !is JoystickView }
+
+        // Settings button is always the topmost control: a tap on it only opens settings.
+        val settingsChild = children.firstOrNull { getButtonId(it) == SETTINGS_BUTTON_ID }
+        if (settingsChild != null) {
+            touchTargets[pid] = mutableListOf(settingsChild)
+            dispatchToChild(settingsChild, event, MotionEvent.ACTION_DOWN, idx)
+            return
+        }
 
         if (nonJoystickChildren.isEmpty()) {
             if (tryFollowAreaTrigger(x, y, pid, event, idx)) return
@@ -650,11 +678,50 @@ class GamepadLayout @JvmOverloads constructor(
     fun loadPreset(preset: LayoutPreset) {
         currentButtons = preset.buttons.map {
             if (it.id == "centerArea") it.copy(id = "touchpad") else it
-        }.toList()
+        }.let { list ->
+            if (list.none { it.id == SETTINGS_BUTTON_ID }) {
+                list + ButtonPosition(
+                    id = SETTINGS_BUTTON_ID,
+                    x = (GRID_COLS - 6) / 2,
+                    y = 0,
+                    width = 6,
+                    height = 6,
+                    lockAspect = true,
+                )
+            } else {
+                list
+            }
+        }.map {
+            if (it.id == SETTINGS_BUTTON_ID) sanitizeSettingsButton(it) else it
+        }
         currentGyroOrientation = preset.gyroOrientation
         hasChanges = false
         refreshSwipeTriggers()
+        bringSettingsToFront()
         requestLayout()
+    }
+
+    /** Settings button: no rotation, swipe trigger always off, overlap trigger always on, fully visible on screen. */
+    private fun sanitizeSettingsButton(pos: ButtonPosition): ButtonPosition {
+        var p = pos.copy(rotation = 0, swipeTrigger = false, overlapTrigger = true, lockAspect = true,
+            idleTransparency = 0, activeTransparency = 0)
+        val maxCol = (GRID_COLS - p.width).coerceAtLeast(0)
+        val maxRow = if (cellH > 0f) ((height / cellH).toInt() - p.height).coerceAtLeast(0) else 0
+        p = p.copy(
+            x = p.x.coerceIn(0, maxCol),
+            y = p.y.coerceIn(0, maxRow)
+        )
+        return p
+    }
+
+    /** Brings the settings button to the very top of the child stack so it is always the topmost control. */
+    fun bringSettingsToFront() {
+        for (i in childCount - 1 downTo 0) {
+            if (getButtonId(getChildAt(i)) == SETTINGS_BUTTON_ID) {
+                bringChildToFront(getChildAt(i))
+                return
+            }
+        }
     }
 
     fun setFollowAreaAppearance(color: Int, strokeWidth: Int) {
@@ -733,8 +800,9 @@ class GamepadLayout @JvmOverloads constructor(
     fun updateButtonPosition(id: String, updated: ButtonPosition) {
         val idx = currentButtons.indexOfFirst { it.id == id }
         if (idx >= 0) {
+            val newPos = if (id == SETTINGS_BUTTON_ID) sanitizeSettingsButton(updated) else updated
             currentButtons = currentButtons.toMutableList().also {
-                it[idx] = updated
+                it[idx] = newPos
             }
             hasChanges = true
             refreshSwipeTriggers()
@@ -744,13 +812,16 @@ class GamepadLayout @JvmOverloads constructor(
     }
 
     fun addButtonPosition(pos: ButtonPosition) {
-        currentButtons = currentButtons.toMutableList().also { it.add(pos) }
+        val newPos = if (pos.id == SETTINGS_BUTTON_ID) sanitizeSettingsButton(pos) else pos
+        currentButtons = currentButtons.toMutableList().also { it.add(newPos) }
         hasChanges = true
         refreshSwipeTriggers()
+        bringSettingsToFront()
         requestLayout()
     }
 
     fun removeButtonPosition(id: String) {
+        if (id == SETTINGS_BUTTON_ID) return
         currentButtons = currentButtons.toMutableList().also { it.removeAll { b -> b.id == id } }
         for (i in 0 until childCount) {
             val child = getChildAt(i)
@@ -1001,7 +1072,7 @@ class GamepadLayout @JvmOverloads constructor(
             270 -> Triple(vl - markerDist, vt + vbh / 2, 270f)
             else -> Triple(vl + vbw / 2, vt - markerDist, 0f)
         }
-        if (!isAdjustingFollowArea) {
+        if (!isAdjustingFollowArea && pos.id != SETTINGS_BUTTON_ID) {
             canvas.save()
             canvas.rotate(markAngle, markX, markY)
             canvas.drawText("上", markX, markY, markPaint)
@@ -1137,8 +1208,10 @@ class GamepadLayout @JvmOverloads constructor(
                             newH = side
                         }
                         if (newW != old.width || newH != old.height) {
+                            var updated = old.copy(width = newW, height = newH)
+                            if (rid == SETTINGS_BUTTON_ID) updated = sanitizeSettingsButton(updated)
                             currentButtons = currentButtons.toMutableList().also {
-                                it[idx] = old.copy(width = newW, height = newH)
+                                it[idx] = updated
                             }
                             hasChanges = true
                             requestLayout()
@@ -1149,14 +1222,22 @@ class GamepadLayout @JvmOverloads constructor(
                 if (draggingChild != null) {
                     val newLeft = (event.x - dragOffsetX).coerceAtLeast(0f)
                     val newTop = (event.y - dragOffsetY).coerceAtLeast(0f)
-                    val gridX = (newLeft / cellW).toInt().coerceIn(0, GRID_COLS - 1)
-                    val gridY = (newTop / cellH).toInt().coerceAtLeast(0)
 
                     val id = getButtonId(draggingChild!!)
                     if (id != null) {
                         val idx = currentButtons.indexOfFirst { it.id == id }
                         if (idx >= 0) {
                             val old = currentButtons[idx]
+                            val gridX: Int
+                            val gridY: Int
+                            if (id == SETTINGS_BUTTON_ID) {
+                                val rows = if (cellH > 0f) (height / cellH).toInt() else GRID_COLS
+                                gridX = (newLeft / cellW).toInt().coerceIn(0, (GRID_COLS - old.width).coerceAtLeast(0))
+                                gridY = (newTop / cellH).toInt().coerceIn(0, (rows - old.height).coerceAtLeast(0))
+                            } else {
+                                gridX = (newLeft / cellW).toInt().coerceIn(0, GRID_COLS - 1)
+                                gridY = (newTop / cellH).toInt().coerceAtLeast(0)
+                            }
                             if (old.x != gridX || old.y != gridY) {
                                 currentButtons = currentButtons.toMutableList().also {
                                     it[idx] = old.copy(x = gridX, y = gridY)
