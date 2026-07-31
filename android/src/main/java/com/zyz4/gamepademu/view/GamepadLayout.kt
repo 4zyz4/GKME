@@ -28,6 +28,11 @@ class GamepadLayout @JvmOverloads constructor(
         isFocusableInTouchMode = true
     }
 
+    override fun onViewAdded(child: View) {
+        super.onViewAdded(child)
+        bringSettingsToFront()
+    }
+
     companion object {
         const val GRID_COLS = 120
         const val SETTINGS_BUTTON_ID = "btnSettings"
