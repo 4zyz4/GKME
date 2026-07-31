@@ -711,7 +711,7 @@ class GamepadLayout @JvmOverloads constructor(
         var p = pos.copy(rotation = 0, swipeTrigger = false, overlapTrigger = true, lockAspect = true,
             idleTransparency = 0, activeTransparency = 0)
         val maxCol = (GRID_COLS - p.width).coerceAtLeast(0)
-        val maxRow = if (cellH > 0f) ((height / cellH).toInt() - p.height).coerceAtLeast(0) else 0
+        val maxRow = if (cellH > 0f) ((height / cellH).toInt() - p.height).coerceAtLeast(0) else Int.MAX_VALUE
         p = p.copy(
             x = p.x.coerceIn(0, maxCol),
             y = p.y.coerceIn(0, maxRow)
@@ -1211,6 +1211,18 @@ class GamepadLayout @JvmOverloads constructor(
                             val side = maxOf(newW, newH)
                             newW = side
                             newH = side
+                        }
+                        if (rid == SETTINGS_BUTTON_ID) {
+                            // Keep the settings button fully on screen while resizing:
+                            // its size can never exceed the grid from its current anchor.
+                            val rows = if (cellH > 0f) (height / cellH).toInt() else GRID_COLS
+                            newW = newW.coerceIn(1, (GRID_COLS - old.x).coerceAtLeast(1))
+                            newH = newH.coerceIn(1, (rows - old.y).coerceAtLeast(1))
+                            if (old.lockAspect) {
+                                val side = minOf(newW, newH)
+                                newW = side
+                                newH = side
+                            }
                         }
                         if (newW != old.width || newH != old.height) {
                             var updated = old.copy(width = newW, height = newH)

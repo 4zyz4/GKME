@@ -16,7 +16,7 @@ android {
         minSdk = 26
         //noinspection OldTargetApi
         targetSdk = 36
-        versionCode = 2011
+        versionCode = 2012
         versionName = "2.0.1TEST"
     }
 
