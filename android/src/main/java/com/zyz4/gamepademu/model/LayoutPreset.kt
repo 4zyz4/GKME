@@ -14,6 +14,7 @@ data class LayoutPreset(
         private val gson = Gson()
         private val DOUBLE_CLICK_IDS = setOf("leftJoystick", "rightJoystick", "touchpad")
         private val JOYSTICK_IDS = setOf("leftJoystick", "rightJoystick")
+        private val AREA_IDS = setOf("leftJoystick", "rightJoystick", "touchpad")
 
         fun fromJson(json: String): LayoutPreset {
             val type = object : TypeToken<LayoutPreset>() {}.type
@@ -67,15 +68,17 @@ data class LayoutPreset(
             }
             if (baseId in JOYSTICK_IDS) {
                 m["deadZone"] = b.deadZone
+                if (b.sensitivityCurve != null && b.sensitivityCurve!!.isNotEmpty()) {
+                    m["sensitivityCurve"] = b.sensitivityCurve
+                }
+            }
+            if (baseId in AREA_IDS) {
                 m["followAreaEnabled"] = b.followAreaEnabled
                 if (b.followAreaEnabled) {
                     m["followAreaX"] = b.followAreaX
                     m["followAreaY"] = b.followAreaY
                     m["followAreaW"] = b.followAreaW
                     m["followAreaH"] = b.followAreaH
-                }
-                if (b.sensitivityCurve != null && b.sensitivityCurve!!.isNotEmpty()) {
-                    m["sensitivityCurve"] = b.sensitivityCurve
                 }
             }
             list.add(m)

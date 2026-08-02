@@ -284,9 +284,11 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
     val slots = arrayOfNulls<TouchPoint>(10)
 
     fun mapPoint(px: Float, py: Float): Pair<Int, Int> {
+        val btnId = tp.tag as? String ?: return 0 to 0
+        val pos = a.gamepadLayout.currentButtons.find { it.id == btnId } ?: return 0 to 0
         val w = tp.measuredWidth.coerceAtLeast(1)
         val h = tp.measuredHeight.coerceAtLeast(1)
-        val rotation = (tp.tag as? String)?.let { a.gamepadLayout.getRotation(it) } ?: 0
+        val rotation = pos.rotation
         val nx = px / w
         val ny = py / h
         val (vx, vy) = when (rotation % 360) {
@@ -294,6 +296,22 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
             180 -> Pair(1f - nx, 1f - ny)
             270 -> Pair(1f - ny, nx)
             else -> Pair(nx, ny)
+        }
+        if (pos.followAreaEnabled && pos.followAreaW > 0 && pos.followAreaH > 0) {
+            // Extended touch range: the sent coordinate is normalized over the
+            // rectangle area instead of the touchpad control itself.
+            val cell = a.gamepadLayout.getCellSize()
+            if (cell > 0f) {
+                val areaL = pos.followAreaX * cell
+                val areaT = pos.followAreaY * cell
+                val areaW = pos.followAreaW * cell
+                val areaH = pos.followAreaH * cell
+                val absX = tp.left + vx * w
+                val absY = tp.top + vy * h
+                val nax = ((absX - areaL) / areaW).coerceIn(0f, 1f)
+                val nay = ((absY - areaT) / areaH).coerceIn(0f, 1f)
+                return (nax * 1919).toInt().coerceIn(0, 1919) to (nay * 942).toInt().coerceIn(0, 942)
+            }
         }
         return (vx * 1919).toInt().coerceIn(0, 1919) to (vy * 942).toInt().coerceIn(0, 942)
     }

@@ -262,6 +262,24 @@ internal fun MainActivity.setupAppearancePage() {
         }
     )
 
+    // ── Touchpad Extended Range ──
+    a.findViewById<Button>(R.id.btnTpTriggerOutlineColor).setOnClickListener {
+        a.showColorPickerDialog(a.viewModel.settings.value.tpTriggerOutlineColor) { color ->
+            a.onAppearanceChange { it.copy(tpTriggerOutlineColor = color) }
+        }
+    }
+    a.findViewById<SeekBar>(R.id.seekTpTriggerOutlineWidth).setOnSeekBarChangeListener(
+        object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar, p: Int, fromUser: Boolean) {
+                if (!fromUser) return
+                a.findViewById<TextView>(R.id.tvTpTriggerOutlineWidth).text = "区域粗细: $p"
+                a.onAppearanceChange { it.copy(tpTriggerOutlineWidth = p) }
+            }
+            override fun onStartTrackingTouch(sb: SeekBar?) {}
+            override fun onStopTrackingTouch(sb: SeekBar?) {}
+        }
+    )
+
     // ── Reset buttons ──
     a.findViewById<Button>(R.id.btnResetBgColor).setOnClickListener {
         a.onAppearanceChange { it.copy(bgColor = 0xFF000000.toInt()) }
@@ -292,6 +310,9 @@ internal fun MainActivity.setupAppearancePage() {
     }
     a.findViewById<Button>(R.id.btnResetTpOutlineColor).setOnClickListener {
         a.onAppearanceChange { it.copy(tpOutlineColor = 0xFF666666.toInt()) }
+    }
+    a.findViewById<Button>(R.id.btnResetTpTriggerOutlineColor).setOnClickListener {
+        a.onAppearanceChange { it.copy(tpTriggerOutlineColor = -0x666667) }
     }
 }
 
@@ -441,6 +462,11 @@ internal fun MainActivity.syncAppearanceUI() {
     a.findViewById<Button>(R.id.btnTpOutlineColor).background = colorBg(s.tpOutlineColor)
     a.findViewById<SeekBar>(R.id.seekTpOutlineWidth).progress = s.tpOutlineWidth
     a.findViewById<TextView>(R.id.tvTpOutlineWidth).text = "触摸板轮廓粗细: ${s.tpOutlineWidth}"
+
+    // Touchpad Extended Range
+    a.findViewById<Button>(R.id.btnTpTriggerOutlineColor).background = colorBg(s.tpTriggerOutlineColor)
+    a.findViewById<SeekBar>(R.id.seekTpTriggerOutlineWidth).progress = s.tpTriggerOutlineWidth
+    a.findViewById<TextView>(R.id.tvTpTriggerOutlineWidth).text = "区域粗细: ${s.tpTriggerOutlineWidth}"
 
     a.updateAppearancePreview()
 }

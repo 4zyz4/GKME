@@ -50,6 +50,7 @@ object AppearanceApplier {
         }
 
         layout.setFollowAreaAppearance(settings.joyTriggerOutlineColor, settings.joyTriggerOutlineWidth)
+        layout.setTouchpadAreaAppearance(settings.tpTriggerOutlineColor, settings.tpTriggerOutlineWidth)
 
         for (i in 0 until layout.childCount) {
             val child = layout.getChildAt(i)

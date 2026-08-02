@@ -95,6 +95,8 @@ data class AppSettings(
     val joyCapOutlineWidth: Int = 4,
     val joyTriggerOutlineColor: Int = -0x666667,
     val joyTriggerOutlineWidth: Int = 4,
+    val tpTriggerOutlineColor: Int = -0x666667,
+    val tpTriggerOutlineWidth: Int = 4,
     val tpFillType: FillType = FillType.SOLID_COLOR,
     val tpColor: Int = 0xFF121212.toInt(),
     val tpImagePath: String? = null,

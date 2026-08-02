@@ -69,6 +69,12 @@ class GamepadLayout @JvmOverloads constructor(
         strokeWidth = 3f
     }
 
+    private val touchpadAreaPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = -0x666667  // same default as the joystick trigger area
+        style = Paint.Style.STROKE
+        strokeWidth = 3f
+    }
+
     // Grid fade animation
     private var gridAlpha = 0f
     private var gridAnimator: ValueAnimator? = null
@@ -698,7 +704,7 @@ class GamepadLayout @JvmOverloads constructor(
             }
         }.map {
             if (it.id == SETTINGS_BUTTON_ID) sanitizeSettingsButton(it) else it
-        }
+        }.map { normalizeTouchpadArea(it) }
         currentGyroOrientation = preset.gyroOrientation
         hasChanges = false
         refreshSwipeTriggers()
@@ -732,6 +738,12 @@ class GamepadLayout @JvmOverloads constructor(
     fun setFollowAreaAppearance(color: Int, strokeWidth: Int) {
         followAreaPaint.color = color
         followAreaPaint.strokeWidth = strokeWidth.toFloat()
+        invalidate()
+    }
+
+    fun setTouchpadAreaAppearance(color: Int, strokeWidth: Int) {
+        touchpadAreaPaint.color = color
+        touchpadAreaPaint.strokeWidth = strokeWidth.toFloat()
         invalidate()
     }
 
@@ -792,6 +804,8 @@ class GamepadLayout @JvmOverloads constructor(
         return currentButtons.find { it.id == buttonId }?.rotation ?: 0
     }
 
+    fun getCellSize(): Float = cellW
+
     fun hasUnsavedChanges(): Boolean = hasChanges
 
     fun getEditSnapshot(): LayoutPreset? = editSnapshot
@@ -805,7 +819,7 @@ class GamepadLayout @JvmOverloads constructor(
     fun updateButtonPosition(id: String, updated: ButtonPosition) {
         val idx = currentButtons.indexOfFirst { it.id == id }
         if (idx >= 0) {
-            val newPos = if (id == SETTINGS_BUTTON_ID) sanitizeSettingsButton(updated) else updated
+            val newPos = if (id == SETTINGS_BUTTON_ID) sanitizeSettingsButton(updated) else normalizeTouchpadArea(updated)
             currentButtons = currentButtons.toMutableList().also {
                 it[idx] = newPos
             }
@@ -1015,18 +1029,21 @@ class GamepadLayout @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
-        // Draw follow area rectangles for all joysticks (always visible when enabled, even outside edit mode)
+        // Draw area rectangles for joysticks and touchpads (always visible when enabled, even outside edit mode)
         for (pos in currentButtons) {
-            if (pos.id.substringBefore("_") in JOYSTICK_IDS && pos.followAreaEnabled) {
+            val isJoyArea = pos.id.substringBefore("_") in JOYSTICK_IDS
+            val isTpArea = isTouchpadId(pos.id)
+            if ((isJoyArea || isTpArea) && pos.followAreaEnabled) {
+                val areaPaint = if (isTpArea) touchpadAreaPaint else followAreaPaint
                 val fLeft = (pos.followAreaX * cellW).toInt().toFloat()
                 val fTop = (pos.followAreaY * cellH).toInt().toFloat()
                 val fRight = ((pos.followAreaX + pos.followAreaW) * cellW).toInt().toFloat()
                 val fBottom = ((pos.followAreaY + pos.followAreaH) * cellH).toInt().toFloat()
 
-                if (followAreaPaint.strokeWidth > 0f) {
-                    followAreaPaint.alpha = (255 - pos.followAreaTransparency.coerceIn(0, 255)).coerceIn(0, 255)
-                    canvas.drawRect(fLeft, fTop, fRight, fBottom, followAreaPaint)
-                    followAreaPaint.alpha = 255
+                if (areaPaint.strokeWidth > 0f) {
+                    areaPaint.alpha = (255 - pos.followAreaTransparency.coerceIn(0, 255)).coerceIn(0, 255)
+                    canvas.drawRect(fLeft, fTop, fRight, fBottom, areaPaint)
+                    areaPaint.alpha = 255
                 }
 
                 if (pos.id == adjustingFollowAreaId && isAdjustingFollowArea) {
@@ -1156,14 +1173,22 @@ class GamepadLayout @JvmOverloads constructor(
                         val old = currentButtons[idx]
                         val deltaX = gridX - resizeStartGridX
                         val deltaY = gridY - resizeStartGridY
-                        val newW = (followAreaStartW + deltaX).coerceAtLeast(1)
-                        val newH = (followAreaStartH + deltaY).coerceAtLeast(1)
-                        if (newW != old.followAreaW || newH != old.followAreaH) {
+                        var newW = (followAreaStartW + deltaX).coerceAtLeast(1)
+                        var newH = (followAreaStartH + deltaY).coerceAtLeast(1)
+                        var updated: ButtonPosition
+                        if (isTouchpadId(old.id) && old.followAreaEnabled) {
+                            // Shrinking the area shrinks the touchpad to keep containment.
+                            updated = old.copy(followAreaW = newW, followAreaH = newH)
+                            updated = shrinkTouchpadToArea(updated)
+                        } else {
+                            updated = old.copy(followAreaW = newW, followAreaH = newH)
+                        }
+                        if (updated != old) {
                             currentButtons = currentButtons.toMutableList().also {
-                                it[idx] = old.copy(followAreaW = newW, followAreaH = newH)
+                                it[idx] = updated
                             }
                             hasChanges = true
-                            invalidate()
+                            requestLayout()
                         }
                     }
                     return true
@@ -1176,14 +1201,31 @@ class GamepadLayout @JvmOverloads constructor(
                         val old = currentButtons[idx]
                         val deltaX = gridX - followAreaDragStartX
                         val deltaY = gridY - followAreaDragStartY
-                        val newX = (followAreaStartX + deltaX).coerceIn(0, GRID_COLS - 1)
-                        val newY = (followAreaStartY + deltaY).coerceAtLeast(0)
-                        if (newX != old.followAreaX || newY != old.followAreaY) {
+                        var newX = followAreaStartX + deltaX
+                        var newY = followAreaStartY + deltaY
+                        var updated: ButtonPosition
+                        if (isTouchpadId(old.id) && old.followAreaEnabled) {
+                            val rows = if (cellH > 0f) (height / cellH).toInt() else GRID_COLS
+                            val maxAX = (GRID_COLS - old.followAreaW).coerceAtLeast(0)
+                            val maxAY = (rows - old.followAreaH).coerceAtLeast(0)
+                            newX = newX.coerceIn(0, maxAX)
+                            newY = newY.coerceIn(0, maxAY)
+                            // The area's top-left edge cannot pass the touchpad's top-left edge.
+                            newX = minOf(newX, old.x)
+                            newY = minOf(newY, old.y)
+                            updated = old.copy(followAreaX = newX, followAreaY = newY)
+                            updated = shrinkTouchpadToArea(updated)
+                        } else {
+                            newX = newX.coerceIn(0, GRID_COLS - 1)
+                            newY = newY.coerceAtLeast(0)
+                            updated = old.copy(followAreaX = newX, followAreaY = newY)
+                        }
+                        if (updated != old) {
                             currentButtons = currentButtons.toMutableList().also {
-                                it[idx] = old.copy(followAreaX = newX, followAreaY = newY)
+                                it[idx] = updated
                             }
                             hasChanges = true
-                            invalidate()
+                            requestLayout()
                         }
                     }
                     return true
@@ -1227,6 +1269,9 @@ class GamepadLayout @JvmOverloads constructor(
                         if (newW != old.width || newH != old.height) {
                             var updated = old.copy(width = newW, height = newH)
                             if (rid == SETTINGS_BUTTON_ID) updated = sanitizeSettingsButton(updated)
+                            if (isTouchpadId(rid) && old.followAreaEnabled) {
+                                updated = normalizeTouchpadArea(updated)
+                            }
                             currentButtons = currentButtons.toMutableList().also {
                                 it[idx] = updated
                             }
@@ -1245,8 +1290,8 @@ class GamepadLayout @JvmOverloads constructor(
                         val idx = currentButtons.indexOfFirst { it.id == id }
                         if (idx >= 0) {
                             val old = currentButtons[idx]
-                            val gridX: Int
-                            val gridY: Int
+                            var gridX: Int
+                            var gridY: Int
                             if (id == SETTINGS_BUTTON_ID) {
                                 val rows = if (cellH > 0f) (height / cellH).toInt() else GRID_COLS
                                 gridX = (newLeft / cellW).toInt().coerceIn(0, (GRID_COLS - old.width).coerceAtLeast(0))
@@ -1255,9 +1300,23 @@ class GamepadLayout @JvmOverloads constructor(
                                 gridX = (newLeft / cellW).toInt().coerceIn(0, GRID_COLS - 1)
                                 gridY = (newTop / cellH).toInt().coerceAtLeast(0)
                             }
-                            if (old.x != gridX || old.y != gridY) {
+                            var updated: ButtonPosition
+                            if (isTouchpadId(id) && old.followAreaEnabled) {
+                                // The extended range rectangle moves in sync with the touchpad.
+                                val deltaX = gridX - old.x
+                                val deltaY = gridY - old.y
+                                updated = old.copy(
+                                    x = gridX, y = gridY,
+                                    followAreaX = old.followAreaX + deltaX,
+                                    followAreaY = old.followAreaY + deltaY
+                                )
+                            } else {
+                                updated = old.copy(x = gridX, y = gridY)
+                            }
+                            if (old.x != updated.x || old.y != updated.y ||
+                                old.followAreaX != updated.followAreaX || old.followAreaY != updated.followAreaY) {
                                 currentButtons = currentButtons.toMutableList().also {
-                                    it[idx] = old.copy(x = gridX, y = gridY)
+                                    it[idx] = updated
                                 }
                                 hasChanges = true
                                 listener?.onButtonSelected(id)
@@ -1320,6 +1379,48 @@ class GamepadLayout @JvmOverloads constructor(
         val fRight = (pos.followAreaX + pos.followAreaW) * cellW
         val fBottom = (pos.followAreaY + pos.followAreaH) * cellH
         return x >= fLeft && x <= fRight && y >= fTop && y <= fBottom
+    }
+
+    private fun isTouchpadId(id: String): Boolean = id.substringBefore("_") == "touchpad"
+
+    /** On-screen size of a control in grid units (accounts for 90/270 rotation swap). */
+    private fun onScreenGridSize(pos: ButtonPosition): Pair<Int, Int> {
+        val isSwapped = !pos.lockAspect && (pos.rotation == 90 || pos.rotation == 270)
+        return if (isSwapped) (pos.height to pos.width) else (pos.width to pos.height)
+    }
+
+    /** True when the touchpad control is fully inside the extended range rectangle. */
+    private fun touchpadContainedByArea(pos: ButtonPosition): Boolean {
+        if (!isTouchpadId(pos.id) || !pos.followAreaEnabled) return true
+        val (sw, sh) = onScreenGridSize(pos)
+        return pos.x >= pos.followAreaX && pos.y >= pos.followAreaY &&
+            pos.x + sw <= pos.followAreaX + pos.followAreaW &&
+            pos.y + sh <= pos.followAreaY + pos.followAreaH
+    }
+
+    /** Expands the extended range rectangle if it no longer contains the touchpad. */
+    private fun normalizeTouchpadArea(pos: ButtonPosition): ButtonPosition {
+        if (!isTouchpadId(pos.id) || !pos.followAreaEnabled) return pos
+        if (touchpadContainedByArea(pos)) return pos
+        val (sw, sh) = onScreenGridSize(pos)
+        val ax = minOf(pos.followAreaX, pos.x)
+        val ay = minOf(pos.followAreaY, pos.y)
+        val aw = maxOf(pos.followAreaW, pos.x + sw - ax)
+        val ah = maxOf(pos.followAreaH, pos.y + sh - ay)
+        return pos.copy(followAreaX = ax, followAreaY = ay, followAreaW = aw, followAreaH = ah)
+    }
+
+    /** Shrinks the touchpad so it fits inside the extended range rectangle. */
+    private fun shrinkTouchpadToArea(pos: ButtonPosition): ButtonPosition {
+        if (!isTouchpadId(pos.id) || !pos.followAreaEnabled) return pos
+        val (sw, sh) = onScreenGridSize(pos)
+        val nw = minOf(sw, (pos.followAreaX + pos.followAreaW - pos.x).coerceAtLeast(1))
+        val nh = minOf(sh, (pos.followAreaY + pos.followAreaH - pos.y).coerceAtLeast(1))
+        if (nw == sw && nh == sh) return pos
+        val isSwapped = !pos.lockAspect && (pos.rotation == 90 || pos.rotation == 270)
+        val width = if (isSwapped) nh else nw
+        val height = if (isSwapped) nw else nh
+        return pos.copy(width = width, height = height)
     }
 
     private fun isOnHandle(x: Float, y: Float, buttonId: String): Boolean {

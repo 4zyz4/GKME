@@ -101,6 +101,46 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
     private fun isSettingsButton(id: String): Boolean = id == GamepadLayout.SETTINGS_BUTTON_ID
 
+    private fun isTouchpadId(id: String): Boolean = id.substringBefore("_") == "touchpad"
+
+    /** On-screen size of the touchpad in grid units (accounts for 90/270 rotation swap). */
+    private fun touchpadScreenSize(pos: ButtonPosition): Pair<Int, Int> {
+        val swapped = !pos.lockAspect && (pos.rotation == 90 || pos.rotation == 270)
+        return if (swapped) pos.height to pos.width else pos.width to pos.height
+    }
+
+    /** True when the touchpad control is fully inside the extended range rectangle. */
+    private fun touchpadContained(pos: ButtonPosition): Boolean {
+        if (!pos.followAreaEnabled || pos.followAreaW <= 0 || pos.followAreaH <= 0) return false
+        val (sw, sh) = touchpadScreenSize(pos)
+        return pos.x >= pos.followAreaX && pos.y >= pos.followAreaY &&
+            pos.x + sw <= pos.followAreaX + pos.followAreaW &&
+            pos.y + sh <= pos.followAreaY + pos.followAreaH
+    }
+
+    /** Shrinks the touchpad so it fits inside the extended range rectangle. */
+    private fun shrinkTouchpadToArea(pos: ButtonPosition): ButtonPosition {
+        if (!isTouchpadId(pos.id) || !pos.followAreaEnabled) return pos
+        val (sw, sh) = touchpadScreenSize(pos)
+        val nw = minOf(sw, (pos.followAreaX + pos.followAreaW - pos.x).coerceAtLeast(1))
+        val nh = minOf(sh, (pos.followAreaY + pos.followAreaH - pos.y).coerceAtLeast(1))
+        if (nw == sw && nh == sh) return pos
+        val swapped = !pos.lockAspect && (pos.rotation == 90 || pos.rotation == 270)
+        val width = if (swapped) nh else nw
+        val height = if (swapped) nw else nh
+        return pos.copy(width = width, height = height)
+    }
+
+    /** Grows the extended range rectangle so it contains the touchpad. */
+    private fun growAreaToContain(pos: ButtonPosition): ButtonPosition {
+        if (!isTouchpadId(pos.id) || !pos.followAreaEnabled) return pos
+        val (sw, sh) = touchpadScreenSize(pos)
+        val newW = maxOf(pos.followAreaW, pos.x + sw - pos.followAreaX)
+        val newH = maxOf(pos.followAreaH, pos.y + sh - pos.followAreaY)
+        if (newW == pos.followAreaW && newH == pos.followAreaH) return pos
+        return pos.copy(followAreaW = newW, followAreaH = newH)
+    }
+
     private fun getChineseName(buttonId: String): String {
         val base = buttonId.substringBefore("_")
         return when (base) {
@@ -401,13 +441,20 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
         if (isAdjustingFollowArea) {
             // Only show follow area dimensions + follow area transparency + return button
-            addSeekbar(buttonParamsInner, "区域宽度", button.followAreaW, 1, 40, onChange = { value ->
-                currentButton = currentButton?.copy(followAreaW = value)
-                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+            val touchpadAdjust = isTouchpadId(buttonId)
+            val maxAw = maxOf(40, button.followAreaW)
+            val maxAh = maxOf(40, button.followAreaH)
+            addSeekbar(buttonParamsInner, "区域宽度", button.followAreaW, 1, maxAw, onChange = { value ->
+                var updated = currentButton?.copy(followAreaW = value) ?: return@addSeekbar
+                if (touchpadAdjust) updated = shrinkTouchpadToArea(updated)
+                currentButton = updated
+                editorListener?.onButtonUpdated(buttonId, updated)
             })
-            addSeekbar(buttonParamsInner, "区域高度", button.followAreaH, 1, 40, onChange = { value ->
-                currentButton = currentButton?.copy(followAreaH = value)
-                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+            addSeekbar(buttonParamsInner, "区域高度", button.followAreaH, 1, maxAh, onChange = { value ->
+                var updated = currentButton?.copy(followAreaH = value) ?: return@addSeekbar
+                if (touchpadAdjust) updated = shrinkTouchpadToArea(updated)
+                currentButton = updated
+                editorListener?.onButtonUpdated(buttonId, updated)
             })
             addSeekbar(buttonParamsInner, "矩形区域透明度(%)", (button.followAreaTransparency * 100 / 255).coerceIn(0, 100), 0, 100,
                 onChange = { value ->
@@ -418,19 +465,21 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 onStartTracking = { editorListener?.onTransparencyPreviewStart(buttonId, true) },
                 onStopTracking = { editorListener?.onTransparencyPreviewEnd(buttonId) }
             )
-            val cbFollowOverlap = CheckBox(context).apply {
-                text = "触发矩形区域重叠触发"
-                setTextColor(-0x444445)
-                textSize = 14f
-                isChecked = button.followAreaOverlapTrigger
-                setOnCheckedChangeListener { _, isChecked ->
-                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(followAreaOverlapTrigger = isChecked)) }
+            if (!touchpadAdjust) {
+                val cbFollowOverlap = CheckBox(context).apply {
+                    text = "触发矩形区域重叠触发"
+                    setTextColor(-0x444445)
+                    textSize = 14f
+                    isChecked = button.followAreaOverlapTrigger
+                    setOnCheckedChangeListener { _, isChecked ->
+                        currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(followAreaOverlapTrigger = isChecked)) }
+                    }
                 }
+                buttonParamsInner.addView(cbFollowOverlap, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
             }
-            buttonParamsInner.addView(cbFollowOverlap, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
 
             val btnReturn = Button(context).apply {
-                text = "返回摇杆调节"
+                text = if (touchpadAdjust) "返回触摸板调节" else "返回摇杆调节"
                 setTextColor(-0x1)
                 textSize = 13f
                 setBackgroundResource(R.drawable.button_flat)
@@ -448,21 +497,20 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             })
         } else {
             val isSwapped = button.rotation == 90 || button.rotation == 270
-            addSeekbar(buttonParamsInner, "宽度", if (isSwapped) button.height else button.width, 1, 40, onChange = { value ->
-                if (isSwapped) {
-                    currentButton = currentButton?.copy(height = value)
-                } else {
-                    currentButton = currentButton?.copy(width = value)
-                }
-                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+            // When the extended range is enabled, growing the touchpad grows the rectangle.
+            val areaEnabled = button.followAreaEnabled && isTouchpadId(buttonId)
+            val sizeMax = maxOf(40, GamepadLayout.GRID_COLS)
+            addSeekbar(buttonParamsInner, "宽度", if (isSwapped) button.height else button.width, 1, sizeMax, onChange = { value ->
+                var updated = currentButton?.let { if (isSwapped) it.copy(height = value) else it.copy(width = value) } ?: return@addSeekbar
+                if (areaEnabled) updated = growAreaToContain(updated)
+                currentButton = updated
+                editorListener?.onButtonUpdated(buttonId, updated)
             })
-            addSeekbar(buttonParamsInner, "高度", if (isSwapped) button.width else button.height, 1, 40, onChange = { value ->
-                if (isSwapped) {
-                    currentButton = currentButton?.copy(width = value)
-                } else {
-                    currentButton = currentButton?.copy(height = value)
-                }
-                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+            addSeekbar(buttonParamsInner, "高度", if (isSwapped) button.width else button.height, 1, sizeMax, onChange = { value ->
+                var updated = currentButton?.let { if (isSwapped) it.copy(width = value) else it.copy(height = value) } ?: return@addSeekbar
+                if (areaEnabled) updated = growAreaToContain(updated)
+                currentButton = updated
+                editorListener?.onButtonUpdated(buttonId, updated)
             })
         }
 
@@ -517,6 +565,58 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 }
             }
             buttonParamsInner.addView(cb, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+        }
+        if (isTouchpadId(buttonId)) {
+            // ── Extended touch range ──
+            val cbExtended = CheckBox(context).apply {
+                text = "扩展触摸范围"
+                setTextColor(-0x444445)
+                textSize = 14f
+                isChecked = button.followAreaEnabled
+                setOnCheckedChangeListener { _, isChecked ->
+                    val current = currentButton ?: return@setOnCheckedChangeListener
+                    val updated = if (isChecked) {
+                        if (current.followAreaW > 0 && current.followAreaH > 0 && touchpadContained(current)) {
+                            current.copy(followAreaEnabled = true)
+                        } else {
+                            // Initialize the rectangle to match the touchpad control
+                            val (sw, sh) = touchpadScreenSize(current)
+                            current.copy(
+                                followAreaEnabled = true,
+                                followAreaX = current.x,
+                                followAreaY = current.y,
+                                followAreaW = sw,
+                                followAreaH = sh,
+                            )
+                        }
+                    } else {
+                        current.copy(followAreaEnabled = false)
+                    }
+                    currentButton = updated
+                    editorListener?.onButtonUpdated(buttonId, updated)
+                    showParameters(buttonId, updated)
+                }
+            }
+            buttonParamsInner.addView(cbExtended, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+
+            if (button.followAreaEnabled) {
+                val btnRow = LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt() }
+                }
+                val btnEnterAdjust = Button(context).apply {
+                    text = "进入调节"
+                    setTextColor(-0x1)
+                    textSize = 13f
+                    setBackgroundResource(R.drawable.button_flat)
+                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                    setOnClickListener {
+                        editorListener?.onEnterFollowAreaAdjust(buttonId)
+                    }
+                }
+                btnRow.addView(btnEnterAdjust)
+                buttonParamsInner.addView(btnRow)
+            }
         }
         if (buttonId.substringBefore("_") in joystickIds) {
             // ── Rectangular area follow ──

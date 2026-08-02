@@ -82,6 +82,8 @@ class SettingsRepository @Inject constructor(
         val JOY_CAP_OUTLINE_WIDTH = intPreferencesKey("joy_cap_outline_width")
         val JOY_TRIGGER_OUTLINE_COLOR = intPreferencesKey("joy_trigger_outline_color")
         val JOY_TRIGGER_OUTLINE_WIDTH = intPreferencesKey("joy_trigger_outline_width")
+        val TP_TRIGGER_OUTLINE_COLOR = intPreferencesKey("tp_trigger_outline_color")
+        val TP_TRIGGER_OUTLINE_WIDTH = intPreferencesKey("tp_trigger_outline_width")
         val TP_FILL_TYPE = intPreferencesKey("tp_fill_type")
         val TP_COLOR = intPreferencesKey("tp_color")
         val TP_IMAGE_PATH = stringPreferencesKey("tp_image_path")
@@ -169,6 +171,8 @@ class SettingsRepository @Inject constructor(
             joyCapOutlineWidth = prefs[Keys.JOY_CAP_OUTLINE_WIDTH] ?: 4,
             joyTriggerOutlineColor = prefs[Keys.JOY_TRIGGER_OUTLINE_COLOR] ?: -0x666667,
             joyTriggerOutlineWidth = prefs[Keys.JOY_TRIGGER_OUTLINE_WIDTH] ?: 4,
+            tpTriggerOutlineColor = prefs[Keys.TP_TRIGGER_OUTLINE_COLOR] ?: -0x666667,
+            tpTriggerOutlineWidth = prefs[Keys.TP_TRIGGER_OUTLINE_WIDTH] ?: 4,
             tpFillType = FillType.entries.getOrElse(prefs[Keys.TP_FILL_TYPE] ?: 0) { FillType.SOLID_COLOR },
             tpColor = prefs[Keys.TP_COLOR] ?: 0xFF121212.toInt(),
             tpImagePath = prefs[Keys.TP_IMAGE_PATH],
@@ -230,6 +234,8 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.JOY_CAP_OUTLINE_WIDTH] = settings.joyCapOutlineWidth
             prefs[Keys.JOY_TRIGGER_OUTLINE_COLOR] = settings.joyTriggerOutlineColor
             prefs[Keys.JOY_TRIGGER_OUTLINE_WIDTH] = settings.joyTriggerOutlineWidth
+            prefs[Keys.TP_TRIGGER_OUTLINE_COLOR] = settings.tpTriggerOutlineColor
+            prefs[Keys.TP_TRIGGER_OUTLINE_WIDTH] = settings.tpTriggerOutlineWidth
             prefs[Keys.TP_FILL_TYPE] = settings.tpFillType.ordinal
             prefs[Keys.TP_COLOR] = settings.tpColor
             if (settings.tpImagePath != null) prefs[Keys.TP_IMAGE_PATH] = settings.tpImagePath else prefs.remove(Keys.TP_IMAGE_PATH)
