@@ -61,6 +61,14 @@ class DpadPadView @JvmOverloads constructor(
     private var activeBits = 0
     private var isTouching = false
 
+    /** When true, the effective center tracks the touch position (follow-area mode) */
+    var forceFollowFinger: Boolean = false
+
+    private var centerX = 0f
+    private var centerY = 0f
+    private var effectiveCenterX = 0f
+    private var effectiveCenterY = 0f
+
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val shapePath = Path()
@@ -76,6 +84,10 @@ class DpadPadView @JvmOverloads constructor(
         originX = (w - side) / 2f
         originY = (h - side) / 2f
         third = side / 3f
+        centerX = originX + side / 2f
+        centerY = originY + side / 2f
+        effectiveCenterX = centerX
+        effectiveCenterY = centerY
         rebuildShapePath()
     }
 
@@ -94,6 +106,15 @@ class DpadPadView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         if (side <= 0f) return
+
+        val dx = effectiveCenterX - centerX
+        val dy = effectiveCenterY - centerY
+
+        canvas.save()
+        if (dx != 0f || dy != 0f) {
+            canvas.translate(dx, dy)
+        }
+
         val a = third
 
         // Circle fill
@@ -136,6 +157,8 @@ class DpadPadView @JvmOverloads constructor(
             canvas.drawLine(originX, originY + 2f * a, originX + side, originY + 2f * a, borderPaint)
             canvas.restore()
         }
+
+        canvas.restore()
     }
 
     private fun drawArrow(canvas: Canvas, resId: Int, left: Float, top: Float, w: Float, h: Float) {
@@ -182,11 +205,13 @@ class DpadPadView @JvmOverloads constructor(
         val ly = y - originY
         val a = third
         val r = side / 2f
-        val dx = lx - r
-        val dy = ly - r
+        val eOffX = effectiveCenterX - originX
+        val eOffY = effectiveCenterY - originY
+        val dx = lx - eOffX
+        val dy = ly - eOffY
         if (lx in 0f..side && ly in 0f..side && dx * dx + dy * dy <= r * r) {
-            val col = when { lx < a -> 0; lx < 2f * a -> 1; else -> 2 }
-            val row = when { ly < a -> 0; ly < 2f * a -> 1; else -> 2 }
+            val col = when { lx < eOffX - r + a -> 0; lx < eOffX - r + 2f * a -> 1; else -> 2 }
+            val row = when { ly < eOffY - r + a -> 0; ly < eOffY - r + 2f * a -> 1; else -> 2 }
             return bitsAt(col, row)
         }
         return nearestRegion(lx, ly)
@@ -195,15 +220,18 @@ class DpadPadView @JvmOverloads constructor(
     /** The 8 surrounding direction cells (the centre cell is never reported while outside). */
     private fun nearestRegion(lx: Float, ly: Float): Int {
         val a = third
+        val eOffX = effectiveCenterX - originX
+        val eOffY = effectiveCenterY - originY
+        val r = side / 2f
         var best = 0
         var bestDist = Float.MAX_VALUE
         for (col in 0..2) {
             for (row in 0..2) {
                 if (col == 1 && row == 1) continue
-                val cx = (col + 0.5f) * a
-                val cy = (row + 0.5f) * a
-                val ddx = lx - cx
-                val ddy = ly - cy
+                val cellCx = eOffX - r + (col + 0.5f) * a
+                val cellCy = eOffY - r + (row + 0.5f) * a
+                val ddx = lx - cellCx
+                val ddy = ly - cellCy
                 val d = ddx * ddx + ddy * ddy
                 if (d < bestDist) {
                     bestDist = d
@@ -251,7 +279,12 @@ class DpadPadView @JvmOverloads constructor(
             MotionEvent.ACTION_DOWN -> {
                 isTouching = true
                 alpha = 1f - (activeTransparency.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
+                if (forceFollowFinger) {
+                    effectiveCenterX = event.x
+                    effectiveCenterY = event.y
+                }
                 updateRegion(event.x, event.y)
+                invalidate()
                 performClick()
                 return true
             }
@@ -262,6 +295,10 @@ class DpadPadView @JvmOverloads constructor(
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 isTouching = false
                 alpha = 1f - (idleTransparency.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
+                if (forceFollowFinger) {
+                    effectiveCenterX = centerX
+                    effectiveCenterY = centerY
+                }
                 releaseAll()
                 performClick()
                 return true

@@ -14,7 +14,7 @@ data class LayoutPreset(
         private val gson = Gson()
         private val DOUBLE_CLICK_IDS = setOf("leftJoystick", "rightJoystick", "touchpad")
         private val JOYSTICK_IDS = setOf("leftJoystick", "rightJoystick")
-        private val AREA_IDS = setOf("leftJoystick", "rightJoystick", "touchpad")
+        private val AREA_IDS = setOf("leftJoystick", "rightJoystick", "touchpad", "dpadPad")
 
         fun fromJson(json: String): LayoutPreset {
             val type = object : TypeToken<LayoutPreset>() {}.type

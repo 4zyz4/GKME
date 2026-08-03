@@ -443,6 +443,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         if (isAdjustingFollowArea) {
             // Only show follow area dimensions + follow area transparency + return button
             val touchpadAdjust = isTouchpadId(buttonId)
+            val dpadPadAdjust = buttonId == "dpadPad"
             val maxAw = maxOf(40, button.followAreaW)
             val maxAh = maxOf(40, button.followAreaH)
             addSeekbar(buttonParamsInner, "区域宽度", button.followAreaW, 1, maxAw, onChange = { value ->
@@ -479,8 +480,13 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 buttonParamsInner.addView(cbFollowOverlap, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
             }
 
+            val returnText = when {
+                touchpadAdjust -> "返回触摸板调节"
+                dpadPadAdjust -> "返回十字键调节"
+                else -> "返回摇杆调节"
+            }
             val btnReturn = Button(context).apply {
-                text = if (touchpadAdjust) "返回触摸板调节" else "返回摇杆调节"
+                text = returnText
                 setTextColor(-0x1)
                 textSize = 13f
                 setBackgroundResource(R.drawable.button_flat)
@@ -716,6 +722,52 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             curveBtnRow.addView(btnDeletePoint, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = (4f * density).toInt() })
             curveBtnRow.addView(btnResetCurve, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             buttonParamsInner.addView(curveBtnRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
+        }
+        if (buttonId == "dpadPad") {
+            // ── Rectangular area follow ──
+            val cbFollowArea = CheckBox(context).apply {
+                text = "矩形区域内跟随"
+                setTextColor(-0x444445)
+                textSize = 14f
+                isChecked = button.followAreaEnabled
+                setOnCheckedChangeListener { _, isChecked ->
+                    val current = currentButton ?: return@setOnCheckedChangeListener
+                    val updated = if (isChecked && current.followAreaW == 0) {
+                        current.copy(
+                            followAreaEnabled = true,
+                            followAreaX = current.x,
+                            followAreaY = current.y,
+                            followAreaW = current.width,
+                            followAreaH = current.height
+                        )
+                    } else {
+                        current.copy(followAreaEnabled = isChecked)
+                    }
+                    currentButton = updated
+                    editorListener?.onButtonUpdated(buttonId, updated)
+                    showParameters(buttonId, updated)
+                }
+            }
+            buttonParamsInner.addView(cbFollowArea, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+
+            if (button.followAreaEnabled) {
+                val btnRow = LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt() }
+                }
+                val btnEnterAdjust = Button(context).apply {
+                    text = "进入调节"
+                    setTextColor(-0x1)
+                    textSize = 13f
+                    setBackgroundResource(R.drawable.button_flat)
+                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                    setOnClickListener {
+                        editorListener?.onEnterFollowAreaAdjust(buttonId)
+                    }
+                }
+                btnRow.addView(btnEnterAdjust)
+                buttonParamsInner.addView(btnRow)
+            }
         }
 
         if (isButton(buttonId)) {
