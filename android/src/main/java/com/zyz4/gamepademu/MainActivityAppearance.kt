@@ -77,7 +77,7 @@ internal fun MainActivity.savePickedImage(uri: Uri, prefix: String, onSaved: (St
 
 internal fun MainActivity.onAppearanceChange(transform: (AppSettings) -> AppSettings) {
     viewModel.updateAppearance(transform)
-    gamepadLayout.applyAppearance(viewModel.settings.value)
+    applyAppearanceIfChanged(viewModel.settings.value)
     // Text auto-size and foreground bounds are resolved during the next layout pass. Request it
     // now so the one-shot preview capture registered by syncAppearanceUI() re-renders the
     // settled layout immediately after the toggle.
@@ -90,7 +90,6 @@ internal fun MainActivity.onAppearanceChange(transform: (AppSettings) -> AppSett
 @SuppressLint("SetTextI18n")
 internal fun MainActivity.setupAppearancePage() {
     val a = this
-    a.setupAppearanceImageLaunchers()
 
     // Zoom button + tap-to-dismiss
     a.findViewById<ImageButton>(R.id.btnZoomPreview).setOnClickListener {
@@ -492,7 +491,7 @@ internal fun MainActivity.syncAppearanceUI() {
     a.findViewById<SeekBar>(R.id.seekTpTriggerOutlineWidth).progress = s.tpTriggerOutlineWidth
     a.findViewById<TextView>(R.id.tvTpTriggerOutlineWidth).text = "区域粗细: ${s.tpTriggerOutlineWidth}"
 
-    a.updateAppearancePreview()
+    if (a.currentSettingsCategory == 2) a.updateAppearancePreview()
 }
 
 // ── Preview (snapshot of actual gamepad layout) ──
@@ -540,13 +539,15 @@ internal fun MainActivity.updateAppearancePreview() {
     if (gl.width <= 0 || gl.height <= 0) return
     a.renderAppearancePreview()
     // Re-capture once the next layout pass finishes so that text auto-size
-    // and adaptive padding (applied asynchronously) are reflected.
+    // and adaptive padding (applied asynchronously) are reflected. Only when the
+    // appearance page is actually visible, so leaving settings never re-renders.
     gl.addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
         override fun onLayoutChange(
             v: View, left: Int, top: Int, right: Int, bottom: Int,
             oldLeft: Int, oldTop: Int, oldRight: Int, oldBottom: Int
         ) {
             gl.removeOnLayoutChangeListener(this)
+            if (!a.inSettings || a.currentSettingsCategory != 2) return
             a.renderAppearancePreview()
         }
     })

@@ -25,9 +25,11 @@ import com.zyz4.gamepademu.view.RotatableButton
 
 // ── Floating Editor ──────────────────────────────────────
 
-internal fun MainActivity.setupFloatingEditor() {
+// Built lazily via `floatingEditor by lazy` so the ~1100-line panel is not
+// constructed during startup.
+internal fun MainActivity.createFloatingEditor(): FloatingEditorPanel {
     val a = this
-    a.floatingEditor = FloatingEditorPanel(a).apply {
+    return FloatingEditorPanel(a).apply {
         visibility = View.GONE
         editorListener = object : FloatingEditorPanel.EditorListener {
             override fun onSave() {
@@ -104,14 +106,15 @@ internal fun MainActivity.setupFloatingEditor() {
                 a.gamepadLayout.setTransparencyPreview(buttonId, true, false)
             }
         }
-    }
-    (a.findViewById<View>(android.R.id.content) as ViewGroup).addView(
-        a.floatingEditor,
-        FrameLayout.LayoutParams(
-            (a.resources.displayMetrics.widthPixels * 0.4f).toInt(),
-            (a.resources.displayMetrics.heightPixels * 0.8f).toInt()
+    }.also { panel ->
+        (a.findViewById<View>(android.R.id.content) as ViewGroup).addView(
+            panel,
+            FrameLayout.LayoutParams(
+                (a.resources.displayMetrics.widthPixels * 0.4f).toInt(),
+                (a.resources.displayMetrics.heightPixels * 0.8f).toInt()
+            )
         )
-    )
+    }
 }
 
 internal fun MainActivity.getPreviewText(entry: CtrlEntry, mode: DisplayMode): String? {

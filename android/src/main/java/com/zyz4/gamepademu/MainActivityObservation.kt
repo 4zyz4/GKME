@@ -26,19 +26,21 @@ internal fun MainActivity.observeState() {
                 var lastRestartToken = 0
                 a.viewModel.connectionState.collect { st ->
                     for (label in a.touchpadLabels) label.text = st.statusText
-                    a.findViewById<TextView>(R.id.tvConnectionStatus).text = st.statusText
-                    val btn = a.findViewById<Button>(R.id.btnConnectAction)
-                    btn.text = if (st.phase != ConnectionPhase.IDLE) "停止服务" else "启动服务"
+                    if (a.settingsInflated) {
+                        a.findViewById<TextView>(R.id.tvConnectionStatus).text = st.statusText
+                        val btn = a.findViewById<Button>(R.id.btnConnectAction)
+                        btn.text = if (st.phase != ConnectionPhase.IDLE) "停止服务" else "启动服务"
+                        val ip = if (a.viewModel.settings.value.connectionMode == ConnectionMode.WIFI &&
+                            st.statusText != "未启动"
+                        ) {
+                            "本机 IP: ${a.viewModel.getServerIp()}"
+                        } else ""
+                        a.findViewById<TextView>(R.id.tvServerIp).text = ip
+                    }
                     if (st.restartToken != lastRestartToken) {
                         lastRestartToken = st.restartToken
                         a.discoverableRequested = false
                     }
-                    val ip = if (a.viewModel.settings.value.connectionMode == ConnectionMode.WIFI &&
-                        st.statusText != "未启动"
-                    ) {
-                        "本机 IP: ${a.viewModel.getServerIp()}"
-                    } else ""
-                    a.findViewById<TextView>(R.id.tvServerIp).text = ip
 
                     val transportType = st.transportType
                     val isClassicBt = transportType == BluetoothTransportType.CLASSIC
@@ -70,20 +72,22 @@ internal fun MainActivity.observeState() {
             launch {
                 a.viewModel.settings.collect { s ->
                     a.controlViews["touchpad"]?.visibility = View.VISIBLE
-                    a.updatePairedDeviceVisibility(a.viewModel.pairedDeviceName.value)
+                    if (a.settingsInflated) {
+                        a.updatePairedDeviceVisibility(a.viewModel.pairedDeviceName.value)
+                        listOf(
+                            R.id.btnGyroOriLandscape,
+                            R.id.btnGyroOriPortrait,
+                            R.id.btnGyroOriPortraitInverted,
+                        ).forEach { id ->
+                            a.findViewById<Button>(id).alpha = 1.0f
+                        }
+                    }
                     if (s.keepScreenOn) {
                         a.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     } else {
                         a.window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     }
-                    listOf(
-                        R.id.btnGyroOriLandscape,
-                        R.id.btnGyroOriPortrait,
-                        R.id.btnGyroOriPortraitInverted,
-                    ).forEach { id ->
-                        a.findViewById<Button>(id).alpha = 1.0f
-                    }
-                    a.gamepadLayout.applyAppearance(s)
+                    a.applyAppearanceIfChanged(s)
                 }
             }
             launch {
@@ -92,7 +96,7 @@ internal fun MainActivity.observeState() {
                     if (!a.gamepadLayout.isEditModeActive()) {
                         a.applyPreset(preset)
                     }
-                    a.updateGyroChipsLockState(preset.gyroOrientation)
+                    if (a.settingsInflated) a.updateGyroChipsLockState(preset.gyroOrientation)
                 }
             }
             launch {
@@ -107,6 +111,7 @@ internal fun MainActivity.observeState() {
             }
             launch {
                 a.viewModel.gyroDisplay.collect { (x, y, z) ->
+                    if (!a.settingsInflated) return@collect
                     a.findViewById<android.widget.SeekBar>(R.id.seekGyroSensitivityX).progress = (x * 100).toInt().coerceIn(-3000, 3000)
                     a.findViewById<android.widget.SeekBar>(R.id.seekGyroSensitivityY).progress = (y * 100).toInt().coerceIn(-3000, 3000)
                     a.findViewById<android.widget.SeekBar>(R.id.seekGyroSensitivityZ).progress = (z * 100).toInt().coerceIn(-3000, 3000)
@@ -126,6 +131,8 @@ internal fun MainActivity.observeState() {
                     a.physicalControllerHandler.strongVibrationMapping = strongMapping
                     a.physicalControllerHandler.weakVibrationMapping = weakMapping
                     a.physicalControllerHandler.onControllerGyroSettingChanged(gyroEnabled)
+
+                    if (!a.settingsInflated) return@collect
 
                     a.findViewById<TextView>(R.id.tvPhysicalControllerStatus).text =
                         if (connected) "已连接: ${a.physicalControllerHandler.controllerName.value}"
@@ -150,12 +157,14 @@ internal fun MainActivity.observeState() {
             launch {
                 a.physicalControllerHandler.gyroData.collect { gyro ->
                     val x = gyro[0]; val y = gyro[1]; val z = gyro[2]
-                    a.findViewById<TextView>(R.id.tvControllerGyroX).text = "X: %.2f".format(x)
-                    a.findViewById<TextView>(R.id.tvControllerGyroY).text = "Y: %.2f".format(y)
-                    a.findViewById<TextView>(R.id.tvControllerGyroZ).text = "Z: %.2f".format(z)
-                    a.findViewById<android.widget.SeekBar>(R.id.seekControllerGyroX).progress = (x * 100).toInt().coerceIn(-3000, 3000)
-                    a.findViewById<android.widget.SeekBar>(R.id.seekControllerGyroY).progress = (y * 100).toInt().coerceIn(-3000, 3000)
-                    a.findViewById<android.widget.SeekBar>(R.id.seekControllerGyroZ).progress = (z * 100).toInt().coerceIn(-3000, 3000)
+                    if (a.settingsInflated) {
+                        a.findViewById<TextView>(R.id.tvControllerGyroX).text = "X: %.2f".format(x)
+                        a.findViewById<TextView>(R.id.tvControllerGyroY).text = "Y: %.2f".format(y)
+                        a.findViewById<TextView>(R.id.tvControllerGyroZ).text = "Z: %.2f".format(z)
+                        a.findViewById<android.widget.SeekBar>(R.id.seekControllerGyroX).progress = (x * 100).toInt().coerceIn(-3000, 3000)
+                        a.findViewById<android.widget.SeekBar>(R.id.seekControllerGyroY).progress = (y * 100).toInt().coerceIn(-3000, 3000)
+                        a.findViewById<android.widget.SeekBar>(R.id.seekControllerGyroZ).progress = (z * 100).toInt().coerceIn(-3000, 3000)
+                    }
                     val s = a.viewModel.settings.value
                     val gyroEnabled = if (a.physicalControllerHandler.isConnected.value) s.controllerGyroEnabledConnected else s.controllerGyroEnabled
                     if (gyroEnabled && a.physicalControllerHandler.controllerHasGyro) {

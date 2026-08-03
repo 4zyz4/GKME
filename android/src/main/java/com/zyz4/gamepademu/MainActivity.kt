@@ -32,6 +32,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import com.zyz4.gamepademu.model.GamepadState
+import com.zyz4.gamepademu.model.AppSettings
 import com.zyz4.gamepademu.model.HapticEffect
 import com.zyz4.gamepademu.model.VibrationMotor
 import com.zyz4.gamepademu.model.VibrationType
@@ -45,11 +46,15 @@ class MainActivity : ComponentActivity() {
 
     internal val viewModel: GamepadViewModel by viewModels()
     internal lateinit var gamepadLayout: GamepadLayout
-    internal lateinit var floatingEditor: FloatingEditorPanel
+    internal val floatingEditor: FloatingEditorPanel by lazy { createFloatingEditor() }
     internal val controlViews = mutableMapOf<String, View>()
     internal val touchpadLabels = mutableListOf<TextView>()
     internal var discoverableRequested = false
     internal var vibrationPollingJob: kotlinx.coroutines.Job? = null
+    internal var vibrationRedirectStatus: String? = null
+    internal var lastAppliedSettings: AppSettings? = null
+    internal var lastPresetInfos: Any? = null
+    internal var lastPresetCurrentName: String? = null
 
     private var mediaSession: MediaSession? = null
 
@@ -127,11 +132,17 @@ class MainActivity : ComponentActivity() {
         gamepadLayout = findViewById(R.id.gamepadLayout)
         physicalControllerHandler = PhysicalControllerHandler(this)
         setupMediaSession()
-        setupFloatingEditor()
         setupGamepadLayoutListener()
         createAllControls()
         gamepadLayout.applyAppearance(viewModel.settings.value)
-        setupSettings()
+        // Register the appearance image-picker launchers now (registration must happen before
+        // the activity is resumed). The settings panel itself is inflated lazily on the first
+        // showSettings(), and the inflation is also pre-scheduled off the startup path so the
+        // first frame stays fast.
+        setupAppearanceImageLaunchers()
+        Handler(Looper.getMainLooper()).postDelayed({
+            ensureSettingsInflated()
+        }, 500L)
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when {
@@ -222,6 +233,8 @@ class MainActivity : ComponentActivity() {
     internal var addDialog: Dialog? = null
     internal var addCounter = 0
     internal var inSettings = false
+    internal var currentSettingsCategory = 0
+    internal var settingsInflated = false
     internal var outputPickerDialog: Dialog? = null
     // Single pending re-render listener for the appearance preview, so rapid appearance
     // changes (e.g. a seekbar drag) don't accumulate one-shot layout listeners that all
@@ -334,8 +347,7 @@ class MainActivity : ComponentActivity() {
 
     // ── Haptic ─────────────────────────────────────────────
 
-    internal fun performHaptic(isPress: Boolean) {
-        val s = viewModel.settings.value
+    internal fun performHaptic(isPress: Boolean) {        val s = viewModel.settings.value
         if (!s.vibrationEnabled) return
         val type = if (isPress) s.vibrationPressType else s.vibrationReleaseType
         when (type) {
@@ -374,6 +386,15 @@ class MainActivity : ComponentActivity() {
     }
 
     // ── Chip Group ─────────────────────────────────────────
+
+    /** Applies appearance only when the settings actually changed, to skip redundant
+     *  full-tree restyles when opening/closing settings or on duplicate emissions. */
+    internal fun applyAppearanceIfChanged(settings: AppSettings) {
+        if (lastAppliedSettings != settings) {
+            gamepadLayout.applyAppearance(settings)
+            lastAppliedSettings = settings
+        }
+    }
 
     internal fun selectChipGroup(ids: List<Int>, selected: Int) {
         ids.forEachIndexed { i, id ->

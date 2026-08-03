@@ -14,11 +14,14 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewStub
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
@@ -44,9 +47,20 @@ import com.zyz4.gamepademu.view.PresetPreviewView
 
 // ── Settings ─────────────────────────────────────────────
 
+/** Inflates the settings panel on first use and wires up its listeners. Safe to call
+ *  repeatedly; the expensive inflation happens only once. */
+internal fun MainActivity.ensureSettingsInflated() {
+    val a = this
+    if (a.settingsInflated) return
+    (a.findViewById<ViewStub>(R.id.settingsStub))?.inflate()
+    a.settingsInflated = true
+    a.setupSettings()
+}
+
 internal fun MainActivity.showSettings() {
     val a = this
     if (a.gamepadLayout.isEditModeActive()) return
+    a.ensureSettingsInflated()
     a.inSettings = true
     a.findViewById<View>(R.id.gamepadPanel).visibility = View.GONE
     a.findViewById<View>(R.id.settingsPanel).visibility = View.VISIBLE
@@ -64,6 +78,7 @@ internal fun MainActivity.hideSettings() {
 
 internal fun MainActivity.selectSettingsCategory(index: Int) {
     val a = this
+    a.currentSettingsCategory = index
     val pages = listOf(R.id.pageConnection, R.id.pagePresets, R.id.pageAppearance, R.id.pagePhysicalController, R.id.pageVibration, R.id.pageGyro, R.id.pageMisc, R.id.pageAbout)
     val buttons = listOf(
         R.id.btnCategoryConnection, R.id.btnCategoryPresets, R.id.btnCategoryAppearance, R.id.btnCategoryPhysicalController, R.id.btnCategoryVibration, R.id.btnCategoryGyro, R.id.btnCategoryMisc, R.id.btnCategoryAbout
@@ -86,7 +101,7 @@ internal fun MainActivity.selectSettingsCategory(index: Int) {
     if (index == 4) {
         a.vibrationPollingJob = a.lifecycleScope.launch {
             while (true) {
-                a.checkVibrationRedirect()
+                a.refreshVibrationRedirect()
                 kotlinx.coroutines.delay(1000)
             }
         }
@@ -481,11 +496,10 @@ internal fun MainActivity.updateVibrationUI() {
 }
 
 @SuppressLint("SetTextI18n")
-internal fun MainActivity.checkVibrationRedirect() {
+internal fun MainActivity.renderVibrationRedirect(value: String?) {
     val a = this
-    val statusView = a.findViewById<TextView>(R.id.tvVibrationRedirectStatus)
-    val noteView = a.findViewById<TextView>(R.id.tvVibrationRedirectNote)
-    val value = a.readVibrationRedirectSetting()
+    val statusView = a.findViewById<TextView>(R.id.tvVibrationRedirectStatus) ?: return
+    val noteView = a.findViewById<TextView>(R.id.tvVibrationRedirectNote) ?: return
     noteView.text = "开启震动重定向后，手机震动会自动变为手柄马达1震动。\n本应用的手柄震动不受此设置影响。\n如果要在本应用中使用手机震动，请在系统设置-更多设置-语言与输入法中关闭震动重定向。"
     noteView.visibility = View.VISIBLE
     when (value) {
@@ -504,7 +518,15 @@ internal fun MainActivity.checkVibrationRedirect() {
     }
 }
 
-internal fun MainActivity.readVibrationRedirectSetting(): String? {
+/** Reads the vibration-redirect setting off the main thread and caches the result. */
+internal suspend fun MainActivity.refreshVibrationRedirect() {
+    val a = this
+    val value = withContext(Dispatchers.IO) { a.readVibrationRedirectSettingBlocking() }
+    a.vibrationRedirectStatus = value
+    a.renderVibrationRedirect(value)
+}
+
+internal fun MainActivity.readVibrationRedirectSettingBlocking(): String? {
     val a = this
     val key = "vibrate_input_devices"
     try {
@@ -758,11 +780,18 @@ internal fun MainActivity.showRenameDialog(oldName: String) {
 @SuppressLint("SetTextI18n")
 internal fun MainActivity.refreshPresetList() {
     val a = this
-    val gridView = a.findViewById<WrapContentGridView>(R.id.gridPresets)
+    val gridView = a.findViewById<WrapContentGridView>(R.id.gridPresets) ?: return
     val infos = a.viewModel.presetInfos.value
     val current = a.viewModel.settings.value.currentPresetName
-    gridView.adapter = PresetGridAdapter(a, infos, current)
     a.findViewById<TextView>(R.id.tvCurrentPreset).text = "当前预设: $current"
+    // Skip rebuilding the grid (inflating cards) when nothing changed, so opening
+    // settings repeatedly doesn't re-inflate all preset preview cards.
+    if (a.lastPresetInfos == infos && a.lastPresetCurrentName == current &&
+        gridView.adapter is PresetGridAdapter
+    ) return
+    a.lastPresetInfos = infos
+    a.lastPresetCurrentName = current
+    gridView.adapter = PresetGridAdapter(a, infos, current)
 }
 
 internal class PresetGridAdapter(
@@ -789,6 +818,7 @@ internal class PresetGridAdapter(
 
 internal fun MainActivity.updateSettingsVisibility(mode: ConnectionMode) {
     val a = this
+    if (!a.settingsInflated) return
     val isBt = mode == ConnectionMode.BLUETOOTH
     val isWifi = mode == ConnectionMode.WIFI
     a.findViewById<View>(R.id.sectionTargetPlatform).visibility = if (isBt) View.VISIBLE else View.GONE
@@ -798,6 +828,7 @@ internal fun MainActivity.updateSettingsVisibility(mode: ConnectionMode) {
 
 internal fun MainActivity.updatePairedDeviceVisibility(name: String?) {
     val a = this
+    if (!a.settingsInflated) return
     val section = a.findViewById<View>(R.id.sectionPairedDevice)
     val nameView = a.findViewById<TextView>(R.id.tvPairedDeviceName)
     val isBt = a.viewModel.settings.value.connectionMode == ConnectionMode.BLUETOOTH
@@ -812,6 +843,7 @@ internal fun MainActivity.updatePairedDeviceVisibility(name: String?) {
 
 internal fun MainActivity.updateGyroChipsLockState(presetGyroOrientation: GyroOrientation?) {
     val a = this
+    if (!a.settingsInflated) return
     val orientationChips = listOf(
         R.id.btnGyroOriLandscape, R.id.btnGyroOriPortrait, R.id.btnGyroOriPortraitInverted
     )
@@ -821,6 +853,7 @@ internal fun MainActivity.updateGyroChipsLockState(presetGyroOrientation: GyroOr
 }
 
 internal fun MainActivity.updateGyroLandscapeInvertedNote(inverted: Boolean) {
+    if (!settingsInflated) return
     findViewById<TextView>(R.id.tvGyroLandscapeInvertedNote).visibility =
         if (inverted) View.VISIBLE else View.GONE
 }
@@ -831,6 +864,13 @@ internal fun MainActivity.syncSettingsUI() {
     val s = a.viewModel.settings.value
     a.findViewById<Switch>(R.id.switchEditMode).isChecked = false
 
+    // Re-sync connection status here too: observers may have dropped emissions
+    // while the settings panel was not yet inflated.
+    val st = a.viewModel.connectionState.value
+    a.findViewById<TextView>(R.id.tvConnectionStatus).text = st.statusText
+    a.findViewById<Button>(R.id.btnConnectAction).text =
+        if (st.phase != ConnectionPhase.IDLE) "停止服务" else "启动服务"
+
     a.selectChipGroup(listOf(R.id.btnDisplayXbox, R.id.btnDisplayPlaystation, R.id.btnDisplaySwitch),
         DisplayMode.entries.indexOf(s.displayMode).coerceAtLeast(0))
     a.selectChipGroup(listOf(R.id.btnConnWifi, R.id.btnConnBluetooth),
@@ -840,7 +880,8 @@ internal fun MainActivity.syncSettingsUI() {
     a.findViewById<Switch>(R.id.switchBtnVibration).isChecked = s.vibrationEnabled
     a.findViewById<Switch>(R.id.switchGameVibration).isChecked = s.gameVibrationEnabled
     a.updateVibrationUI()
-    a.checkVibrationRedirect()
+    a.vibrationRedirectStatus?.let { a.renderVibrationRedirect(it) }
+        ?: a.lifecycleScope.launch { a.refreshVibrationRedirect() }
     a.updateSettingsVisibility(s.connectionMode)
 
     a.findViewById<Switch>(R.id.switchAutoStart).isChecked = s.autoStartEnabled
@@ -863,7 +904,7 @@ internal fun MainActivity.syncSettingsUI() {
     a.updateVolumeMappingLabels()
 
     a.syncAppearanceUI()
-    a.gamepadLayout.applyAppearance(s)
+    a.applyAppearanceIfChanged(s)
 
     val physicalConnected = a.physicalControllerHandler.isConnected.value
     val strongMapping = if (physicalConnected) s.strongVibrationMappingConnected else s.strongVibrationMapping
