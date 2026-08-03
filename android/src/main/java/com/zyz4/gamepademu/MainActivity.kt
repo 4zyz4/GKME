@@ -223,6 +223,10 @@ class MainActivity : ComponentActivity() {
     internal var addCounter = 0
     internal var inSettings = false
     internal var outputPickerDialog: Dialog? = null
+    // Single pending re-render listener for the appearance preview, so rapid appearance
+    // changes (e.g. a seekbar drag) don't accumulate one-shot layout listeners that all
+    // fire together when the gamepad is next laid out.
+    internal var previewLayoutListener: View.OnLayoutChangeListener? = null
 
     internal var vibrationMappingEntries: List<VibrationMotor> = VibrationMotor.entries.toList()
 

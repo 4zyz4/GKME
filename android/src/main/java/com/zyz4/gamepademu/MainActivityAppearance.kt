@@ -427,7 +427,7 @@ private fun colorBg(c: Int) = android.graphics.drawable.GradientDrawable().apply
 }
 
 internal fun iconMaxSizeLabel(value: Int): String =
-    if (value >= 100) "最大大小: 无限" else "最大大小: ${value.coerceAtLeast(0)}sp"
+    if (value >= 100) "最大图标大小: 无限" else "最大图标大小: ${value.coerceAtLeast(0)}sp"
 
 // ── Sync Appearance UI ──
 

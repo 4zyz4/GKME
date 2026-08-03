@@ -308,7 +308,8 @@
                 </LinearLayout>
             </LinearLayout>
         </ScrollView>
-
+
+
         <!-- Page 7: 外观 -->
         <LinearLayout
             android:id="@+id/pageAppearance"
@@ -356,24 +357,16 @@
                             android:id="@+id/tvIconMaxSize"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="最大大小: 24sp"
+                            android:text="最大图标大小: 28sp"
                             android:textColor="@color/text_primary"
                             android:textSize="14sp" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="图标与文本的最大尺寸（sp）；100 为无限，自动填满按钮（含 PS 功能键、主页键、LS/RS 等）"
-                            android:textColor="@color/text_secondary"
-                            android:textSize="11sp"
-                            android:layout_marginTop="2dp" />
 
                         <SeekBar
                             android:id="@+id/seekIconMaxSize"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:max="100"
-                            android:progress="24" />
+                            android:progress="28" />
                     </LinearLayout>
 
                     <!-- ── Background ── -->

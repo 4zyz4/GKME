@@ -24,12 +24,13 @@ import com.zyz4.gamepademu.applyContentSizeCap
 import com.zyz4.gamepademu.model.AppSettings
 import com.zyz4.gamepademu.model.DisplayMode
 import com.zyz4.gamepademu.model.FillType
+import kotlin.math.sqrt
 
 object AppearanceApplier {
 
     // Buttons whose foreground icon is resolved from the display mode via getIconDrawable.
-    // btnTouchpad's icon IS its background and is never scaled; select/menu use a neutral
-    // circle background and scale their icon as content.
+    // select/menu use a neutral circle background and scale their icon as content; btnTouchpad
+    // scales its (rectangular) grid icon as content too.
     private val iconButtonIds = setOf("btnSelect", "btnMenu", "btnTouchpad")
 
     // Image buttons that draw their icon as content and scale it with the adaptive setting.
@@ -38,10 +39,11 @@ object AppearanceApplier {
     )
 
     // Buttons whose foreground icon is content and fills the button with the adaptive setting:
-    // PS-mode ABXY, XBOX/SWITCH select & menu, and the integrated LS/RS triangle+letter.
+    // PS-mode ABXY, XBOX/SWITCH select & menu, the touchpad grid, and the integrated LS/RS
+    // triangle+letter.
     private val adaptiveForegroundButtonIds = setOf(
         "btnA", "btnB", "btnX", "btnY",
-        "btnSelect", "btnMenu", "btnLS", "btnRS",
+        "btnSelect", "btnMenu", "btnTouchpad", "btnLS", "btnRS",
     )
 
     // PS-mode ABXY: their foreground icons are set directly by updateButtonLabels (unlike
@@ -53,7 +55,7 @@ object AppearanceApplier {
     private val adaptiveContentButtonIds = setOf(
         "btnA", "btnB", "btnX", "btnY",
         "btnDpadUp", "btnDpadDown", "btnDpadLeft", "btnDpadRight",
-        "btnHome", "btnSelect", "btnMenu", "btnLS", "btnRS",
+        "btnHome", "btnSelect", "btnMenu", "btnTouchpad", "btnLS", "btnRS",
     )
 
     // Last auto-size cap applied per TextView (px), so we don't reconfigure on every pass.
@@ -486,7 +488,9 @@ private class LetterIconDrawable(
         }
 
         letterPaint.textSize = minOf(w * 0.55f, h * 0.45f, max)
-        val baseline = bounds.exactCenterY() + h * 0.15f
+        // Center the glyph's bounding box on the button's middle (the baseline alone isn't the
+        // visual center), so the letter scales around its center and never looks bottom-anchored.
+        val baseline = bounds.exactCenterY() - (letterPaint.ascent() + letterPaint.descent()) / 2f
         canvas.drawText(letter, bounds.exactCenterX(), baseline, letterPaint)
     }
 
@@ -501,6 +505,8 @@ private class LetterIconDrawable(
 // image pipeline would); otherwise it fills a square (FILL behavior). insetProvider supplies
 // the button's content padding (read at draw time) so the content keeps the same 10% margin
 // that text / image content has, even though the foreground ignores view padding.
+private const val SQRT_2 = 1.4142135623730951f
+
 private class CappedContentDrawable(
     val inner: Drawable,
     private val maxSizePx: Float,
@@ -512,16 +518,18 @@ private class CappedContentDrawable(
         val h = bounds.height().toFloat()
         if (w <= 0 || h <= 0) return
         val inset = insetProvider?.invoke() ?: 0f
-        val maxDim = minOf(
-            (w - inset * 2f).coerceAtLeast(1f),
-            (h - inset * 2f).coerceAtLeast(1f),
-            maxSizePx.coerceAtLeast(1f),
-        )
+        val paddedW = (w - inset * 2f).coerceAtLeast(1f)
+        val paddedH = (h - inset * 2f).coerceAtLeast(1f)
+        val maxDim = minOf(paddedW, paddedH, maxSizePx.coerceAtLeast(1f))
 
         val rect = if (fitAspect) {
             val iw = inner.intrinsicWidth.coerceAtLeast(1).toFloat()
             val ih = inner.intrinsicHeight.coerceAtLeast(1).toFloat()
-            val scale = minOf(maxDim / iw, maxDim / ih)
+            // maxDim is the side of a square cap. Scale non-square icons so their diagonal
+            // matches that square cap's diagonal (same visual size as square icons), still
+            // bounded by the padded button so "unlimited" fills like FIT_CENTER.
+            val targetScale = maxDim * SQRT_2 / sqrt(iw * iw + ih * ih)
+            val scale = minOf(targetScale, paddedW / iw, paddedH / ih)
             val dw = iw * scale
             val dh = ih * scale
             Rect(

@@ -1014,14 +1014,16 @@ class GamepadLayout @JvmOverloads constructor(
                 if (child.paddingLeft != pad || child.paddingTop != pad) {
                     child.setPadding(pad, pad, pad, pad)
                 }
-                // Auto-fit text cap tracks the measured size (the first appearance pass may
-                // have run before layout). Null cap = unlimited.
-                val capPx = AppearanceApplier.contentCapPx(child, appearanceSettings)
-                if (child is Button && !child.text.isNullOrEmpty()) {
-                    AppearanceApplier.applyContentTextCap(
-                        child, capPx ?: AppearanceApplier.UNLIMITED_TEXT_CAP_PX
-                    )
-                }
+            }
+            // Auto-fit text cap tracks the measured size (the first appearance pass may have
+            // run before layout), so it is applied here to every text button - not just the
+            // adaptive-content ones - to make the cap load on the first layout pass. Null cap
+            // = unlimited.
+            val capPx = AppearanceApplier.contentCapPx(child, appearanceSettings)
+            if (child is Button && !child.text.isNullOrEmpty()) {
+                AppearanceApplier.applyContentTextCap(
+                    child, capPx ?: AppearanceApplier.UNLIMITED_TEXT_CAP_PX
+                )
             }
             if (isEditMode && previewTransparency && id == previewButtonId) {
                 val transVal = if (previewIdleTransparency) pos.idleTransparency else pos.activeTransparency
