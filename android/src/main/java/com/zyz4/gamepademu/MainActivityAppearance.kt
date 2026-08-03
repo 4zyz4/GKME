@@ -15,7 +15,6 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.SeekBar
-import android.widget.Switch
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.graphics.scale
@@ -105,10 +104,18 @@ internal fun MainActivity.setupAppearancePage() {
         a.updateAppearancePreview()
     }
 
-    // ── Adaptive icon size ──
-    a.findViewById<Switch>(R.id.switchAdaptiveIconSize).setOnCheckedChangeListener { _, isChecked ->
-        a.onAppearanceChange { it.copy(adaptiveIconSize = isChecked) }
-    }
+    // ── Icon/text max size ──
+    a.findViewById<SeekBar>(R.id.seekIconMaxSize).setOnSeekBarChangeListener(
+        object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar, p: Int, fromUser: Boolean) {
+                if (!fromUser) return
+                a.findViewById<TextView>(R.id.tvIconMaxSize).text = iconMaxSizeLabel(p)
+                a.onAppearanceChange { it.copy(iconMaxSize = p) }
+            }
+            override fun onStartTrackingTouch(sb: SeekBar?) {}
+            override fun onStopTrackingTouch(sb: SeekBar?) {}
+        }
+    )
 
     // ── Background ──
     a.findViewById<Button>(R.id.btnBgFillSolid).setOnClickListener {
@@ -419,6 +426,9 @@ private fun colorBg(c: Int) = android.graphics.drawable.GradientDrawable().apply
     shape = android.graphics.drawable.GradientDrawable.RECTANGLE; cornerRadius = 0f; setColor(c); setStroke(1, -0x1)
 }
 
+internal fun iconMaxSizeLabel(value: Int): String =
+    if (value >= 100) "最大大小: 无限" else "最大大小: ${value.coerceAtLeast(0)}sp"
+
 // ── Sync Appearance UI ──
 
 @SuppressLint("SetTextI18n")
@@ -426,8 +436,9 @@ internal fun MainActivity.syncAppearanceUI() {
     val a = this
     val s = a.viewModel.settings.value
 
-    // Adaptive icon size
-    a.findViewById<Switch>(R.id.switchAdaptiveIconSize).isChecked = s.adaptiveIconSize
+    // Icon/text max size
+    a.findViewById<SeekBar>(R.id.seekIconMaxSize).progress = s.iconMaxSize.coerceIn(0, 100)
+    a.findViewById<TextView>(R.id.tvIconMaxSize).text = iconMaxSizeLabel(s.iconMaxSize)
 
     // Background
     a.selectChipGroup(listOf(R.id.btnBgFillSolid, R.id.btnBgFillImage), s.bgFillType.ordinal)

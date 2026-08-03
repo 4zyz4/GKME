@@ -19,9 +19,8 @@ import android.view.View
 import android.widget.Button
 import android.widget.ImageButton
 import android.widget.ImageView
-import android.widget.TextView
 import com.zyz4.gamepademu.R
-import com.zyz4.gamepademu.enableAutoFitButtonText
+import com.zyz4.gamepademu.applyContentSizeCap
 import com.zyz4.gamepademu.model.AppSettings
 import com.zyz4.gamepademu.model.DisplayMode
 import com.zyz4.gamepademu.model.FillType
@@ -45,6 +44,10 @@ object AppearanceApplier {
         "btnSelect", "btnMenu", "btnLS", "btnRS",
     )
 
+    // PS-mode ABXY: their foreground icons are set directly by updateButtonLabels (unlike
+    // select/menu which are resolved from the mode here), so those are reused across passes.
+    private val psIconButtonIds = setOf("btnA", "btnB", "btnX", "btnY")
+
     // Buttons that draw their content (text / foreground icon / image) inside the button and
     // always keep a min(w,h) x 10% padding.
     private val adaptiveContentButtonIds = setOf(
@@ -53,13 +56,8 @@ object AppearanceApplier {
         "btnHome", "btnSelect", "btnMenu", "btnLS", "btnRS",
     )
 
-    // When adaptive icon size is ON the text max is effectively unlimited (fills the button);
-    // when OFF it is capped at the original 20f.
-    private const val ADAPTIVE_TEXT_MAX_SP = 1024f
-    private const val DEFAULT_TEXT_MAX_SP = 20f
-
-    // Last auto-size max applied per TextView, so we don't reconfigure on every appearance change.
-    private val appliedTextMax = HashMap<View, Float>()
+    // Last auto-size cap applied per TextView (px), so we don't reconfigure on every pass.
+    private val appliedTextCap = HashMap<View, Int>()
 
     // Bitmap cache to avoid re-decoding files on every change
     private var cachedBitmapPath: String? = null
@@ -107,39 +105,75 @@ object AppearanceApplier {
         val baseId = tag.substringBefore("_")
         val isCircle = isCircleButton(tag)
         val density = view.resources.displayMetrics.density
-        val adaptive = settings.adaptiveIconSize
+        val maxPx = contentCapPx(view, settings)
 
+        // Foreground content icons (PS ABXY, XBOX/SWITCH select & menu, LS/RS triangle+letter).
+        // PS ABXY icons are set by updateButtonLabels, so reuse whatever is already on the view
+        // (unwrap a previous cap so we never stack wrappers). select/menu are resolved from the
+        // current mode via getIconDrawable instead, so switching to PS clears their foreground.
         val foregroundIcon = when {
             baseId == "btnLS" || baseId == "btnRS" ->
-                letterIconDrawable(view, if (baseId == "btnLS") "L" else "R")
+                letterIconDrawable(view, if (baseId == "btnLS") "L" else "R", maxPx?.toFloat())
+            baseId in psIconButtonIds && settings.displayMode == DisplayMode.PLAYSTATION &&
+                view !is ImageButton && view.foreground != null ->
+                (view.foreground as? CappedContentDrawable)?.inner ?: view.foreground
             view !is ImageButton && baseId in iconButtonIds -> getIconDrawable(view, settings)
             else -> null
         }
         if (foregroundIcon != null) {
-            view.foreground = foregroundIcon
-            view.foregroundGravity = getIconGravity(baseId)
+            view.foregroundGravity = if (baseId in adaptiveForegroundButtonIds) Gravity.FILL else Gravity.CENTER
+            // Foreground FILL draws over the whole view (padding ignored), so inset the content
+            // by the button's own 10% padding to keep it consistent with text / image content.
+            val insetProvider: (() -> Float)? =
+                if (baseId in adaptiveForegroundButtonIds) ({ view.paddingLeft.toFloat() }) else null
+            view.foreground = when {
+                baseId == "btnLS" || baseId == "btnRS" -> foregroundIcon
+                // Keep the icon's intrinsic aspect (e.g. the rectangular touchpad-grid icon) so a
+                // non-square icon is never stretched into a square.
+                maxPx == null && insetProvider == null -> foregroundIcon
+                else -> CappedContentDrawable(
+                    foregroundIcon,
+                    maxPx?.toFloat() ?: Float.MAX_VALUE,
+                    fitAspect = true,
+                    insetProvider = insetProvider,
+                )
+            }
         } else if (baseId in iconButtonIds || baseId == "btnLS" || baseId == "btnRS") {
             view.foreground = null
         }
 
-        // ── Adaptive icon / text fill ──
+        // ── Icon / text max size ──
+        // Image buttons (home, dpad): ImageView draws the image via intrinsic bounds + a fit
+        // matrix, so a wrapper that computes from its bounds can never bind the cap (the bounds
+        // are the intrinsic 24dp size, not the button). Draw the icon as the view foreground
+        // instead, which receives the real view bounds, and let the wrapper cap at draw time.
+        // "Unlimited" keeps the plain image (FIT_CENTER fills the padded button, aspect kept).
         if (view is ImageButton && baseId in adaptiveImageButtonIds) {
-            view.scaleType = if (adaptive) ImageView.ScaleType.FIT_CENTER else ImageView.ScaleType.CENTER_INSIDE
-        } else if (view is Button && baseId in adaptiveForegroundButtonIds) {
-            // Content icons (PS ABXY, XBOX/SWITCH select & menu, LS/RS triangle+letter) are plain
-            // foreground drawables: FILL scales them to the button, CENTER keeps their intrinsic
-            // size. Vector drawables scale to their bounds, so no extra wrapping is needed.
-            view.foregroundGravity = if (adaptive) Gravity.FILL else Gravity.CENTER
+            val raw = (view.foreground as? CappedContentDrawable)?.inner
+                ?: (view.drawable as? CappedContentDrawable)?.inner
+                ?: view.drawable
+            if (raw != null) {
+                if (maxPx == null) {
+                    view.foreground = null
+                    view.setImageDrawable(raw)
+                    view.scaleType = ImageView.ScaleType.FIT_CENTER
+                } else {
+                    view.setImageDrawable(null)
+                    view.foregroundGravity = Gravity.FILL
+                    view.foreground = CappedContentDrawable(
+                        raw, maxPx.toFloat(), fitAspect = true,
+                        insetProvider = { view.paddingLeft.toFloat() },
+                    )
+                }
+            }
         }
 
-        // Text keeps auto-fit in both states; the toggle only changes the max size:
-        // OFF caps at 20f (original), ON lets it grow to fill the button.
-        if (view is Button && !view.text.isNullOrEmpty()) {
-            val maxSp = if (adaptive) ADAPTIVE_TEXT_MAX_SP else DEFAULT_TEXT_MAX_SP
-            if (appliedTextMax[view] != maxSp) {
-                view.enableAutoFitButtonText(maxSp, minSizeSp = if (adaptive) 4f else maxSp * 0.25f)
-                appliedTextMax[view] = maxSp
-            }
+        // Text keeps auto-fit; the cap is the max size in px (null = unlimited: auto-fit already
+        // stays within the button, so a huge cap never binds). Skipped until the button is
+        // measured (GamepadLayout.onLayout applies the cap from the real size); a 0-size button
+        // would yield a degenerate auto-size config.
+        if (view is Button && !view.text.isNullOrEmpty() && view.width > 0 && view.height > 0) {
+            applyContentTextCap(view, maxPx ?: UNLIMITED_TEXT_CAP_PX)
         }
 
         // Adaptive padding: min(w,h) x 10% for view-drawn content. Applied in both adaptive
@@ -222,6 +256,7 @@ object AppearanceApplier {
         joy.appearanceCapBitmap = if (settings.joyCapFillType == FillType.IMAGE) getBitmap(settings.joyCapImagePath) else null
         joy.appearanceCapOutlineColor = settings.joyCapOutlineColor
         joy.appearanceCapOutlineWidth = settings.joyCapOutlineWidth.toFloat()
+        joy.labelMaxSizePx = contentCapPx(joy, settings)?.toFloat()
         joy.invalidate()
     }
 
@@ -341,14 +376,34 @@ object AppearanceApplier {
         return if (resId != null) view.context.getDrawable(resId)?.mutate() else null
     }
 
-    private fun getIconGravity(baseId: String): Int = Gravity.CENTER
+    // Cap for the auto-fit text when the max size is "unlimited": so large that auto-fit
+    // always stays within the button.
+    const val UNLIMITED_TEXT_CAP_PX = 8192
+
+    // Max content size in px from the sp value in settings.iconMaxSize (0..99); null = unlimited.
+    // A "sp" value is scaled by the display's scaled density, matching the old textSize=20f unit.
+    fun contentCapPx(view: View, settings: AppSettings?): Int? {
+        val sp = settings?.iconMaxSize ?: return null
+        if (sp >= 100) return null
+        val scaled = view.resources.displayMetrics.scaledDensity
+        return (sp.coerceIn(0, 99) * scaled).toInt().coerceAtLeast(1)
+    }
+
+    // Re-cap auto-fit text. Callable from GamepadLayout.onLayout so the cap tracks the
+    // measured button size (the initial appearance pass may run before layout).
+    fun applyContentTextCap(view: Button, capPx: Int) {
+        if (appliedTextCap[view] != capPx) {
+            view.applyContentSizeCap(capPx)
+            appliedTextCap[view] = capPx
+        }
+    }
 
     /** Integrated LS/RS content: the triangle icon on top with the L/R letter below it, drawn
-     *  as a single unit so they scale together. */
-    private fun letterIconDrawable(view: View, letter: String): Drawable {
+     *  as a single unit so they scale together. maxSizePx caps the whole unit (null = unlimited). */
+    private fun letterIconDrawable(view: View, letter: String, maxSizePx: Float?): Drawable {
         val resId = if (letter == "L") R.drawable.ic_ls else R.drawable.ic_rs
         val triangle = view.context.getDrawable(resId)?.mutate()
-        return LetterIconDrawable(letter, triangle)
+        return LetterIconDrawable(letter, triangle, maxSizePx)
     }
 
     private fun highlightColor(color: Int, factor: Float): Int {
@@ -403,6 +458,7 @@ object AppearanceApplier {
 private class LetterIconDrawable(
     private val letter: String,
     private val icon: Drawable?,
+    private val maxSizePx: Float?,
 ) : Drawable() {
     private val letterPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = 0xFFCCCCCC.toInt()
@@ -417,19 +473,20 @@ private class LetterIconDrawable(
         val w = bounds.width().toFloat()
         val h = bounds.height().toFloat()
         if (w <= 0 || h <= 0) return
+        val max = maxSizePx ?: Float.MAX_VALUE
 
-        // Triangle at the top, scaled to fill the top band.
+        // Triangle at the top, the letter below as the main label. Both grow with the max size
+        // and fill the button when there is no cap (instead of staying at a small fixed fraction).
         icon?.let { ic ->
-            val size = minOf(h * 0.28f, w * 0.88f)
+            val size = minOf(w * 0.5f, h * 0.24f, max)
             val left = bounds.exactCenterX() - size / 2f
-            val top = bounds.top + h * 0.03f
+            val top = bounds.top + h * 0.05f
             ic.bounds = Rect(left.toInt(), top.toInt(), (left + size).toInt(), (top + size).toInt())
             ic.draw(canvas)
         }
 
-        // Letter centered in the button, sized to stay below the triangle.
-        letterPaint.textSize = h * 0.28f
-        val baseline = bounds.exactCenterY() - (letterPaint.ascent() + letterPaint.descent()) / 2f
+        letterPaint.textSize = minOf(w * 0.55f, h * 0.45f, max)
+        val baseline = bounds.exactCenterY() + h * 0.15f
         canvas.drawText(letter, bounds.exactCenterX(), baseline, letterPaint)
     }
 
@@ -437,4 +494,58 @@ private class LetterIconDrawable(
     override fun setColorFilter(cf: ColorFilter?) { letterPaint.colorFilter = cf }
     @Suppress("OVERRIDE_DEPRECATION")
     override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
+}
+
+// Draws an inner drawable centered within its bounds, scaled to at most maxSizePx (and never
+// larger than the padded bounds). With fitAspect the inner keeps its intrinsic aspect (as the
+// image pipeline would); otherwise it fills a square (FILL behavior). insetProvider supplies
+// the button's content padding (read at draw time) so the content keeps the same 10% margin
+// that text / image content has, even though the foreground ignores view padding.
+private class CappedContentDrawable(
+    val inner: Drawable,
+    private val maxSizePx: Float,
+    private val fitAspect: Boolean,
+    private val insetProvider: (() -> Float)? = null,
+) : Drawable() {
+    override fun draw(canvas: Canvas) {
+        val w = bounds.width().toFloat()
+        val h = bounds.height().toFloat()
+        if (w <= 0 || h <= 0) return
+        val inset = insetProvider?.invoke() ?: 0f
+        val maxDim = minOf(
+            (w - inset * 2f).coerceAtLeast(1f),
+            (h - inset * 2f).coerceAtLeast(1f),
+            maxSizePx.coerceAtLeast(1f),
+        )
+
+        val rect = if (fitAspect) {
+            val iw = inner.intrinsicWidth.coerceAtLeast(1).toFloat()
+            val ih = inner.intrinsicHeight.coerceAtLeast(1).toFloat()
+            val scale = minOf(maxDim / iw, maxDim / ih)
+            val dw = iw * scale
+            val dh = ih * scale
+            Rect(
+                (bounds.exactCenterX() - dw / 2f).toInt(),
+                (bounds.exactCenterY() - dh / 2f).toInt(),
+                (bounds.exactCenterX() + dw / 2f).toInt(),
+                (bounds.exactCenterY() + dh / 2f).toInt(),
+            )
+        } else {
+            Rect(
+                (bounds.exactCenterX() - maxDim / 2f).toInt(),
+                (bounds.exactCenterY() - maxDim / 2f).toInt(),
+                (bounds.exactCenterX() + maxDim / 2f).toInt(),
+                (bounds.exactCenterY() + maxDim / 2f).toInt(),
+            )
+        }
+        inner.bounds = rect
+        inner.draw(canvas)
+    }
+
+    override fun getIntrinsicWidth(): Int = inner.intrinsicWidth
+    override fun getIntrinsicHeight(): Int = inner.intrinsicHeight
+    override fun setAlpha(alpha: Int) { inner.alpha = alpha }
+    override fun setColorFilter(cf: ColorFilter?) { inner.colorFilter = cf }
+    @Suppress("OVERRIDE_DEPRECATION")
+    override fun getOpacity(): Int = inner.opacity
 }

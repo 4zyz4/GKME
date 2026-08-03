@@ -37,6 +37,8 @@ class JoystickView @JvmOverloads constructor(
     var deadZone: Int = 0
     var showDeadZoneIndicator: Boolean = false
     var isSelectedInEditor: Boolean = false
+    // Max label size in px (from the adaptive icon-size setting); null = sized relative to the cap.
+    var labelMaxSizePx: Float? = null
 
     private var centerX = 0f
     private var centerY = 0f
@@ -138,8 +140,10 @@ class JoystickView @JvmOverloads constructor(
             canvas.drawCircle(effectiveCenterX, effectiveCenterY, dzRadius, deadZonePaint)
         }
         if (label.isNotEmpty()) {
-            if (labelPaint.textSize == 0f)
-                labelPaint.textSize = knobRadius * 1.1f
+            // Follow the adaptive icon-size cap (labelMaxSizePx); otherwise keep the natural
+            // size relative to the cap (capped by the knob itself).
+            val natural = knobRadius * 1.1f
+            labelPaint.textSize = labelMaxSizePx?.let { minOf(natural, it) } ?: natural
             val textY = knobY - (labelPaint.ascent() + labelPaint.descent()) / 2f
             canvas.drawText(label, knobX, textY, labelPaint)
         }

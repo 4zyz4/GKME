@@ -77,6 +77,19 @@ internal fun TextView.enableAutoFitButtonText(maxSizeSp: Float, minSizeSp: Float
     setAutoSizeTextTypeUniformWithConfiguration(minPx, maxPx, 1, TypedValue.COMPLEX_UNIT_PX)
 }
 
+// Re-cap the auto-fit text to at most maxSizePx (does not touch padding, which is
+// managed separately so layout can re-apply it on size changes).
+internal fun TextView.applyContentSizeCap(maxSizePx: Int, minSizeSp: Float = 4f) {
+    includeFontPadding = false
+    minWidth = 0
+    minHeight = 0
+    maxLines = 1
+    val scaled = resources.displayMetrics.scaledDensity
+    val maxPx = maxSizePx.coerceAtLeast(3)
+    val minPx = (minSizeSp * scaled).toInt().coerceIn(1, maxPx - 1)
+    setAutoSizeTextTypeUniformWithConfiguration(minPx, maxPx, 1, TypedValue.COMPLEX_UNIT_PX)
+}
+
 // ── Gamepad Layout Listener ────────────────────────────────
 
 internal fun MainActivity.setupGamepadLayoutListener() {
@@ -551,6 +564,9 @@ internal fun MainActivity.updateButtonLabels(mode: DisplayMode) {
             baseId == "btnHome" -> {
                 (child as? ImageButton)?.apply {
                     setBackgroundResource(R.drawable.button_circle)
+                    // The adaptive cap is applied via the foreground (see AppearanceApplier), so
+                    // clear it here: the freshly set image is then taken as the new icon.
+                    foreground = null
                     when (mode) {
                         DisplayMode.XBOX -> setImageResource(R.drawable.ic_home_xbox)
                         DisplayMode.PLAYSTATION -> setImageResource(R.drawable.ic_home_playstation)

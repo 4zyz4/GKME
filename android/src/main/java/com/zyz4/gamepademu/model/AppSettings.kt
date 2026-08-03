@@ -102,7 +102,8 @@ data class AppSettings(
     val tpImagePath: String? = null,
     val tpOutlineColor: Int = 0xFF666666.toInt(),
     val tpOutlineWidth: Int = 4,
-    // When true, text and icons fill their button (PS function keys, home key, etc.),
-    // keeping a min(width,height) x 10% padding.
-    val adaptiveIconSize: Boolean = true,
+    // Max size of text and icons in sp (same unit as the old button textSize=20f).
+    // 0..99 caps content, 100 = unlimited (content fills the button). Content always
+    // keeps a min(width,height) x 10% padding.
+    val iconMaxSize: Int = 24,
 )

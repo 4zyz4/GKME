@@ -90,6 +90,7 @@ class GamepadLayout @JvmOverloads constructor(
 
     private var cellW = 0f
     private var cellH = 0f
+    private var appearanceSettings: AppSettings? = null
 
     var currentButtons: List<ButtonPosition> = emptyList()
         private set
@@ -750,6 +751,7 @@ class GamepadLayout @JvmOverloads constructor(
     }
 
     fun applyAppearance(settings: AppSettings) {
+        appearanceSettings = settings
         AppearanceApplier.applyToGamepadLayout(this, settings)
     }
 
@@ -1011,6 +1013,14 @@ class GamepadLayout @JvmOverloads constructor(
                 val pad = (minOf(childW, childH) * 0.1f).toInt()
                 if (child.paddingLeft != pad || child.paddingTop != pad) {
                     child.setPadding(pad, pad, pad, pad)
+                }
+                // Auto-fit text cap tracks the measured size (the first appearance pass may
+                // have run before layout). Null cap = unlimited.
+                val capPx = AppearanceApplier.contentCapPx(child, appearanceSettings)
+                if (child is Button && !child.text.isNullOrEmpty()) {
+                    AppearanceApplier.applyContentTextCap(
+                        child, capPx ?: AppearanceApplier.UNLIMITED_TEXT_CAP_PX
+                    )
                 }
             }
             if (isEditMode && previewTransparency && id == previewButtonId) {
