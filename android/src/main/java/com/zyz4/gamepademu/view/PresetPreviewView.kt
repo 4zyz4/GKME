@@ -48,7 +48,12 @@ class PresetPreviewView @JvmOverloads constructor(
             val by = offsetY + btn.y * scale
             val bw = btn.width * scale
             val bh = btn.height * scale
-            if (btn.lockAspect) {
+            if (btn.id.substringBefore("_") == "dpadPad") {
+                val s = minOf(bw, bh)
+                val cx = bx + (bw - s) / 2f + s / 2f
+                val cy = by + (bh - s) / 2f + s / 2f
+                canvas.drawCircle(cx, cy, s / 2f, rectPaint)
+            } else if (btn.lockAspect) {
                 val cx = bx + bw / 2f
                 val cy = by + bh / 2f
                 val r = (minOf(btn.width, btn.height) * scale * 0.35f).coerceAtLeast(2f)

@@ -1070,6 +1070,132 @@
                             android:progress="4" />
                     </LinearLayout>
 
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/bg_surface_light"
+                        android:layout_marginVertical="4dp" />
+
+                    <!-- ── 一体十字键 ── -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="一体十字键"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:layout_marginBottom="6dp" />
+
+                    <LinearLayout
+                        android:id="@+id/layoutPadFillType"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center"
+                        android:layout_marginBottom="4dp">
+                        <Button android:id="@+id/btnPadFillSolid" style="@style/GamepadChip" android:layout_marginEnd="4dp" android:text="纯色" />
+                        <Button android:id="@+id/btnPadFillImage" style="@style/GamepadChip" android:text="图片" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/layoutPadColor"
+                        android:layout_width="match_parent"
+                        android:layout_height="40dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:background="@color/bg_surface"
+                        android:paddingHorizontal="10dp"
+                        android:layout_marginBottom="4dp">
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="十字键颜色"
+                            android:textColor="@color/text_primary"
+                            android:textSize="12sp" />
+                         <Button
+                             android:id="@+id/btnPadColor"
+                             android:layout_width="32dp"
+                             android:layout_height="32dp"
+                             android:background="#FF1A1A1A"
+                             android:stateListAnimator="@null"
+                             android:layout_marginEnd="6dp" />
+                         <Button
+                             android:id="@+id/btnResetPadColor"
+                             style="@style/GamepadSmallBtn"
+                             android:layout_width="wrap_content"
+                             android:layout_height="wrap_content"
+                             android:paddingHorizontal="8dp"
+                             android:text="重置"
+                             android:textSize="10sp"
+                             android:stateListAnimator="@null" />
+                     </LinearLayout>
+
+                     <Button
+                         android:id="@+id/btnPadPickImage"
+                        style="@style/GamepadChip"
+                        android:layout_width="match_parent"
+                        android:text="选择十字键图片"
+                        android:visibility="gone"
+                        android:layout_marginBottom="4dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="40dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:background="@color/bg_surface"
+                        android:paddingHorizontal="10dp"
+                        android:layout_marginBottom="4dp">
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="边框颜色"
+                            android:textColor="@color/text_primary"
+                            android:textSize="12sp" />
+                         <Button
+                             android:id="@+id/btnPadBorderColor"
+                             android:layout_width="32dp"
+                             android:layout_height="32dp"
+                             android:background="#FF666666"
+                             android:stateListAnimator="@null"
+                             android:layout_marginEnd="6dp" />
+                         <Button
+                             android:id="@+id/btnResetPadBorderColor"
+                             style="@style/GamepadSmallBtn"
+                             android:layout_width="wrap_content"
+                             android:layout_height="wrap_content"
+                             android:paddingHorizontal="8dp"
+                             android:text="重置"
+                             android:textSize="10sp"
+                             android:stateListAnimator="@null" />
+                     </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="40dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:background="@color/bg_surface"
+                        android:paddingHorizontal="10dp"
+                        android:layout_marginBottom="4dp">
+                        <TextView
+                            android:id="@+id/tvPadBorderWidth"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="边框粗细"
+                            android:textColor="@color/text_primary"
+                            android:textSize="12sp" />
+                        <SeekBar
+                            android:id="@+id/seekPadBorderWidth"
+                            android:layout_width="180dp"
+                            android:layout_height="wrap_content"
+                            android:max="10"
+                            android:progress="4" />
+                    </LinearLayout>
+
                 </LinearLayout>
             </ScrollView>
 

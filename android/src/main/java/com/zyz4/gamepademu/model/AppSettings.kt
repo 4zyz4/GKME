@@ -102,6 +102,13 @@ data class AppSettings(
     val tpImagePath: String? = null,
     val tpOutlineColor: Int = 0xFF666666.toInt(),
     val tpOutlineWidth: Int = 4,
+    // ── Integrated D-pad pad appearance ──
+    val padFillType: FillType = FillType.SOLID_COLOR,
+    val padColor: Int = 0xFF1A1A1A.toInt(),
+    val padImagePath: String? = null,
+    val padBorderColor: Int = 0xFF666666.toInt(),
+    val padBorderWidth: Int = 4,
+
     // Max size of text and icons in sp (same unit as the old button textSize=20f).
     // 0..99 caps content, 100 = unlimited (content fills the button). Content always
     // keeps a min(width,height) x 10% padding.

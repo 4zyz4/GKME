@@ -19,6 +19,7 @@ import android.widget.TextView
 import com.zyz4.gamepademu.model.DisplayMode
 import com.zyz4.gamepademu.model.GamepadState
 import com.zyz4.gamepademu.model.TouchPoint
+import com.zyz4.gamepademu.view.DpadPadView
 import com.zyz4.gamepademu.view.GamepadLayout
 import com.zyz4.gamepademu.view.JoystickView
 import com.zyz4.gamepademu.view.RotatableButton
@@ -30,6 +31,7 @@ internal data class CtrlEntry(
     val isTouchpad: Boolean = false,
     val isDpad: Boolean = false,
     val isTrigger: Boolean = false,
+    val isDpadPad: Boolean = false,
     val useImageButton: Boolean = false,
     val isCustom: Boolean = false,
     val bit: Int = 0,
@@ -42,6 +44,7 @@ internal val allControls = listOf(
     CtrlEntry("btnDpadDown", "下方向", R.drawable.ic_arrow_down, isDpad = true, useImageButton = true, bit = GamepadState.DPAD_DOWN),
     CtrlEntry("btnDpadLeft", "左方向", R.drawable.ic_arrow_left, isDpad = true, useImageButton = true, bit = GamepadState.DPAD_LEFT),
     CtrlEntry("btnDpadRight", "右方向", R.drawable.ic_arrow_right, isDpad = true, useImageButton = true, bit = GamepadState.DPAD_RIGHT),
+    CtrlEntry("dpadPad", "一体十字键", R.drawable.ic_dpad_pad, isDpadPad = true, w = 17, h = 17),
     CtrlEntry("btnA", "A", R.drawable.btn_ps_cross, bit = GamepadState.A),
     CtrlEntry("btnB", "B", R.drawable.btn_ps_circle, bit = GamepadState.B),
     CtrlEntry("btnX", "X", R.drawable.btn_ps_square, bit = GamepadState.X),
@@ -301,6 +304,24 @@ internal fun MainActivity.setupTouchHandler(view: View, bit: Int, isDpad: Boolea
             }
         }
     }
+}
+
+@SuppressLint("ClickableViewAccessibility")
+internal fun MainActivity.createDpadPadView(id: String): DpadPadView {
+    val a = this
+    return DpadPadView(a).apply {
+        this.id = View.generateViewId(); tag = id
+        a.setupDpadPadTouch(this)
+    }
+}
+
+@SuppressLint("ClickableViewAccessibility")
+internal fun MainActivity.setupDpadPadTouch(view: DpadPadView) {
+    val a = this
+    view.onDpadChange = { released, pressed ->
+        a.viewModel.updateDpad(pressed, released)
+    }
+    view.onLift = { a.viewModel.updateDpadRelease() }
 }
 
 @SuppressLint("ClickableViewAccessibility")

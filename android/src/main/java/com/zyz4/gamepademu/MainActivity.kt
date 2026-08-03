@@ -249,6 +249,7 @@ class MainActivity : ComponentActivity() {
     internal var joyBaseImagePickerLauncher: androidx.activity.result.ActivityResultLauncher<String>? = null
     internal var joyCapImagePickerLauncher: androidx.activity.result.ActivityResultLauncher<String>? = null
     internal var tpImagePickerLauncher: androidx.activity.result.ActivityResultLauncher<String>? = null
+    internal var padImagePickerLauncher: androidx.activity.result.ActivityResultLauncher<String>? = null
 
     // ── Input dispatch ─────────────────────────────────────
 

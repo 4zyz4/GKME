@@ -1043,6 +1043,11 @@ class GamepadLayout @JvmOverloads constructor(
                 child.isSelectedInEditor = id == selectedButtonId
                 child.idleTransparency = pos.idleTransparency.coerceIn(0, 255)
                 child.activeTransparency = pos.activeTransparency.coerceIn(0, 255)
+            } else if (child is DpadPadView) {
+                child.arrowMaxSizePx = AppearanceApplier.contentCapPx(child, appearanceSettings)?.toFloat()
+                child.idleTransparency = pos.idleTransparency.coerceIn(0, 255)
+                child.activeTransparency = pos.activeTransparency.coerceIn(0, 255)
+                child.rotation = pos.rotation.toFloat()
             } else if (child is ViewGroup) {
                 for (j in 0 until child.childCount) {
                     child.getChildAt(j).rotation = pos.rotation.toFloat()

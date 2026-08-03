@@ -574,6 +574,34 @@ class GamepadViewModel @Inject constructor(
         sendInput()
     }
 
+    /** Batched D-pad update for multi-direction controls (e.g. the integrated d-pad). Fires the
+     *  press haptic whenever the reported direction changes to another non-zero direction
+     *  (including corner → cardinal switches), never on release to zero. */
+    fun updateDpad(pressed: Int, released: Int) {
+        _dpadBits = (_dpadBits or pressed) and released.inv()
+        if (_dpadBits != 0) onHapticFeedbackPress?.invoke()
+        val hat = when (_dpadBits) {
+            GamepadState.DPAD_UP, GamepadState.DPAD_DOWN,
+            GamepadState.DPAD_LEFT, GamepadState.DPAD_RIGHT,
+            GamepadState.DPAD_UP_LEFT, GamepadState.DPAD_UP_RIGHT,
+            GamepadState.DPAD_DOWN_LEFT, GamepadState.DPAD_DOWN_RIGHT -> _dpadBits
+            else -> 0
+        }
+        _gamepadState.value = _gamepadState.value.copy(dpad = hat)
+        sendInput()
+    }
+
+    /** Full release of a multi-direction control: plays the key-release haptic and clears all
+     *  D-pad bits. Only invoked by the control when a direction was actually being held. */
+    fun updateDpadRelease() {
+        onHapticFeedbackRelease?.invoke()
+        if (_dpadBits != 0) {
+            _dpadBits = 0
+            _gamepadState.value = _gamepadState.value.copy(dpad = 0)
+            sendInput()
+        }
+    }
+
     fun onLeftTrigger(value: Int) {
         _gamepadState.value = _gamepadState.value.copy(leftTrigger = value)
         sendInput()

@@ -96,6 +96,7 @@ object AppearanceApplier {
 
             when {
                 child is JoystickView -> applyToJoystick(child, settings)
+                child is DpadPadView -> applyToDpadPad(child, settings)
                 baseId == "touchpad" -> applyToTouchpad(child, settings)
                 else -> applyToButton(child, settings)
             }
@@ -260,6 +261,16 @@ object AppearanceApplier {
         joy.appearanceCapOutlineWidth = settings.joyCapOutlineWidth.toFloat()
         joy.labelMaxSizePx = contentCapPx(joy, settings)?.toFloat()
         joy.invalidate()
+    }
+
+    private fun applyToDpadPad(pad: DpadPadView, settings: AppSettings) {
+        pad.appearanceFillType = settings.padFillType
+        pad.appearanceImagePath = settings.padImagePath
+        pad.appearanceColor = settings.padColor
+        pad.appearanceBorderColor = settings.padBorderColor
+        pad.appearanceBorderWidth = settings.padBorderWidth.toFloat()
+        pad.arrowMaxSizePx = contentCapPx(pad, settings)?.toFloat()
+        pad.invalidate()
     }
 
     private fun applyToTouchpad(view: View, settings: AppSettings) {

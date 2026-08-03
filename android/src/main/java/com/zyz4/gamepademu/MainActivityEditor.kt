@@ -262,7 +262,7 @@ internal fun MainActivity.showAddButtonDialog() {
             } else {
                 val iv = ImageView(a).apply {
                     setImageResource(a.getPreviewIcon(entry, mode))
-                    setBackgroundResource(R.drawable.button_circle)
+                    if (!entry.isDpadPad) setBackgroundResource(R.drawable.button_circle)
                     layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
                 }
                 wrapper.addView(iv)
@@ -321,6 +321,7 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
             a.setupTouchpadView(tp)
             tp
         }
+        entry.isDpadPad -> a.createDpadPadView(id)
         entry.isCustom -> {
             val btn = if (!entry.lockAspect) RotatableButton(a) else Button(a)
             btn.apply {
@@ -354,7 +355,7 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
     }
     a.gamepadLayout.addView(view)
 
-    if (!entry.isTouchpad) {
+    if (!entry.isTouchpad && !entry.isDpadPad) {
         if (entry.isCustom) {
             a.setupCustomTouchHandler(view)
         } else {
@@ -474,6 +475,7 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
             a.setupTouchpadView(tp)
             tp
         }
+        entry.isDpadPad -> a.createDpadPadView(pos.id)
         entry.isCustom -> {
             val btn = if (!entry.lockAspect) RotatableButton(a) else Button(a)
             btn.apply {
@@ -505,7 +507,7 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
         }
     }
 
-    if (!entry.isTouchpad && !entry.isCustom) {
+    if (!entry.isTouchpad && !entry.isCustom && !entry.isDpadPad) {
         val bit = a.getBitForEntry(entry) ?: 0
         a.setupTouchHandler(view, bit, entry.isDpad, entry.isTrigger, entry.isJoystick)
     } else if (entry.isCustom) {
