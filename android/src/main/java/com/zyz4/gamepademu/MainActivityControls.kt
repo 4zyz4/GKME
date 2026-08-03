@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import android.os.Handler
 import android.os.Looper
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -61,6 +62,20 @@ internal val allControls = listOf(
     CtrlEntry("btnCustomCircle", "自定义(圆)", R.drawable.button_circle, isCustom = true),
     CtrlEntry("btnCustomRect", "自定义(方)", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, w = 14, h = 8, lockAspect = false, isCustom = true),
 )
+
+// Keep custom button text vertically centered even when the button is shrunk:
+// drop the default Button theme padding/font padding and let the text auto-shrink to fit.
+internal fun TextView.enableAutoFitButtonText(maxSizeSp: Float, minSizeSp: Float = maxSizeSp * 0.25f) {
+    includeFontPadding = false
+    setPadding(0, 0, 0, 0)
+    minWidth = 0
+    minHeight = 0
+    maxLines = 1
+    val scaled = resources.displayMetrics.scaledDensity
+    val maxPx = (maxSizeSp * scaled).toInt().coerceAtLeast(2)
+    val minPx = (minSizeSp * scaled).toInt().coerceAtLeast(1)
+    setAutoSizeTextTypeUniformWithConfiguration(minPx, maxPx, 1, TypedValue.COMPLEX_UNIT_PX)
+}
 
 // ── Gamepad Layout Listener ────────────────────────────────
 
@@ -188,6 +203,7 @@ internal fun MainActivity.createAllControls() {
                 setTypeface(null, Typeface.BOLD)
                 setBackgroundResource(d.bgRes)
                 gravity = android.view.Gravity.CENTER
+                enableAutoFitButtonText(20f)
             }
             else -> Button(a).apply {
                 this.id = View.generateViewId(); tag = d.baseId
@@ -195,6 +211,7 @@ internal fun MainActivity.createAllControls() {
                 setTypeface(null, Typeface.BOLD)
                 setBackgroundResource(d.bgRes)
                 gravity = android.view.Gravity.CENTER
+                enableAutoFitButtonText(20f)
             }
         }
         if (!d.isTouchpad) {
@@ -522,10 +539,12 @@ internal fun MainActivity.updateButtonLabels(mode: DisplayMode) {
             }
             baseId == "btnSelect" -> {
                 (child as? Button)?.apply {
+                    // XBOX/SWITCH: the icon is drawn as foreground content (adaptive), so the
+                    // background is the neutral circle. PS: text.
                     when (mode) {
-                        DisplayMode.XBOX -> { text = ""; setBackgroundResource(R.drawable.btn_select_xbox) }
+                        DisplayMode.XBOX -> { text = ""; setBackgroundResource(R.drawable.button_circle) }
                         DisplayMode.PLAYSTATION -> { text = "SHARE"; setBackgroundResource(R.drawable.button_circle) }
-                        DisplayMode.SWITCH -> { text = ""; setBackgroundResource(R.drawable.btn_select_switch) }
+                        DisplayMode.SWITCH -> { text = ""; setBackgroundResource(R.drawable.button_circle) }
                     }
                 }
             }
@@ -542,9 +561,9 @@ internal fun MainActivity.updateButtonLabels(mode: DisplayMode) {
             baseId == "btnMenu" -> {
                 (child as? Button)?.apply {
                     when (mode) {
-                        DisplayMode.XBOX -> { text = ""; setBackgroundResource(R.drawable.btn_menu_xbox) }
+                        DisplayMode.XBOX -> { text = ""; setBackgroundResource(R.drawable.button_circle) }
                         DisplayMode.PLAYSTATION -> { text = "OPTION"; setBackgroundResource(R.drawable.button_circle) }
-                        DisplayMode.SWITCH -> { text = ""; setBackgroundResource(R.drawable.btn_menu_switch) }
+                        DisplayMode.SWITCH -> { text = ""; setBackgroundResource(R.drawable.button_circle) }
                     }
                 }
             }
@@ -555,14 +574,16 @@ internal fun MainActivity.updateButtonLabels(mode: DisplayMode) {
             }
             baseId == "btnLS" -> {
                 (child as? Button)?.apply {
-                    text = "L"; textSize = 20f
-                    setBackgroundResource(R.drawable.btn_ls)
+                    // Triangle + letter are integrated into a single foreground drawable
+                    // (see AppearanceApplier.letterIconDrawable), so no text is needed here.
+                    text = ""
+                    setBackgroundResource(R.drawable.button_circle)
                 }
             }
             baseId == "btnRS" -> {
                 (child as? Button)?.apply {
-                    text = "R"; textSize = 20f
-                    setBackgroundResource(R.drawable.btn_rs)
+                    text = ""
+                    setBackgroundResource(R.drawable.button_circle)
                 }
             }
         }

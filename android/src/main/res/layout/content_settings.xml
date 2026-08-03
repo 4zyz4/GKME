@@ -341,6 +341,45 @@
                         android:fontFamily="sans-serif-medium"
                         android:layout_marginBottom="12dp" />
 
+                    <!-- ── Adaptive icon size ── -->
+                    <LinearLayout
+                        android:id="@+id/layoutAdaptiveIconSize"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:background="@color/bg_surface"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="8dp"
+                        android:layout_marginBottom="8dp">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="自适应图标大小"
+                                android:textColor="@color/text_primary"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="开启后文本与图标自动填满按钮（含 PS 功能键、主页键、LS/RS 等）；按钮内容始终保留 10% 内边距"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="11sp" />
+                        </LinearLayout>
+
+                        <Switch
+                            android:id="@+id/switchAdaptiveIconSize"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content" />
+                    </LinearLayout>
+
                     <!-- ── Background ── -->
                     <TextView
                         android:layout_width="wrap_content"

@@ -15,6 +15,7 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.SeekBar
+import android.widget.Switch
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.graphics.scale
@@ -78,6 +79,10 @@ internal fun MainActivity.savePickedImage(uri: Uri, prefix: String, onSaved: (St
 internal fun MainActivity.onAppearanceChange(transform: (AppSettings) -> AppSettings) {
     viewModel.updateAppearance(transform)
     gamepadLayout.applyAppearance(viewModel.settings.value)
+    // Text auto-size and foreground bounds are resolved during the next layout pass. Request it
+    // now so the one-shot preview capture registered by syncAppearanceUI() re-renders the
+    // settled layout immediately after the toggle.
+    gamepadLayout.requestLayout()
     syncAppearanceUI()
 }
 
@@ -98,6 +103,11 @@ internal fun MainActivity.setupAppearancePage() {
 
     fun updatePreview() {
         a.updateAppearancePreview()
+    }
+
+    // ── Adaptive icon size ──
+    a.findViewById<Switch>(R.id.switchAdaptiveIconSize).setOnCheckedChangeListener { _, isChecked ->
+        a.onAppearanceChange { it.copy(adaptiveIconSize = isChecked) }
     }
 
     // ── Background ──
@@ -416,6 +426,9 @@ internal fun MainActivity.syncAppearanceUI() {
     val a = this
     val s = a.viewModel.settings.value
 
+    // Adaptive icon size
+    a.findViewById<Switch>(R.id.switchAdaptiveIconSize).isChecked = s.adaptiveIconSize
+
     // Background
     a.selectChipGroup(listOf(R.id.btnBgFillSolid, R.id.btnBgFillImage), s.bgFillType.ordinal)
     a.findViewById<Button>(R.id.btnBgColor).background = colorBg(s.bgColor)
@@ -477,7 +490,7 @@ internal var MainActivity.previewZoomVisible: Boolean
     get() = findViewById<View>(R.id.previewZoomOverlay)?.visibility == View.VISIBLE
     set(v) { findViewById<View>(R.id.previewZoomOverlay)?.visibility = if (v) View.VISIBLE else View.GONE }
 
-internal fun MainActivity.updateAppearancePreview() {
+private fun MainActivity.renderAppearancePreview() {
     val a = this
     val gl = a.gamepadLayout
     if (gl.width <= 0 || gl.height <= 0) return
@@ -508,6 +521,24 @@ internal fun MainActivity.updateAppearancePreview() {
         zoomImg?.setImageBitmap(bmp)
         zoomImg?.tag = bmp
     }
+}
+
+internal fun MainActivity.updateAppearancePreview() {
+    val a = this
+    val gl = a.gamepadLayout
+    if (gl.width <= 0 || gl.height <= 0) return
+    a.renderAppearancePreview()
+    // Re-capture once the next layout pass finishes so that text auto-size
+    // and adaptive padding (applied asynchronously) are reflected.
+    gl.addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
+        override fun onLayoutChange(
+            v: View, left: Int, top: Int, right: Int, bottom: Int,
+            oldLeft: Int, oldTop: Int, oldRight: Int, oldBottom: Int
+        ) {
+            gl.removeOnLayoutChangeListener(this)
+            a.renderAppearancePreview()
+        }
+    })
 }
 
 internal fun MainActivity.showPreviewZoom() {

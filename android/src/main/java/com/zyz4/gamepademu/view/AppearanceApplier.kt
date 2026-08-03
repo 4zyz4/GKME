@@ -7,6 +7,8 @@ import android.graphics.Color
 import android.graphics.ColorFilter
 import android.graphics.Paint
 import android.graphics.PixelFormat
+import android.graphics.Rect
+import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
@@ -14,15 +16,50 @@ import android.graphics.drawable.StateListDrawable
 import android.os.Build
 import android.view.Gravity
 import android.view.View
+import android.widget.Button
 import android.widget.ImageButton
+import android.widget.ImageView
+import android.widget.TextView
 import com.zyz4.gamepademu.R
+import com.zyz4.gamepademu.enableAutoFitButtonText
 import com.zyz4.gamepademu.model.AppSettings
 import com.zyz4.gamepademu.model.DisplayMode
 import com.zyz4.gamepademu.model.FillType
 
 object AppearanceApplier {
 
-    private val iconButtonIds = setOf("btnSelect", "btnMenu", "btnLS", "btnRS", "btnTouchpad")
+    // Buttons whose foreground icon is resolved from the display mode via getIconDrawable.
+    // btnTouchpad's icon IS its background and is never scaled; select/menu use a neutral
+    // circle background and scale their icon as content.
+    private val iconButtonIds = setOf("btnSelect", "btnMenu", "btnTouchpad")
+
+    // Image buttons that draw their icon as content and scale it with the adaptive setting.
+    private val adaptiveImageButtonIds = setOf(
+        "btnHome", "btnDpadUp", "btnDpadDown", "btnDpadLeft", "btnDpadRight",
+    )
+
+    // Buttons whose foreground icon is content and fills the button with the adaptive setting:
+    // PS-mode ABXY, XBOX/SWITCH select & menu, and the integrated LS/RS triangle+letter.
+    private val adaptiveForegroundButtonIds = setOf(
+        "btnA", "btnB", "btnX", "btnY",
+        "btnSelect", "btnMenu", "btnLS", "btnRS",
+    )
+
+    // Buttons that draw their content (text / foreground icon / image) inside the button and
+    // always keep a min(w,h) x 10% padding.
+    private val adaptiveContentButtonIds = setOf(
+        "btnA", "btnB", "btnX", "btnY",
+        "btnDpadUp", "btnDpadDown", "btnDpadLeft", "btnDpadRight",
+        "btnHome", "btnSelect", "btnMenu", "btnLS", "btnRS",
+    )
+
+    // When adaptive icon size is ON the text max is effectively unlimited (fills the button);
+    // when OFF it is capped at the original 20f.
+    private const val ADAPTIVE_TEXT_MAX_SP = 1024f
+    private const val DEFAULT_TEXT_MAX_SP = 20f
+
+    // Last auto-size max applied per TextView, so we don't reconfigure on every appearance change.
+    private val appliedTextMax = HashMap<View, Float>()
 
     // Bitmap cache to avoid re-decoding files on every change
     private var cachedBitmapPath: String? = null
@@ -70,16 +107,50 @@ object AppearanceApplier {
         val baseId = tag.substringBefore("_")
         val isCircle = isCircleButton(tag)
         val density = view.resources.displayMetrics.density
+        val adaptive = settings.adaptiveIconSize
 
-        val icon = if (view !is ImageButton && baseId in iconButtonIds) {
-            getIconDrawable(view, settings)
-        } else null
-
-        if (icon != null) {
-            view.foreground = icon
+        val foregroundIcon = when {
+            baseId == "btnLS" || baseId == "btnRS" ->
+                letterIconDrawable(view, if (baseId == "btnLS") "L" else "R")
+            view !is ImageButton && baseId in iconButtonIds -> getIconDrawable(view, settings)
+            else -> null
+        }
+        if (foregroundIcon != null) {
+            view.foreground = foregroundIcon
             view.foregroundGravity = getIconGravity(baseId)
-        } else if (baseId in iconButtonIds) {
+        } else if (baseId in iconButtonIds || baseId == "btnLS" || baseId == "btnRS") {
             view.foreground = null
+        }
+
+        // ── Adaptive icon / text fill ──
+        if (view is ImageButton && baseId in adaptiveImageButtonIds) {
+            view.scaleType = if (adaptive) ImageView.ScaleType.FIT_CENTER else ImageView.ScaleType.CENTER_INSIDE
+        } else if (view is Button && baseId in adaptiveForegroundButtonIds) {
+            // Content icons (PS ABXY, XBOX/SWITCH select & menu, LS/RS triangle+letter) are plain
+            // foreground drawables: FILL scales them to the button, CENTER keeps their intrinsic
+            // size. Vector drawables scale to their bounds, so no extra wrapping is needed.
+            view.foregroundGravity = if (adaptive) Gravity.FILL else Gravity.CENTER
+        }
+
+        // Text keeps auto-fit in both states; the toggle only changes the max size:
+        // OFF caps at 20f (original), ON lets it grow to fill the button.
+        if (view is Button && !view.text.isNullOrEmpty()) {
+            val maxSp = if (adaptive) ADAPTIVE_TEXT_MAX_SP else DEFAULT_TEXT_MAX_SP
+            if (appliedTextMax[view] != maxSp) {
+                view.enableAutoFitButtonText(maxSp, minSizeSp = if (adaptive) 4f else maxSp * 0.25f)
+                appliedTextMax[view] = maxSp
+            }
+        }
+
+        // Adaptive padding: min(w,h) x 10% for view-drawn content. Applied in both adaptive
+        // states (the toggle only controls whether content fills the button). Applied
+        // synchronously so the appearance preview captures the correct state immediately
+        // (onLayout re-applies it on size changes).
+        if (isAdaptiveContentButton(tag, view)) {
+            val pad = (minOf(view.width, view.height) * 0.1f).toInt()
+            if (view.paddingLeft != pad || view.paddingTop != pad) {
+                view.setPadding(pad, pad, pad, pad)
+            }
         }
 
         if (settings.btnFillType == FillType.SOLID_COLOR) {
@@ -264,19 +335,20 @@ object AppearanceApplier {
                 DisplayMode.SWITCH -> R.drawable.ic_plus
                 else -> null
             }
-            "btnLS" -> R.drawable.ic_ls
-            "btnRS" -> R.drawable.ic_rs
             "btnTouchpad" -> R.drawable.ic_touchpad_grid
             else -> null
         }
         return if (resId != null) view.context.getDrawable(resId)?.mutate() else null
     }
 
-    private fun getIconGravity(baseId: String): Int {
-        return when (baseId) {
-            "btnLS", "btnRS" -> Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            else -> Gravity.CENTER
-        }
+    private fun getIconGravity(baseId: String): Int = Gravity.CENTER
+
+    /** Integrated LS/RS content: the triangle icon on top with the L/R letter below it, drawn
+     *  as a single unit so they scale together. */
+    private fun letterIconDrawable(view: View, letter: String): Drawable {
+        val resId = if (letter == "L") R.drawable.ic_ls else R.drawable.ic_rs
+        val triangle = view.context.getDrawable(resId)?.mutate()
+        return LetterIconDrawable(letter, triangle)
     }
 
     private fun highlightColor(color: Int, factor: Float): Int {
@@ -314,4 +386,55 @@ object AppearanceApplier {
             override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
         }
     }
+    fun isAdaptiveContentButton(id: String, child: View): Boolean {
+        val base = id.substringBefore("_")
+        val isAdaptiveImage = child is ImageButton && base in adaptiveImageButtonIds
+        val isContentButton = child is Button &&
+            (!child.text.isNullOrEmpty() || base in adaptiveForegroundButtonIds)
+        if (!(isAdaptiveImage || isContentButton)) return false
+        return base in adaptiveContentButtonIds || base.startsWith("btnCustomCircle")
+    }
+}
+
+// Draws a triangle icon in the top band and the L/R letter centered in the button as one
+// drawable. The letter is sized so its top edge stays below the triangle, so the two never
+// overlap regardless of the filled/intrinsic size.
+@Suppress("DEPRECATION")
+private class LetterIconDrawable(
+    private val letter: String,
+    private val icon: Drawable?,
+) : Drawable() {
+    private val letterPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFFCCCCCC.toInt()
+        textAlign = Paint.Align.CENTER
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+    }
+
+    override fun getIntrinsicWidth(): Int = icon?.intrinsicWidth ?: 24
+    override fun getIntrinsicHeight(): Int = icon?.intrinsicHeight ?: 24
+
+    override fun draw(canvas: Canvas) {
+        val w = bounds.width().toFloat()
+        val h = bounds.height().toFloat()
+        if (w <= 0 || h <= 0) return
+
+        // Triangle at the top, scaled to fill the top band.
+        icon?.let { ic ->
+            val size = minOf(h * 0.28f, w * 0.88f)
+            val left = bounds.exactCenterX() - size / 2f
+            val top = bounds.top + h * 0.03f
+            ic.bounds = Rect(left.toInt(), top.toInt(), (left + size).toInt(), (top + size).toInt())
+            ic.draw(canvas)
+        }
+
+        // Letter centered in the button, sized to stay below the triangle.
+        letterPaint.textSize = h * 0.28f
+        val baseline = bounds.exactCenterY() - (letterPaint.ascent() + letterPaint.descent()) / 2f
+        canvas.drawText(letter, bounds.exactCenterX(), baseline, letterPaint)
+    }
+
+    override fun setAlpha(alpha: Int) { letterPaint.alpha = alpha }
+    override fun setColorFilter(cf: ColorFilter?) { letterPaint.colorFilter = cf }
+    @Suppress("OVERRIDE_DEPRECATION")
+    override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
 }

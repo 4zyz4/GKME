@@ -328,6 +328,7 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
                 setTypeface(null, Typeface.BOLD)
                 setBackgroundResource(entry.bgRes)
                 gravity = Gravity.CENTER
+                enableAutoFitButtonText(20f)
             }
             btn
         }
@@ -337,6 +338,7 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
             setTypeface(null, Typeface.BOLD)
             setBackgroundResource(entry.bgRes)
             gravity = Gravity.CENTER
+            enableAutoFitButtonText(20f)
         }
         else -> Button(a).apply {
             this.id = View.generateViewId(); tag = id
@@ -344,6 +346,7 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
             setTypeface(null, Typeface.BOLD)
             setBackgroundResource(entry.bgRes)
             gravity = Gravity.CENTER
+            enableAutoFitButtonText(20f)
         }
     }
     a.gamepadLayout.addView(view)
@@ -382,6 +385,7 @@ internal fun MainActivity.createCustomButtonView(pos: ButtonPosition): View {
             setTypeface(null, Typeface.BOLD)
             setBackgroundResource(R.drawable.button_circle)
             gravity = Gravity.CENTER
+            enableAutoFitButtonText(20f)
         }
     } else {
         RotatableButton(a).apply {
@@ -392,6 +396,7 @@ internal fun MainActivity.createCustomButtonView(pos: ButtonPosition): View {
             setTypeface(null, Typeface.BOLD)
             setBackgroundResource(R.drawable.button_rounded_rect)
             gravity = Gravity.CENTER
+            enableAutoFitButtonText(20f)
         }
     }
     a.gamepadLayout.addView(view)
@@ -476,6 +481,7 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
                 setTypeface(null, Typeface.BOLD)
                 setBackgroundResource(entry.bgRes)
                 gravity = Gravity.CENTER
+                enableAutoFitButtonText(20f)
             }
         }
         !entry.lockAspect -> RotatableButton(a).apply {
@@ -484,6 +490,7 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
             setTypeface(null, Typeface.BOLD)
             setBackgroundResource(entry.bgRes)
             gravity = Gravity.CENTER
+            enableAutoFitButtonText(20f)
         }
         else -> Button(a).apply {
             id = View.generateViewId(); tag = pos.id
@@ -491,6 +498,7 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
             setTypeface(null, Typeface.BOLD)
             setBackgroundResource(entry.bgRes)
             gravity = Gravity.CENTER
+            enableAutoFitButtonText(20f)
         }
     }
 

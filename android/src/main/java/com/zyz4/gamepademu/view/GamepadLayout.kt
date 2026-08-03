@@ -10,6 +10,8 @@ import android.view.InputDevice
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
+import android.widget.ImageButton
 import androidx.annotation.RequiresApi
 import com.zyz4.gamepademu.model.AppSettings
 import com.zyz4.gamepademu.model.ButtonPosition
@@ -964,6 +966,12 @@ class GamepadLayout @JvmOverloads constructor(
         }
     }
 
+    // Adaptive fill: content (text / PS foreground icon / image) fills the button,
+    // keeping a min(w,h) x 10% padding. Buttons whose icon IS their background
+    // (XBOX/SWITCH select & menu, touchpad, LS/RS) are excluded.
+    private fun isAdaptiveContentButton(id: String, child: View) =
+        AppearanceApplier.isAdaptiveContentButton(id, child)
+
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
         val w = r - l
         val h = b - t
@@ -996,6 +1004,15 @@ class GamepadLayout @JvmOverloads constructor(
                 MeasureSpec.makeMeasureSpec(childH, MeasureSpec.EXACTLY),
             )
             child.layout(left, top, left + childW, top + childH)
+            // Content (text / foreground icon / image) always keeps a min(w,h) x 10% padding,
+            // whether or not adaptive icon size is enabled. Buttons whose icon IS their background
+            // (touchpad, LS/RS before separation) are excluded here.
+            if (isAdaptiveContentButton(id, child)) {
+                val pad = (minOf(childW, childH) * 0.1f).toInt()
+                if (child.paddingLeft != pad || child.paddingTop != pad) {
+                    child.setPadding(pad, pad, pad, pad)
+                }
+            }
             if (isEditMode && previewTransparency && id == previewButtonId) {
                 val transVal = if (previewIdleTransparency) pos.idleTransparency else pos.activeTransparency
                 child.alpha = 1f - (transVal.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)

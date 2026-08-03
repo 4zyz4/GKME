@@ -89,6 +89,7 @@ class SettingsRepository @Inject constructor(
         val TP_IMAGE_PATH = stringPreferencesKey("tp_image_path")
         val TP_OUTLINE_COLOR = intPreferencesKey("tp_outline_color")
         val TP_OUTLINE_WIDTH = intPreferencesKey("tp_outline_width")
+        val ADAPTIVE_ICON_SIZE = booleanPreferencesKey("adaptive_icon_size")
     }
 
     private val gson = Gson()
@@ -178,6 +179,7 @@ class SettingsRepository @Inject constructor(
             tpImagePath = prefs[Keys.TP_IMAGE_PATH],
             tpOutlineColor = prefs[Keys.TP_OUTLINE_COLOR] ?: 0xFF666666.toInt(),
             tpOutlineWidth = prefs[Keys.TP_OUTLINE_WIDTH] ?: 4,
+            adaptiveIconSize = prefs[Keys.ADAPTIVE_ICON_SIZE] ?: true,
         )
     }
 
@@ -241,6 +243,7 @@ class SettingsRepository @Inject constructor(
             if (settings.tpImagePath != null) prefs[Keys.TP_IMAGE_PATH] = settings.tpImagePath else prefs.remove(Keys.TP_IMAGE_PATH)
             prefs[Keys.TP_OUTLINE_COLOR] = settings.tpOutlineColor
             prefs[Keys.TP_OUTLINE_WIDTH] = settings.tpOutlineWidth
+            prefs[Keys.ADAPTIVE_ICON_SIZE] = settings.adaptiveIconSize
         }
     }
 
