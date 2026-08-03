@@ -200,6 +200,10 @@ class GamepadViewModel @Inject constructor(
         connectionManager.updateSettings(settings.value.copy(targetPlatform = platform))
     }
 
+    fun switchTargetPlatform(platform: TargetPlatform) {
+        connectionManager.switchTargetPlatform(platform)
+    }
+
     fun createDefaultLayout(): LayoutPreset {
         return layoutRepository.getDefaultPreset()
     }

@@ -196,11 +196,15 @@ internal fun MainActivity.setupSettings() {
             a.findViewById<Button>(id).setOnClickListener {
                 val platform = TargetPlatform.entries[idx]
                 if (platform == a.viewModel.settings.value.targetPlatform) return@setOnClickListener
-                val needsRestart = a.viewModel.settings.value.connectionMode == ConnectionMode.BLUETOOTH
+                val btRunning = a.viewModel.settings.value.connectionMode == ConnectionMode.BLUETOOTH
                     && a.viewModel.isBluetoothRunning
-                if (needsRestart) {
-                    CustomDialog.showConfirm(a, "切换目标平台", "切换目标平台需要重启应用，是否继续？",
-                        positiveText = "确定", onPositive = { a.viewModel.updateTargetPlatform(platform); a.finishAffinity() })
+                if (btRunning) {
+                    CustomDialog.showConfirm(a, "切换目标平台",
+                        "将删除已保存的配对设备，是否继续？",
+                        positiveText = "确定", onPositive = {
+                            a.selectChipGroup(listOf(R.id.btnTargetWindows, R.id.btnTargetAndroid, R.id.btnTargetLinux), idx)
+                            a.viewModel.switchTargetPlatform(platform)
+                        })
                 } else {
                     a.selectChipGroup(listOf(R.id.btnTargetWindows, R.id.btnTargetAndroid, R.id.btnTargetLinux), idx)
                     a.viewModel.updateTargetPlatform(platform)

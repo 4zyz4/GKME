@@ -23,11 +23,16 @@ internal fun MainActivity.observeState() {
     a.lifecycleScope.launch {
         a.repeatOnLifecycle(Lifecycle.State.STARTED) {
             launch {
+                var lastRestartToken = 0
                 a.viewModel.connectionState.collect { st ->
                     for (label in a.touchpadLabels) label.text = st.statusText
                     a.findViewById<TextView>(R.id.tvConnectionStatus).text = st.statusText
                     val btn = a.findViewById<Button>(R.id.btnConnectAction)
                     btn.text = if (st.phase != ConnectionPhase.IDLE) "停止服务" else "启动服务"
+                    if (st.restartToken != lastRestartToken) {
+                        lastRestartToken = st.restartToken
+                        a.discoverableRequested = false
+                    }
                     val ip = if (a.viewModel.settings.value.connectionMode == ConnectionMode.WIFI &&
                         st.statusText != "未启动"
                     ) {

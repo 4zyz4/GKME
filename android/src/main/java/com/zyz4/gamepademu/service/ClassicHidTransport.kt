@@ -15,6 +15,7 @@ import com.zyz4.gamepademu.model.AppSettings
 import com.zyz4.gamepademu.model.TargetPlatform
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,10 +45,18 @@ class ClassicHidTransport(
     private var lastReport: ByteArray = ByteArray(0)
     private var currentSettings: AppSettings? = null
     private var onOutputReport: ((ByteArray) -> Unit)? = null
-    private var reRegisterAttempts = 0
 
     private val started = AtomicBoolean(false)
     private val stopping = AtomicBoolean(false)
+
+    /** True while we are waiting for the unregister callback before registering. */
+    private var pendingUnregisterThenRegister = false
+    private var registerAttempts = 0
+    private var registerJob: Job? = null
+    private val registerExecutor = Executors.newSingleThreadExecutor()
+
+    /** True during an explicit re-registration (e.g. target platform switch) to ignore disconnect callbacks. */
+    private var restarting = false
 
     override val transportType: BluetoothTransportType = BluetoothTransportType.CLASSIC
 
@@ -59,21 +68,26 @@ class ClassicHidTransport(
             override fun onAppStatusChanged(pluggedDevice: BluetoothDevice?, registered: Boolean) {
                 if (stopping.get()) return
                 if (registered) {
-                    reRegisterAttempts = 0
+                    registerAttempts = 0
+                    pendingUnregisterThenRegister = false
+                    restarting = false
+                    cancelRegisterWatchdog()
                     scope.launch { tryAutoReconnect() }
                 } else {
                     if (!started.get()) return
-                    if (reRegisterAttempts < 3 && _connectionPhase.value != ConnectionPhase.IDLE) {
-                        reRegisterAttempts++
-                        _connectionPhase.value = ConnectionPhase.REGISTERING_PROFILE
+                    if (pendingUnregisterThenRegister) {
+                        // Unregister finished — now (re)register with a clean slate.
+                        pendingUnregisterThenRegister = false
                         scope.launch {
-                            delay(1000)
-                            if (_connectionPhase.value == ConnectionPhase.REGISTERING_PROFILE) {
-                                restartService()
+                            delay(300)
+                            if (started.get() && !stopping.get() &&
+                                _connectionPhase.value == ConnectionPhase.REGISTERING_PROFILE
+                            ) {
+                                registerApp()
                             }
                         }
                     } else {
-                        _connectionPhase.value = ConnectionPhase.ERROR
+                        handleRegisterFailure()
                     }
                 }
             }
@@ -89,6 +103,7 @@ class ClassicHidTransport(
                     BluetoothProfile.STATE_DISCONNECTED -> {
                         if (!started.get()) return
                         connectedDevice = null
+                        if (restarting || _connectionPhase.value == ConnectionPhase.REGISTERING_PROFILE) return
                         _connectionPhase.value = ConnectionPhase.DISCONNECTED
                         scope.launch {
                             delay(500)
@@ -117,6 +132,7 @@ class ClassicHidTransport(
             override fun onVirtualCableUnplug(device: BluetoothDevice) {
                 if (stopping.get()) return
                 connectedDevice = null
+                if (restarting || _connectionPhase.value == ConnectionPhase.REGISTERING_PROFILE) return
                 enterDiscoverable()
             }
         }
@@ -129,12 +145,20 @@ class ClassicHidTransport(
                 return
             }
             hidDevice = proxy as BluetoothHidDevice
-            registerApp()
+            startWithCleanRegistration()
         }
 
         override fun onServiceDisconnected(profile: Int) {
             if (stopping.get()) return
             hidDevice = null
+            if (started.get() && _connectionPhase.value != ConnectionPhase.IDLE) {
+                scope.launch {
+                    delay(500)
+                    if (started.get() && !stopping.get() && hidDevice == null) {
+                        requestProfileProxy()
+                    }
+                }
+            }
         }
     }
 
@@ -146,13 +170,15 @@ class ClassicHidTransport(
             _connectionPhase.value = ConnectionPhase.ERROR
             return
         }
-        reRegisterAttempts = 0
+        registerAttempts = 0
+        pendingUnregisterThenRegister = false
+        restarting = false
         this.onOutputReport = onOutputReport
         currentSettings = settings
         val reportSize = if (settings.targetPlatform != TargetPlatform.WINDOWS) 9 else 11
         lastReport = ByteArray(reportSize)
         _connectionPhase.value = ConnectionPhase.REGISTERING_PROFILE
-        bluetoothAdapter.getProfileProxy(context, profileListener, BluetoothProfile.HID_DEVICE)
+        requestProfileProxy()
     }
 
     override fun sendReport(report: ByteArray) {
@@ -173,7 +199,43 @@ class ClassicHidTransport(
         _connectionPhase.value = ConnectionPhase.IDLE
     }
 
+    /**
+     * Re-registers the HID profile with a new descriptor (e.g. after switching the target
+     * platform) without stopping the service. The currently connected host is disconnected and
+     * the saved pairing is expected to have been cleared by the caller.
+     */
+    override fun restart(settings: AppSettings, onOutputReport: (ByteArray) -> Unit) {
+        if (stopping.get()) return
+        if (!started.get()) {
+            start(settings, onOutputReport)
+            return
+        }
+        cancelRegisterWatchdog()
+        pendingUnregisterThenRegister = false
+        registerAttempts = 0
+        restarting = true
+        currentSettings = settings
+        this.onOutputReport = onOutputReport
+        val reportSize = if (settings.targetPlatform != TargetPlatform.WINDOWS) 9 else 11
+        lastReport = ByteArray(reportSize)
+        connectedDevice?.let { device ->
+            try {
+                hidDevice?.disconnect(device)
+            } catch (_: Exception) {}
+        }
+        connectedDevice = null
+        _connectionPhase.value = ConnectionPhase.REGISTERING_PROFILE
+        if (hidDevice == null) {
+            requestProfileProxy()
+        } else {
+            startWithCleanRegistration()
+        }
+    }
+
     private fun cleanup() {
+        cancelRegisterWatchdog()
+        pendingUnregisterThenRegister = false
+        restarting = false
         try {
             hidDevice?.unregisterApp()
         } catch (_: Exception) {}
@@ -184,12 +246,144 @@ class ClassicHidTransport(
         connectedDevice = null
     }
 
-    private fun restartService() {
+    private fun requestProfileProxy() {
         if (stopping.get() || !started.get()) return
-        cleanup()
-        reRegisterAttempts = 0
+        try {
+            bluetoothAdapter.getProfileProxy(context, profileListener, BluetoothProfile.HID_DEVICE)
+        } catch (_: Exception) {
+            handleRegisterFailure()
+        }
+        scheduleRegisterWatchdog()
+    }
+
+    /**
+     * Unregisters before registering so a stale system-level registration (e.g. left over from a
+     * previous process) can never make registerApp() fail silently with no callback.
+     */
+    private fun startWithCleanRegistration() {
+        if (stopping.get() || !started.get()) return
+        if (_connectionPhase.value != ConnectionPhase.REGISTERING_PROFILE) return
+        val hid = hidDevice ?: return
+        pendingUnregisterThenRegister = true
+        val ok = try {
+            hid.unregisterApp()
+        } catch (_: Exception) {
+            false
+        }
+        if (!ok) {
+            // Nothing stale registered — no callback will arrive, register directly.
+            pendingUnregisterThenRegister = false
+            scope.launch {
+                delay(300)
+                if (started.get() && !stopping.get() &&
+                    _connectionPhase.value == ConnectionPhase.REGISTERING_PROFILE
+                ) {
+                    registerApp()
+                }
+            }
+        }
+    }
+
+    private fun registerApp() {
+        if (stopping.get() || !started.get()) return
+        if (_connectionPhase.value != ConnectionPhase.REGISTERING_PROFILE) return
+        val hid = hidDevice
+        if (hid == null) {
+            requestProfileProxy()
+            return
+        }
+        val subclass: Byte = 0x02
+        val desc = when (currentSettings?.targetPlatform) {
+            TargetPlatform.ANDROID -> ANDROID_HID_DESCRIPTOR
+            TargetPlatform.LINUX -> LINUX_HID_DESCRIPTOR
+            else -> WINDOWS_HID_DESCRIPTOR
+        }
+        val deviceName = getRealDeviceName()
+        val sdp = BluetoothHidDeviceAppSdpSettings(
+            deviceName,
+            "Virtual Xbox 360 Controller",
+            deviceName,
+            subclass,
+            desc,
+        )
+        val qos = BluetoothHidDeviceAppQosSettings(
+            BluetoothHidDeviceAppQosSettings.SERVICE_BEST_EFFORT,
+            0, 0, 0, 0, 0,
+        )
+        try {
+            val ok = hid.registerApp(sdp, qos, qos, registerExecutor, deviceCallback)
+            if (ok) {
+                scheduleRegisterWatchdog()
+            } else {
+                handleRegisterFailure()
+            }
+        } catch (e: Exception) {
+            handleRegisterFailure()
+        }
+    }
+
+    private fun handleRegisterFailure() {
+        if (stopping.get() || !started.get()) return
+        if (_connectionPhase.value == ConnectionPhase.IDLE) return
+        cancelRegisterWatchdog()
+        registerAttempts++
+        if (registerAttempts > MAX_REGISTER_ATTEMPTS) {
+            _connectionPhase.value = ConnectionPhase.ERROR
+            return
+        }
         _connectionPhase.value = ConnectionPhase.REGISTERING_PROFILE
-        bluetoothAdapter.getProfileProxy(context, profileListener, BluetoothProfile.HID_DEVICE)
+        scope.launch {
+            delay(REGISTER_RETRY_DELAY_MS)
+            if (started.get() && !stopping.get() &&
+                _connectionPhase.value == ConnectionPhase.REGISTERING_PROFILE
+            ) {
+                recoveryCycle()
+            }
+        }
+    }
+
+    private fun recoveryCycle() {
+        if (stopping.get() || !started.get()) return
+        if (_connectionPhase.value != ConnectionPhase.REGISTERING_PROFILE) return
+        val hid = hidDevice
+        if (hid == null) {
+            requestProfileProxy()
+            return
+        }
+        pendingUnregisterThenRegister = true
+        val ok = try {
+            hid.unregisterApp()
+        } catch (_: Exception) {
+            false
+        }
+        if (!ok) {
+            pendingUnregisterThenRegister = false
+            scope.launch {
+                delay(300)
+                if (started.get() && !stopping.get() &&
+                    _connectionPhase.value == ConnectionPhase.REGISTERING_PROFILE
+                ) {
+                    registerApp()
+                }
+            }
+        }
+    }
+
+    private fun scheduleRegisterWatchdog() {
+        cancelRegisterWatchdog()
+        registerJob = scope.launch {
+            delay(REGISTER_TIMEOUT_MS)
+            if (started.get() && !stopping.get() &&
+                _connectionPhase.value == ConnectionPhase.REGISTERING_PROFILE
+            ) {
+                handleRegisterFailure()
+            }
+        }
+    }
+
+    private fun cancelRegisterWatchdog() {
+        registerJob?.cancel()
+        registerJob = null
     }
 
     private fun isBluetoothEnabled(): Boolean {
@@ -227,38 +421,20 @@ class ClassicHidTransport(
         }
     }
 
-    private fun registerApp() {
-        if (_connectionPhase.value != ConnectionPhase.REGISTERING_PROFILE) return
-        val subclass: Byte = 0x02
-        val desc = when (currentSettings?.targetPlatform) {
-            TargetPlatform.ANDROID -> ANDROID_HID_DESCRIPTOR
-            TargetPlatform.LINUX -> LINUX_HID_DESCRIPTOR
-            else -> WINDOWS_HID_DESCRIPTOR
-        }
-        val deviceName = getRealDeviceName()
-        val sdp = BluetoothHidDeviceAppSdpSettings(
-            deviceName,
-            "Virtual Xbox 360 Controller",
-            deviceName,
-            subclass,
-            desc,
-        )
-        val qos = BluetoothHidDeviceAppQosSettings(
-            BluetoothHidDeviceAppQosSettings.SERVICE_BEST_EFFORT,
-            0, 0, 0, 0, 0,
-        )
-        try {
-            hidDevice?.registerApp(sdp, qos, qos, Executors.newSingleThreadExecutor(), deviceCallback)
-        } catch (e: Exception) {
-            _connectionPhase.value = ConnectionPhase.ERROR
-        }
-    }
-
     private fun enterDiscoverable() {
         _connectionPhase.value = ConnectionPhase.DISCOVERABLE
     }
 
     private companion object {
+        /** How long to wait for the register/unregister callback before forcing a recovery cycle. */
+        private const val REGISTER_TIMEOUT_MS = 8000L
+
+        /** Delay between registration retry cycles. */
+        private const val REGISTER_RETRY_DELAY_MS = 1500L
+
+        /** Maximum registration attempts before giving up and showing an error. */
+        private const val MAX_REGISTER_ATTEMPTS = 5
+
         private fun b(v: Int) = v.toByte()
 
         /** 11‑byte report for Windows Classic (matches DInput layout). */

@@ -12,6 +12,7 @@ import com.zyz4.gamepademu.data.SettingsRepository
 import com.zyz4.gamepademu.model.AppSettings
 import com.zyz4.gamepademu.model.ConnectionMode
 import com.zyz4.gamepademu.model.GamepadState
+import com.zyz4.gamepademu.model.TargetPlatform
 import com.zyz4.gamepademu.proto.ClientToServer
 import com.zyz4.gamepademu.proto.GamepadInput
 import com.zyz4.gamepademu.proto.Hello
@@ -41,6 +42,7 @@ data class ConnectionState(
     val batteryLevel: Int = 100,
     val phase: ConnectionPhase = ConnectionPhase.IDLE,
     val transportType: BluetoothTransportType? = null,
+    val restartToken: Int = 0,
 )
 
 @Singleton
@@ -97,6 +99,24 @@ class ConnectionManager @Inject constructor(
         _settings.value = newSettings
         scope.launch {
             settingsRepository.saveSettings(newSettings)
+        }
+    }
+
+    /**
+     * Switches the HID target platform while the Bluetooth service is running. The saved paired
+     * device (software-level) is cleared and the HID profile is unregistered/re-registered with the
+     * new descriptor — no app restart required.
+     */
+    fun switchTargetPlatform(platform: TargetPlatform) {
+        val newSettings = _settings.value.copy(targetPlatform = platform)
+        _settings.value = newSettings
+        _connectionState.value = _connectionState.value.copy(
+            restartToken = _connectionState.value.restartToken + 1
+        )
+        scope.launch {
+            settingsRepository.saveSettings(newSettings)
+            pairingStateRepository.clearPairedDevice()
+            bluetoothService?.restart(newSettings) { outputReport -> handleBtOutputReport(outputReport) }
         }
     }
 
