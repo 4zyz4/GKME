@@ -18,6 +18,7 @@ import com.zyz4.gamepademu.model.ButtonPosition
 import com.zyz4.gamepademu.model.GyroOrientation
 import com.zyz4.gamepademu.model.LayoutPreset
 import com.zyz4.gamepademu.view.JoystickView
+import com.zyz4.gamepademu.view.CustomKeypadView
 
 class GamepadLayout @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
@@ -1060,6 +1061,12 @@ class GamepadLayout @JvmOverloads constructor(
             } else if (child is DpadPadView) {
                 child.arrowMaxSizePx = AppearanceApplier.contentCapPx(child, appearanceSettings)?.toFloat()
                 child.forceFollowFinger = false
+                child.idleTransparency = pos.idleTransparency.coerceIn(0, 255)
+                child.activeTransparency = pos.activeTransparency.coerceIn(0, 255)
+                child.rotation = pos.rotation.toFloat()
+            } else if (child is CustomKeypadView) {
+                child.keypadTexts = ButtonPosition.keypadTextsOf(pos)
+                child.keypadCenterDoubleClick = pos.keypadCenterDoubleClick
                 child.idleTransparency = pos.idleTransparency.coerceIn(0, 255)
                 child.activeTransparency = pos.activeTransparency.coerceIn(0, 255)
                 child.rotation = pos.rotation.toFloat()

@@ -22,6 +22,7 @@ import com.zyz4.gamepademu.view.FloatingEditorPanel
 import com.zyz4.gamepademu.view.GamepadLayout
 import com.zyz4.gamepademu.view.JoystickView
 import com.zyz4.gamepademu.view.RotatableButton
+import com.zyz4.gamepademu.view.CustomKeypadView
 
 // ── Floating Editor ──────────────────────────────────────
 
@@ -132,6 +133,7 @@ internal fun MainActivity.getPreviewText(entry: CtrlEntry, mode: DisplayMode): S
         "btnLS" -> "L"
         "btnRS" -> "R"
         "btnCustomCircle", "btnCustomRect" -> "自定义"
+        "customKeypad" -> "按键盘"
         else -> null
     }
 }
@@ -156,6 +158,7 @@ internal fun MainActivity.getPreviewIcon(entry: CtrlEntry, mode: DisplayMode): I
         "btnTouchpad" -> R.drawable.ic_touchpad_grid
         "btnLS" -> R.drawable.ic_ls
         "btnRS" -> R.drawable.ic_rs
+        "customKeypad" -> R.drawable.ic_dpad_pad
         else -> entry.icon
     }
 }
@@ -322,6 +325,7 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
             tp
         }
         entry.isDpadPad -> a.createDpadPadView(id)
+        entry.isKeypad -> a.createCustomKeypadView(id)
         entry.isCustom -> {
             val btn = if (!entry.lockAspect) RotatableButton(a) else Button(a)
             btn.apply {
@@ -368,6 +372,7 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
         width = entry.w, height = entry.h,
         lockAspect = entry.lockAspect,
         isCustom = entry.isCustom,
+        isKeypad = entry.isKeypad,
         customText = "自定义",
         customBits = emptyList(),
         roundShape = entry.baseId == "btnCustomCircle",
@@ -476,6 +481,7 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
             tp
         }
         entry.isDpadPad -> a.createDpadPadView(pos.id)
+        entry.isKeypad -> a.createCustomKeypadView(pos.id)
         entry.isCustom -> {
             val btn = if (!entry.lockAspect) RotatableButton(a) else Button(a)
             btn.apply {
@@ -507,13 +513,12 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
         }
     }
 
-    if (!entry.isTouchpad && !entry.isCustom && !entry.isDpadPad) {
+    if (!entry.isTouchpad && !entry.isCustom && !entry.isDpadPad && !entry.isKeypad) {
         val bit = a.getBitForEntry(entry) ?: 0
         a.setupTouchHandler(view, bit, entry.isDpad, entry.isTrigger, entry.isJoystick)
     } else if (entry.isCustom) {
         a.setupCustomTouchHandler(view)
     }
-    a.controlViews[baseId] = view
     a.gamepadLayout.addView(view)
 }
 
@@ -546,7 +551,7 @@ internal fun MainActivity.showOutputValuePicker(currentBits: List<Int>, onResult
         setPadding((12f * density).toInt(), (12f * density).toInt(), (12f * density).toInt(), (12f * density).toInt())
     }
 
-    allControls.filter { it.baseId != "btnCustomCircle" && it.baseId != "btnCustomRect" && !it.isJoystick && !it.isTouchpad }
+    allControls.filter { it.baseId != "btnCustomCircle" && it.baseId != "btnCustomRect" && it.baseId != "customKeypad" && !it.isJoystick && !it.isTouchpad }
         .chunked(cols).forEach { rowItems ->
         val row = LinearLayout(a).apply {
             orientation = LinearLayout.HORIZONTAL

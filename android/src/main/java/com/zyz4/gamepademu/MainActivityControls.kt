@@ -16,9 +16,11 @@ import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
+import com.zyz4.gamepademu.model.ButtonPosition
 import com.zyz4.gamepademu.model.DisplayMode
 import com.zyz4.gamepademu.model.GamepadState
 import com.zyz4.gamepademu.model.TouchPoint
+import com.zyz4.gamepademu.view.CustomKeypadView
 import com.zyz4.gamepademu.view.DpadPadView
 import com.zyz4.gamepademu.view.GamepadLayout
 import com.zyz4.gamepademu.view.JoystickView
@@ -32,6 +34,7 @@ internal data class CtrlEntry(
     val isDpad: Boolean = false,
     val isTrigger: Boolean = false,
     val isDpadPad: Boolean = false,
+    val isKeypad: Boolean = false,
     val useImageButton: Boolean = false,
     val isCustom: Boolean = false,
     val bit: Int = 0,
@@ -45,6 +48,7 @@ internal val allControls = listOf(
     CtrlEntry("btnDpadLeft", "左方向", R.drawable.ic_arrow_left, isDpad = true, useImageButton = true, bit = GamepadState.DPAD_LEFT),
     CtrlEntry("btnDpadRight", "右方向", R.drawable.ic_arrow_right, isDpad = true, useImageButton = true, bit = GamepadState.DPAD_RIGHT),
     CtrlEntry("dpadPad", "一体十字键", R.drawable.ic_dpad_pad, isDpadPad = true, w = 17, h = 17),
+    CtrlEntry("customKeypad", "自定义按键盘", R.drawable.ic_dpad_pad, isKeypad = true, w = 17, h = 17),
     CtrlEntry("btnA", "A", R.drawable.btn_ps_cross, bit = GamepadState.A),
     CtrlEntry("btnB", "B", R.drawable.btn_ps_circle, bit = GamepadState.B),
     CtrlEntry("btnX", "X", R.drawable.btn_ps_square, bit = GamepadState.X),
@@ -322,6 +326,55 @@ internal fun MainActivity.setupDpadPadTouch(view: DpadPadView) {
         a.viewModel.updateDpad(pressed, released)
     }
     view.onLift = { a.viewModel.updateDpadRelease() }
+}
+@SuppressLint("ClickableViewAccessibility")
+internal fun MainActivity.createCustomKeypadView(id: String): CustomKeypadView {
+    val a = this
+    val pos = a.gamepadLayout.currentButtons.find { it.id == id }
+    return CustomKeypadView(a).apply {
+        this.id = View.generateViewId(); tag = id
+        a.setupCustomKeypadTouch(this, pos)
+    }
+}
+
+@SuppressLint("ClickableViewAccessibility")
+internal fun MainActivity.setupCustomKeypadTouch(view: CustomKeypadView, initialPos: ButtonPosition?) {
+    val a = this
+    fun findKeypadPos(): ButtonPosition? = a.gamepadLayout.currentButtons.find { it.id == view.tag }
+    view.onDirectionChange = { oldIndex: Int, newIndex: Int ->
+        val pos = findKeypadPos()
+        val kpBits = pos?.let { ButtonPosition.keypadBitsOf(it) } ?: listOf()
+        if (oldIndex in 0..3) {
+            val bits = kpBits.getOrNull(oldIndex)
+            if (bits != null) a.viewModel.onCustomButtonUp(bits)
+        }
+        if (newIndex in 0..3) {
+            val bits = kpBits.getOrNull(newIndex)
+            if (bits != null) {
+                a.viewModel.onCustomButtonDown(bits)
+                if (!view.wasCenterDragged) a.performHaptic(isPress = true)
+            }
+        }
+    }
+    view.onCenterClickDown = {
+        val pos = findKeypadPos()
+        if (pos?.keypadCenterDoubleClick == true) {
+            val kpBits = ButtonPosition.keypadBitsOf(pos)
+            val bits = kpBits.getOrNull(4)
+            if (bits != null) {
+                a.viewModel.onCustomButtonDown(bits)
+                if (!view.wasCenterDragged) a.performHaptic(isPress = true)
+            }
+        }
+    }
+    view.onCenterClickUp = {
+        val pos = findKeypadPos()
+        if (pos?.keypadCenterDoubleClick == true) {
+            val kpBits = ButtonPosition.keypadBitsOf(pos)
+            val bits = kpBits.getOrNull(4)
+            if (bits != null) a.viewModel.onCustomButtonUp(bits)
+        }
+    }
 }
 
 @SuppressLint("ClickableViewAccessibility")

@@ -14,7 +14,8 @@ data class LayoutPreset(
         private val gson = Gson()
         private val DOUBLE_CLICK_IDS = setOf("leftJoystick", "rightJoystick", "touchpad")
         private val JOYSTICK_IDS = setOf("leftJoystick", "rightJoystick")
-        private val AREA_IDS = setOf("leftJoystick", "rightJoystick", "touchpad", "dpadPad")
+        private val AREA_IDS = setOf("leftJoystick", "rightJoystick", "touchpad", "dpadPad", "customKeypad")
+        private val KEYPAD_IDS = setOf("customKeypad")
 
         fun fromJson(json: String): LayoutPreset {
             val type = object : TypeToken<LayoutPreset>() {}.type
@@ -54,6 +55,11 @@ data class LayoutPreset(
             m["rotation"] = b.rotation
             m["isCustom"] = b.isCustom
             m["roundShape"] = b.roundShape
+            if (ButtonPosition.isKeypad(b.id)) {
+                m["keypadTexts"] = b.keypadTexts ?: ButtonPosition.KEYPAD_DEFAULT_TEXTS
+                m["keypadBits"] = b.keypadBits ?: ButtonPosition.KEYPAD_DEFAULT_BITS
+                m["keypadCenterDoubleClick"] = b.keypadCenterDoubleClick
+            }
             if (b.isCustom) {
                 m["customText"] = (b.customText ?: "自定义")
                 m["customBits"] = (b.customBits ?: listOf<Int>())

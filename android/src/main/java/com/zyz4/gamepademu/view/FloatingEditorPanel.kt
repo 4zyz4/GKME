@@ -166,6 +166,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             "btnRS" -> "右摇杆按下"
             "touchpad" -> "触摸板"
             "dpadPad" -> "一体十字键"
+            "customKeypad" -> "自定义按键盘"
             "btnCustomCircle" -> "自定义(圆)"
             "btnCustomRect" -> "自定义(方)"
             "btnSettings" -> "设置按钮"
@@ -770,6 +771,11 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             }
         }
 
+        if (buttonId.substringBefore("_") == "customKeypad") {
+            // ── Keypad parameter editing ─────────
+            buildKeypadParams(density)
+        }
+
         if (isButton(buttonId)) {
             val cb = CheckBox(context).apply {
                 text = "滑动触发"
@@ -910,6 +916,170 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             }
             buttonParamsInner.addView(btnDelete, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (16f * density).toInt() })
         }
+    }
+
+    private fun buildKeypadParams(density: Float) {
+        val id = currentButton?.id ?: return
+        val cb = currentButton ?: return
+        val texts = ButtonPosition.keypadTextsOf(cb)
+        val bits = ButtonPosition.keypadBitsOf(cb)
+        val dirs = listOf("上方向" to 0, "下方向" to 1, "左方向" to 2, "右方向" to 3, "中心" to 4)
+
+        for ((name, idx) in dirs) {
+            buildKeypadRegionParam(density, name, idx, texts[idx], bits[idx])
+        }
+
+        addKeypadCenterDoubleClickParams(density, cb)
+    }
+
+    @Suppress("SameParameterValue")
+    private fun buildKeypadRegionParam(density: Float, label: String, regionIdx: Int, currentText: String, currentBits: List<Int>) {
+        val cb = currentButton ?: return
+        val id = cb.id
+
+        // Label
+        val tv = TextView(context).apply {
+            text = label
+            setTextColor(-0x1)
+            textSize = 14f
+        }
+        buttonParamsInner.addView(tv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+
+        // Display text
+        val et = EditText(context).apply {
+            setText(currentText)
+            setTextColor(-0x444445)
+            textSize = 13f
+            setBackgroundResource(R.drawable.bg_small_btn)
+            setPadding((8f * density).toInt(), (4f * density).toInt(), (8f * density).toInt(), (4f * density).toInt())
+            val regionFinal = regionIdx
+            addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: Editable?) {
+                    val texts = ButtonPosition.keypadTextsOf(cb).toMutableList()
+                    texts[regionFinal] = s.toString()
+                    currentButton = cb.copy(keypadTexts = texts)
+                    currentButton?.let { editorListener?.onButtonUpdated(id, it) }
+                }
+            })
+            setOnFocusChangeListener { _, hasFocus ->
+                if (!hasFocus) {
+                    val texts = ButtonPosition.keypadTextsOf(cb).toMutableList()
+                    texts[regionIdx] = text.toString()
+                    currentButton = cb.copy(keypadTexts = texts)
+                    currentButton?.let { editorListener?.onButtonUpdated(id, it) }
+                }
+            }
+        }
+        buttonParamsInner.addView(et, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (2f * density).toInt() })
+
+        if (regionIdx != 4) {
+            buildKeypadBitsEditor(density, currentBits) { newBits ->
+                val cb2 = currentButton ?: return@buildKeypadBitsEditor
+                var b = cb2.keypadBits ?: ButtonPosition.KEYPAD_DEFAULT_BITS
+                val updated = b.toMutableList()
+                updated[regionIdx] = newBits
+                currentButton = cb2.copy(keypadBits = updated)
+                currentButton?.let { editorListener?.onButtonUpdated(id, it) }
+            }
+        }
+    }
+
+    private fun addKeypadCenterDoubleClickParams(density: Float, cb: ButtonPosition) {
+        val id = cb.id
+        // Center double-click toggle + its output value editor
+        val cbDC = CheckBox(context).apply {
+            text = "中心双击按下"
+            setTextColor(-0x444445)
+            textSize = 14f
+            isChecked = cb.keypadCenterDoubleClick
+            setOnCheckedChangeListener { _, isChecked ->
+                currentButton = cb.copy(keypadCenterDoubleClick = isChecked)
+                currentButton?.let { editorListener?.onButtonUpdated(id, it) }
+                showParameters(id, currentButton!!)
+            }
+        }
+        buttonParamsInner.addView(cbDC, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (16f * density).toInt() })
+
+        if (cb.keypadCenterDoubleClick) {
+            val centerBits = ButtonPosition.keypadBitsOf(cb)[4]
+            buildKeypadBitsEditor(density, centerBits) { newBits ->
+                val cb2 = currentButton ?: return@buildKeypadBitsEditor
+                var b = cb2.keypadBits ?: ButtonPosition.KEYPAD_DEFAULT_BITS
+                val updated = b.toMutableList()
+                updated[4] = newBits
+                currentButton = cb2.copy(keypadBits = updated)
+                currentButton?.let { editorListener?.onButtonUpdated(id, it) }
+            }
+        }
+    }
+
+    private fun buildKeypadBitsEditor(density: Float, initialBits: List<Int>, onBitsChanged: (List<Int>) -> Unit) {
+        val bitsContainer = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        val currentBitsRef = object { var bits: List<Int> = initialBits.toList() }
+
+        fun renderChips() {
+            bitsContainer.removeAllViews()
+            if (currentBitsRef.bits.isNotEmpty()) {
+                val chipsPerRow = 3
+                currentBitsRef.bits.chunked(chipsPerRow).forEach { rowBits ->
+                    val row = LinearLayout(context).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                    }
+                    rowBits.forEach { bit ->
+                        val chip = TextView(context).apply {
+                            text = getBitName(bit)
+                            setTextColor(-0x1)
+                            textSize = 11f
+                            gravity = Gravity.CENTER
+                            setBackgroundResource(R.drawable.bg_chip)
+                            setPadding((6f * density).toInt(), (2f * density).toInt(), (6f * density).toInt(), (2f * density).toInt())
+                            setOnClickListener {
+                                currentBitsRef.bits = currentBitsRef.bits - bit
+                                renderChips()
+                                onBitsChanged(currentBitsRef.bits)
+                            }
+                        }
+                        row.addView(chip, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { rightMargin = (4f * density).toInt() })
+                    }
+                    bitsContainer.addView(row)
+                }
+            }
+        }
+
+        renderChips()
+        buttonParamsInner.addView(bitsContainer, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (4f * density).toInt() })
+
+        val row2 = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
+        val btnAdd = Button(context).apply {
+            text = "添加"
+            setTextColor(-0x1)
+            textSize = 12f
+            setBackgroundResource(R.drawable.button_flat)
+            setOnClickListener {
+                editorListener?.onPickOutputValues(currentButton?.id ?: "", currentBitsRef.bits) { newBits ->
+                    currentBitsRef.bits = newBits
+                    renderChips()
+                    onBitsChanged(newBits)
+                }
+            }
+        }
+        val btnClear = Button(context).apply {
+            text = "清空"
+            setTextColor(-0x1)
+            textSize = 12f
+            setBackgroundResource(R.drawable.button_flat)
+            setOnClickListener {
+                currentBitsRef.bits = emptyList()
+                renderChips()
+                onBitsChanged(emptyList())
+            }
+        }
+        row2.addView(btnAdd, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = (4f * density).toInt() })
+        row2.addView(btnClear, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        buttonParamsInner.addView(row2, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
     }
 
     private fun addRotationButtons(container: LinearLayout, buttonId: String, density: Float, hide: Boolean = false) {
