@@ -16,7 +16,7 @@ android {
         minSdk = 26
         //noinspection OldTargetApi
         targetSdk = 36
-        versionCode = 2200
+        versionCode = 2201
         versionName = "2.2.0"
     }
 
