@@ -903,9 +903,9 @@ class GamepadLayout @JvmOverloads constructor(
         for (i in 0 until childCount) {
             val child = getChildAt(i)
             if (child is JoystickView) {
-                val newVal = child.showDeadZoneIndicator && getButtonId(child) == selectedButtonId
-                if (child.isSelectedInEditor != newVal) {
-                    child.isSelectedInEditor = newVal
+                val show = isEditMode && getButtonId(child) == selectedButtonId
+                if (child.showDeadZoneIndicator != show) {
+                    child.showDeadZoneIndicator = show
                     child.invalidate()
                 }
             }
@@ -1070,9 +1070,9 @@ class GamepadLayout @JvmOverloads constructor(
                 child.doubleClickEnable = pos.doubleClickEnable
                 child.sensitivityCurve = pos.sensitivityCurve
                 child.deadZone = pos.deadZone
+                child.reverseDeadZone = pos.reverseDeadZone
+                child.showDeadZoneIndicator = isEditMode && id == selectedButtonId
                 child.forceFollowFinger = false
-                child.showDeadZoneIndicator = isEditMode
-                child.isSelectedInEditor = id == selectedButtonId
                 child.idleTransparency = pos.idleTransparency.coerceIn(0, 255)
                 child.activeTransparency = pos.activeTransparency.coerceIn(0, 255)
             } else if (child is DpadPadView) {

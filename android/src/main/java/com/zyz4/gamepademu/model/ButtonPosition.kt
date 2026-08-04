@@ -21,6 +21,7 @@ data class ButtonPosition(
     val keypadCenterDoubleClick: Boolean = false,
     val sensitivityCurve: List<Float>? = null,
     val deadZone: Int = 0,
+    val reverseDeadZone: Int = 0,
     val idleTransparency: Int = 0,
     val activeTransparency: Int = 0,
     val followAreaTransparency: Int = 0,

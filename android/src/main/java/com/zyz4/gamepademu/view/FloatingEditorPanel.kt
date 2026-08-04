@@ -676,10 +676,34 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 buttonParamsInner.addView(btnRow)
             }
 
-            addSeekbar(buttonParamsInner, "死区(%)", button.deadZone, 0, 100, onChange = { value ->
+            val curveH = (200f * density).toInt()
+
+            var resolvedDeadZone = button.deadZone
+            var resolvedReverseDeadZone = button.reverseDeadZone
+
+            val btnDeadZoneRow = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            }
+            val btnDzSeekbar = createSimpleSeekbar("死区(%)", button.deadZone, 0, 100, { value ->
                 currentButton = currentButton?.copy(deadZone = value)
+                resolvedDeadZone = value
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             })
+            btnDeadZoneRow.addView(btnDzSeekbar)
+            buttonParamsInner.addView(btnDeadZoneRow)
+
+            val btnRdzRow = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            }
+            val btnRdzSeekbar = createSimpleSeekbar("反死区(%)", button.reverseDeadZone, 0, 100, { value ->
+                currentButton = currentButton?.copy(reverseDeadZone = value)
+                resolvedReverseDeadZone = value
+                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+            })
+            btnRdzRow.addView(btnRdzSeekbar)
+            buttonParamsInner.addView(btnRdzRow)
 
             val tvCurve = TextView(context).apply {
                 text = "灵敏度曲线"
@@ -688,7 +712,6 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             }
             buttonParamsInner.addView(tvCurve, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (10f * density).toInt(); bottomMargin = (4f * density).toInt() })
 
-            val curveH = (200f * density).toInt()
             val curveView = CurveEditorView(context).apply {
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, curveH)
                 setFromFlatList(button.sensitivityCurve)
@@ -1370,5 +1393,93 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
         row2.addView(seek)
         container.addView(row2)
+    }
+
+    private fun createSimpleSeekbar(label: String, value: Int, min: Int, max: Int, onChange: (Int) -> Unit): View {
+        val density = context.resources.displayMetrics.density
+        var currentValue = value.coerceIn(min, max)
+        var et: EditText? = null
+        var seek: SeekBar? = null
+
+        fun updateValue(newValue: Int) {
+            currentValue = newValue.coerceIn(min, max)
+            et?.setText("$currentValue")
+            seek?.progress = currentValue - min
+            onChange(currentValue)
+        }
+
+        val container = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+
+        val row = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        val tv = TextView(context).apply {
+            text = label
+            setTextColor(-0x444445)
+            textSize = 13f
+        }
+        row.addView(tv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        et = EditText(context).apply {
+            setText("$currentValue")
+            inputType = InputType.TYPE_CLASS_NUMBER
+            gravity = Gravity.CENTER
+            textSize = 13f
+            setTextColor(-0x444445)
+            setBackgroundResource(R.drawable.bg_small_btn)
+            setPadding((4f * density).toInt(), 0, (4f * density).toInt(), 0)
+            setOnEditorActionListener { _, actionId, _ ->
+                if (actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_NEXT) {
+                    updateValue(text.toString().toIntOrNull() ?: currentValue)
+                    clearFocus()
+                }
+                false
+            }
+        }
+        row.addView(et, LinearLayout.LayoutParams(0, (32f * density).toInt(), 1f).apply { leftMargin = (8f * density).toInt(); rightMargin = (4f * density).toInt() })
+
+        val btnMinus = TextView(context).apply {
+            text = "-"
+            setTextColor(-0x1)
+            textSize = 16f
+            gravity = Gravity.CENTER
+            isClickable = true
+            setBackgroundResource(R.drawable.button_flat)
+            setOnClickListener { updateValue(currentValue - 1) }
+        }
+        row.addView(btnMinus, LinearLayout.LayoutParams((32f * density).toInt(), (32f * density).toInt()).apply { rightMargin = (4f * density).toInt() })
+
+        val btnPlus = TextView(context).apply {
+            text = "+"
+            setTextColor(-0x1)
+            textSize = 16f
+            gravity = Gravity.CENTER
+            isClickable = true
+            setBackgroundResource(R.drawable.button_flat)
+            setOnClickListener { updateValue(currentValue + 1) }
+        }
+        row.addView(btnPlus, LinearLayout.LayoutParams((32f * density).toInt(), (32f * density).toInt()))
+
+        seek = SeekBar(context).apply {
+            this.max = max - min
+            progress = currentValue - min
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
+                    if (fromUser) updateValue(progress + min)
+                }
+                override fun onStartTrackingTouch(sb: SeekBar) {}
+                override fun onStopTrackingTouch(sb: SeekBar) {}
+            })
+        }
+
+        container.addView(row)
+        container.addView(seek, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (4f * density).toInt() })
+        return container
     }
 }

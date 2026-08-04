@@ -35,8 +35,8 @@ class JoystickView @JvmOverloads constructor(
     var activeTransparency: Int = 0
     var sensitivityCurve: List<Float>? = null
     var deadZone: Int = 0
+    var reverseDeadZone: Int = 0
     var showDeadZoneIndicator: Boolean = false
-    var isSelectedInEditor: Boolean = false
     // Max label size in px (from the adaptive icon-size setting); null = sized relative to the cap.
     var labelMaxSizePx: Float? = null
 
@@ -60,17 +60,23 @@ class JoystickView @JvmOverloads constructor(
     var appearanceCapOutlineWidth: Float = 1.5f
     private val basePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val baseStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
-    private val deadZonePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = -0x330000ff
-        style = Paint.Style.STROKE
-        strokeWidth = 2f
-    }
+    
     private val knobPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val knobStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = -0x555556
         textAlign = Paint.Align.CENTER
         textSize = 0f
+    }
+    private val deadZonePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xffffee00.toInt()
+        style = Paint.Style.STROKE
+        strokeWidth = 3f
+    }
+    private val reverseDeadZonePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xff0088ff.toInt()
+        style = Paint.Style.STROKE
+        strokeWidth = 3f
     }
 
     private var isTouching = false
@@ -135,10 +141,6 @@ class JoystickView @JvmOverloads constructor(
             canvas.drawCircle(knobX, knobY, knobRadius - appearanceCapOutlineWidth / 2f, knobStrokePaint)
         }
 
-        if (deadZone > 0 && showDeadZoneIndicator && isSelectedInEditor) {
-            val dzRadius = baseRadius * (deadZone / 100f)
-            canvas.drawCircle(effectiveCenterX, effectiveCenterY, dzRadius, deadZonePaint)
-        }
         if (label.isNotEmpty()) {
             // Follow the adaptive icon-size cap (labelMaxSizePx); otherwise keep the natural
             // size relative to the cap (capped by the knob itself).
@@ -147,6 +149,20 @@ class JoystickView @JvmOverloads constructor(
             val textY = knobY - (labelPaint.ascent() + labelPaint.descent()) / 2f
             canvas.drawText(label, knobX, textY, labelPaint)
         }
+
+        // Dead zone (yellow) and reverse dead zone (blue) circles
+        // Drawn after cap so they are not covered by the cap.
+        if (showDeadZoneIndicator) {
+            if (deadZone > 0) {
+                val dzRadius = baseRadius * (deadZone / 100f)
+                canvas.drawCircle(effectiveCenterX, effectiveCenterY, dzRadius, deadZonePaint)
+            }
+            if (reverseDeadZone > 0) {
+                val rdzRadius = baseRadius * (reverseDeadZone / 100f)
+                canvas.drawCircle(effectiveCenterX, effectiveCenterY, rdzRadius, reverseDeadZonePaint)
+            }
+        }
+
         canvas.restore()
     }
 
@@ -229,11 +245,19 @@ class JoystickView @JvmOverloads constructor(
         val cdx = dx * cosR - dy * sinR
         val cdy = dx * sinR + dy * cosR
 
-        val clampedDist = if (dist > maxD) maxD else dist
+val clampedDist = if (dist > maxD) maxD else dist
         val normalized = if (maxD > 0f) clampedDist / maxD else 0f
+
+        // Apply dead zone
         val dz = (deadZone / 100f).coerceIn(0f, 0.99f)
-        val afterDeadZone = if (normalized <= dz) 0f else (normalized - dz) / (1f - dz)
-        val afterCurve = evaluateCurve(afterDeadZone)
+        val afterDeadZone = if (normalized <= dz) 0f
+                            else (normalized - dz) / (1f - dz)
+
+        // Apply reverse dead zone
+        val rdz = (reverseDeadZone / 100f).coerceIn(0f, 0.99f)
+        val afterReverseDeadZone = if (afterDeadZone == 0f) rdz
+                                   else afterDeadZone * (1f - rdz) + rdz
+        val afterCurve = evaluateCurve(afterReverseDeadZone)
         val finalDist = afterCurve * maxD
 
         val scale = if (dist > 0f) finalDist / dist else 0f

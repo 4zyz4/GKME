@@ -74,6 +74,7 @@ data class LayoutPreset(
             }
             if (baseId in JOYSTICK_IDS) {
                 m["deadZone"] = b.deadZone
+                m["reverseDeadZone"] = b.reverseDeadZone
                 if (b.sensitivityCurve != null && b.sensitivityCurve!!.isNotEmpty()) {
                     m["sensitivityCurve"] = b.sensitivityCurve
                 }
