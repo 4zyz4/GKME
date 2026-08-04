@@ -209,37 +209,14 @@ class DpadPadView @JvmOverloads constructor(
         val eOffY = effectiveCenterY - originY
         val dx = lx - eOffX
         val dy = ly - eOffY
-        if (lx in 0f..side && ly in 0f..side && dx * dx + dy * dy <= r * r) {
+        if (dx * dx + dy * dy <= r * r && lx in 0f..side && ly in 0f..side) {
             val col = when { lx < eOffX - r + a -> 0; lx < eOffX - r + 2f * a -> 1; else -> 2 }
             val row = when { ly < eOffY - r + a -> 0; ly < eOffY - r + 2f * a -> 1; else -> 2 }
             return bitsAt(col, row)
         }
-        return nearestRegion(lx, ly)
-    }
-
-    /** The 8 surrounding direction cells (the centre cell is never reported while outside). */
-    private fun nearestRegion(lx: Float, ly: Float): Int {
-        val a = third
-        val eOffX = effectiveCenterX - originX
-        val eOffY = effectiveCenterY - originY
-        val r = side / 2f
-        var best = 0
-        var bestDist = Float.MAX_VALUE
-        for (col in 0..2) {
-            for (row in 0..2) {
-                if (col == 1 && row == 1) continue
-                val cellCx = eOffX - r + (col + 0.5f) * a
-                val cellCy = eOffY - r + (row + 0.5f) * a
-                val ddx = lx - cellCx
-                val ddy = ly - cellCy
-                val d = ddx * ddx + ddy * ddy
-                if (d < bestDist) {
-                    bestDist = d
-                    best = bitsAt(col, row)
-                }
-            }
-        }
-        return best
+        val col = when { lx < eOffX - r + a -> 0; lx < eOffX - r + 2f * a -> 1; else -> 2 }
+        val row = when { ly < eOffY - r + a -> 0; ly < eOffY - r + 2f * a -> 1; else -> 2 }
+        return bitsAt(col, row)
     }
 
     private fun bitsAt(col: Int, row: Int): Int = when {

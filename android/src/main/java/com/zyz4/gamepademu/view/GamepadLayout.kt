@@ -948,8 +948,28 @@ class GamepadLayout @JvmOverloads constructor(
                     is DpadPadView -> child.forceFollowFinger = true
                     is CustomKeypadView -> child.forceFollowFinger = true
                 }
-                touchTargets[pid] = mutableListOf(child)
+                val toDispatch = mutableListOf<View>()
+                toDispatch.add(child)
+                for (other in findAllChildrenAt(x, y)) {
+                    if (other != child) {
+                        val otherId = getButtonId(other) ?: continue
+                        val otherPos = currentButtons.find { it.id == otherId } ?: continue
+                        if (otherPos.overlapTrigger) {
+                            toDispatch.add(other)
+                        }
+                    }
+                }
+                if (toDispatch.size > 1) {
+                    toDispatch[0] = toDispatch[1]
+                    toDispatch[1] = child
+                }
+                touchTargets[pid] = toDispatch
                 dispatchToChild(child, event, MotionEvent.ACTION_DOWN, idx)
+                for (c in toDispatch) {
+                    if (c != child) {
+                        dispatchToChild(c, event, MotionEvent.ACTION_DOWN, idx)
+                    }
+                }
                 return true
             }
         }
