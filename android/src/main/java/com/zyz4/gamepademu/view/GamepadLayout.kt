@@ -23,6 +23,7 @@ import com.zyz4.gamepademu.view.inputdispatcher.GamepadInputDispatcher
 import com.zyz4.gamepademu.view.inputdispatcher.LayoutEngine
 import com.zyz4.gamepademu.view.inputdispatcher.EditModeState
 import com.zyz4.gamepademu.view.inputdispatcher.OldSlotState
+import com.zyz4.gamepademu.view.inputdispatcher.SlotMatcher
 import com.zyz4.gamepademu.view.inputdispatcher.toRawEvent
 
 class GamepadLayout @JvmOverloads constructor(
@@ -41,7 +42,7 @@ class GamepadLayout @JvmOverloads constructor(
     private var _editState = EditModeState()
     private var _slotState = OldSlotState()
     private var _dispatcherLastButtonState = 0
-    private var _swipeActive = emptySet<String>()
+    private var _swipeActive = false
 
     init {
         setWillNotDraw(false)
@@ -62,6 +63,9 @@ class GamepadLayout @JvmOverloads constructor(
         private const val HANDLE_HIT_DP = 16f
         private const val GRID_BASE_ALPHA = 170
         private val JOYSTICK_IDS = setOf("leftJoystick", "rightJoystick")
+
+        /** Debug flag: true uses the dispatcher for all three methods, false uses raw slots. */
+        const val DEBUG_DISPATCHER = false
     }
 
     private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -181,6 +185,8 @@ class GamepadLayout @JvmOverloads constructor(
     /** Set of button IDs that have swipeTrigger enabled */
     private var swipeTriggerIds: Set<String> = emptySet()
 
+    // MARK: - Dispatcher wiring
+
     fun setTouchpadCaptureMode(enabled: Boolean) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         if (enabled == hasPointerCapture()) return
@@ -196,88 +202,10 @@ class GamepadLayout @JvmOverloads constructor(
     override fun onCapturedPointerEvent(event: MotionEvent): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return super.onCapturedPointerEvent(event)
 
-        val action = event.actionMasked
-
-        // Terminal actions: clear everything
-        if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
-            slot0Active = false; slot0Pid = -1
-            slot1Active = false; slot1Pid = -1
-        } else {
-            // Collect old slot positions for coordinate matching
-
-            // Build candidates from current event (all pointers including released in POINTER_UP)
-            val candidates = (0 until event.pointerCount).map { i ->
-                floatArrayOf(
-                    event.getPointerId(i).toFloat(),
-                    (event.getX(i) / 1920f).coerceIn(0f, 1f),
-                    (event.getY(i) / 942f).coerceIn(0f, 1f),
-                )
-            }
-
-            // For POINTER_UP: remove released finger from candidates and clear its slot
-            if (action == MotionEvent.ACTION_POINTER_UP) {
-                val rIdx = event.actionIndex
-                val rx = (event.getX(rIdx) / 1920f).coerceIn(0f, 1f)
-                val ry = (event.getY(rIdx) / 942f).coerceIn(0f, 1f)
-                if (slot0Active && slot1Active) {
-                    // Two fingers: clear the slot nearest to the released position
-                    val d0 = (slot0X - rx) * (slot0X - rx) + (slot0Y - ry) * (slot0Y - ry)
-                    val d1 = (slot1X - rx) * (slot1X - rx) + (slot1Y - ry) * (slot1Y - ry)
-                    if (d0 <= d1) { slot0Active = false; slot0Pid = -1 }
-                    else { slot1Active = false; slot1Pid = -1 }
-                } else if (slot0Active) {
-                    slot0Active = false; slot0Pid = -1
-                } else if (slot1Active) {
-                    slot1Active = false; slot1Pid = -1
-                }
-            }
-
-            // Rebuild remaining slots after potential clearing
-            val remainingSlots = mutableListOf<Int>()
-            if (slot0Active) remainingSlots.add(0)
-            if (slot1Active) remainingSlots.add(1)
-
-            // Match remaining candidates (after removing released finger) to remaining slots
-            val remainingCandidates = if (action == MotionEvent.ACTION_POINTER_UP) {
-                candidates.filterIndexed { i, _ -> i != event.actionIndex }
-            } else {
-                candidates
-            }
-
-            if (remainingCandidates.isNotEmpty()) {
-                val usedCand = mutableSetOf<Int>()
-                for (slotIdx in remainingSlots) {
-                    val refX = if (slotIdx == 0) slot0X else slot1X
-                    val refY = if (slotIdx == 0) slot0Y else slot1Y
-                    var best = -1; var bestD = Float.MAX_VALUE
-                    for (ci in remainingCandidates.indices) {
-                        if (ci in usedCand) continue
-                        val dx = refX - remainingCandidates[ci][1]
-                        val dy = refY - remainingCandidates[ci][2]
-                        val d = dx * dx + dy * dy
-                        if (d < bestD) { bestD = d; best = ci }
-                    }
-                    if (best >= 0) {
-                        val (pid, nx, ny) = remainingCandidates[best]
-                        if (slotIdx == 0) { slot0X = nx; slot0Y = ny; slot0Pid = pid.toInt(); slot0Active = true }
-                        else { slot1X = nx; slot1Y = ny; slot1Pid = pid.toInt(); slot1Active = true }
-                        usedCand.add(best)
-                    }
-                }
-                // Any unmatched candidates go to empty slots
-                for (ci in remainingCandidates.indices) {
-                    if (ci in usedCand) continue
-                    val (pid, nx, ny) = remainingCandidates[ci]
-                    if (!slot0Active) { slot0X = nx; slot0Y = ny; slot0Pid = pid.toInt(); slot0Active = true }
-                    else if (!slot1Active) { slot1X = nx; slot1Y = ny; slot1Pid = pid.toInt(); slot1Active = true }
-                }
-            }
-        }
-
         // Track button state changes (XOR approach from Moonlight Android)
         val curBS = event.buttonState
-        val changedBS = curBS xor _lastButtonState
-        if ((changedBS and MotionEvent.BUTTON_PRIMARY) != 0) {
+        val changedBS = curBS.toLong() xor _lastButtonState.toLong()
+        if ((changedBS.toInt() and MotionEvent.BUTTON_PRIMARY) != 0) {
             _touchpadClick = (curBS and MotionEvent.BUTTON_PRIMARY) != 0
         }
         if (event.actionMasked == MotionEvent.ACTION_UP ||
