@@ -466,6 +466,7 @@ class GamepadLayout @JvmOverloads constructor(
                         when (child) {
                             is JoystickView -> child.forceFollowFinger = false
                             is DpadPadView -> child.forceFollowFinger = false
+                            is CustomKeypadView -> child.forceFollowFinger = false
                         }
                     }
                 }
@@ -620,6 +621,7 @@ class GamepadLayout @JvmOverloads constructor(
                 when (child) {
                     is JoystickView -> child.forceFollowFinger = false
                     is DpadPadView -> child.forceFollowFinger = false
+                    is CustomKeypadView -> child.forceFollowFinger = false
                 }
             }
         }
@@ -932,6 +934,7 @@ class GamepadLayout @JvmOverloads constructor(
                 when (child) {
                     is JoystickView -> child.forceFollowFinger = true
                     is DpadPadView -> child.forceFollowFinger = true
+                    is CustomKeypadView -> child.forceFollowFinger = true
                 }
                 touchTargets[pid] = mutableListOf(child)
                 dispatchToChild(child, event, MotionEvent.ACTION_DOWN, idx)
@@ -954,6 +957,7 @@ class GamepadLayout @JvmOverloads constructor(
                 when (child) {
                     is JoystickView -> child.forceFollowFinger = true
                     is DpadPadView -> child.forceFollowFinger = true
+                    is CustomKeypadView -> child.forceFollowFinger = true
                 }
                 touchTargets[pid] = mutableListOf(child)
                 dispatchToChild(child, event, MotionEvent.ACTION_DOWN, idx)
@@ -969,6 +973,7 @@ class GamepadLayout @JvmOverloads constructor(
             when (child) {
                 is JoystickView -> child.forceFollowFinger = false
                 is DpadPadView -> child.forceFollowFinger = false
+                is CustomKeypadView -> child.forceFollowFinger = false
             }
         }
     }
@@ -1067,6 +1072,7 @@ class GamepadLayout @JvmOverloads constructor(
             } else if (child is CustomKeypadView) {
                 child.keypadTexts = ButtonPosition.keypadTextsOf(pos)
                 child.keypadCenterDoubleClick = pos.keypadCenterDoubleClick
+                child.forceFollowFinger = false
                 child.idleTransparency = pos.idleTransparency.coerceIn(0, 255)
                 child.activeTransparency = pos.activeTransparency.coerceIn(0, 255)
                 child.rotation = pos.rotation.toFloat()
@@ -1090,7 +1096,8 @@ class GamepadLayout @JvmOverloads constructor(
             val isJoyArea = pos.id.substringBefore("_") in JOYSTICK_IDS
             val isTpArea = isTouchpadId(pos.id)
             val isDpadPadArea = pos.id == "dpadPad"
-            if ((isJoyArea || isTpArea || isDpadPadArea) && pos.followAreaEnabled) {
+            val isKeypadArea = pos.id.substringBefore("_") == "customKeypad"
+            if ((isJoyArea || isTpArea || isDpadPadArea || isKeypadArea) && pos.followAreaEnabled) {
                 val areaPaint = if (isTpArea) touchpadAreaPaint else followAreaPaint
                 val fLeft = (pos.followAreaX * cellW).toInt().toFloat()
                 val fTop = (pos.followAreaY * cellH).toInt().toFloat()

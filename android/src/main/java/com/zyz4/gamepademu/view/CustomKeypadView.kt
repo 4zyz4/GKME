@@ -35,6 +35,9 @@ class CustomKeypadView @JvmOverloads constructor(
     var wasCenterDragged: Boolean = false
     var keypadCenterDoubleClick: Boolean = false
 
+    /** When true, the effective center tracks the touch position (follow-area mode) */
+    var forceFollowFinger: Boolean = false
+
     var padFillType: FillType = FillType.SOLID_COLOR
     var padColor: Int = 0xFF1A1A1A.toInt()
     var padImagePath: String? = null
@@ -58,6 +61,9 @@ class CustomKeypadView @JvmOverloads constructor(
     private var activeDir = -1
     private var centerPressed = false
     private var isTouching = false
+
+    private var effectiveCenterX = 0f
+    private var effectiveCenterY = 0f
 
     private var firstTapTime = 0L
     private var firstTapX = 0f
@@ -97,6 +103,8 @@ class CustomKeypadView @JvmOverloads constructor(
         radius = side / 2f
         half = side * 0.20f
         d = radius * 0.70710678f
+        effectiveCenterX = centerX
+        effectiveCenterY = centerY
         rebuildPaths()
     }
 
@@ -185,6 +193,13 @@ class CustomKeypadView @JvmOverloads constructor(
         super.onDraw(canvas)
         if (side <= 0f) return
 
+        val dx = effectiveCenterX - centerX
+        val dy = effectiveCenterY - centerY
+        canvas.save()
+        if (dx != 0f || dy != 0f) {
+            canvas.translate(dx, dy)
+        }
+
         if (padFillType == FillType.IMAGE && padBitmap != null) {
             ShapeImageUtil.applyCenterCrop(fillPaint, padBitmap!!, side, side)
         } else {
@@ -234,6 +249,8 @@ class CustomKeypadView @JvmOverloads constructor(
 
         textPaint.textSize = Math.min(half * 1.1f, radius * 0.30f)
         drawCenteredText(canvas, textPaint, keypadTexts[4], centerX, centerY)
+
+        canvas.restore()
     }
 
     private fun drawCenteredText(canvas: Canvas, paint: Paint, text: String, cx: Float, cy: Float) {
@@ -243,8 +260,8 @@ class CustomKeypadView @JvmOverloads constructor(
     }
 
     private fun directionAt(x: Float, y: Float): Int {
-        val dx = x - centerX
-        val dy = y - centerY
+        val dx = x - effectiveCenterX
+        val dy = y - effectiveCenterY
         if (dx * dx + dy * dy > radius * radius) return classify(dx, dy)
         if (Math.abs(dx) <= half && Math.abs(dy) <= half) return -1
         return classify(dx, dy)
@@ -279,6 +296,10 @@ class CustomKeypadView @JvmOverloads constructor(
         isTouching = true
         wasCenterDragged = false
         alpha = 1f - (activeTransparency.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
+        if (forceFollowFinger) {
+            effectiveCenterX = x
+            effectiveCenterY = y
+        }
         val dir = directionAt(x, y)
         if (dir == -1 && keypadCenterDoubleClick) {
             val density = resources.displayMetrics.density
@@ -312,6 +333,10 @@ class CustomKeypadView @JvmOverloads constructor(
             wasCenterDragged = wasCenterDragged || activeDir != -1
             invalidate()
             onCenterClickUp?.invoke()
+        }
+        if (forceFollowFinger) {
+            effectiveCenterX = centerX
+            effectiveCenterY = centerY
         }
         releaseAll()
         performClick()

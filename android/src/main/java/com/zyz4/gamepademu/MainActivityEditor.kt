@@ -357,29 +357,47 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
             enableAutoFitButtonText(20f)
         }
     }
-    a.gamepadLayout.addView(view)
 
-    if (!entry.isTouchpad && !entry.isDpadPad) {
-        if (entry.isCustom) {
-            a.setupCustomTouchHandler(view)
+    // Add both the view and position together using post to ensure they are processed
+    // in the same layout pass, avoiding a layout request where only the view exists.
+    a.gamepadLayout.post {
+        a.gamepadLayout.addView(view)
+        val pos = if (entry.isKeypad) {
+            ButtonPosition(
+                id = id, x = 50, y = 20,
+                width = entry.w, height = entry.h,
+                lockAspect = entry.lockAspect,
+                isCustom = entry.isCustom,
+                isKeypad = entry.isKeypad,
+                keypadTexts = ButtonPosition.KEYPAD_DEFAULT_TEXTS,
+                keypadBits = ButtonPosition.KEYPAD_DEFAULT_BITS,
+                keypadCenterDoubleClick = true,
+                roundShape = false,
+            )
         } else {
-            a.setupTouchHandler(view, entry.bit, entry.isDpad, entry.isTrigger, entry.isJoystick)
+            ButtonPosition(
+                id = id, x = 50, y = 20,
+                width = entry.w, height = entry.h,
+                lockAspect = entry.lockAspect,
+                isCustom = entry.isCustom,
+                customText = "自定义",
+                customBits = emptyList(),
+                roundShape = entry.baseId == "btnCustomCircle",
+            )
         }
-    }
+        a.gamepadLayout.addButtonPosition(pos)
 
-    val pos = ButtonPosition(
-        id = id, x = 50, y = 20,
-        width = entry.w, height = entry.h,
-        lockAspect = entry.lockAspect,
-        isCustom = entry.isCustom,
-        isKeypad = entry.isKeypad,
-        customText = "自定义",
-        customBits = emptyList(),
-        roundShape = entry.baseId == "btnCustomCircle",
-    )
-    a.gamepadLayout.addButtonPosition(pos)
-    a.gamepadLayout.setSelectedButton(id)
-    a.updateButtonLabels(a.viewModel.settings.value.displayMode)
+        if (!entry.isTouchpad && !entry.isDpadPad) {
+            if (entry.isCustom) {
+                a.setupCustomTouchHandler(view)
+            } else if (!entry.isKeypad) {
+                a.setupTouchHandler(view, entry.bit, entry.isDpad, entry.isTrigger, entry.isJoystick)
+            }
+        }
+
+        a.gamepadLayout.setSelectedButton(id)
+        a.updateButtonLabels(a.viewModel.settings.value.displayMode)
+    }
 }
 
 internal fun MainActivity.createCustomButtonView(pos: ButtonPosition): View {
