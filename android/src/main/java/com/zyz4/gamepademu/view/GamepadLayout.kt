@@ -930,8 +930,11 @@ class GamepadLayout @JvmOverloads constructor(
     }
 
     /** Activate follow-area trigger for a joystick or dpadPad.
+     *  Only fires if the finger is inside the follow-area rect AND not inside any overlapping
+     *  control's visual bounds (unless that control has overlapTrigger=true).
      *  Returns true if a matching view was found and dispatched. */
     private fun tryFollowAreaTrigger(x: Float, y: Float, pid: Int, event: MotionEvent, idx: Int): Boolean {
+        val followAreaChild = mutableListOf<Pair<View, ButtonPosition>>()
         for (i in 0 until childCount) {
             val child = getChildAt(i)
             if (child.visibility != View.VISIBLE) continue
@@ -943,42 +946,51 @@ class GamepadLayout @JvmOverloads constructor(
             val areaRight = (pos.followAreaX + pos.followAreaW) * cellW
             val areaBottom = (pos.followAreaY + pos.followAreaH) * cellH
             if (x >= areaLeft && x <= areaRight && y >= areaTop && y <= areaBottom) {
-                when (child) {
-                    is JoystickView -> child.forceFollowFinger = true
-                    is DpadPadView -> child.forceFollowFinger = true
-                    is CustomKeypadView -> child.forceFollowFinger = true
-                }
-                val toDispatch = mutableListOf<View>()
-                toDispatch.add(child)
-                for (other in findAllChildrenAt(x, y)) {
-                    if (other != child) {
-                        val otherId = getButtonId(other) ?: continue
-                        val otherPos = currentButtons.find { it.id == otherId } ?: continue
-                        if (otherPos.overlapTrigger) {
-                            toDispatch.add(other)
-                        }
-                    }
-                }
-                if (toDispatch.size > 1) {
-                    toDispatch[0] = toDispatch[1]
-                    toDispatch[1] = child
-                }
-                touchTargets[pid] = toDispatch
-                dispatchToChild(child, event, MotionEvent.ACTION_DOWN, idx)
-                for (c in toDispatch) {
-                    if (c != child) {
-                        dispatchToChild(c, event, MotionEvent.ACTION_DOWN, idx)
-                    }
-                }
-                return true
+                followAreaChild.add(child to pos)
             }
         }
-        return false
+        if (followAreaChild.isEmpty()) return false
+
+        // Check if there are other (non-follow-area) children at this point.
+        // If so, the follow-area control should NOT fire here — let normal dispatch handle it.
+        // followAreaOverlapTrigger=false means the follow area loses to overlapping controls.
+        // When followAreaOverlapTrigger=true, tryFollowAreaOverlapTrigger handles it instead.
+        val otherChildren = findAllChildrenAt(x, y).filter { it !in followAreaChild.map { it.first } }
+        if (otherChildren.isNotEmpty()) return false
+
+        for ((child, _) in followAreaChild) {
+            when (child) {
+                is JoystickView -> child.forceFollowFinger = true
+                is DpadPadView -> child.forceFollowFinger = true
+                is CustomKeypadView -> child.forceFollowFinger = true
+            }
+        }
+
+        val toDispatch = mutableListOf<View>()
+        for ((child, _) in followAreaChild) {
+            toDispatch.add(child)
+        }
+
+        if (toDispatch.size > 1) {
+            toDispatch[0] = toDispatch[1]
+            toDispatch[1] = followAreaChild.first().first
+        }
+
+        touchTargets[pid] = toDispatch
+        dispatchToChild(followAreaChild.first().first, event, MotionEvent.ACTION_DOWN, idx)
+        for (c in toDispatch) {
+            if (c != followAreaChild.first().first) {
+                dispatchToChild(c, event, MotionEvent.ACTION_DOWN, idx)
+            }
+        }
+        return true
     }
 
-    /** Activate follow-area trigger even when overlapping non-joystick controls,
-     *  only for views with [followAreaOverlapTrigger] = true. */
+    /** Called when a touch point lands inside a non-joystick control's bounds AND inside a follow-area rect.
+     *  Only fires if [followAreaOverlapTrigger] is true. This allows the follow-area control to activate
+     *  even though another control visually covers the touch point. */
     private fun tryFollowAreaOverlapTrigger(x: Float, y: Float, pid: Int, event: MotionEvent, idx: Int): Boolean {
+        val followAreaChild = mutableListOf<View>()
         for (i in 0 until childCount) {
             val child = getChildAt(i)
             if (child.visibility != View.VISIBLE) continue
@@ -986,17 +998,38 @@ class GamepadLayout @JvmOverloads constructor(
             val pos = currentButtons.find { it.id == cid } ?: continue
             if (!pos.followAreaEnabled || !pos.followAreaOverlapTrigger) continue
             if (isInFollowArea(x, y, pos)) {
-                when (child) {
-                    is JoystickView -> child.forceFollowFinger = true
-                    is DpadPadView -> child.forceFollowFinger = true
-                    is CustomKeypadView -> child.forceFollowFinger = true
-                }
-                touchTargets[pid] = mutableListOf(child)
-                dispatchToChild(child, event, MotionEvent.ACTION_DOWN, idx)
-                return true
+                followAreaChild.add(child)
             }
         }
-        return false
+        if (followAreaChild.isEmpty()) return false
+
+        for (child in followAreaChild) {
+            when (child) {
+                is JoystickView -> child.forceFollowFinger = true
+                is DpadPadView -> child.forceFollowFinger = true
+                is CustomKeypadView -> child.forceFollowFinger = true
+            }
+        }
+
+        val toDispatch = mutableListOf<View>()
+        toDispatch.addAll(followAreaChild)
+
+        // Also dispatch to overlapping children (button-like overlap triggering).
+        for (other in findAllChildrenAt(x, y)) {
+            if (other !in followAreaChild) {
+                val otherId = getButtonId(other) ?: continue
+                val otherPos = currentButtons.find { it.id == otherId } ?: continue
+                if (otherPos.overlapTrigger) {
+                    toDispatch.add(other)
+                }
+            }
+        }
+
+        touchTargets[pid] = toDispatch
+        for (c in toDispatch) {
+            dispatchToChild(c, event, MotionEvent.ACTION_DOWN, idx)
+        }
+        return true
     }
 
     private fun resetForceFollowFinger() {
