@@ -19,10 +19,29 @@ import com.zyz4.gamepademu.model.GyroOrientation
 import com.zyz4.gamepademu.model.LayoutPreset
 import com.zyz4.gamepademu.view.JoystickView
 import com.zyz4.gamepademu.view.CustomKeypadView
+import com.zyz4.gamepademu.view.inputdispatcher.GamepadInputDispatcher
+import com.zyz4.gamepademu.view.inputdispatcher.LayoutEngine
+import com.zyz4.gamepademu.view.inputdispatcher.EditModeState
+import com.zyz4.gamepademu.view.inputdispatcher.OldSlotState
+import com.zyz4.gamepademu.view.inputdispatcher.toRawEvent
 
 class GamepadLayout @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 ) : ViewGroup(context, attrs, defStyleAttr) {
+
+    private val dispatcher = GamepadInputDispatcher(
+        layoutEngine = LayoutEngine,
+        hitResolver = com.zyz4.gamepademu.view.inputdispatcher.HitResolver,
+        followAreaStrategy = com.zyz4.gamepademu.view.inputdispatcher.FollowAreaStrategy,
+        swipeTriggerStrategy = com.zyz4.gamepademu.view.inputdispatcher.SwipeTriggerStrategy,
+        slotMatcher = com.zyz4.gamepademu.view.inputdispatcher.SlotMatcher,
+        clickDetector = com.zyz4.gamepademu.view.inputdispatcher.TouchpadClickDetector,
+    )
+
+    private var _editState = EditModeState()
+    private var _slotState = OldSlotState()
+    private var _dispatcherLastButtonState = 0
+    private var _swipeActive = emptySet<String>()
 
     init {
         setWillNotDraw(false)
