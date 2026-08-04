@@ -51,6 +51,8 @@ class GamepadInputDispatcher(
         prevSlotState: OldSlotState,
         lastButtonState: Int,
         cellW: Float,
+        cellH: Float,
+        isSwipeMode: Boolean,
     ): InteractionResult {
 
         val action = event.action
@@ -83,19 +85,41 @@ class GamepadInputDispatcher(
         // Click detection
         val clickResult = clickDetector.detect(lastButtonState, event.buttonState)
 
-        // Swipe triggers
-        val swipeResult = swipeTriggerStrategy.evaluate(
-            buttons = buttons,
-            childBounds = childBounds,
-            pointers = pointers,
-            previouslyActive = prevSwipeActive,
-        )
-        val newSwipeActive = prevSwipeActive + swipeResult.presses - swipeResult.releases
+        // Swipe triggers or follow-area — mutually exclusive paths
+        var swipeResult = SwipeResult()
+        var followAreaActions = mutableListOf<com.zyz4.gamepademu.view.inputdispatcher.FollowAreaAction>()
+
+        if (isSwipeMode) {
+            swipeResult = swipeTriggerStrategy.evaluate(
+                buttons = buttons,
+                childBounds = childBounds,
+                pointers = pointers,
+                previouslyActive = prevSwipeActive,
+            )
+        } else {
+            val faResult = followAreaStrategy.evaluate(
+                buttons = buttons,
+                cellW = cellW,
+                cellH = cellH,
+                pointers = pointers,
+            )
+            if (faResult.activatedButtonIds.isNotEmpty()) {
+                followAreaActions = faResult.activatedButtonIds
+                    .map { id -> com.zyz4.gamepademu.view.inputdispatcher.FollowAreaAction(id, com.zyz4.gamepademu.view.inputdispatcher.FollowAreaAction.Type.ACTIVATE) }
+                    .toMutableList()
+            }
+        }
+
+        val newSwipeActive = if (isSwipeMode) {
+            prevSwipeActive + swipeResult.presses - swipeResult.releases
+        } else {
+            prevSwipeActive
+        }
 
         return InteractionResult(
             pressedIds = swipeResult.presses,
             releasedIds = swipeResult.releases,
-            followAreaActions = emptyList(),
+            followAreaActions = followAreaActions,
             slotAssignment = slotResult.slotAssignment,
             clickResult = clickResult,
             newSlotState = slotResult.newState,
@@ -113,6 +137,7 @@ class GamepadInputDispatcher(
         children: List<android.view.View>,
         currentState: EditModeState,
         cellW: Float,
+        cellH: Float,
     ): EditDispatchResult {
 
         val action = event.action
@@ -121,10 +146,10 @@ class GamepadInputDispatcher(
 
         return when (action) {
             android.view.MotionEvent.ACTION_DOWN -> {
-                handleDown(x, y, buttons, currentButtonBounds, children, currentState, cellW)
+                handleDown(x, y, buttons, currentButtonBounds, children, currentState, cellW, cellH)
             }
             android.view.MotionEvent.ACTION_MOVE -> {
-                handleMove(x, y, buttons, currentButtonBounds, children, currentState, cellW)
+                handleMove(x, y, buttons, currentButtonBounds, children, currentState, cellW, cellH)
             }
             android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
                 EditDispatchResult(
@@ -150,6 +175,7 @@ class GamepadInputDispatcher(
         children: List<android.view.View>,
         state: EditModeState,
         cellW: Float,
+        cellH: Float,
     ): EditDispatchResult {
         val commands = mutableListOf<EditCommand>()
 
@@ -207,6 +233,7 @@ class GamepadInputDispatcher(
         children: List<android.view.View>,
         state: EditModeState,
         cellW: Float,
+        cellH: Float,
     ): EditDispatchResult {
         val commands = mutableListOf<EditCommand>()
 

@@ -216,6 +216,8 @@ interface InputDispatcher {
         prevSlotState: OldSlotState,
         lastButtonState: Int,
         cellW: Float,
+        cellH: Float,
+        isSwipeMode: Boolean,
     ): InteractionResult
 
     /**
@@ -228,5 +230,6 @@ interface InputDispatcher {
         children: List<android.view.View>,
         currentState: EditModeState,
         cellW: Float,
+        cellH: Float,
     ): EditDispatchResult
 }

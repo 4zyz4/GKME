@@ -24,6 +24,7 @@ import com.zyz4.gamepademu.view.inputdispatcher.LayoutEngine
 import com.zyz4.gamepademu.view.inputdispatcher.EditModeState
 import com.zyz4.gamepademu.view.inputdispatcher.OldSlotState
 import com.zyz4.gamepademu.view.inputdispatcher.SlotMatcher
+import com.zyz4.gamepademu.view.inputdispatcher.EditCommand
 import com.zyz4.gamepademu.view.inputdispatcher.toRawEvent
 
 class GamepadLayout @JvmOverloads constructor(
