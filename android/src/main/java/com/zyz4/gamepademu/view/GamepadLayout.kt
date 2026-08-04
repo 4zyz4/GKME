@@ -78,6 +78,12 @@ class GamepadLayout @JvmOverloads constructor(
         strokeWidth = 3f
     }
 
+    private val dpadPadAreaPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = -0x666667
+        style = Paint.Style.STROKE
+        strokeWidth = 4f
+    }
+
     // Grid fade animation
     private var gridAlpha = 0f
     private var gridAnimator: ValueAnimator? = null
@@ -762,6 +768,12 @@ class GamepadLayout @JvmOverloads constructor(
         invalidate()
     }
 
+    fun setDpadPadTriggerAreaAppearance(color: Int, strokeWidth: Int) {
+        dpadPadAreaPaint.color = color
+        dpadPadAreaPaint.strokeWidth = strokeWidth.toFloat()
+        invalidate()
+    }
+
     fun applyAppearance(settings: AppSettings) {
         appearanceSettings = settings
         AppearanceApplier.applyToGamepadLayout(this, settings)
@@ -1098,7 +1110,11 @@ class GamepadLayout @JvmOverloads constructor(
             val isDpadPadArea = pos.id == "dpadPad"
             val isKeypadArea = pos.id.substringBefore("_") == "customKeypad"
             if ((isJoyArea || isTpArea || isDpadPadArea || isKeypadArea) && pos.followAreaEnabled) {
-                val areaPaint = if (isTpArea) touchpadAreaPaint else followAreaPaint
+                val areaPaint = when {
+                    isTpArea -> touchpadAreaPaint
+                    isDpadPadArea || isKeypadArea -> dpadPadAreaPaint
+                    else -> followAreaPaint
+                }
                 val fLeft = (pos.followAreaX * cellW).toInt().toFloat()
                 val fTop = (pos.followAreaY * cellH).toInt().toFloat()
                 val fRight = ((pos.followAreaX + pos.followAreaW) * cellW).toInt().toFloat()

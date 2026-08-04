@@ -1076,11 +1076,11 @@
                         android:background="@color/bg_surface_light"
                         android:layout_marginVertical="4dp" />
 
-                    <!-- ── 一体十字键 ── -->
+<!-- ── 一体十字键/自定义按键盘 ── -->
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="一体十字键"
+                        android:text="一体十字键/自定义按键盘"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp"
                         android:fontFamily="sans-serif-medium"
@@ -1110,7 +1110,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="十字键颜色"
+                            android:text="控件颜色"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                          <Button
@@ -1129,17 +1129,17 @@
                              android:text="重置"
                              android:textSize="10sp"
                              android:stateListAnimator="@null" />
-                     </LinearLayout>
+                      </LinearLayout>
 
-                     <Button
-                         android:id="@+id/btnPadPickImage"
-                        style="@style/GamepadChip"
-                        android:layout_width="match_parent"
-                        android:text="选择十字键图片"
-                        android:visibility="gone"
-                        android:layout_marginBottom="4dp" />
+                      <Button
+                          android:id="@+id/btnPadPickImage"
+                         style="@style/GamepadChip"
+                         android:layout_width="match_parent"
+                         android:text="选择图片"
+                         android:visibility="gone"
+                         android:layout_marginBottom="4dp" />
 
-                    <LinearLayout
+                      <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="40dp"
                         android:gravity="center_vertical"
@@ -1151,7 +1151,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="边框颜色"
+                            android:text="控件轮廓颜色"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                          <Button
@@ -1170,7 +1170,7 @@
                              android:text="重置"
                              android:textSize="10sp"
                              android:stateListAnimator="@null" />
-                     </LinearLayout>
+                      </LinearLayout>
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -1185,11 +1185,77 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="边框粗细"
+                            android:text="控件轮廓粗细"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                         <SeekBar
                             android:id="@+id/seekPadBorderWidth"
+                            android:layout_width="180dp"
+                            android:layout_height="wrap_content"
+                            android:max="10"
+                            android:progress="4" />
+                    </LinearLayout>
+
+                    <!-- ── 触发区域（一体十字键/自定义按键盘） ── -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="- 触发区域"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp"
+                        android:layout_marginBottom="2dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="40dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:background="@color/bg_surface"
+                        android:paddingHorizontal="10dp"
+                        android:layout_marginBottom="4dp">
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="触发区域轮廓颜色"
+                            android:textColor="@color/text_primary"
+                            android:textSize="12sp" />
+                         <Button
+                             android:id="@+id/btnPadTriggerOutlineColor"
+                             android:layout_width="32dp"
+                             android:layout_height="32dp"
+                             android:background="#FF666667"
+                             android:stateListAnimator="@null"
+                             android:layout_marginEnd="6dp" />
+                         <Button
+                             android:id="@+id/btnResetPadTriggerOutlineColor"
+                             style="@style/GamepadSmallBtn"
+                             android:layout_width="wrap_content"
+                             android:layout_height="wrap_content"
+                             android:paddingHorizontal="8dp"
+                             android:text="重置"
+                             android:textSize="10sp"
+                             android:stateListAnimator="@null" />
+                      </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="40dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:background="@color/bg_surface"
+                        android:paddingHorizontal="10dp"
+                        android:layout_marginBottom="4dp">
+                        <TextView
+                            android:id="@+id/tvPadTriggerOutlineWidth"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="触发区域轮廓粗细"
+                            android:textColor="@color/text_primary"
+                            android:textSize="12sp" />
+                        <SeekBar
+                            android:id="@+id/seekPadTriggerOutlineWidth"
                             android:layout_width="180dp"
                             android:layout_height="wrap_content"
                             android:max="10"

@@ -102,10 +102,14 @@ data class AppSettings(
     val tpImagePath: String? = null,
     val tpOutlineColor: Int = 0xFF666666.toInt(),
     val tpOutlineWidth: Int = 4,
-    // ── Integrated D-pad pad / custom keypad fill appearance (outline uses btnOutlineColor/Width)
-    val padFillType: FillType = FillType.SOLID_COLOR,
-    val padColor: Int = 0xFF1A1A1A.toInt(),
-    val padImagePath: String? = null,
+    // ── Trigger area appearance (dpadPad / customKeypad) ──
+    val dpadPadFillType: FillType = FillType.SOLID_COLOR,
+    val dpadPadColor: Int = 0xFF1A1A1A.toInt(),
+    val dpadPadImagePath: String? = null,
+    val dpadPadOutlineColor: Int = 0xFF666666.toInt(),
+    val dpadPadOutlineWidth: Int = 4,
+    val dpadPadTriggerOutlineColor: Int = -0x666667,
+    val dpadPadTriggerOutlineWidth: Int = 4,
 
     // Max size of text and icons in sp (same unit as the old button textSize=20f).
     // 0..99 caps content, 100 = unlimited (content fills the button). Content always

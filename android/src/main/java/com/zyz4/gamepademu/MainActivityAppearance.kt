@@ -45,7 +45,7 @@ internal fun MainActivity.setupAppearanceImageLaunchers() {
     }
     a.padImagePickerLauncher = a.registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let { a.savePickedImage(it, "pad") { path ->
-            a.onAppearanceChange { it.copy(padImagePath = path, padFillType = FillType.IMAGE) }
+            a.onAppearanceChange { it.copy(dpadPadImagePath = path, dpadPadFillType = FillType.IMAGE) }
         } }
     }
 }
@@ -300,32 +300,50 @@ internal fun MainActivity.setupAppearancePage() {
         }
     )
 
-    // ── 一体十字键 ──
+    // ── 一体十字键/自定义按键盘 ──
     a.findViewById<Button>(R.id.btnPadFillSolid).setOnClickListener {
-        a.onAppearanceChange { it.copy(padFillType = FillType.SOLID_COLOR) }
+        a.onAppearanceChange { it.copy(dpadPadFillType = FillType.SOLID_COLOR) }
     }
     a.findViewById<Button>(R.id.btnPadFillImage).setOnClickListener {
-        a.onAppearanceChange { it.copy(padFillType = FillType.IMAGE) }
+        a.onAppearanceChange { it.copy(dpadPadFillType = FillType.IMAGE) }
     }
     a.findViewById<Button>(R.id.btnPadColor).setOnClickListener {
-        a.showColorPickerDialog(a.viewModel.settings.value.padColor) { color ->
-            a.onAppearanceChange { it.copy(padColor = color) }
-        }
-    }
-    a.findViewById<Button>(R.id.btnPadBorderColor).setOnClickListener {
-        a.showColorPickerDialog(a.viewModel.settings.value.btnOutlineColor) { color ->
-            a.onAppearanceChange { it.copy(btnOutlineColor = color) }
+        a.showColorPickerDialog(a.viewModel.settings.value.dpadPadColor) { color ->
+            a.onAppearanceChange { it.copy(dpadPadColor = color) }
         }
     }
     a.findViewById<Button>(R.id.btnPadPickImage).setOnClickListener {
         a.padImagePickerLauncher?.launch("image/*")
     }
+    a.findViewById<Button>(R.id.btnPadBorderColor).setOnClickListener {
+        a.showColorPickerDialog(a.viewModel.settings.value.dpadPadOutlineColor) { color ->
+            a.onAppearanceChange { it.copy(dpadPadOutlineColor = color) }
+        }
+    }
     a.findViewById<SeekBar>(R.id.seekPadBorderWidth).setOnSeekBarChangeListener(
         object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar, p: Int, fromUser: Boolean) {
                 if (!fromUser) return
-                a.findViewById<TextView>(R.id.tvPadBorderWidth).text = "边框粗细: $p"
-                a.onAppearanceChange { it.copy(btnOutlineWidth = p) }
+                a.findViewById<TextView>(R.id.tvPadBorderWidth).text = "控件本身轮廓粗细: $p"
+                a.onAppearanceChange { it.copy(dpadPadOutlineWidth = p) }
+            }
+            override fun onStartTrackingTouch(sb: SeekBar?) {}
+            override fun onStopTrackingTouch(sb: SeekBar?) {}
+        }
+    )
+
+    // ── 触发区域（一体十字键/自定义按键盘） ──
+    a.findViewById<Button>(R.id.btnPadTriggerOutlineColor).setOnClickListener {
+        a.showColorPickerDialog(a.viewModel.settings.value.dpadPadTriggerOutlineColor) { color ->
+            a.onAppearanceChange { it.copy(dpadPadTriggerOutlineColor = color) }
+        }
+    }
+    a.findViewById<SeekBar>(R.id.seekPadTriggerOutlineWidth).setOnSeekBarChangeListener(
+        object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar, p: Int, fromUser: Boolean) {
+                if (!fromUser) return
+                a.findViewById<TextView>(R.id.tvPadTriggerOutlineWidth).text = "触发区域轮廓粗细: $p"
+                a.onAppearanceChange { it.copy(dpadPadTriggerOutlineWidth = p) }
             }
             override fun onStartTrackingTouch(sb: SeekBar?) {}
             override fun onStopTrackingTouch(sb: SeekBar?) {}
@@ -367,10 +385,13 @@ internal fun MainActivity.setupAppearancePage() {
         a.onAppearanceChange { it.copy(tpTriggerOutlineColor = -0x666667) }
     }
     a.findViewById<Button>(R.id.btnResetPadColor).setOnClickListener {
-        a.onAppearanceChange { it.copy(padColor = 0xFF1A1A1A.toInt()) }
+        a.onAppearanceChange { it.copy(dpadPadColor = 0xFF1A1A1A.toInt()) }
     }
     a.findViewById<Button>(R.id.btnResetPadBorderColor).setOnClickListener {
-        a.onAppearanceChange { it.copy(btnOutlineColor = 0xFF666666.toInt()) }
+        a.onAppearanceChange { it.copy(dpadPadOutlineColor = 0xFF666666.toInt()) }
+    }
+    a.findViewById<Button>(R.id.btnResetPadTriggerOutlineColor).setOnClickListener {
+        a.onAppearanceChange { it.copy(dpadPadTriggerOutlineColor = -0x666667) }
     }
 }
 
@@ -533,15 +554,20 @@ internal fun MainActivity.syncAppearanceUI() {
     a.findViewById<SeekBar>(R.id.seekTpTriggerOutlineWidth).progress = s.tpTriggerOutlineWidth
     a.findViewById<TextView>(R.id.tvTpTriggerOutlineWidth).text = "区域粗细: ${s.tpTriggerOutlineWidth}"
 
-    // 一体十字键
-    val padAppearance = s
-    a.selectChipGroup(listOf(R.id.btnPadFillSolid, R.id.btnPadFillImage), padAppearance.padFillType.ordinal)
-    a.findViewById<Button>(R.id.btnPadColor).background = colorBg(padAppearance.padColor)
-    a.findViewById<View>(R.id.layoutPadColor).visibility = if (padAppearance.padFillType == FillType.SOLID_COLOR) View.VISIBLE else View.GONE
-    a.findViewById<View>(R.id.btnPadPickImage).visibility = if (padAppearance.padFillType == FillType.IMAGE) View.VISIBLE else View.GONE
-    a.findViewById<Button>(R.id.btnPadBorderColor).background = colorBg(padAppearance.btnOutlineColor)
-    a.findViewById<SeekBar>(R.id.seekPadBorderWidth).progress = padAppearance.btnOutlineWidth
-    a.findViewById<TextView>(R.id.tvPadBorderWidth).text = "边框粗细: ${padAppearance.btnOutlineWidth}"
+    // 一体十字键/自定义按键盘
+    val dpadPadAppearance = s
+    a.selectChipGroup(listOf(R.id.btnPadFillSolid, R.id.btnPadFillImage), dpadPadAppearance.dpadPadFillType.ordinal)
+    a.findViewById<Button>(R.id.btnPadColor).background = colorBg(dpadPadAppearance.dpadPadColor)
+    a.findViewById<View>(R.id.layoutPadColor).visibility = if (dpadPadAppearance.dpadPadFillType == FillType.SOLID_COLOR) View.VISIBLE else View.GONE
+    a.findViewById<View>(R.id.btnPadPickImage).visibility = if (dpadPadAppearance.dpadPadFillType == FillType.IMAGE) View.VISIBLE else View.GONE
+    a.findViewById<Button>(R.id.btnPadBorderColor).background = colorBg(dpadPadAppearance.dpadPadOutlineColor)
+    a.findViewById<SeekBar>(R.id.seekPadBorderWidth).progress = dpadPadAppearance.dpadPadOutlineWidth
+    a.findViewById<TextView>(R.id.tvPadBorderWidth).text = "控件本身轮廓粗细: ${dpadPadAppearance.dpadPadOutlineWidth}"
+
+    // 触发区域（一体十字键/自定义按键盘）
+    a.findViewById<Button>(R.id.btnPadTriggerOutlineColor).background = colorBg(dpadPadAppearance.dpadPadTriggerOutlineColor)
+    a.findViewById<SeekBar>(R.id.seekPadTriggerOutlineWidth).progress = dpadPadAppearance.dpadPadTriggerOutlineWidth
+    a.findViewById<TextView>(R.id.tvPadTriggerOutlineWidth).text = "触发区域轮廓粗细: ${dpadPadAppearance.dpadPadTriggerOutlineWidth}"
 
     if (a.currentSettingsCategory == 2) a.updateAppearancePreview()
 }

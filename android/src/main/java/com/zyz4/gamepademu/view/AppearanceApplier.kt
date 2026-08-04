@@ -88,6 +88,7 @@ object AppearanceApplier {
 
         layout.setFollowAreaAppearance(settings.joyTriggerOutlineColor, settings.joyTriggerOutlineWidth)
         layout.setTouchpadAreaAppearance(settings.tpTriggerOutlineColor, settings.tpTriggerOutlineWidth)
+        layout.setDpadPadTriggerAreaAppearance(settings.dpadPadTriggerOutlineColor, settings.dpadPadTriggerOutlineWidth)
 
         for (i in 0 until layout.childCount) {
             val child = layout.getChildAt(i)
@@ -265,21 +266,21 @@ object AppearanceApplier {
     }
 
     private fun applyToDpadPad(pad: DpadPadView, settings: AppSettings) {
-        pad.appearanceFillType = settings.padFillType
-        pad.appearanceImagePath = settings.padImagePath
-        pad.appearanceColor = settings.padColor
-        pad.appearanceBorderColor = settings.btnOutlineColor
-        pad.appearanceBorderWidth = settings.btnOutlineWidth.toFloat()
+        pad.appearanceFillType = settings.dpadPadFillType
+        pad.appearanceImagePath = settings.dpadPadImagePath
+        pad.appearanceColor = settings.dpadPadColor
+        pad.appearanceBorderColor = settings.dpadPadOutlineColor
+        pad.appearanceBorderWidth = settings.dpadPadOutlineWidth.toFloat()
         pad.arrowMaxSizePx = contentCapPx(pad, settings)?.toFloat()
         pad.invalidate()
     }
 
     private fun applyToKeypad(pad: CustomKeypadView, settings: AppSettings) {
-        pad.padFillType = settings.padFillType
-        pad.padImagePath = settings.padImagePath
-        pad.padColor = settings.padColor
-        pad.padBorderColor = settings.btnOutlineColor
-        pad.padBorderWidth = settings.btnOutlineWidth.toFloat()
+        pad.padFillType = settings.dpadPadFillType
+        pad.padImagePath = settings.dpadPadImagePath
+        pad.padColor = settings.dpadPadColor
+        pad.padBorderColor = settings.dpadPadOutlineColor
+        pad.padBorderWidth = settings.dpadPadOutlineWidth.toFloat()
         pad.invalidate()
     }
 

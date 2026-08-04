@@ -165,7 +165,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             "btnLS" -> "左摇杆按下"
             "btnRS" -> "右摇杆按下"
             "touchpad" -> "触摸板"
-            "dpadPad" -> "一体十字键"
+            "dpadPad" -> "一体十字键/自定义按键盘"
             "customKeypad" -> "自定义按键盘"
             "btnCustomCircle" -> "自定义(圆)"
             "btnCustomRect" -> "自定义(方)"
