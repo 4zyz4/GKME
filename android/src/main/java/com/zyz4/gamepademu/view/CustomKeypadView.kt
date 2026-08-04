@@ -262,9 +262,8 @@ class CustomKeypadView @JvmOverloads constructor(
     }
 
     private fun directionAt(x: Float, y: Float): Int {
-        val dx = x - centerX
-        val dy = y - centerY
-        if (dx * dx + dy * dy > radius * radius) return classify(dx, dy)
+        val dx = x - effectiveCenterX
+        val dy = y - effectiveCenterY
         if (Math.abs(dx) <= half && Math.abs(dy) <= half) return -1
         return classify(dx, dy)
     }
