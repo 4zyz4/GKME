@@ -268,8 +268,8 @@ object AppearanceApplier {
         pad.appearanceFillType = settings.padFillType
         pad.appearanceImagePath = settings.padImagePath
         pad.appearanceColor = settings.padColor
-        pad.appearanceBorderColor = settings.padBorderColor
-        pad.appearanceBorderWidth = settings.padBorderWidth.toFloat()
+        pad.appearanceBorderColor = settings.btnOutlineColor
+        pad.appearanceBorderWidth = settings.btnOutlineWidth.toFloat()
         pad.arrowMaxSizePx = contentCapPx(pad, settings)?.toFloat()
         pad.invalidate()
     }
@@ -278,8 +278,8 @@ object AppearanceApplier {
         pad.padFillType = settings.padFillType
         pad.padImagePath = settings.padImagePath
         pad.padColor = settings.padColor
-        pad.padBorderColor = settings.padBorderColor
-        pad.padBorderWidth = settings.padBorderWidth.toFloat()
+        pad.padBorderColor = settings.btnOutlineColor
+        pad.padBorderWidth = settings.btnOutlineWidth.toFloat()
         pad.invalidate()
     }
 

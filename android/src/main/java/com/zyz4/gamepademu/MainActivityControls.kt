@@ -48,7 +48,6 @@ internal val allControls = listOf(
     CtrlEntry("btnDpadLeft", "左方向", R.drawable.ic_arrow_left, isDpad = true, useImageButton = true, bit = GamepadState.DPAD_LEFT),
     CtrlEntry("btnDpadRight", "右方向", R.drawable.ic_arrow_right, isDpad = true, useImageButton = true, bit = GamepadState.DPAD_RIGHT),
     CtrlEntry("dpadPad", "一体十字键", R.drawable.ic_dpad_pad, isDpadPad = true, w = 17, h = 17),
-    CtrlEntry("customKeypad", "自定义按键盘", R.drawable.ic_dpad_pad, isKeypad = true, w = 17, h = 17),
     CtrlEntry("btnA", "A", R.drawable.btn_ps_cross, bit = GamepadState.A),
     CtrlEntry("btnB", "B", R.drawable.btn_ps_circle, bit = GamepadState.B),
     CtrlEntry("btnX", "X", R.drawable.btn_ps_square, bit = GamepadState.X),
@@ -68,6 +67,7 @@ internal val allControls = listOf(
     CtrlEntry("btnMenu", "菜单", R.drawable.btn_menu_xbox, bit = GamepadState.START, w = 9, h = 9),
     CtrlEntry("btnCustomCircle", "自定义(圆)", R.drawable.button_circle, isCustom = true),
     CtrlEntry("btnCustomRect", "自定义(方)", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, w = 14, h = 8, lockAspect = false, isCustom = true),
+    CtrlEntry("customKeypad", "自定义按键盘", R.drawable.ic_custom_keypad, isKeypad = true, w = 17, h = 17),
 )
 
 // Keep custom button text vertically centered even when the button is shrunk:

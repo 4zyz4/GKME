@@ -521,11 +521,13 @@ class GamepadViewModel @Inject constructor(
     fun onCustomKeypadDirection(oldIndex: Int, newIndex: Int, pos: ButtonPosition?) {
         val kpBits = pos?.let { ButtonPosition.keypadBitsOf(it) } ?: listOf()
         val oldBit = if (oldIndex in 0..3) kpBits.getOrNull(oldIndex)?.firstOrNull() else null
-        val newBit = if (newIndex in 0..3) kpBits.getOrNull(newIndex)?.firstOrNull() else null
+        val newBit = if (newIndex == 4) kpBits.getOrNull(4)?.firstOrNull()
+            else if (newIndex in 0..3) kpBits.getOrNull(newIndex)?.firstOrNull()
+            else null
         if (oldIndex in 0..3 && oldBit != null) {
             _customKeypadBits = 0
         }
-        if (newIndex in 0..3 && newBit != null) {
+        if (newIndex in 0..4 && newBit != null) {
             _customKeypadBits = newBit
             onHapticFeedbackPress?.invoke()
         }

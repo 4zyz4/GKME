@@ -313,8 +313,8 @@ internal fun MainActivity.setupAppearancePage() {
         }
     }
     a.findViewById<Button>(R.id.btnPadBorderColor).setOnClickListener {
-        a.showColorPickerDialog(a.viewModel.settings.value.padBorderColor) { color ->
-            a.onAppearanceChange { it.copy(padBorderColor = color) }
+        a.showColorPickerDialog(a.viewModel.settings.value.btnOutlineColor) { color ->
+            a.onAppearanceChange { it.copy(btnOutlineColor = color) }
         }
     }
     a.findViewById<Button>(R.id.btnPadPickImage).setOnClickListener {
@@ -325,7 +325,7 @@ internal fun MainActivity.setupAppearancePage() {
             override fun onProgressChanged(sb: SeekBar, p: Int, fromUser: Boolean) {
                 if (!fromUser) return
                 a.findViewById<TextView>(R.id.tvPadBorderWidth).text = "边框粗细: $p"
-                a.onAppearanceChange { it.copy(padBorderWidth = p) }
+                a.onAppearanceChange { it.copy(btnOutlineWidth = p) }
             }
             override fun onStartTrackingTouch(sb: SeekBar?) {}
             override fun onStopTrackingTouch(sb: SeekBar?) {}
@@ -370,7 +370,7 @@ internal fun MainActivity.setupAppearancePage() {
         a.onAppearanceChange { it.copy(padColor = 0xFF1A1A1A.toInt()) }
     }
     a.findViewById<Button>(R.id.btnResetPadBorderColor).setOnClickListener {
-        a.onAppearanceChange { it.copy(padBorderColor = 0xFF666666.toInt()) }
+        a.onAppearanceChange { it.copy(btnOutlineColor = 0xFF666666.toInt()) }
     }
 }
 
@@ -539,9 +539,9 @@ internal fun MainActivity.syncAppearanceUI() {
     a.findViewById<Button>(R.id.btnPadColor).background = colorBg(padAppearance.padColor)
     a.findViewById<View>(R.id.layoutPadColor).visibility = if (padAppearance.padFillType == FillType.SOLID_COLOR) View.VISIBLE else View.GONE
     a.findViewById<View>(R.id.btnPadPickImage).visibility = if (padAppearance.padFillType == FillType.IMAGE) View.VISIBLE else View.GONE
-    a.findViewById<Button>(R.id.btnPadBorderColor).background = colorBg(padAppearance.padBorderColor)
-    a.findViewById<SeekBar>(R.id.seekPadBorderWidth).progress = padAppearance.padBorderWidth
-    a.findViewById<TextView>(R.id.tvPadBorderWidth).text = "边框粗细: ${padAppearance.padBorderWidth}"
+    a.findViewById<Button>(R.id.btnPadBorderColor).background = colorBg(padAppearance.btnOutlineColor)
+    a.findViewById<SeekBar>(R.id.seekPadBorderWidth).progress = padAppearance.btnOutlineWidth
+    a.findViewById<TextView>(R.id.tvPadBorderWidth).text = "边框粗细: ${padAppearance.btnOutlineWidth}"
 
     if (a.currentSettingsCategory == 2) a.updateAppearancePreview()
 }

@@ -133,7 +133,6 @@ internal fun MainActivity.getPreviewText(entry: CtrlEntry, mode: DisplayMode): S
         "btnLS" -> "L"
         "btnRS" -> "R"
         "btnCustomCircle", "btnCustomRect" -> "自定义"
-        "customKeypad" -> "按键盘"
         else -> null
     }
 }
@@ -158,7 +157,7 @@ internal fun MainActivity.getPreviewIcon(entry: CtrlEntry, mode: DisplayMode): I
         "btnTouchpad" -> R.drawable.ic_touchpad_grid
         "btnLS" -> R.drawable.ic_ls
         "btnRS" -> R.drawable.ic_rs
-        "customKeypad" -> R.drawable.ic_dpad_pad
+        "customKeypad" -> R.drawable.ic_custom_keypad
         else -> entry.icon
     }
 }
@@ -257,6 +256,12 @@ internal fun MainActivity.showAddButtonDialog() {
                 jv.layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
                 wrapper.addView(jv)
             } else if (entry.isTouchpad) {
+                val iv = ImageView(a).apply {
+                    setImageResource(a.getPreviewIcon(entry, mode))
+                    layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+                }
+                wrapper.addView(iv)
+            } else if (entry.isKeypad) {
                 val iv = ImageView(a).apply {
                     setImageResource(a.getPreviewIcon(entry, mode))
                     layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
