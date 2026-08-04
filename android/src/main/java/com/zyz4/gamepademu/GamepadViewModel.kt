@@ -88,6 +88,7 @@ class GamepadViewModel @Inject constructor(
         _physicalControllerConnected.value = connected
     }
     private var _dpadBits = 0
+    private var _customKeypadBits = 0
     private var phoneButtons: UInt = 0u
     private var phoneTouches: List<TouchPoint> = emptyList()
 
@@ -515,6 +516,35 @@ class GamepadViewModel @Inject constructor(
         _gamepadState.value = _gamepadState.value.copy(buttons = b)
         onHapticFeedbackRelease?.invoke()
         sendInput()
+    }
+
+    fun onCustomKeypadDirection(oldIndex: Int, newIndex: Int, pos: ButtonPosition?) {
+        val kpBits = pos?.let { ButtonPosition.keypadBitsOf(it) } ?: listOf()
+        val oldBit = if (oldIndex in 0..3) kpBits.getOrNull(oldIndex)?.firstOrNull() else null
+        val newBit = if (newIndex in 0..3) kpBits.getOrNull(newIndex)?.firstOrNull() else null
+        if (oldIndex in 0..3 && oldBit != null) {
+            _customKeypadBits = 0
+        }
+        if (newIndex in 0..3 && newBit != null) {
+            _customKeypadBits = newBit
+            onHapticFeedbackPress?.invoke()
+        }
+        var b = _gamepadState.value.buttons
+        if (oldBit != null) { b = b and oldBit.toUInt().inv() }
+        if (newBit != null) { b = b or newBit.toUInt() }
+        _gamepadState.value = _gamepadState.value.copy(buttons = b)
+        sendInput()
+    }
+
+    fun updateCustomKeypadRelease() {
+        onHapticFeedbackRelease?.invoke()
+        if (_customKeypadBits != 0) {
+            _customKeypadBits = 0
+            var b = _gamepadState.value.buttons
+            b = b and _customKeypadBits.toUInt().inv()
+            _gamepadState.value = _gamepadState.value.copy(buttons = b)
+            sendInput()
+        }
     }
 
     fun onVolumeKeyDown(bits: List<Int>) {

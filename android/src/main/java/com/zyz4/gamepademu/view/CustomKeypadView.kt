@@ -30,10 +30,12 @@ class CustomKeypadView @JvmOverloads constructor(
     }
 
     var onDirectionChange: ((oldIndex: Int, newIndex: Int) -> Unit)? = null
+    var onDirectionRelease: (() -> Unit)? = null
     var onCenterClickDown: (() -> Unit)? = null
     var onCenterClickUp: (() -> Unit)? = null
     var wasCenterDragged: Boolean = false
     var keypadCenterDoubleClick: Boolean = false
+    var validDirs: Set<Int> = setOf(0, 1, 2, 3)
 
     /** When true, the effective center tracks the touch position (follow-area mode) */
     var forceFollowFinger: Boolean = false
@@ -277,10 +279,13 @@ class CustomKeypadView @JvmOverloads constructor(
         val newDir = directionAt(x, y)
         if (newDir == activeDir) return
         if (newDir != -1) wasCenterDragged = true
+        val shouldChange = newDir == -1 || newDir in validDirs
         val old = activeDir
-        activeDir = newDir
-        onDirectionChange?.invoke(old, newDir)
-        invalidate()
+        activeDir = if (shouldChange) newDir else -1
+        if (old != activeDir) {
+            onDirectionChange?.invoke(old, activeDir)
+            invalidate()
+        }
     }
 
     private fun releaseAll() {
@@ -288,6 +293,7 @@ class CustomKeypadView @JvmOverloads constructor(
             val old = activeDir
             activeDir = -1
             onDirectionChange?.invoke(old, -1)
+            onDirectionRelease?.invoke()
         }
         invalidate()
     }

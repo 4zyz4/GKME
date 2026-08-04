@@ -342,28 +342,29 @@ internal fun MainActivity.setupCustomKeypadTouch(view: CustomKeypadView, initial
     val a = this
     fun findKeypadPos(): ButtonPosition? = a.gamepadLayout.currentButtons.find { it.id == view.tag }
     view.onDirectionChange = { oldIndex: Int, newIndex: Int ->
+        a.viewModel.onCustomKeypadDirection(oldIndex, newIndex, findKeypadPos())
+    }
+    view.onDirectionRelease = {
         val pos = findKeypadPos()
-        val kpBits = pos?.let { ButtonPosition.keypadBitsOf(it) } ?: listOf()
-        if (oldIndex in 0..3) {
-            val bits = kpBits.getOrNull(oldIndex)
-            if (bits != null) a.viewModel.onCustomButtonUp(bits)
-        }
-        if (newIndex in 0..3) {
-            val bits = kpBits.getOrNull(newIndex)
-            if (bits != null) {
-                a.viewModel.onCustomButtonDown(bits)
-                if (!view.wasCenterDragged) a.performHaptic(isPress = true)
+        if (pos != null) {
+            val kpBits = ButtonPosition.keypadBitsOf(pos)
+            val anyActive = (0..3).any { kpBits.getOrNull(it)?.isNotEmpty() == true }
+            if (anyActive) {
+                a.viewModel.updateCustomKeypadRelease()
             }
         }
     }
+    view.validDirs = (0..3).filter { i ->
+        val kpBits = findKeypadPos()?.let { ButtonPosition.keypadBitsOf(it) } ?: listOf()
+        kpBits.getOrNull(i)?.isNotEmpty() == true
+    }.toSet()
     view.onCenterClickDown = {
         val pos = findKeypadPos()
         if (pos?.keypadCenterDoubleClick == true) {
             val kpBits = ButtonPosition.keypadBitsOf(pos)
-            val bits = kpBits.getOrNull(4)
+            val bits = kpBits.getOrNull(4)?.firstOrNull()
             if (bits != null) {
-                a.viewModel.onCustomButtonDown(bits)
-                if (!view.wasCenterDragged) a.performHaptic(isPress = true)
+                a.viewModel.onCustomKeypadDirection(-1, 4, pos)
             }
         }
     }
@@ -371,8 +372,8 @@ internal fun MainActivity.setupCustomKeypadTouch(view: CustomKeypadView, initial
         val pos = findKeypadPos()
         if (pos?.keypadCenterDoubleClick == true) {
             val kpBits = ButtonPosition.keypadBitsOf(pos)
-            val bits = kpBits.getOrNull(4)
-            if (bits != null) a.viewModel.onCustomButtonUp(bits)
+            val bits = kpBits.getOrNull(4)?.firstOrNull()
+            if (bits != null) a.viewModel.onCustomButtonUp(listOf(bits))
         }
     }
 }
