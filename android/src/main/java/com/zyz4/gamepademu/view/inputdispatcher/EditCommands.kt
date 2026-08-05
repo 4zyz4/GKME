@@ -97,18 +97,9 @@ sealed interface EditCommand {
         override fun applyTo(current: List<ButtonPosition>): List<ButtonPosition> {
             val idx = current.indexOfFirst { it.id == id }
             if (idx < 0) return current
-            val old = current[idx]
-            val updated = old.copy(followAreaX = newX, followAreaY = newY)
-            if (!isTouchpadId(id) || !old.followAreaEnabled) return current.toMutableList().also { it[idx] = updated }
-            val (sw, sh) = screenGridSize(updated)
-            var newBtnX = updated.x
-            var newBtnY = updated.y
-            if (updated.x < updated.followAreaX) newBtnX = updated.followAreaX
-            if (updated.y < updated.followAreaY) newBtnY = updated.followAreaY
-            if (updated.x + sw > updated.followAreaX + updated.followAreaW) newBtnX = updated.followAreaX + updated.followAreaW - sw
-            if (updated.y + sh > updated.followAreaY + updated.followAreaH) newBtnY = updated.followAreaY + updated.followAreaH - sh
-            if (newBtnX == updated.x && newBtnY == updated.y) return current.toMutableList().also { it[idx] = updated }
-            return current.toMutableList().also { it[idx] = updated.copy(x = newBtnX, y = newBtnY) }
+            return current.toMutableList().also {
+                it[idx] = current[idx].copy(followAreaX = newX, followAreaY = newY)
+            }
         }
     }
 
