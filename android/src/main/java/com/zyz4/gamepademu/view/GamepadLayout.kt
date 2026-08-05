@@ -41,6 +41,18 @@ class GamepadLayout @JvmOverloads constructor(
         clickDetector = com.zyz4.gamepademu.view.inputdispatcher.TouchpadClickDetector,
     )
 
+    private val gamepadRenderer = GamepadRenderer(
+        gridCols = GRID_COLS,
+        handleSizeDp = HANDLE_SIZE_DP.toFloat(),
+        gridBaseAlpha = GRID_BASE_ALPHA,
+        markerDistDp = 4f,
+        density = density,
+    )
+
+    private val gamepadEditGesture = GamepadEditGesture()
+
+    private val gamepadLayoutApplier = GamepadLayoutApplier()
+
     private var _editState = EditModeState()
     private var _slotState = OldSlotState()
     private var _dispatcherLastButtonState = 0
@@ -67,45 +79,6 @@ class GamepadLayout @JvmOverloads constructor(
         private val JOYSTICK_IDS = setOf("leftJoystick", "rightJoystick")
     }
 
-    private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = android.graphics.Color.rgb(120, 120, 120)
-        strokeWidth = 1f
-    }
-
-    private val selectionPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = -0x3300ff00
-        style = Paint.Style.STROKE
-        strokeWidth = 3f
-    }
-
-    private val handlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = -0x1
-        style = Paint.Style.FILL
-    }
-
-    private val markPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = -0x10000
-        textAlign = Paint.Align.CENTER
-    }
-
-    private val followAreaPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = -0x666667  // gray
-        style = Paint.Style.STROKE
-        strokeWidth = 3f
-    }
-
-    private val touchpadAreaPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = -0x666667  // same default as the joystick trigger area
-        style = Paint.Style.STROKE
-        strokeWidth = 3f
-    }
-
-    private val dpadPadAreaPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = -0x666667
-        style = Paint.Style.STROKE
-        strokeWidth = 4f
-    }
-
     // Grid fade animation
     private var gridAlpha = 0f
     private var gridAnimator: ValueAnimator? = null
@@ -114,7 +87,6 @@ class GamepadLayout @JvmOverloads constructor(
     private var previewTransparency = false
     private var previewIdleTransparency = true
     private var previewButtonId: String? = null
-
 
 
     private var cellW = 0f
@@ -274,10 +246,10 @@ class GamepadLayout @JvmOverloads constructor(
                     return true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    if (touchpadTarget != null) {
-                        dispatchFilteredToTouchpad(touchpadTarget!!, event)
+                    if (touchSession.touchpadTarget != null) {
+                        dispatchFilteredToTouchpad(touchSession.touchpadTarget!!, event)
                     }
-                    for ((pid, children) in touchTargets.toMap()) {
+                    for ((pid, children) in touchSession.touchTargets.toMap()) {
                         val idx = event.findPointerIndex(pid)
                         if (idx >= 0) {
                             for (child in children) {
@@ -288,38 +260,38 @@ class GamepadLayout @JvmOverloads constructor(
                     return true
                 }
                 MotionEvent.ACTION_POINTER_UP -> {
-                    if (touchpadTarget != null) {
+                    if (touchSession.touchpadTarget != null) {
                         val idx = event.actionIndex
                         val liftedPid = event.getPointerId(idx)
-                        if (liftedPid in touchpadPointerIds) {
-                            dispatchFilteredToTouchpad(touchpadTarget!!, event, listOf(idx))
+                        if (liftedPid in touchSession.touchpadPointerIds) {
+                            dispatchFilteredToTouchpad(touchSession.touchpadTarget!!, event, listOf(idx))
                         }
                     }
                     pointerUp(event, event.actionIndex)
                     return true
                 }
                 MotionEvent.ACTION_UP -> {
-                    if (touchpadTarget != null) {
-                        dispatchFilteredToTouchpad(touchpadTarget!!, event)
-                        touchpadTarget = null
+                    if (touchSession.touchpadTarget != null) {
+                        dispatchFilteredToTouchpad(touchSession.touchpadTarget!!, event)
+                        touchSession.touchpadTarget = null
                     }
-                    touchpadPointerIds.clear()
-                    for ((_, children) in touchTargets.toMap()) {
+                    touchSession.touchpadPointerIds.clear()
+                    for ((_, children) in touchSession.touchTargets.toMap()) {
                         for (child in children) {
                             dispatchToChild(child, event, MotionEvent.ACTION_UP, 0)
                         }
                     }
                     resetForceFollowFinger()
-                    touchTargets.clear()
+                    touchSession.touchTargets.clear()
                     return true
                 }
                 MotionEvent.ACTION_CANCEL -> {
-                    if (touchpadTarget != null) {
-                        dispatchFilteredToTouchpad(touchpadTarget!!, event)
-                        touchpadTarget = null
+                    if (touchSession.touchpadTarget != null) {
+                        dispatchFilteredToTouchpad(touchSession.touchpadTarget!!, event)
+                        touchSession.touchpadTarget = null
                     }
-                    touchpadPointerIds.clear()
-                    for ((_, children) in touchTargets) {
+                    touchSession.touchpadPointerIds.clear()
+                    for ((_, children) in touchSession.touchTargets) {
                         for (child in children) {
                             val ev = MotionEvent.obtain(
                                 event.downTime, event.eventTime,
@@ -330,7 +302,7 @@ class GamepadLayout @JvmOverloads constructor(
                         }
                     }
                     resetForceFollowFinger()
-                    touchTargets.clear()
+                    touchSession.touchTargets.clear()
                     return true
                 }
             }
@@ -423,7 +395,7 @@ class GamepadLayout @JvmOverloads constructor(
                 // Settings button is always the topmost control: a tap on it only opens settings.
                 val settingsChild = children.firstOrNull { getButtonId(it) == SETTINGS_BUTTON_ID }
                 if (settingsChild != null) {
-                    touchTargets[pid] = mutableListOf(settingsChild)
+                    touchSession.touchTargets[pid] = mutableListOf(settingsChild)
                     dispatchToChild(settingsChild, event, MotionEvent.ACTION_DOWN, 0)
                     return true
                 }
@@ -435,7 +407,7 @@ class GamepadLayout @JvmOverloads constructor(
                 }
                 val regularChildren = children.filter { getButtonId(it) !in swipeTriggerIds }
                 if (regularChildren.isNotEmpty()) {
-                    touchTargets[pid] = regularChildren.toMutableList()
+                    touchSession.touchTargets[pid] = regularChildren.toMutableList()
                     for (child in regularChildren) {
                         dispatchToChild(child, event, MotionEvent.ACTION_DOWN, 0)
                     }
@@ -453,7 +425,7 @@ class GamepadLayout @JvmOverloads constructor(
                 val children = filterOverlapChildren(allChildren)
                 val settingsChild = children.firstOrNull { getButtonId(it) == SETTINGS_BUTTON_ID }
                 if (settingsChild != null) {
-                    touchTargets[pid] = mutableListOf(settingsChild)
+                    touchSession.touchTargets[pid] = mutableListOf(settingsChild)
                     dispatchToChild(settingsChild, event, MotionEvent.ACTION_DOWN, idx)
                     return true
                 }
@@ -465,7 +437,7 @@ class GamepadLayout @JvmOverloads constructor(
                 }
                 val regularChildren = children.filter { getButtonId(it) !in swipeTriggerIds }
                 if (regularChildren.isNotEmpty()) {
-                    touchTargets[pid] = regularChildren.toMutableList()
+                    touchSession.touchTargets[pid] = regularChildren.toMutableList()
                     for (child in regularChildren) {
                         dispatchToChild(child, event, MotionEvent.ACTION_DOWN, idx)
                     }
@@ -475,7 +447,7 @@ class GamepadLayout @JvmOverloads constructor(
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
-                for ((pid, children) in touchTargets.toMap()) {
+                for ((pid, children) in touchSession.touchTargets.toMap()) {
                     val idx = event.findPointerIndex(pid)
                     if (idx >= 0) {
                         for (child in children) {
@@ -490,7 +462,7 @@ class GamepadLayout @JvmOverloads constructor(
             MotionEvent.ACTION_POINTER_UP -> {
                 val idx = event.actionIndex
                 val pid = event.getPointerId(idx)
-                val children = touchTargets.remove(pid)
+                val children = touchSession.touchTargets.remove(pid)
                 if (children != null) {
                     for (child in children) {
                         dispatchToChild(child, event, MotionEvent.ACTION_UP, idx)
@@ -519,7 +491,7 @@ class GamepadLayout @JvmOverloads constructor(
                 } else {
                     MotionEvent.ACTION_CANCEL
                 }
-                for ((_, children) in touchTargets) {
+                for ((_, children) in touchSession.touchTargets) {
                     for (child in children) {
                         val ev = MotionEvent.obtain(
                             event.downTime, event.eventTime,
@@ -529,7 +501,7 @@ class GamepadLayout @JvmOverloads constructor(
                         ev.recycle()
                     }
                 }
-                touchTargets.clear()
+                touchSession.touchTargets.clear()
                 resetForceFollowFinger()
                 // Release all active swipe buttons
                 for ((_, child) in activeSwipeButtons) {
@@ -556,15 +528,9 @@ class GamepadLayout @JvmOverloads constructor(
         return null
     }
 
-    private val touchTargets = HashMap<Int, MutableList<View>>()
+    private val touchSession = TouchSession()
 
     // ── Normal multi-touch dispatch (no swipe trigger) ───────
-
-    /** Set of pointer IDs whose initial touch-down was on the touchpad. */
-    private val touchpadPointerIds = mutableSetOf<Int>()
-
-    /** When set, the touchpad child is active and receiving touchpad-pointer events. */
-    private var touchpadTarget: View? = null
 
     private fun pointerDown(event: MotionEvent, idx: Int) {
         val pid = event.getPointerId(idx)
@@ -577,7 +543,7 @@ class GamepadLayout @JvmOverloads constructor(
         // Settings button is always the topmost control: a tap on it only opens settings.
         val settingsChild = children.firstOrNull { getButtonId(it) == SETTINGS_BUTTON_ID }
         if (settingsChild != null) {
-            touchTargets[pid] = mutableListOf(settingsChild)
+            touchSession.touchTargets[pid] = mutableListOf(settingsChild)
             dispatchToChild(settingsChild, event, MotionEvent.ACTION_DOWN, idx)
             return
         }
@@ -594,12 +560,12 @@ class GamepadLayout @JvmOverloads constructor(
 
         val tp = children.firstOrNull { getButtonId(it) == "touchpad" }
         if (tp != null) {
-            touchpadTarget = tp
-            touchpadPointerIds.add(pid)
+            touchSession.touchpadTarget = tp
+            touchSession.touchpadPointerIds.add(pid)
             dispatchFilteredToTouchpad(tp, event)
             return
         }
-        touchTargets[pid] = children.toMutableList()
+        touchSession.touchTargets[pid] = children.toMutableList()
         for (child in children) {
             dispatchToChild(child, event, MotionEvent.ACTION_DOWN, idx)
         }
@@ -607,7 +573,7 @@ class GamepadLayout @JvmOverloads constructor(
 
     private fun pointerUp(event: MotionEvent, idx: Int) {
         val pid = event.getPointerId(idx)
-        val children = touchTargets.remove(pid)
+        val children = touchSession.touchTargets.remove(pid)
         if (children != null) {
             for (child in children) {
                 dispatchToChild(child, event, MotionEvent.ACTION_UP, idx)
@@ -618,17 +584,17 @@ class GamepadLayout @JvmOverloads constructor(
                 }
             }
         }
-        touchpadPointerIds.remove(pid)
-        if (touchpadPointerIds.isEmpty()) {
-            touchpadTarget = null
+        touchSession.touchpadPointerIds.remove(pid)
+        if (touchSession.touchpadPointerIds.isEmpty()) {
+            touchSession.touchpadTarget = null
         }
     }
 
     /** Deliver only touchpad-originated pointers to the touchpad child.
      *  When [indices] is given, only those pointer indices are included;
-     *  otherwise all pointers whose ID is in [touchpadPointerIds] are included. */
+     *  otherwise all pointers whose ID is in [touchSession.touchpadPointerIds] are included. */
     private fun dispatchFilteredToTouchpad(child: View, event: MotionEvent, indices: List<Int>? = null) {
-        val include = indices ?: (0 until event.pointerCount).filter { event.getPointerId(it) in touchpadPointerIds }
+        val include = indices ?: (0 until event.pointerCount).filter { event.getPointerId(it) in touchSession.touchpadPointerIds }
         if (include.isEmpty()) return
 
         if (include.size == event.pointerCount) {
@@ -744,20 +710,17 @@ class GamepadLayout @JvmOverloads constructor(
     }
 
     fun setFollowAreaAppearance(color: Int, strokeWidth: Int) {
-        followAreaPaint.color = color
-        followAreaPaint.strokeWidth = strokeWidth.toFloat()
+        gamepadRenderer.setFollowAreaAppearance(color, strokeWidth.toFloat())
         invalidate()
     }
 
     fun setTouchpadAreaAppearance(color: Int, strokeWidth: Int) {
-        touchpadAreaPaint.color = color
-        touchpadAreaPaint.strokeWidth = strokeWidth.toFloat()
+        gamepadRenderer.setTouchpadAreaAppearance(color, strokeWidth.toFloat())
         invalidate()
     }
 
     fun setDpadPadTriggerAreaAppearance(color: Int, strokeWidth: Int) {
-        dpadPadAreaPaint.color = color
-        dpadPadAreaPaint.strokeWidth = strokeWidth.toFloat()
+        gamepadRenderer.setDpadPadTriggerAreaAppearance(color, strokeWidth.toFloat())
         invalidate()
     }
 
@@ -771,6 +734,7 @@ class GamepadLayout @JvmOverloads constructor(
     }
 
     fun enterEditMode() {
+        gamepadEditGesture.reset()
         editSnapshot = getPreset()
         isEditMode = true
         hasChanges = false
@@ -783,6 +747,7 @@ class GamepadLayout @JvmOverloads constructor(
     }
 
     fun exitEditMode() {
+        gamepadEditGesture.reset()
         isEditMode = false
         selectedButtonId = null
         isAdjustingFollowArea = false
@@ -963,7 +928,7 @@ class GamepadLayout @JvmOverloads constructor(
             toDispatch[1] = followAreaChild.first().first
         }
 
-        touchTargets[pid] = toDispatch
+        touchSession.touchTargets[pid] = toDispatch
         dispatchToChild(followAreaChild.first().first, event, MotionEvent.ACTION_DOWN, idx)
         for (c in toDispatch) {
             if (c != followAreaChild.first().first) {
@@ -1012,7 +977,7 @@ class GamepadLayout @JvmOverloads constructor(
             }
         }
 
-        touchTargets[pid] = toDispatch
+        touchSession.touchTargets[pid] = toDispatch
         for (c in toDispatch) {
             dispatchToChild(c, event, MotionEvent.ACTION_DOWN, idx)
         }
@@ -1052,94 +1017,72 @@ class GamepadLayout @JvmOverloads constructor(
         cellW = w.toFloat() / GRID_COLS
         cellH = cellW
 
+        val buttonMap = currentButtons.associateBy { it.id }.toMap()
+
+        // Delegate child layout configuration to GamepadLayoutApplier
+        gamepadLayoutApplier.applyLayout(
+            childCount = childCount,
+            getChildAt = { i -> getChildAt(i) },
+            getButtonId = ::getButtonId,
+            buttons = buttonMap,
+            cellW = cellW,
+            cellH = cellH,
+            selectedButtonId = selectedButtonId,
+            isEditMode = isEditMode,
+            previewTransparency = previewTransparency,
+            previewButtonId = previewButtonId,
+            previewIdleTransparency = previewIdleTransparency,
+            isAdaptiveContentButton = ::isAdaptiveContentButton,
+            contentCapPx = { view, settings -> AppearanceApplier.contentCapPx(view, settings) },
+            applyContentTextCap = { btn, capPx -> AppearanceApplier.applyContentTextCap(btn, capPx) },
+            getRotation = ::getRotation,
+        )
+
+        // Apply per-child config that the applier doesn't cover: adaptive padding,
+        // content text cap, joystick/dpadPad/keypad-specific properties, rotation.
         for (i in 0 until childCount) {
             val child = getChildAt(i)
             val id = getButtonId(child) ?: continue
-            val pos = currentButtons.find { it.id == id }
-            if (pos == null) {
-                child.visibility = View.GONE
-                continue
-            }
+            val pos = buttonMap[id] ?: continue
 
-            if (!pos.visible) {
-                if (child.visibility != View.GONE) child.visibility = View.GONE
-                continue
-            }
-            if (child.visibility != View.VISIBLE) child.visibility = View.VISIBLE
-
-            val isSwapped = !pos.lockAspect && (pos.rotation == 90 || pos.rotation == 270)
-            val childW = ((if (isSwapped) pos.height else pos.width) * cellW).toInt()
-            val childH = ((if (isSwapped) pos.width else pos.height) * cellH).toInt()
-            val left = (pos.x * cellW).toInt()
-            val top = (pos.y * cellH).toInt()
-
-            child.measure(
-                MeasureSpec.makeMeasureSpec(childW, MeasureSpec.EXACTLY),
-                MeasureSpec.makeMeasureSpec(childH, MeasureSpec.EXACTLY),
-            )
-            child.layout(left, top, left + childW, top + childH)
-            // Content (text / foreground icon / image) always keeps a min(w,h) x 10% padding,
-            // whether or not adaptive icon size is enabled. Buttons whose icon IS their background
-            // (touchpad, LS/RS before separation) are excluded here.
+            // Adaptive content padding
             if (isAdaptiveContentButton(id, child)) {
-                val pad = (minOf(childW, childH) * 0.1f).toInt()
+                val pad = (minOf(child.width, child.height) * 0.1f).toInt()
                 if (child.paddingLeft != pad || child.paddingTop != pad) {
                     child.setPadding(pad, pad, pad, pad)
                 }
             }
-            // Auto-fit text cap tracks the measured size (the first appearance pass may have
-            // run before layout), so it is applied here to every text button - not just the
-            // adaptive-content ones - to make the cap load on the first layout pass. Null cap
-            // = unlimited.
+
+            // Content text cap
             val capPx = AppearanceApplier.contentCapPx(child, appearanceSettings)
             if (child is Button && !child.text.isNullOrEmpty()) {
                 AppearanceApplier.applyContentTextCap(
                     child, capPx ?: AppearanceApplier.UNLIMITED_TEXT_CAP_PX
                 )
             }
-            if (isEditMode && previewTransparency && id == previewButtonId) {
-                val transVal = if (previewIdleTransparency) pos.idleTransparency else pos.activeTransparency
-                child.alpha = 1f - (transVal.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
-            } else if (isEditMode) {
-                child.alpha = 1f
-            } else {
-                child.alpha = 1f - (pos.idleTransparency.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
-            }
+
+            // JoystickView-specific properties
             if (child is JoystickView) {
-                child.axisRotation = pos.rotation
-                child.doubleClickEnable = pos.doubleClickEnable
                 child.sensitivityCurve = pos.sensitivityCurve
-                child.deadZone = pos.deadZone
-                child.reverseDeadZone = pos.reverseDeadZone
-                child.showDeadZoneIndicator = isEditMode && id == selectedButtonId
-                child.forceFollowFinger = false
-                child.idleTransparency = pos.idleTransparency.coerceIn(0, 255)
-                child.activeTransparency = pos.activeTransparency.coerceIn(0, 255)
-            } else if (child is DpadPadView) {
+                child.doubleClickEnable = pos.doubleClickEnable
+            }
+
+            // DpadPadView-specific properties
+            if (child is DpadPadView) {
                 child.arrowMaxSizePx = AppearanceApplier.contentCapPx(child, appearanceSettings)?.toFloat()
-                child.forceFollowFinger = false
-                child.idleTransparency = pos.idleTransparency.coerceIn(0, 255)
-                child.activeTransparency = pos.activeTransparency.coerceIn(0, 255)
-                child.rotation = pos.rotation.toFloat()
-            } else if (child is CustomKeypadView) {
+            }
+
+            // CustomKeypadView-specific properties
+            if (child is CustomKeypadView) {
                 child.keypadTexts = ButtonPosition.keypadTextsOf(pos)
                 child.keypadCenterDoubleClick = pos.keypadCenterDoubleClick
-                child.forceFollowFinger = false
-                child.idleTransparency = pos.idleTransparency.coerceIn(0, 255)
-                child.activeTransparency = pos.activeTransparency.coerceIn(0, 255)
-                child.rotation = pos.rotation.toFloat()
-                val kpBits = ButtonPosition.keypadBitsOf(pos)
-                child.validDirs = (0..3).filter { i ->
-                    kpBits.getOrNull(i)?.isNotEmpty() == true
-                }.toSet()
-            } else if (child is ViewGroup) {
+            }
+
+            // ViewGroup children: rotate nested children
+            if (child is ViewGroup) {
                 for (j in 0 until child.childCount) {
                     child.getChildAt(j).rotation = pos.rotation.toFloat()
                 }
-            } else if (child is RotatableButton) {
-                child.textRotation = pos.rotation
-            } else if (pos.lockAspect) {
-                child.rotation = pos.rotation.toFloat()
             }
         }
     }
@@ -1147,83 +1090,21 @@ class GamepadLayout @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
-        // Draw area rectangles for joysticks, dpadPad and touchpads (always visible when enabled, even outside edit mode)
-        for (pos in currentButtons) {
-            val isJoyArea = pos.id.substringBefore("_") in JOYSTICK_IDS
-            val isTpArea = isTouchpadId(pos.id)
-            val isDpadPadArea = pos.id == "dpadPad"
-            val isKeypadArea = pos.id.substringBefore("_") == "customKeypad"
-            if ((isJoyArea || isTpArea || isDpadPadArea || isKeypadArea) && pos.followAreaEnabled) {
-                val areaPaint = when {
-                    isTpArea -> touchpadAreaPaint
-                    isDpadPadArea || isKeypadArea -> dpadPadAreaPaint
-                    else -> followAreaPaint
-                }
-                val fLeft = (pos.followAreaX * cellW).toInt().toFloat()
-                val fTop = (pos.followAreaY * cellH).toInt().toFloat()
-                val fRight = ((pos.followAreaX + pos.followAreaW) * cellW).toInt().toFloat()
-                val fBottom = ((pos.followAreaY + pos.followAreaH) * cellH).toInt().toFloat()
+        gamepadRenderer.gridAlpha = gridAlpha
 
-                if (areaPaint.strokeWidth > 0f) {
-                    areaPaint.alpha = (255 - pos.followAreaTransparency.coerceIn(0, 255)).coerceIn(0, 255)
-                    canvas.drawRect(fLeft, fTop, fRight, fBottom, areaPaint)
-                    areaPaint.alpha = 255
-                }
-
-                if (pos.id == adjustingFollowAreaId && isAdjustingFollowArea) {
-                    val handleDp2 = HANDLE_SIZE_DP * density
-                    canvas.drawRect(fRight - handleDp2, fBottom - handleDp2, fRight, fBottom, handlePaint)
-                }
-            }
-        }
-
-        if (!isEditMode) return
-
-        gridPaint.alpha = (gridAlpha * 255).toInt().coerceIn(0, 255)
-        val rows = (height / cellH).toInt() + 1
-        for (col in 0..GRID_COLS) {
-            val x = col * cellW
-            canvas.drawLine(x, 0f, x, height.toFloat(), gridPaint)
-        }
-        for (row in 0..rows) {
-            val y = row * cellH
-            canvas.drawLine(0f, y, width.toFloat(), y, gridPaint)
-        }
-
-        val selId = selectedButtonId ?: return
-        val pos = currentButtons.find { it.id == selId } ?: return
-        val vb = visualBounds(pos)
-        val vl = (vb[0] * cellW).toInt().toFloat()
-        val vt = (vb[1] * cellH).toInt().toFloat()
-        val vbw = (vb[2] * cellW).toInt().toFloat()
-        val vbh = (vb[3] * cellH).toInt().toFloat()
-
-        if (!isAdjustingFollowArea) {
-            selectionPaint.setStrokeWidth(3f * density)
-            canvas.drawRect(vl, vt, vl + vbw, vt + vbh, selectionPaint)
-        }
-
-        val handleDp = HANDLE_SIZE_DP * density
-        val handleX = vl + vbw - handleDp
-        val handleY = vt + vbh - handleDp
-        if (!isAdjustingFollowArea) {
-            canvas.drawRect(handleX, handleY, handleX + handleDp, handleY + handleDp, handlePaint)
-        }
-
-        markPaint.textSize = 14f * density
-        val markerDist = 4f * density
-        val (markX, markY, markAngle) = when (pos.rotation % 360) {
-            90 -> Triple(vl + vbw + markerDist, vt + vbh / 2, 90f)
-            180 -> Triple(vl + vbw / 2, vt + vbh + markerDist, 180f)
-            270 -> Triple(vl - markerDist, vt + vbh / 2, 270f)
-            else -> Triple(vl + vbw / 2, vt - markerDist, 0f)
-        }
-        if (!isAdjustingFollowArea && pos.id != SETTINGS_BUTTON_ID) {
-            canvas.save()
-            canvas.rotate(markAngle, markX, markY)
-            canvas.drawText("上", markX, markY, markPaint)
-            canvas.restore()
-        }
+        // Delegate rendering to GamepadRenderer
+        gamepadRenderer.render(
+            canvas = canvas,
+            width = width,
+            height = height,
+            cellW = cellW,
+            cellH = cellH,
+            buttons = currentButtons,
+            selectedButtonId = selectedButtonId,
+            isEditMode = isEditMode,
+            adjustingFollowAreaId = adjustingFollowAreaId,
+            isAdjustingFollowArea = isAdjustingFollowArea,
+        )
     }
 
     override fun onInterceptTouchEvent(event: MotionEvent): Boolean {
@@ -1271,100 +1152,87 @@ class GamepadLayout @JvmOverloads constructor(
             }
         }
 
-        when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                // Sync adjustingFollowArea into editState
-                _editState = _editState.copy(
-                    isAdjustingFollowArea = isAdjustingFollowArea,
-                    adjustingFollowAreaId = adjustingFollowAreaId,
-                )
+        // Delegate edit-mode gesture dispatch to GamepadEditGesture
+        val output = gamepadEditGesture.dispatch(
+            event = event,
+            raw = raw,
+            buttons = currentButtons,
+            buttonBounds = bounds,
+            allChildren = allChildren,
+            cellW = cellW,
+            cellH = cellH,
+            density = density,
+            dispatcher = dispatcher,
+            findChildAt = ::findChildAt,
+        )
 
-                val result = dispatcher.dispatchEdit(
-                    raw, currentButtons, bounds, allChildren,
-                    _editState, cellW, cellH, density, selectedButtonId,
-                )
-                _editState = result.newState
+        // Sync edit-state fields from gesture module's output
+        isAdjustingFollowArea = output.syncIsAdjustingFollowArea
+        adjustingFollowAreaId = output.syncAdjustingFollowAreaId
+        draggingChild = output.syncDraggingChild
+        resizingChild = output.syncResizingChild
+        draggingFollowArea = output.syncDraggingFollowArea
+        resizingFollowArea = output.syncResizingFollowArea
 
-                // Sync editState back to local fields
-                isAdjustingFollowArea = _editState.isAdjustingFollowArea
-                adjustingFollowAreaId = _editState.adjustingFollowAreaId
+        // Apply state-change commands (no MoveButton) on down
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+            applyEditCommandsNoMove(output.commandsNoMove)
 
-                if (_editState.childDragStart != null) {
-                    draggingChild = findChildAt(event.x, event.y)
-                    if (draggingChild != null) {
-                        dragOffsetX = _editState.childDragStart!!.offsetX
-                        dragOffsetY = _editState.childDragStart!!.offsetY
-                        val cid = getButtonId(draggingChild!!)
-                        if (cid != null) setSelectedButton(cid)
+            // Wire drag/resize start state to local fields
+            if (output.selectDraggingChild != null) {
+                draggingChild = findChildAt(event.x, event.y)
+                if (draggingChild != null) {
+                    dragOffsetX = event.x - draggingChild!!.left
+                    dragOffsetY = event.y - draggingChild!!.top
+                    setSelectedButton(output.selectDraggingChild)
+                    animateGridTo(1f)
+                }
+            }
+            if (output.selectResizingChild != null) {
+                resizingChild = findChildAt(event.x, event.y)
+                if (resizingChild != null) {
+                    val pos = currentButtons.find { it.id == output.selectResizingChild }
+                    if (pos != null) {
+                        resizeStartW = pos.width
+                        resizeStartH = pos.height
                         animateGridTo(1f)
                     }
                 }
-                if (_editState.childResizeStart != null) {
-                    resizingChild = findChildAt(event.x, event.y)
-                    if (resizingChild != null) {
-                        val pos = currentButtons.find { it.id == _editState.childResizeStart!!.buttonId }
-                        if (pos != null) {
-                            resizeStartW = pos.width
-                            resizeStartH = pos.height
-                            resizeStartGridX = _editState.childResizeStart!!.resizeStartGridX
-                            resizeStartGridY = _editState.childResizeStart!!.resizeStartGridY
-                            animateGridTo(1f)
-                        }
-                    }
-                }
-                if (_editState.followAreaDragStart != null || _editState.followAreaResizeStart != null) {
-                    draggingFollowArea = _editState.followAreaDragStart != null
-                    resizingFollowArea = _editState.followAreaResizeStart != null
-                    animateGridTo(1f)
-                }
-
-                applyEditCommandsNoMove(result.commands)
-                return true
-            }
-            MotionEvent.ACTION_MOVE -> {
-                val result = dispatcher.dispatchEdit(
-                    raw, currentButtons, bounds, allChildren,
-                    _editState, cellW, cellH, density, selectedButtonId,
-                )
-                _editState = result.newState
-                isAdjustingFollowArea = _editState.isAdjustingFollowArea
-                adjustingFollowAreaId = _editState.adjustingFollowAreaId
-
-                applyEditCommands(result.commands)
-                return true
-            }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                _editState = dispatcher.dispatchEdit(
-                    raw, currentButtons, bounds, allChildren,
-                    _editState, cellW, cellH, density, selectedButtonId,
-                ).newState
-
-                if (isAdjustingFollowArea || adjustingFollowAreaId != null) {
-                    val id = adjustingFollowAreaId
-                    if (id != null) {
-                        listener?.onButtonSelected(id)
-                    }
-                }
-                if (resizingChild != null) {
-                    val id = getButtonId(resizingChild!!)
-                    if (id != null) listener?.onButtonSelected(id)
-                    resizingChild = null
-                }
-                if (draggingChild != null) {
-                    val id = getButtonId(draggingChild!!)
-                    if (id != null) {
-                        val pos = currentButtons.find { it.id == id }
-                        if (pos != null) listener?.onButtonSelected(id)
-                    }
-                    draggingChild = null
-                }
-                draggingFollowArea = false
-                resizingFollowArea = false
-                animateGridTo(0f)
-                return true
             }
         }
-        return false
+
+        // Apply all commands on move
+        if (event.actionMasked == MotionEvent.ACTION_MOVE) {
+            applyEditCommands(output.commands)
+        }
+
+        // On up/cancel: finalize and select button
+        if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+            if (isAdjustingFollowArea || adjustingFollowAreaId != null) {
+                val id = adjustingFollowAreaId
+                if (id != null) {
+                    listener?.onButtonSelected(id)
+                }
+            }
+            if (resizingChild != null) {
+                val id = getButtonId(resizingChild!!)
+                if (id != null) listener?.onButtonSelected(id)
+                resizingChild = null
+            }
+            if (draggingChild != null) {
+                val id = getButtonId(draggingChild!!)
+                if (id != null) {
+                    val pos = currentButtons.find { it.id == id }
+                    if (pos != null) listener?.onButtonSelected(id)
+                }
+                draggingChild = null
+            }
+            draggingFollowArea = false
+            resizingFollowArea = false
+            animateGridTo(0f)
+        }
+
+        return true
     }
 
     private fun isOnFollowAreaHandle(x: Float, y: Float, pos: ButtonPosition): Boolean {
