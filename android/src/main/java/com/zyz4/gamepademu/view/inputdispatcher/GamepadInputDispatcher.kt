@@ -268,15 +268,11 @@ override fun dispatchEdit(
         if (state.followAreaDragStart != null) {
             val ds = state.followAreaDragStart
             var newX = (ds.startX + (x / cellW).toInt() - ds.dragStartGridX)
-            var newY = (ds.startY + (y / cellH).toInt())
+            var newY = (ds.startY + (y / cellH).toInt() - ds.dragStartGridY)
             val pos = buttons.find { it.id == ds.buttonId } ?: return EditDispatchResult(commands, state)
             if (isTouchpadId(pos.id) && pos.followAreaEnabled) {
-                val maxAx = (LayoutEngine.GRID_COLS - pos.followAreaW).coerceAtLeast(0)
-                val maxAy = if (cellW > 0f) (120 - pos.followAreaH).coerceAtLeast(0) else Int.MAX_VALUE
-                newX = newX.coerceIn(0, maxAx)
-                newY = newY.coerceIn(0, maxAy)
-                newX = minOf(newX, pos.x)
-                newY = minOf(newY, pos.y)
+                newX = newX.coerceIn(0, (LayoutEngine.GRID_COLS - pos.followAreaW).coerceAtLeast(0))
+                newY = newY.coerceIn(0, if (cellW > 0f) (120 - pos.followAreaH).coerceAtLeast(0) else Int.MAX_VALUE)
             }
             commands += MoveFollowArea(ds.buttonId, newX, newY)
             return EditDispatchResult(commands, state)
