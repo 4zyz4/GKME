@@ -204,6 +204,8 @@ override fun dispatchEdit(
                         (x / cellW).toInt(), (y / cellH).toInt()),
                 ))
             }
+            // When adjusting follow-area, ignore button hits outside the follow-area rect
+            // to prevent button selection / drag from triggering
             return EditDispatchResult(commands, state)
         }
 
