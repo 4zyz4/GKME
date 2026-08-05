@@ -51,6 +51,18 @@ class GamepadLayout @JvmOverloads constructor(
 
     private val gamepadEditGesture = GamepadEditGesture()
 
+    private val gamepadFollowAreaTrigger = GamepadFollowAreaTrigger(
+        dispatchToChild = { child, event, action, pointerIdx -> dispatchToChild(child, event, action, pointerIdx) },
+        setForceFollowFinger = { child, enabled ->
+            when (child) {
+                is JoystickView -> child.forceFollowFinger = enabled
+                is DpadPadView -> child.forceFollowFinger = enabled
+                is CustomKeypadView -> child.forceFollowFinger = enabled
+            }
+        },
+        setTouchTargets = { pid, targets -> touchSession.touchTargets[pid] = targets.toMutableList() },
+    )
+
     private val gamepadLayoutApplier = GamepadLayoutApplier()
 
     private var _editState = EditModeState()
@@ -594,57 +606,11 @@ class GamepadLayout @JvmOverloads constructor(
      *  When [indices] is given, only those pointer indices are included;
      *  otherwise all pointers whose ID is in [touchSession.touchpadPointerIds] are included. */
     private fun dispatchFilteredToTouchpad(child: View, event: MotionEvent, indices: List<Int>? = null) {
-        val include = indices ?: (0 until event.pointerCount).filter { event.getPointerId(it) in touchSession.touchpadPointerIds }
-        if (include.isEmpty()) return
-
-        if (include.size == event.pointerCount) {
-            val ev = MotionEvent.obtain(event)
-            ev.offsetLocation(-child.left.toFloat(), -child.top.toFloat())
-            child.dispatchTouchEvent(ev)
-            ev.recycle()
-            return
-        }
-
-        val props = Array(include.size) { i ->
-            MotionEvent.PointerProperties().also { event.getPointerProperties(include[i], it) }
-        }
-        val coords = Array(include.size) { i ->
-            MotionEvent.PointerCoords().also { event.getPointerCoords(include[i], it) }
-        }
-
-        val rawAction = event.actionMasked
-        val newAction = if (include.size == 1 && rawAction == MotionEvent.ACTION_POINTER_DOWN) {
-            MotionEvent.ACTION_DOWN
-        } else if (include.size == 1 && rawAction == MotionEvent.ACTION_POINTER_UP) {
-            MotionEvent.ACTION_UP
-        } else {
-            rawAction
-        }
-
-        val ev = MotionEvent.obtain(
-            event.downTime, event.eventTime,
-            newAction, include.size,
-            props, coords,
-            event.metaState, event.buttonState,
-            event.xPrecision, event.yPrecision,
-            event.deviceId, event.edgeFlags,
-            event.source, event.flags
-        )
-        ev.offsetLocation(-child.left.toFloat(), -child.top.toFloat())
-        child.dispatchTouchEvent(ev)
-        ev.recycle()
+        GamepadTouchDispatchUtils.dispatchFilteredToTouchpad(child, event, touchSession.touchpadPointerIds, indices)
     }
 
     private fun dispatchToChild(child: View, event: MotionEvent, action: Int, pointerIdx: Int) {
-        val ev = MotionEvent.obtain(
-            event.downTime, event.eventTime,
-            action,
-            event.getX(pointerIdx) - child.left,
-            event.getY(pointerIdx) - child.top,
-            event.metaState
-        )
-        child.dispatchTouchEvent(ev)
-        ev.recycle()
+        GamepadTouchDispatchUtils.dispatchToChild(child, event, action, pointerIdx)
     }
 
     interface GamepadLayoutListener {
@@ -697,6 +663,22 @@ class GamepadLayout @JvmOverloads constructor(
             y = p.y.coerceIn(0, maxRow)
         )
         return p
+    }
+
+    private fun onScreenGridSize(pos: ButtonPosition): Pair<Int, Int> {
+        return GamepadLayoutGeometry.onScreenGridSize(pos)
+    }
+
+    private fun touchpadContainedByArea(pos: ButtonPosition): Boolean {
+        return GamepadLayoutGeometry.touchpadContainedByArea(pos)
+    }
+
+    private fun normalizeTouchpadArea(pos: ButtonPosition): ButtonPosition {
+        return GamepadTouchpadUtils.normalizeTouchpadArea(pos)
+    }
+
+    private fun shrinkTouchpadToArea(pos: ButtonPosition): ButtonPosition {
+        return GamepadTouchpadUtils.shrinkTouchpadToArea(pos)
     }
 
     /** Brings the settings button to the very top of the child stack so it is always the topmost control. */
@@ -767,6 +749,12 @@ class GamepadLayout @JvmOverloads constructor(
     fun enterFollowAreaAdjust(buttonId: String) {
         isAdjustingFollowArea = true
         adjustingFollowAreaId = buttonId
+        _editState = _editState.copy(
+            isAdjustingFollowArea = true,
+            adjustingFollowAreaId = buttonId,
+        )
+        gamepadEditGesture.isAdjustingFollowArea = true
+        gamepadEditGesture.adjustingFollowAreaId = buttonId
         setSelectedButton(buttonId)
         listener?.onButtonSelected(buttonId)
         invalidate()
@@ -775,6 +763,13 @@ class GamepadLayout @JvmOverloads constructor(
     fun exitFollowAreaAdjust() {
         isAdjustingFollowArea = false
         adjustingFollowAreaId = null
+        _editState = _editState.copy(
+            isAdjustingFollowArea = false,
+            adjustingFollowAreaId = null,
+            followAreaDragStart = null,
+        )
+        gamepadEditGesture.isAdjustingFollowArea = false
+        gamepadEditGesture.adjustingFollowAreaId = null
         invalidate()
     }
 
@@ -881,118 +876,46 @@ class GamepadLayout @JvmOverloads constructor(
         swipeTriggerIds = currentButtons.filter { it.swipeTrigger }.map { it.id }.toSet()
     }
 
-    /** Activate follow-area trigger for a joystick or dpadPad.
-     *  Only fires if the finger is inside the follow-area rect AND not inside any overlapping
-     *  control's visual bounds (unless that control has overlapTrigger=true).
-     *  Returns true if a matching view was found and dispatched. */
+/** Activate follow-area trigger for a joystick or dpadPad.
+      *  Only fires if the finger is inside the follow-area rect AND not inside any overlapping
+      *  control's visual bounds (unless that control has overlapTrigger=true).
+      *  Returns true if a matching view was found and dispatched. */
     private fun tryFollowAreaTrigger(x: Float, y: Float, pid: Int, event: MotionEvent, idx: Int): Boolean {
-        val followAreaChild = mutableListOf<Pair<View, ButtonPosition>>()
-        for (i in 0 until childCount) {
-            val child = getChildAt(i)
-            if (child.visibility != View.VISIBLE) continue
-            val cid = getButtonId(child) ?: continue
-            val pos = currentButtons.find { it.id == cid } ?: continue
-            if (!pos.followAreaEnabled) continue
-            val areaLeft = pos.followAreaX * cellW
-            val areaTop = pos.followAreaY * cellH
-            val areaRight = (pos.followAreaX + pos.followAreaW) * cellW
-            val areaBottom = (pos.followAreaY + pos.followAreaH) * cellH
-            if (x >= areaLeft && x <= areaRight && y >= areaTop && y <= areaBottom) {
-                followAreaChild.add(child to pos)
-            }
-        }
-        if (followAreaChild.isEmpty()) return false
-
-        // Check if there are other (non-follow-area) children at this point.
-        // If so, the follow-area control should NOT fire here — let normal dispatch handle it.
-        // followAreaOverlapTrigger=false means the follow area loses to overlapping controls.
-        // When followAreaOverlapTrigger=true, tryFollowAreaOverlapTrigger handles it instead.
-        val otherChildren = findAllChildrenAt(x, y).filter { it !in followAreaChild.map { it.first } }
-        if (otherChildren.isNotEmpty()) return false
-
-        for ((child, _) in followAreaChild) {
-            when (child) {
-                is JoystickView -> child.forceFollowFinger = true
-                is DpadPadView -> child.forceFollowFinger = true
-                is CustomKeypadView -> child.forceFollowFinger = true
-            }
-        }
-
-        val toDispatch = mutableListOf<View>()
-        for ((child, _) in followAreaChild) {
-            toDispatch.add(child)
-        }
-
-        if (toDispatch.size > 1) {
-            toDispatch[0] = toDispatch[1]
-            toDispatch[1] = followAreaChild.first().first
-        }
-
-        touchSession.touchTargets[pid] = toDispatch
-        dispatchToChild(followAreaChild.first().first, event, MotionEvent.ACTION_DOWN, idx)
-        for (c in toDispatch) {
-            if (c != followAreaChild.first().first) {
-                dispatchToChild(c, event, MotionEvent.ACTION_DOWN, idx)
-            }
-        }
-        return true
+        val children = (0 until childCount).asSequence().map { getChildAt(it) }.toList()
+        return gamepadFollowAreaTrigger.tryFollowAreaTrigger(
+            x, y, pid, event, idx,
+            children,
+            ::findAllChildrenAt,
+            ::childToButtonPosition,
+            cellW, cellH,
+        )
     }
 
     /** Called when a touch point lands inside a non-joystick control's bounds AND inside a follow-area rect.
-     *  Only fires if [followAreaOverlapTrigger] is true. This allows the follow-area control to activate
-     *  even though another control visually covers the touch point. */
+      *  Only fires if [followAreaOverlapTrigger] is true. This allows the follow-area control to activate
+      *  even though another control visually covers the touch point. */
     private fun tryFollowAreaOverlapTrigger(x: Float, y: Float, pid: Int, event: MotionEvent, idx: Int): Boolean {
-        val followAreaChild = mutableListOf<View>()
-        for (i in 0 until childCount) {
-            val child = getChildAt(i)
-            if (child.visibility != View.VISIBLE) continue
-            val cid = getButtonId(child) ?: continue
-            val pos = currentButtons.find { it.id == cid } ?: continue
-            if (!pos.followAreaEnabled || !pos.followAreaOverlapTrigger) continue
-            if (isInFollowArea(x, y, pos)) {
-                followAreaChild.add(child)
-            }
-        }
-        if (followAreaChild.isEmpty()) return false
+        val children = (0 until childCount).asSequence().map { getChildAt(it) }.toList()
+        return gamepadFollowAreaTrigger.tryFollowAreaOverlapTrigger(
+            x, y, pid, event, idx,
+            children,
+            ::findAllChildrenAt,
+            ::childToButtonPosition,
+            cellW, cellH,
+        )
+    }
 
-        for (child in followAreaChild) {
-            when (child) {
-                is JoystickView -> child.forceFollowFinger = true
-                is DpadPadView -> child.forceFollowFinger = true
-                is CustomKeypadView -> child.forceFollowFinger = true
-            }
-        }
+    private fun childToButtonPosition(child: View): ButtonPosition? {
+        val cid = getButtonId(child) ?: return null
+        return currentButtons.find { it.id == cid }
+    }
 
-        val toDispatch = mutableListOf<View>()
-        toDispatch.addAll(followAreaChild)
-
-        // Also dispatch to overlapping children (button-like overlap triggering).
-        for (other in findAllChildrenAt(x, y)) {
-            if (other !in followAreaChild) {
-                val otherId = getButtonId(other) ?: continue
-                val otherPos = currentButtons.find { it.id == otherId } ?: continue
-                if (otherPos.overlapTrigger) {
-                    toDispatch.add(other)
-                }
-            }
-        }
-
-        touchSession.touchTargets[pid] = toDispatch
-        for (c in toDispatch) {
-            dispatchToChild(c, event, MotionEvent.ACTION_DOWN, idx)
-        }
-        return true
+    private fun findChildAt(x: Float, y: Float): View? {
+        return GamepadLayoutGeometry.findChildAt(x, y, (0 until childCount).asSequence().map { getChildAt(it) }.toList())
     }
 
     private fun resetForceFollowFinger() {
-        for (i in 0 until childCount) {
-            val child = getChildAt(i)
-            when (child) {
-                is JoystickView -> child.forceFollowFinger = false
-                is DpadPadView -> child.forceFollowFinger = false
-                is CustomKeypadView -> child.forceFollowFinger = false
-            }
-        }
+        GamepadTouchDispatchUtils.resetForceFollowFinger((0 until childCount).asSequence().map { getChildAt(it) }.toList())
     }
 
     private fun getButtonId(child: View): String? {
@@ -1236,126 +1159,34 @@ class GamepadLayout @JvmOverloads constructor(
     }
 
     private fun isOnFollowAreaHandle(x: Float, y: Float, pos: ButtonPosition): Boolean {
-        val fLeft = pos.followAreaX * cellW
-        val fTop = pos.followAreaY * cellH
-        val fRight = (pos.followAreaX + pos.followAreaW) * cellW
-        val fBottom = (pos.followAreaY + pos.followAreaH) * cellH
-        val handleHit = HANDLE_HIT_DP * density
-        val hx = fRight - handleHit
-        val hy = fBottom - handleHit
-        return x >= hx && x <= fRight && y >= hy && y <= fBottom
+        return gamepadFollowAreaTrigger.isOnFollowAreaHandle(x, y, pos, cellW, cellH, HANDLE_HIT_DP * density)
     }
 
     private fun isInFollowArea(x: Float, y: Float, pos: ButtonPosition): Boolean {
-        val fLeft = pos.followAreaX * cellW
-        val fTop = pos.followAreaY * cellH
-        val fRight = (pos.followAreaX + pos.followAreaW) * cellW
-        val fBottom = (pos.followAreaY + pos.followAreaH) * cellH
-        return x >= fLeft && x <= fRight && y >= fTop && y <= fBottom
+        return gamepadFollowAreaTrigger.isInFollowArea(x, y, pos, cellW, cellH)
     }
 
-    private fun isTouchpadId(id: String): Boolean = id.substringBefore("_") == "touchpad"
-
-    /** On-screen size of a control in grid units (accounts for 90/270 rotation swap). */
-    private fun onScreenGridSize(pos: ButtonPosition): Pair<Int, Int> {
-        val isSwapped = !pos.lockAspect && (pos.rotation == 90 || pos.rotation == 270)
-        return if (isSwapped) (pos.height to pos.width) else (pos.width to pos.height)
-    }
-
-    /** True when the touchpad control is fully inside the extended range rectangle. */
-    private fun touchpadContainedByArea(pos: ButtonPosition): Boolean {
-        if (!isTouchpadId(pos.id) || !pos.followAreaEnabled) return true
-        val (sw, sh) = onScreenGridSize(pos)
-        return pos.x >= pos.followAreaX && pos.y >= pos.followAreaY &&
-            pos.x + sw <= pos.followAreaX + pos.followAreaW &&
-            pos.y + sh <= pos.followAreaY + pos.followAreaH
-    }
-
-    /** Expands the extended range rectangle if it no longer contains the touchpad. */
-    private fun normalizeTouchpadArea(pos: ButtonPosition): ButtonPosition {
-        if (!isTouchpadId(pos.id) || !pos.followAreaEnabled) return pos
-        if (touchpadContainedByArea(pos)) return pos
-        val (sw, sh) = onScreenGridSize(pos)
-        val ax = minOf(pos.followAreaX, pos.x)
-        val ay = minOf(pos.followAreaY, pos.y)
-        val aw = maxOf(pos.followAreaW, pos.x + sw - ax)
-        val ah = maxOf(pos.followAreaH, pos.y + sh - ay)
-        return pos.copy(followAreaX = ax, followAreaY = ay, followAreaW = aw, followAreaH = ah)
-    }
-
-    /** Shrinks the touchpad so it fits inside the extended range rectangle. */
-    private fun shrinkTouchpadToArea(pos: ButtonPosition): ButtonPosition {
-        if (!isTouchpadId(pos.id) || !pos.followAreaEnabled) return pos
-        val (sw, sh) = onScreenGridSize(pos)
-        val nw = minOf(sw, (pos.followAreaX + pos.followAreaW - pos.x).coerceAtLeast(1))
-        val nh = minOf(sh, (pos.followAreaY + pos.followAreaH - pos.y).coerceAtLeast(1))
-        if (nw == sw && nh == sh) return pos
-        val isSwapped = !pos.lockAspect && (pos.rotation == 90 || pos.rotation == 270)
-        val width = if (isSwapped) nh else nw
-        val height = if (isSwapped) nw else nh
-        return pos.copy(width = width, height = height)
-    }
-
-    private fun isOnHandle(x: Float, y: Float, buttonId: String): Boolean {
-        val pos = currentButtons.find { it.id == buttonId } ?: return false
-        val vb = visualBounds(pos)
-        val vl = vb[0] * cellW
-        val vt = vb[1] * cellH
-        val vbw = vb[2] * cellW
-        val vbh = vb[3] * cellH
-        val handleHit = HANDLE_HIT_DP * density
-        val hx = vl + vbw - handleHit
-        val hy = vt + vbh - handleHit
-        return x >= hx && x <= vl + vbw && y >= hy && y <= vt + vbh
-    }
-
-    private fun findChildAt(x: Float, y: Float): View? {
-        for (i in childCount - 1 downTo 0) {
-            val child = getChildAt(i)
-            if (child.visibility != View.VISIBLE) continue
-            if (x >= child.left && x <= child.right && y >= child.top && y <= child.bottom) {
-                return child
-            }
-        }
-        return null
-    }
+    private fun isTouchpadId(id: String): Boolean = com.zyz4.gamepademu.view.inputdispatcher.isTouchpadId(id)
 
     /** Returns all visible children at (x,y), topmost first.
      *  Uses grid-coordinate based bounds from [currentButtons] instead of viewport pixel bounds
      *  ([left/right/top/bottom]) to avoid missing hits on some Android devices where view
      *  bounds may not be synchronised with the grid layout at dispatch time. */
     private fun findAllChildrenAt(x: Float, y: Float): List<View> {
-        val gridX = x / cellW
-        val gridY = y / cellH
-        val result = mutableListOf<View>()
-        for (i in childCount - 1 downTo 0) {
-            val child = getChildAt(i)
-            if (child.visibility != View.VISIBLE) continue
-            val cid = getButtonId(child) ?: continue
-            val pos = currentButtons.find { it.id == cid } ?: continue
-            val vb = visualBounds(pos)
-            if (gridX >= vb[0] && gridX <= vb[0] + vb[2] && gridY >= vb[1] && gridY <= vb[1] + vb[3]) {
-                result.add(child)
-            }
-        }
-        return result
+        return GamepadLayoutGeometry.findAllChildrenAt(
+            x, y, cellW, cellH,
+            (0 until childCount).asSequence().map { getChildAt(it) }.toList(),
+            currentButtons,
+        )
     }
 
-    /** When multiple children overlap, exclude those with [overlapTrigger] = false. */
     private fun filterOverlapChildren(children: List<View>): List<View> {
-        if (children.size <= 1) return children
-        return children.filter { child ->
-            val id = getButtonId(child)
-            id == null || currentButtons.find { it.id == id }?.overlapTrigger != false
-        }
+        return GamepadLayoutGeometry.filterOverlapChildren(children, currentButtons)
     }
 
     /** Returns [left, top, width, height] in grid coordinates for the visual extent. */
     private fun visualBounds(pos: ButtonPosition): FloatArray {
-        val isSwapped = !pos.lockAspect && (pos.rotation == 90 || pos.rotation == 270)
-        val lw = if (isSwapped) pos.height else pos.width
-        val lh = if (isSwapped) pos.width else pos.height
-        return floatArrayOf(pos.x.toFloat(), pos.y.toFloat(), lw.toFloat(), lh.toFloat())
+        return GamepadLayoutGeometry.visualBounds(pos)
     }
 
     private val density: Float
