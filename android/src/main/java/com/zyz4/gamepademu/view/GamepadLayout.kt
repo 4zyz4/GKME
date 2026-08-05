@@ -355,7 +355,17 @@ class GamepadLayout @JvmOverloads constructor(
             val c = getChildAt(i)
             if (c.visibility == View.VISIBLE) {
                 val id = getButtonId(c) ?: continue
-                map[id] = android.graphics.Rect(c.left, c.top, c.right, c.bottom)
+                val pos = currentButtons.find { it.id == id }
+                if (pos != null) {
+                    val vb = visualBounds(pos)
+                    val gx = vb[0] * cellW
+                    val gy = vb[1] * cellH
+                    val gw = vb[2] * cellW
+                    val gh = vb[3] * cellH
+                    map[id] = android.graphics.Rect(gx.toInt(), gy.toInt(), (gx + gw).toInt(), (gy + gh).toInt())
+                } else {
+                    map[id] = android.graphics.Rect(c.left, c.top, c.right, c.bottom)
+                }
             }
         }
         return map
@@ -1442,13 +1452,21 @@ class GamepadLayout @JvmOverloads constructor(
         return null
     }
 
-    /** Returns all visible children at (x,y), topmost first */
+    /** Returns all visible children at (x,y), topmost first.
+     *  Uses grid-coordinate based bounds from [currentButtons] instead of viewport pixel bounds
+     *  ([left/right/top/bottom]) to avoid missing hits on some Android devices where view
+     *  bounds may not be synchronised with the grid layout at dispatch time. */
     private fun findAllChildrenAt(x: Float, y: Float): List<View> {
+        val gridX = x / cellW
+        val gridY = y / cellH
         val result = mutableListOf<View>()
         for (i in childCount - 1 downTo 0) {
             val child = getChildAt(i)
             if (child.visibility != View.VISIBLE) continue
-            if (x >= child.left && x <= child.right && y >= child.top && y <= child.bottom) {
+            val cid = getButtonId(child) ?: continue
+            val pos = currentButtons.find { it.id == cid } ?: continue
+            val vb = visualBounds(pos)
+            if (gridX >= vb[0] && gridX <= vb[0] + vb[2] && gridY >= vb[1] && gridY <= vb[1] + vb[3]) {
                 result.add(child)
             }
         }
