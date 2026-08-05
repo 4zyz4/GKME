@@ -535,15 +535,54 @@ class GamepadViewModel @Inject constructor(
         if (oldBit != null) { b = b and oldBit.toUInt().inv() }
         if (newBit != null) { b = b or newBit.toUInt() }
         _gamepadState.value = _gamepadState.value.copy(buttons = b)
+        if (newIndex in 0..3 && newBit != null && oldIndex == -1) {
+            val hatBit = when (newIndex) {
+                0 -> GamepadState.DPAD_UP
+                1 -> GamepadState.DPAD_DOWN
+                2 -> GamepadState.DPAD_LEFT
+                3 -> GamepadState.DPAD_RIGHT
+                else -> 0
+            }
+            _gamepadState.value = _gamepadState.value.copy(dpad = hatBit)
+        } else if (oldIndex in 0..3 && oldBit != null) {
+            val hatBit = when (oldIndex) {
+                0 -> GamepadState.DPAD_UP
+                1 -> GamepadState.DPAD_DOWN
+                2 -> GamepadState.DPAD_LEFT
+                3 -> GamepadState.DPAD_RIGHT
+                else -> 0
+            }
+            val curBtn = _gamepadState.value.buttons
+            val otherUp = (curBtn and GamepadState.DPAD_BIT_UP.toUInt()) != 0u
+            val otherDown = (curBtn and GamepadState.DPAD_BIT_DOWN.toUInt()) != 0u
+            val otherLeft = (curBtn and GamepadState.DPAD_BIT_LEFT.toUInt()) != 0u
+            val otherRight = (curBtn and GamepadState.DPAD_BIT_RIGHT.toUInt()) != 0u
+            val combined = (if (otherUp) GamepadState.DPAD_UP else 0) or
+                (if (otherDown) GamepadState.DPAD_DOWN else 0) or
+                (if (otherLeft) GamepadState.DPAD_LEFT else 0) or
+                (if (otherRight) GamepadState.DPAD_RIGHT else 0)
+            _gamepadState.value = _gamepadState.value.copy(dpad = when (combined) {
+                0 -> 0
+                GamepadState.DPAD_UP -> GamepadState.DPAD_UP
+                GamepadState.DPAD_DOWN -> GamepadState.DPAD_DOWN
+                GamepadState.DPAD_LEFT -> GamepadState.DPAD_LEFT
+                GamepadState.DPAD_RIGHT -> GamepadState.DPAD_RIGHT
+                in 1..3 -> GamepadState.DPAD_UP_LEFT + combined - 1
+                in 5..6 -> GamepadState.DPAD_DOWN_LEFT + combined - 5
+                in 9..10 -> GamepadState.DPAD_UP_RIGHT + combined - 9
+                else -> 0
+            })
+        }
         sendInput()
     }
 
     fun updateCustomKeypadRelease() {
         onHapticFeedbackRelease?.invoke()
         if (_customKeypadBits != 0) {
+            val prev = _customKeypadBits
             _customKeypadBits = 0
             var b = _gamepadState.value.buttons
-            b = b and _customKeypadBits.toUInt().inv()
+            b = b and prev.toUInt().inv()
             _gamepadState.value = _gamepadState.value.copy(buttons = b)
             sendInput()
         }

@@ -26,6 +26,7 @@ import com.zyz4.gamepademu.view.inputdispatcher.OldSlotState
 import com.zyz4.gamepademu.view.inputdispatcher.SlotMatcher
 import com.zyz4.gamepademu.view.inputdispatcher.EditCommand
 import com.zyz4.gamepademu.view.inputdispatcher.toRawEvent
+import com.zyz4.gamepademu.view.inputdispatcher.InteractionResult
 
 class GamepadLayout @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
@@ -43,7 +44,7 @@ class GamepadLayout @JvmOverloads constructor(
     private var _editState = EditModeState()
     private var _slotState = OldSlotState()
     private var _dispatcherLastButtonState = 0
-    private var _swipeActive = false
+    private var _swipeActive = emptySet<String>()
 
     init {
         setWillNotDraw(false)
@@ -64,9 +65,6 @@ class GamepadLayout @JvmOverloads constructor(
         private const val HANDLE_HIT_DP = 16f
         private const val GRID_BASE_ALPHA = 170
         private val JOYSTICK_IDS = setOf("leftJoystick", "rightJoystick")
-
-        /** Debug flag: true uses the dispatcher for all three methods, false uses raw slots. */
-        const val DEBUG_DISPATCHER = false
     }
 
     private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -203,27 +201,41 @@ class GamepadLayout @JvmOverloads constructor(
     override fun onCapturedPointerEvent(event: MotionEvent): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return super.onCapturedPointerEvent(event)
 
-        // Track button state changes (XOR approach from Moonlight Android)
-        val curBS = event.buttonState
-        val changedBS = curBS.toLong() xor _lastButtonState.toLong()
-        if ((changedBS.toInt() and MotionEvent.BUTTON_PRIMARY) != 0) {
-            _touchpadClick = (curBS and MotionEvent.BUTTON_PRIMARY) != 0
-        }
-        if (event.actionMasked == MotionEvent.ACTION_UP ||
-            event.actionMasked == MotionEvent.ACTION_POINTER_UP) {
-            _touchpadClick = false
-        }
-        _lastButtonState = curBS
+        _dispatcherLastButtonState = event.buttonState
 
-        // Build slots list for proto (slot 0 first, slot 1 second)
-        val allTouches = mutableListOf<FloatArray>()
-        allTouches.add(floatArrayOf(0f, slot0X, slot0Y, if (slot0Active) 1f else 0f))
-        allTouches.add(floatArrayOf(1f, slot1X, slot1Y, if (slot1Active) 1f else 0f))
+        if (event.actionMasked == MotionEvent.ACTION_UP ||
+            event.actionMasked == MotionEvent.ACTION_CANCEL) {
+            _touchpadClick = false
+        } else {
+            _slotState = OldSlotState(slot0Active = slot0Active, slot0X = slot0X, slot0Y = slot0Y,
+                    slot1Active = slot1Active, slot1X = slot1X, slot1Y = slot1Y)
+
+            val raw = event.toRawEvent()
+            val result = dispatcher.dispatchInteraction(
+                raw, currentButtons, emptyMap(),
+                emptySet(), _slotState, _dispatcherLastButtonState,
+                cellW, cellH, false,
+            )
+
+            _slotState = result.newSlotState
+            _dispatcherLastButtonState = result.newLastButtonState
+
+            slot0Active = result.newSlotState.slot0Active
+            slot0X = result.newSlotState.slot0X
+            slot0Y = result.newSlotState.slot0Y
+            slot1Active = result.newSlotState.slot1Active
+            slot1X = result.newSlotState.slot1X
+            slot1Y = result.newSlotState.slot1Y
+
+            _touchpadClick = result.clickResult?.isClick == true
+        }
 
         listener?.onTouchpadEvent(
             if (slot0Active) slot0X else (if (slot1Active) slot1X else 0.5f),
             if (slot0Active) slot0Y else (if (slot1Active) slot1Y else 0.5f),
-            allTouches, slot0Active || slot1Active, _touchpadClick
+            listOf(floatArrayOf(0f, slot0X, slot0Y, if (slot0Active) 1f else 0f),
+                   floatArrayOf(1f, slot1X, slot1Y, if (slot1Active) 1f else 0f)),
+            slot0Active || slot1Active, _touchpadClick
         )
         return true
     }
@@ -245,7 +257,6 @@ class GamepadLayout @JvmOverloads constructor(
     private var slot1Y = 0f
     private var slot1Active = false
 
-    private var _lastButtonState = 0
     private var _touchpadClick = false
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
@@ -330,10 +341,66 @@ class GamepadLayout @JvmOverloads constructor(
 
     // ── Swipe-trigger touch handling ─────────────────────────
     //
+    // Phase 3: Delegates swipe press/release logic to SwipeTriggerStrategy
+    // via dispatcher.dispatchInteraction().
+    //
     // Each swipe-triggered button independently checks ALL pointers.
     // If ANY pointer is within a button's bounds → pressed.
     // If NO pointer is within bounds → released.
     // This allows multiple swipe buttons to be pressed simultaneously.
+
+    private fun getChildBounds(): Map<String, android.graphics.Rect> {
+        val map = mutableMapOf<String, android.graphics.Rect>()
+        for (i in 0 until childCount) {
+            val c = getChildAt(i)
+            if (c.visibility == View.VISIBLE) {
+                val id = getButtonId(c) ?: continue
+                map[id] = android.graphics.Rect(c.left, c.top, c.right, c.bottom)
+            }
+        }
+        return map
+    }
+
+    private fun runSwipeEvaluation(event: MotionEvent): InteractionResult {
+        _dispatcherLastButtonState = event.buttonState
+        val raw = event.toRawEvent()
+        return dispatcher.dispatchInteraction(
+            raw, currentButtons, getChildBounds(),
+            activeSwipeButtons.keys.toSet(), _slotState, _dispatcherLastButtonState,
+            cellW, cellH, true,
+        )
+    }
+
+    private fun applySwipeResult(result: InteractionResult, event: MotionEvent, excludePid: Int? = null) {
+        _swipeActive = result.newSwipeActive
+        _slotState = result.newSlotState
+        _dispatcherLastButtonState = result.newLastButtonState
+
+        for (cid in result.releasedIds) {
+            val child = activeSwipeButtons[cid] ?: continue
+            dispatchToChild(child, event, MotionEvent.ACTION_UP, 0)
+            activeSwipeButtons.remove(cid)
+        }
+
+        for (cid in result.pressedIds) {
+            if (cid !in activeSwipeButtons) {
+                val child = findSwipeChild(cid) ?: continue
+                var ptrIdx = 0
+                for (i in 0 until event.pointerCount) {
+                    val pid = event.getPointerId(i)
+                    if (pid == excludePid) continue
+                    val ex = event.getX(i)
+                    val ey = event.getY(i)
+                    if (child.left <= ex && ex <= child.right && child.top <= ey && ey <= child.bottom) {
+                        ptrIdx = i
+                        break
+                    }
+                }
+                dispatchToChild(child, event, MotionEvent.ACTION_DOWN, ptrIdx)
+                activeSwipeButtons[cid] = child
+            }
+        }
+    }
 
     private fun handleSwipeTriggerTouch(event: MotionEvent): Boolean {
         when (event.actionMasked) {
@@ -363,7 +430,8 @@ class GamepadLayout @JvmOverloads constructor(
                         dispatchToChild(child, event, MotionEvent.ACTION_DOWN, 0)
                     }
                 }
-                updateSwipeButtons(event)
+                val result = runSwipeEvaluation(event)
+                applySwipeResult(result, event)
                 return true
             }
             MotionEvent.ACTION_POINTER_DOWN -> {
@@ -373,7 +441,6 @@ class GamepadLayout @JvmOverloads constructor(
                 val y = event.getY(idx)
                 val allChildren = findAllChildrenAt(x, y)
                 val children = filterOverlapChildren(allChildren)
-                // Settings button is always the topmost control: a tap on it only opens settings.
                 val settingsChild = children.firstOrNull { getButtonId(it) == SETTINGS_BUTTON_ID }
                 if (settingsChild != null) {
                     touchTargets[pid] = mutableListOf(settingsChild)
@@ -393,11 +460,11 @@ class GamepadLayout @JvmOverloads constructor(
                         dispatchToChild(child, event, MotionEvent.ACTION_DOWN, idx)
                     }
                 }
-                updateSwipeButtons(event)
+                val result = runSwipeEvaluation(event)
+                applySwipeResult(result, event)
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
-                // Non-swipe buttons: once pressed, stay pressed until finger lifts
                 for ((pid, children) in touchTargets.toMap()) {
                     val idx = event.findPointerIndex(pid)
                     if (idx >= 0) {
@@ -406,8 +473,8 @@ class GamepadLayout @JvmOverloads constructor(
                         }
                     }
                 }
-                // Swipe-triggered buttons: presence-based, re-evaluate against all pointers
-                updateSwipeButtons(event)
+                val result = runSwipeEvaluation(event)
+                applySwipeResult(result, event)
                 return true
             }
             MotionEvent.ACTION_POINTER_UP -> {
@@ -424,8 +491,16 @@ class GamepadLayout @JvmOverloads constructor(
                         }
                     }
                 }
-                // Re-evaluate swipe buttons excluding the lifted pointer
-                updateSwipeButtons(event, setOf(pid))
+                // Build a filtered RawTouchEvent without the lifted pointer
+                val raw = event.toRawEvent()
+                val filteredPointers = raw.pointers.filter { it.id != pid }
+                val filteredRaw = raw.copy(pointers = filteredPointers)
+                val result = dispatcher.dispatchInteraction(
+                    filteredRaw, currentButtons, getChildBounds(),
+                    activeSwipeButtons.keys.toSet(), _slotState, _dispatcherLastButtonState,
+                    cellW, cellH, true,
+                )
+                applySwipeResult(result, event, excludePid = pid)
                 return true
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
@@ -460,6 +535,14 @@ class GamepadLayout @JvmOverloads constructor(
             }
         }
         return true
+    }
+
+    private fun findSwipeChild(id: String): View? {
+        for (i in 0 until childCount) {
+            val child = getChildAt(i)
+            if (getButtonId(child) == id) return child
+        }
+        return null
     }
 
     /** Re-evaluate all swipe-triggered buttons: if any active pointer is inside → press, otherwise → release */
@@ -1089,6 +1172,10 @@ class GamepadLayout @JvmOverloads constructor(
                 child.idleTransparency = pos.idleTransparency.coerceIn(0, 255)
                 child.activeTransparency = pos.activeTransparency.coerceIn(0, 255)
                 child.rotation = pos.rotation.toFloat()
+                val kpBits = ButtonPosition.keypadBitsOf(pos)
+                child.validDirs = (0..3).filter { i ->
+                    kpBits.getOrNull(i)?.isNotEmpty() == true
+                }.toSet()
             } else if (child is ViewGroup) {
                 for (j in 0 until child.childCount) {
                     child.getChildAt(j).rotation = pos.rotation.toFloat()
@@ -1190,252 +1277,133 @@ class GamepadLayout @JvmOverloads constructor(
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (!isEditMode) return false
 
+        val raw = event.toRawEvent()
+        val bounds = mutableMapOf<String, android.graphics.Rect>()
+        for (i in 0 until childCount) {
+            val child = getChildAt(i)
+            val id = getButtonId(child)
+            if (id != null) {
+                bounds[id] = android.graphics.Rect(child.left, child.top, child.right, child.bottom)
+            }
+        }
+        val allChildren = (0 until childCount).map { i -> getChildAt(i) }
+
+        fun applyEditCommands(commands: List<EditCommand>) {
+            if (commands.isEmpty()) return
+            var updated = currentButtons
+            for (cmd in commands) {
+                updated = cmd.applyTo(updated)
+            }
+            if (updated !== currentButtons) {
+                currentButtons = updated
+                hasChanges = true
+                requestLayout()
+            }
+        }
+
+        fun applyEditCommandsNoMove(commands: List<EditCommand>) {
+            if (commands.isEmpty()) return
+            var updated = currentButtons
+            for (cmd in commands) {
+                if (cmd is EditCommand.MoveButton) continue
+                updated = cmd.applyTo(updated)
+            }
+            if (updated !== currentButtons) {
+                currentButtons = updated
+                hasChanges = true
+                requestLayout()
+            }
+        }
+
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                if (isAdjustingFollowArea && adjustingFollowAreaId != null) {
-                    val selPos = currentButtons.find { it.id == adjustingFollowAreaId } ?: return true
-                    // Check if tapping on follow area resize handle
-                    if (isOnFollowAreaHandle(event.x, event.y, selPos)) {
-                        resizingFollowArea = true
-                        followAreaStartW = selPos.followAreaW
-                        followAreaStartH = selPos.followAreaH
-                        resizeStartGridX = (event.x / cellW).toInt()
-                        resizeStartGridY = (event.y / cellH).toInt()
+                // Sync adjustingFollowArea into editState
+                _editState = _editState.copy(
+                    isAdjustingFollowArea = isAdjustingFollowArea,
+                    adjustingFollowAreaId = adjustingFollowAreaId,
+                )
+
+                val result = dispatcher.dispatchEdit(
+                    raw, currentButtons, bounds, allChildren,
+                    _editState, cellW, cellH, density, selectedButtonId,
+                )
+                _editState = result.newState
+
+                // Sync editState back to local fields
+                isAdjustingFollowArea = _editState.isAdjustingFollowArea
+                adjustingFollowAreaId = _editState.adjustingFollowAreaId
+
+                if (_editState.childDragStart != null) {
+                    draggingChild = findChildAt(event.x, event.y)
+                    if (draggingChild != null) {
+                        dragOffsetX = _editState.childDragStart!!.offsetX
+                        dragOffsetY = _editState.childDragStart!!.offsetY
+                        val cid = getButtonId(draggingChild!!)
+                        if (cid != null) setSelectedButton(cid)
                         animateGridTo(1f)
-                        return true
                     }
-                    // Check if tapping within follow area (drag)
-                    if (isInFollowArea(event.x, event.y, selPos)) {
-                        draggingFollowArea = true
-                        followAreaStartX = selPos.followAreaX
-                        followAreaStartY = selPos.followAreaY
-                        followAreaDragStartX = (event.x / cellW).toInt()
-                        followAreaDragStartY = (event.y / cellH).toInt()
-                        animateGridTo(1f)
-                        return true
+                }
+                if (_editState.childResizeStart != null) {
+                    resizingChild = findChildAt(event.x, event.y)
+                    if (resizingChild != null) {
+                        val pos = currentButtons.find { it.id == _editState.childResizeStart!!.buttonId }
+                        if (pos != null) {
+                            resizeStartW = pos.width
+                            resizeStartH = pos.height
+                            resizeStartGridX = _editState.childResizeStart!!.resizeStartGridX
+                            resizeStartGridY = _editState.childResizeStart!!.resizeStartGridY
+                            animateGridTo(1f)
+                        }
                     }
-                    // Tapping outside follow area does nothing during adjustment
-                    return true
+                }
+                if (_editState.followAreaDragStart != null || _editState.followAreaResizeStart != null) {
+                    draggingFollowArea = _editState.followAreaDragStart != null
+                    resizingFollowArea = _editState.followAreaResizeStart != null
+                    animateGridTo(1f)
                 }
 
-                val id = selectedButtonId
-                if (id != null && isOnHandle(event.x, event.y, id)) {
-                    val child = findChildAt(event.x, event.y) ?: return true
-                    resizingChild = child
-                    val pos = currentButtons.find { it.id == id }!!
-                    resizeStartW = pos.width
-                    resizeStartH = pos.height
-                    resizeStartGridX = (event.x / cellW).toInt()
-                    resizeStartGridY = (event.y / cellH).toInt()
-                    animateGridTo(1f)
-                    return true
-                }
-
-                draggingChild = findChildAt(event.x, event.y)
-                if (draggingChild != null) {
-                    dragOffsetX = event.x - draggingChild!!.left
-                    dragOffsetY = event.y - draggingChild!!.top
-                    val cid = getButtonId(draggingChild!!)
-                    if (cid != null) {
-                        setSelectedButton(cid)
-                    }
-                    animateGridTo(1f)
-                } else {
-                    selectChildAt(event.x, event.y)
-                }
+                applyEditCommandsNoMove(result.commands)
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
-                if (resizingFollowArea && adjustingFollowAreaId != null) {
-                    val gridX = (event.x / cellW).toInt().coerceAtLeast(0)
-                    val gridY = (event.y / cellH).toInt().coerceAtLeast(0)
-                    val idx = currentButtons.indexOfFirst { it.id == adjustingFollowAreaId }
-                    if (idx >= 0) {
-                        val old = currentButtons[idx]
-                        val deltaX = gridX - resizeStartGridX
-                        val deltaY = gridY - resizeStartGridY
-                        var newW = (followAreaStartW + deltaX).coerceAtLeast(1)
-                        var newH = (followAreaStartH + deltaY).coerceAtLeast(1)
-                        var updated: ButtonPosition
-                        if (isTouchpadId(old.id) && old.followAreaEnabled) {
-                            // Shrinking the area shrinks the touchpad to keep containment.
-                            updated = old.copy(followAreaW = newW, followAreaH = newH)
-                            updated = shrinkTouchpadToArea(updated)
-                        } else {
-                            updated = old.copy(followAreaW = newW, followAreaH = newH)
-                        }
-                        if (updated != old) {
-                            currentButtons = currentButtons.toMutableList().also {
-                                it[idx] = updated
-                            }
-                            hasChanges = true
-                            requestLayout()
-                        }
-                    }
-                    return true
-                }
-                if (draggingFollowArea && adjustingFollowAreaId != null) {
-                    val gridX = (event.x / cellW).toInt().coerceIn(0, GRID_COLS - 1)
-                    val gridY = (event.y / cellH).toInt().coerceAtLeast(0)
-                    val idx = currentButtons.indexOfFirst { it.id == adjustingFollowAreaId }
-                    if (idx >= 0) {
-                        val old = currentButtons[idx]
-                        val deltaX = gridX - followAreaDragStartX
-                        val deltaY = gridY - followAreaDragStartY
-                        var newX = followAreaStartX + deltaX
-                        var newY = followAreaStartY + deltaY
-                        var updated: ButtonPosition
-                        if (isTouchpadId(old.id) && old.followAreaEnabled) {
-                            val rows = if (cellH > 0f) (height / cellH).toInt() else GRID_COLS
-                            val maxAX = (GRID_COLS - old.followAreaW).coerceAtLeast(0)
-                            val maxAY = (rows - old.followAreaH).coerceAtLeast(0)
-                            newX = newX.coerceIn(0, maxAX)
-                            newY = newY.coerceIn(0, maxAY)
-                            // The area's top-left edge cannot pass the touchpad's top-left edge.
-                            newX = minOf(newX, old.x)
-                            newY = minOf(newY, old.y)
-                            updated = old.copy(followAreaX = newX, followAreaY = newY)
-                            updated = shrinkTouchpadToArea(updated)
-                        } else {
-                            newX = newX.coerceIn(0, GRID_COLS - 1)
-                            newY = newY.coerceAtLeast(0)
-                            updated = old.copy(followAreaX = newX, followAreaY = newY)
-                        }
-                        if (updated != old) {
-                            currentButtons = currentButtons.toMutableList().also {
-                                it[idx] = updated
-                            }
-                            hasChanges = true
-                            requestLayout()
-                        }
-                    }
-                    return true
-                }
+                val result = dispatcher.dispatchEdit(
+                    raw, currentButtons, bounds, allChildren,
+                    _editState, cellW, cellH, density, selectedButtonId,
+                )
+                _editState = result.newState
+                isAdjustingFollowArea = _editState.isAdjustingFollowArea
+                adjustingFollowAreaId = _editState.adjustingFollowAreaId
 
-                if (resizingChild != null) {
-                    val gridX = (event.x / cellW).toInt().coerceAtLeast(0)
-                    val gridY = (event.y / cellH).toInt().coerceAtLeast(0)
-                    val rid = getButtonId(resizingChild!!) ?: return true
-                    val idx = currentButtons.indexOfFirst { it.id == rid }
-                    if (idx >= 0) {
-                        val old = currentButtons[idx]
-                        val isSwapped = !old.lockAspect && (old.rotation == 90 || old.rotation == 270)
-                        val deltaX = gridX - resizeStartGridX
-                        val deltaY = gridY - resizeStartGridY
-                        var newW: Int; var newH: Int
-                        if (isSwapped) {
-                            newW = (resizeStartW + deltaY).coerceAtLeast(1)
-                            newH = (resizeStartH + deltaX).coerceAtLeast(1)
-                        } else {
-                            newW = (resizeStartW + deltaX).coerceAtLeast(1)
-                            newH = (resizeStartH + deltaY).coerceAtLeast(1)
-                        }
-                        if (old.lockAspect) {
-                            val side = maxOf(newW, newH)
-                            newW = side
-                            newH = side
-                        }
-                        if (rid == SETTINGS_BUTTON_ID) {
-                            // Keep the settings button fully on screen while resizing:
-                            // its size can never exceed the grid from its current anchor.
-                            val rows = if (cellH > 0f) (height / cellH).toInt() else GRID_COLS
-                            newW = newW.coerceIn(1, (GRID_COLS - old.x).coerceAtLeast(1))
-                            newH = newH.coerceIn(1, (rows - old.y).coerceAtLeast(1))
-                            if (old.lockAspect) {
-                                val side = minOf(newW, newH)
-                                newW = side
-                                newH = side
-                            }
-                        }
-                        if (newW != old.width || newH != old.height) {
-                            var updated = old.copy(width = newW, height = newH)
-                            if (rid == SETTINGS_BUTTON_ID) updated = sanitizeSettingsButton(updated)
-                            if (isTouchpadId(rid) && old.followAreaEnabled) {
-                                updated = normalizeTouchpadArea(updated)
-                            }
-                            currentButtons = currentButtons.toMutableList().also {
-                                it[idx] = updated
-                            }
-                            hasChanges = true
-                            requestLayout()
-                        }
-                    }
-                    return true
-                }
-                if (draggingChild != null) {
-                    val newLeft = (event.x - dragOffsetX).coerceAtLeast(0f)
-                    val newTop = (event.y - dragOffsetY).coerceAtLeast(0f)
-
-                    val id = getButtonId(draggingChild!!)
-                    if (id != null) {
-                        val idx = currentButtons.indexOfFirst { it.id == id }
-                        if (idx >= 0) {
-                            val old = currentButtons[idx]
-                            var gridX: Int
-                            var gridY: Int
-                            if (id == SETTINGS_BUTTON_ID) {
-                                val rows = if (cellH > 0f) (height / cellH).toInt() else GRID_COLS
-                                gridX = (newLeft / cellW).toInt().coerceIn(0, (GRID_COLS - old.width).coerceAtLeast(0))
-                                gridY = (newTop / cellH).toInt().coerceIn(0, (rows - old.height).coerceAtLeast(0))
-                            } else {
-                                gridX = (newLeft / cellW).toInt().coerceIn(0, GRID_COLS - 1)
-                                gridY = (newTop / cellH).toInt().coerceAtLeast(0)
-                            }
-                            var updated: ButtonPosition
-                            if (isTouchpadId(id) && old.followAreaEnabled) {
-                                // The extended range rectangle moves in sync with the touchpad.
-                                val deltaX = gridX - old.x
-                                val deltaY = gridY - old.y
-                                updated = old.copy(
-                                    x = gridX, y = gridY,
-                                    followAreaX = old.followAreaX + deltaX,
-                                    followAreaY = old.followAreaY + deltaY
-                                )
-                            } else {
-                                updated = old.copy(x = gridX, y = gridY)
-                            }
-                            if (old.x != updated.x || old.y != updated.y ||
-                                old.followAreaX != updated.followAreaX || old.followAreaY != updated.followAreaY) {
-                                currentButtons = currentButtons.toMutableList().also {
-                                    it[idx] = updated
-                                }
-                                hasChanges = true
-                                listener?.onButtonSelected(id)
-                                requestLayout()
-                            }
-                        }
-                    }
-                }
+                applyEditCommands(result.commands)
                 return true
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                if (resizingFollowArea || draggingFollowArea) {
+                _editState = dispatcher.dispatchEdit(
+                    raw, currentButtons, bounds, allChildren,
+                    _editState, cellW, cellH, density, selectedButtonId,
+                ).newState
+
+                if (isAdjustingFollowArea || adjustingFollowAreaId != null) {
                     val id = adjustingFollowAreaId
                     if (id != null) {
                         listener?.onButtonSelected(id)
                     }
-                    resizingFollowArea = false
-                    draggingFollowArea = false
-                    animateGridTo(0f)
-                    return true
                 }
                 if (resizingChild != null) {
                     val id = getButtonId(resizingChild!!)
-                    if (id != null) {
-                        listener?.onButtonSelected(id)
-                    }
+                    if (id != null) listener?.onButtonSelected(id)
                     resizingChild = null
                 }
                 if (draggingChild != null) {
                     val id = getButtonId(draggingChild!!)
                     if (id != null) {
                         val pos = currentButtons.find { it.id == id }
-                        if (pos != null) {
-                            listener?.onButtonSelected(id)
-                        }
+                        if (pos != null) listener?.onButtonSelected(id)
                     }
                     draggingChild = null
                 }
+                draggingFollowArea = false
+                resizingFollowArea = false
                 animateGridTo(0f)
                 return true
             }

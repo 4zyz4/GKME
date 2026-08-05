@@ -231,5 +231,7 @@ interface InputDispatcher {
         currentState: EditModeState,
         cellW: Float,
         cellH: Float,
+        density: Float = 1f,
+        selectedButtonId: String? = null,
     ): EditDispatchResult
 }

@@ -130,7 +130,7 @@ class GamepadInputDispatcher(
 
     // ──────────────────────── Edit mode ───────────────────────
 
-    override fun dispatchEdit(
+override fun dispatchEdit(
         event: RawTouchEvent,
         buttons: List<com.zyz4.gamepademu.model.ButtonPosition>,
         currentButtonBounds: Map<String, android.graphics.Rect>,
@@ -138,18 +138,21 @@ class GamepadInputDispatcher(
         currentState: EditModeState,
         cellW: Float,
         cellH: Float,
+        density: Float,
+        selectedButtonId: String?,
     ): EditDispatchResult {
 
         val action = event.action
         val x = event.pointers.getOrElse(0) { Pointer(-1, 0f, 0f) }.x
         val y = event.pointers.getOrElse(0) { Pointer(-1, 0f, 0f) }.y
+        val handleHitPx = 16f * density
 
         return when (action) {
             android.view.MotionEvent.ACTION_DOWN -> {
-                handleDown(x, y, buttons, currentButtonBounds, children, currentState, cellW, cellH)
+                handleDown(x, y, buttons, currentButtonBounds, children, currentState, cellW, cellH, density, selectedButtonId)
             }
             android.view.MotionEvent.ACTION_MOVE -> {
-                handleMove(x, y, buttons, currentButtonBounds, children, currentState, cellW, cellH)
+                handleMove(x, y, buttons, currentButtonBounds, children, currentState, cellW, cellH, density, selectedButtonId)
             }
             android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
                 EditDispatchResult(
@@ -176,18 +179,21 @@ class GamepadInputDispatcher(
         state: EditModeState,
         cellW: Float,
         cellH: Float,
+        densityPx: Float,
+        selectedButtonId: String? = null,
     ): EditDispatchResult {
         val commands = mutableListOf<EditCommand>()
+        val handleHitPx = 16f * densityPx
 
         if (state.isAdjustingFollowArea && state.adjustingFollowAreaId != null) {
             val pos = buttons.find { it.id == state.adjustingFollowAreaId } ?: return EditDispatchResult(commands, state)
 
-            if (isOnFollowAreaHandle(x, y, pos, cellW)) {
+            if (isOnFollowAreaHandle(x, y, pos, cellW, handleHitPx)) {
                 commands += ResizeFollowArea(state.adjustingFollowAreaId!!, pos.followAreaW, pos.followAreaH)
                 return EditDispatchResult(commands, state.copy(
                     followAreaResizeStart = FollowAreaResizeStart(
                         state.adjustingFollowAreaId!!, pos.followAreaW, pos.followAreaH,
-                        (x / cellW).toInt(), (y / cellW).toInt()),
+                        (x / cellW).toInt(), (y / cellH).toInt()),
                 ))
             }
             if (isInFollowArea(x, y, pos, cellW)) {
@@ -195,7 +201,7 @@ class GamepadInputDispatcher(
                 return EditDispatchResult(commands, state.copy(
                     followAreaDragStart = FollowAreaDragStart(
                         state.adjustingFollowAreaId!!, pos.followAreaX, pos.followAreaY,
-                        (x / cellW).toInt(), (y / cellW).toInt()),
+                        (x / cellW).toInt(), (y / cellH).toInt()),
                 ))
             }
             return EditDispatchResult(commands, state)
@@ -203,21 +209,25 @@ class GamepadInputDispatcher(
 
         for ((id, rect) in bounds) {
             val pos = buttons.find { it.id == id } ?: continue
-            if (isOnHandle(x, y, pos, cellW)) {
+            if (isOnHandleLocal(x, y, id, rect, handleHitPx)) {
                 commands += ResizeButton(id, pos.width, pos.height)
                 return EditDispatchResult(commands, state.copy(
                     childResizeStart = ChildResizeStart(id, pos.width, pos.height,
-                        (x / cellW).toInt(), (y / cellW).toInt()),
+                        (x / cellW).toInt(), (y / cellH).toInt()),
                 ))
             }
         }
 
         val hitIds = hitResolver.resolve(x, y, buttons, bounds)
-        val hitId = hitIds.firstOrNull()
+        val hitId = if (selectedButtonId != null && selectedButtonId in hitIds) {
+            selectedButtonId
+        } else {
+            hitIds.firstOrNull()
+        }
         if (hitId != null) {
             val rect = bounds[hitId] ?: return EditDispatchResult(commands, state)
-            val pos = buttons.find { it.id == hitId } ?: return EditDispatchResult(commands, state)
-            commands += MoveButton(hitId, pos.x, pos.y)
+            val pos = buttons.find { it.id == hitId }
+            commands += MoveButton(hitId, pos?.x ?: 0, pos?.y ?: 0)
             return EditDispatchResult(commands, state.copy(
                 childDragStart = ChildDragStart(hitId, x - rect.left.toFloat(), y - rect.top.toFloat()),
             ))
@@ -234,13 +244,16 @@ class GamepadInputDispatcher(
         state: EditModeState,
         cellW: Float,
         cellH: Float,
+        densityPx: Float,
+        selectedButtonId: String? = null,
     ): EditDispatchResult {
+        val handleHitPx = 16f * densityPx
         val commands = mutableListOf<EditCommand>()
 
         if (state.followAreaResizeStart != null) {
             val fs = state.followAreaResizeStart
             val gx = (x / cellW).toInt().coerceAtLeast(0)
-            val gy = (y / cellW).toInt().coerceAtLeast(0)
+            val gy = (y / cellH).toInt().coerceAtLeast(0)
             var newW = (fs.startW + gx - fs.resizeStartGridX).coerceAtLeast(1)
             var newH = (fs.startH + gy - fs.resizeStartGridY).coerceAtLeast(1)
             val pos = buttons.find { it.id == fs.buttonId } ?: return EditDispatchResult(commands, state)
@@ -255,7 +268,7 @@ class GamepadInputDispatcher(
         if (state.followAreaDragStart != null) {
             val ds = state.followAreaDragStart
             var newX = (ds.startX + (x / cellW).toInt() - ds.dragStartGridX)
-            var newY = (ds.startY + (y / cellW).toInt())
+            var newY = (ds.startY + (y / cellH).toInt())
             val pos = buttons.find { it.id == ds.buttonId } ?: return EditDispatchResult(commands, state)
             if (isTouchpadId(pos.id) && pos.followAreaEnabled) {
                 val maxAx = (LayoutEngine.GRID_COLS - pos.followAreaW).coerceAtLeast(0)
@@ -272,7 +285,7 @@ class GamepadInputDispatcher(
         if (state.childResizeStart != null) {
             val rs = state.childResizeStart
             val gx = (x / cellW).toInt().coerceAtLeast(0)
-            val gy = (y / cellW).toInt().coerceAtLeast(0)
+            val gy = (y / cellH).toInt().coerceAtLeast(0)
             val dx = gx - rs.resizeStartGridX
             val dy = gy - rs.resizeStartGridY
             val oldPos = buttons.find { it.id == rs.buttonId } ?: return EditDispatchResult(commands, state)
@@ -293,8 +306,8 @@ class GamepadInputDispatcher(
 
         if (state.childDragStart != null) {
             val ds = state.childDragStart
-            var gridX = (x - ds.offsetX).toInt().coerceIn(0, LayoutEngine.GRID_COLS - 1)
-            var gridY = (y - ds.offsetY).toInt().coerceAtLeast(0)
+            var gridX = ((x - ds.offsetX) / cellW).toInt().coerceIn(0, LayoutEngine.GRID_COLS - 1)
+            var gridY = ((y - ds.offsetY) / cellH).toInt().coerceAtLeast(0)
             val pos = buttons.find { it.id == ds.buttonId } ?: return EditDispatchResult(commands, state)
             if (isTouchpadId(ds.buttonId) && pos.followAreaEnabled) {
                 commands += MoveButton(ds.buttonId, gridX, gridY)
@@ -314,13 +327,12 @@ class GamepadInputDispatcher(
 
     // ──────── Geometry helpers ────────
 
-    private fun isOnFollowAreaHandle(x: Float, y: Float, pos: com.zyz4.gamepademu.model.ButtonPosition, cellW: Float): Boolean {
+    private fun isOnFollowAreaHandle(x: Float, y: Float, pos: com.zyz4.gamepademu.model.ButtonPosition, cellW: Float, handleHitPx: Float): Boolean {
         val fl = pos.followAreaX * cellW
         val ft = pos.followAreaY * cellW
         val fr = (pos.followAreaX + pos.followAreaW) * cellW
         val fb = (pos.followAreaY + pos.followAreaH) * cellW
-        val hit = HANDLE_HIT_DP * cellW
-        return x >= fr - hit && x <= fr && y >= fb - hit && y <= fb
+        return x >= fr - handleHitPx && x <= fr && y >= fb - handleHitPx && y <= fb
     }
 
     private fun isInFollowArea(x: Float, y: Float, pos: com.zyz4.gamepademu.model.ButtonPosition, cellW: Float): Boolean {
@@ -331,15 +343,8 @@ class GamepadInputDispatcher(
         return x >= fl && x <= fr && y >= ft && y <= fb
     }
 
-    private fun isOnHandle(x: Float, y: Float, pos: com.zyz4.gamepademu.model.ButtonPosition, cellW: Float): Boolean {
-        val vb = LayoutEngine.visualBoundsGrid(pos)
-        val vl = vb[0] * cellW; val vt = vb[1] * cellW
-        val vbw = vb[2] * cellW; val vbh = vb[3] * cellW
-        val hit = HANDLE_HIT_DP * cellW
-        return x >= vl + vbw - hit && x <= vl + vbw && y >= vt + vbh - hit && y <= vt + vbh
+    private fun isOnHandleLocal(x: Float, y: Float, id: String, rect: android.graphics.Rect, handleHitPx: Float): Boolean {
+        return x >= rect.right - handleHitPx && x <= rect.right && y >= rect.bottom - handleHitPx && y <= rect.bottom
     }
 
-    companion object {
-        private const val HANDLE_HIT_DP = 16f
     }
-}

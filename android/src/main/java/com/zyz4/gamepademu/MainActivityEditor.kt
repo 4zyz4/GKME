@@ -24,6 +24,8 @@ import com.zyz4.gamepademu.view.JoystickView
 import com.zyz4.gamepademu.view.RotatableButton
 import com.zyz4.gamepademu.view.CustomKeypadView
 
+private fun lastIndexOfUnderscore(s: String): Int = s.lastIndexOf('_')
+
 // ── Floating Editor ──────────────────────────────────────
 
 // Built lazily via `floatingEditor by lazy` so the ~1100-line panel is not
@@ -365,31 +367,32 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
 
     // Add both the view and position together using post to ensure they are processed
     // in the same layout pass, avoiding a layout request where only the view exists.
+    val pos = if (entry.isKeypad) {
+        ButtonPosition(
+            id = id, x = 50, y = 20,
+            width = entry.w, height = entry.h,
+            lockAspect = entry.lockAspect,
+            isCustom = entry.isCustom,
+            isKeypad = entry.isKeypad,
+            keypadTexts = ButtonPosition.KEYPAD_DEFAULT_TEXTS,
+            keypadBits = ButtonPosition.KEYPAD_DEFAULT_BITS,
+            keypadCenterDoubleClick = true,
+            roundShape = false,
+        )
+    } else {
+        ButtonPosition(
+            id = id, x = 50, y = 20,
+            width = entry.w, height = entry.h,
+            lockAspect = entry.lockAspect,
+            isCustom = entry.isCustom,
+            customText = "自定义",
+            customBits = emptyList(),
+            roundShape = entry.baseId == "btnCustomCircle",
+        )
+    }
+
     a.gamepadLayout.post {
         a.gamepadLayout.addView(view)
-        val pos = if (entry.isKeypad) {
-            ButtonPosition(
-                id = id, x = 50, y = 20,
-                width = entry.w, height = entry.h,
-                lockAspect = entry.lockAspect,
-                isCustom = entry.isCustom,
-                isKeypad = entry.isKeypad,
-                keypadTexts = ButtonPosition.KEYPAD_DEFAULT_TEXTS,
-                keypadBits = ButtonPosition.KEYPAD_DEFAULT_BITS,
-                keypadCenterDoubleClick = true,
-                roundShape = false,
-            )
-        } else {
-            ButtonPosition(
-                id = id, x = 50, y = 20,
-                width = entry.w, height = entry.h,
-                lockAspect = entry.lockAspect,
-                isCustom = entry.isCustom,
-                customText = "自定义",
-                customBits = emptyList(),
-                roundShape = entry.baseId == "btnCustomCircle",
-            )
-        }
         a.gamepadLayout.addButtonPosition(pos)
 
         if (!entry.isTouchpad && !entry.isDpadPad) {
@@ -400,8 +403,10 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
             }
         }
 
-        a.gamepadLayout.setSelectedButton(id)
-        a.updateButtonLabels(a.viewModel.settings.value.displayMode)
+        a.gamepadLayout.post {
+            a.gamepadLayout.setSelectedButton(id)
+            a.updateButtonLabels(a.viewModel.settings.value.displayMode)
+        }
     }
 }
 
@@ -461,9 +466,18 @@ internal fun MainActivity.ensureViewsForAllPresetButtons() {
             a.createStandardControlView(pos)
         }
     }
-    a.gamepadLayout.bringSettingsToFront()
+a.gamepadLayout.bringSettingsToFront()
     a.updateButtonLabels(a.viewModel.settings.value.displayMode)
+    val maxSuffix = a.gamepadLayout.currentButtons
+        .filter { it.id.startsWith("customKeypad_") }
+        .mapNotNull { pos -> parseKeypadSuffix(pos.id) }
+        .maxOrNull()
+    a.addCounter = maxOf(0, (maxSuffix ?: 0) + 1)
 }
+
+private fun parseKeypadSuffix(id: String): Int? = try {
+    id.substring(id.lastIndexOf('_') + 1).toInt()
+} catch (e: Exception) { null }
 
 internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
     val a = this
