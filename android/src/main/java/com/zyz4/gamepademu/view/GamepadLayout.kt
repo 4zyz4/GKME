@@ -417,7 +417,7 @@ class GamepadLayout @JvmOverloads constructor(
                     dispatchToChild(settingsChild, event, MotionEvent.ACTION_DOWN, 0)
                     return true
                 }
-                val nonJoystickChildren = children.filter { it !is JoystickView }
+                val nonJoystickChildren = children.filter { it !is JoystickView && it !is DpadPadView && it !is CustomKeypadView }
                 if (nonJoystickChildren.isEmpty()) {
                     if (tryFollowAreaTrigger(x, y, pid, event, 0)) return true
                 } else {
@@ -447,7 +447,7 @@ class GamepadLayout @JvmOverloads constructor(
                     dispatchToChild(settingsChild, event, MotionEvent.ACTION_DOWN, idx)
                     return true
                 }
-                val nonJoystickChildren = children.filter { it !is JoystickView }
+                val nonJoystickChildren = children.filter { it !is JoystickView && it !is DpadPadView && it !is CustomKeypadView }
                 if (nonJoystickChildren.isEmpty()) {
                     if (tryFollowAreaTrigger(x, y, pid, event, idx)) return true
                 } else {
@@ -616,7 +616,7 @@ class GamepadLayout @JvmOverloads constructor(
         val y = event.getY(idx)
         val allChildren = findAllChildrenAt(x, y)
         val children = filterOverlapChildren(allChildren)
-        val nonJoystickChildren = children.filter { it !is JoystickView }
+        val nonFollowAreaChildren = children.filter { it !is JoystickView && it !is DpadPadView && it !is CustomKeypadView }
 
         // Settings button is always the topmost control: a tap on it only opens settings.
         val settingsChild = children.firstOrNull { getButtonId(it) == SETTINGS_BUTTON_ID }
@@ -626,7 +626,7 @@ class GamepadLayout @JvmOverloads constructor(
             return
         }
 
-        if (nonJoystickChildren.isEmpty()) {
+        if (nonFollowAreaChildren.isEmpty()) {
             if (tryFollowAreaTrigger(x, y, pid, event, idx)) return
             if (children.isEmpty()) return
         } else {
