@@ -41,12 +41,12 @@ data class GamepadState(
         const val START = 0x00200       // bit 9
         const val L3 = 0x00400          // bit 10
         const val R3 = 0x00800          // bit 11
-        const val DPAD_BIT_UP = 0x01000   // bit 12
-        const val DPAD_BIT_DOWN = 0x02000 // bit 13
-        const val DPAD_BIT_LEFT = 0x04000 // bit 14
-        const val DPAD_BIT_RIGHT = 0x08000 // bit 15
+        val DPAD_BIT_UP = 0x01000   // bit 12
+        val DPAD_BIT_DOWN = 0x02000 // bit 13
+        val DPAD_BIT_LEFT = 0x04000 // bit 14
+        val DPAD_BIT_RIGHT = 0x08000 // bit 15
         const val HOME = 0x10000        // bit 16
-        const val TOUCHPAD_CLICK = 0x20000  // bit 17
+        val TOUCHPAD_CLICK = 0x20000  // bit 17
         const val SHARE = 0x40000       // bit 18
         const val DPAD_UP = 1
         const val DPAD_DOWN = 2
