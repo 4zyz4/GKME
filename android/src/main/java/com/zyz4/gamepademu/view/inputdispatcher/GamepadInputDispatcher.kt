@@ -162,6 +162,7 @@ override fun dispatchEdit(
                         followAreaResizeStart = null,
                         childDragStart = null,
                         childResizeStart = null,
+                        unselectedDragDownGrid = null,
                     ),
                 )
             }
@@ -230,9 +231,17 @@ override fun dispatchEdit(
             val rect = bounds[hitId] ?: return EditDispatchResult(commands, state)
             val pos = buttons.find { it.id == hitId }
             commands += MoveButton(hitId, pos?.x ?: 0, pos?.y ?: 0)
-            return EditDispatchResult(commands, state.copy(
-                childDragStart = ChildDragStart(hitId, x - rect.left.toFloat(), y - rect.top.toFloat()),
-            ))
+            val isUnselectedDrag = selectedButtonId == null || selectedButtonId != hitId
+            return EditDispatchResult(commands, if (isUnselectedDrag) {
+                state.copy(
+                    childDragStart = ChildDragStart(hitId, x - rect.left.toFloat(), y - rect.top.toFloat()),
+                    unselectedDragDownGrid = Pair((x / cellW).toInt(), (y / cellH).toInt()),
+                )
+            } else {
+                state.copy(
+                    childDragStart = ChildDragStart(hitId, x - rect.left.toFloat(), y - rect.top.toFloat()),
+                )
+            })
         }
 
         return EditDispatchResult(commands, state)
@@ -307,6 +316,14 @@ override fun dispatchEdit(
             var gridX = ((x - ds.offsetX) / cellW).toInt().coerceIn(0, LayoutEngine.GRID_COLS - 1)
             var gridY = ((y - ds.offsetY) / cellH).toInt().coerceAtLeast(0)
             val pos = buttons.find { it.id == ds.buttonId } ?: return EditDispatchResult(commands, state)
+            if (state.unselectedDragDownGrid != null) {
+                val (downGx, downGy) = state.unselectedDragDownGrid
+                val dx = kotlin.math.abs(gridX - downGx)
+                val dy = kotlin.math.abs(gridY - downGy)
+                if (dx < 3 && dy < 3) {
+                    return EditDispatchResult(commands, state)
+                }
+            }
             if (isTouchpadId(ds.buttonId) && pos.followAreaEnabled) {
                 commands += MoveButton(ds.buttonId, gridX, gridY)
                 commands += MoveFollowArea(

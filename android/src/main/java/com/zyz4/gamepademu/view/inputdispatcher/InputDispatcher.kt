@@ -156,6 +156,7 @@ data class EditModeState(
     val followAreaResizeStart: FollowAreaResizeStart? = null,
     val childDragStart: ChildDragStart? = null,
     val childResizeStart: ChildResizeStart? = null,
+    val unselectedDragDownGrid: Pair<Int, Int>? = null,
 )
 
 data class FollowAreaDragStart(

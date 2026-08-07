@@ -35,6 +35,7 @@ object FollowAreaStrategy {
         val activated = mutableSetOf<String>()
 
         for (pos in buttons) {
+            if (isTouchpadId(pos.id)) continue
             if (!pos.followAreaEnabled) continue
 
             // For follow-area-overlap-trigger buttons, only activate if
@@ -92,6 +93,7 @@ object FollowAreaStrategy {
         cellW: Float,
         cellH: Float,
     ): Boolean {
+        if (isTouchpadId(pos.id)) return false
         if (!pos.followAreaEnabled) return false
         val areaLeft = pos.followAreaX * cellW
         val areaTop = pos.followAreaY * cellH

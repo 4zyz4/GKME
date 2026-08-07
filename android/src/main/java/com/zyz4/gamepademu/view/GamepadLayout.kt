@@ -1089,13 +1089,16 @@ class GamepadLayout @JvmOverloads constructor(
             findChildAt = ::findChildAt,
         )
 
-        // Sync edit-state fields from gesture module's output
+        // Sync edit-mode state from gesture output
         isAdjustingFollowArea = output.syncIsAdjustingFollowArea
         adjustingFollowAreaId = output.syncAdjustingFollowAreaId
-        draggingChild = output.syncDraggingChild
-        resizingChild = output.syncResizingChild
-        draggingFollowArea = output.syncDraggingFollowArea
-        resizingFollowArea = output.syncResizingFollowArea
+        val previousDragging = draggingChild
+        if (event.actionMasked == MotionEvent.ACTION_DOWN || event.actionMasked == MotionEvent.ACTION_MOVE) {
+            draggingChild = output.syncDraggingChild
+            resizingChild = output.syncResizingChild
+            draggingFollowArea = output.syncDraggingFollowArea
+            resizingFollowArea = output.syncResizingFollowArea
+        }
 
         // Apply state-change commands (no MoveButton) on down
         if (event.actionMasked == MotionEvent.ACTION_DOWN) {
@@ -1107,7 +1110,6 @@ class GamepadLayout @JvmOverloads constructor(
                 if (draggingChild != null) {
                     dragOffsetX = event.x - draggingChild!!.left
                     dragOffsetY = event.y - draggingChild!!.top
-                    setSelectedButton(output.selectDraggingChild)
                     animateGridTo(1f)
                 }
             }
@@ -1127,6 +1129,12 @@ class GamepadLayout @JvmOverloads constructor(
         // Apply all commands on move
         if (event.actionMasked == MotionEvent.ACTION_MOVE) {
             applyEditCommands(output.commands)
+            if (draggingChild != null) {
+                val id = getButtonId(draggingChild!!)
+                if (id != null) {
+                    setSelectedButton(id)
+                }
+            }
         }
 
         // On up/cancel: finalize and select button
@@ -1134,19 +1142,18 @@ class GamepadLayout @JvmOverloads constructor(
             if (isAdjustingFollowArea || adjustingFollowAreaId != null) {
                 val id = adjustingFollowAreaId
                 if (id != null) {
-                    listener?.onButtonSelected(id)
+                    setSelectedButton(id)
                 }
             }
             if (resizingChild != null) {
                 val id = getButtonId(resizingChild!!)
-                if (id != null) listener?.onButtonSelected(id)
+                if (id != null) setSelectedButton(id)
                 resizingChild = null
             }
             if (draggingChild != null) {
                 val id = getButtonId(draggingChild!!)
                 if (id != null) {
-                    val pos = currentButtons.find { it.id == id }
-                    if (pos != null) listener?.onButtonSelected(id)
+                    setSelectedButton(id)
                 }
                 draggingChild = null
             }

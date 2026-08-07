@@ -3,6 +3,7 @@ package com.zyz4.gamepademu.view
 import android.view.MotionEvent
 import android.view.View
 import com.zyz4.gamepademu.model.ButtonPosition
+import com.zyz4.gamepademu.view.inputdispatcher.isTouchpadId
 
 /**
  * Side-effect-free follow-area trigger logic extracted from [GamepadLayout].
@@ -33,16 +34,17 @@ class GamepadFollowAreaTrigger(
         findChildrenAt: (x: Float, y: Float) -> List<View>,
         posForView: (child: View) -> ButtonPosition?,
         cellW: Float, cellH: Float,
-    ): Boolean {
+): Boolean {
         val followAreaChild = mutableListOf<Pair<View, ButtonPosition>>()
         for (child in children) {
             if (child.visibility != View.VISIBLE) continue
             val pos = posForView(child) ?: continue
+            if (isTouchpadId(pos.id)) continue
             if (!pos.followAreaEnabled) continue
             val areaLeft = pos.followAreaX * cellW
             val areaTop = pos.followAreaY * cellH
             val areaRight = (pos.followAreaX + pos.followAreaW) * cellW
-            val areaBottom = (pos.followAreaY + pos.followAreaH) * cellH
+            val areaBottom = (pos.followAreaY + pos.followAreaH) * cellW
             if (x >= areaLeft && x <= areaRight && y >= areaTop && y <= areaBottom) {
                 followAreaChild.add(child to pos)
             }
@@ -98,6 +100,7 @@ class GamepadFollowAreaTrigger(
         for (child in children) {
             if (child.visibility != View.VISIBLE) continue
             val pos = posForView(child) ?: continue
+            if (isTouchpadId(pos.id)) continue
             if (!pos.followAreaEnabled || !pos.followAreaOverlapTrigger) continue
             if (isInFollowArea(x, y, pos, cellW, cellH)) {
                 followAreaChild.add(child)
