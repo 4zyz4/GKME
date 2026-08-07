@@ -186,13 +186,13 @@ class SettingsRepository @Inject constructor(
             tpOutlineWidth = prefs[Keys.TP_OUTLINE_WIDTH] ?: 4,
             iconMaxSize = prefs[Keys.ICON_MAX_SIZE] ?: 24,
             leftVoiceCoilOutput = AudioOutput.fromOrdinalSafe(
-                prefs[Keys.LEFT_VOICE_COIL_OUTPUT] ?: -1
+                prefs[Keys.LEFT_VOICE_COIL_OUTPUT] ?: AudioOutput.LEFT_SPEAKER.ordinal
             ),
             rightVoiceCoilOutput = AudioOutput.fromOrdinalSafe(
-                prefs[Keys.RIGHT_VOICE_COIL_OUTPUT] ?: -1
+                prefs[Keys.RIGHT_VOICE_COIL_OUTPUT] ?: AudioOutput.RIGHT_SPEAKER.ordinal
             ),
             controllerAudioOutput = AudioOutput.fromOrdinalSafe(
-                prefs[Keys.CONTROLLER_AUDIO_OUTPUT] ?: -1
+                prefs[Keys.CONTROLLER_AUDIO_OUTPUT] ?: AudioOutput.ALL_SPEAKERS.ordinal
             ),
         )
     }

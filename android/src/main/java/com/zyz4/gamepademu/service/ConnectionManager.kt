@@ -55,7 +55,7 @@ class ConnectionManager @Inject constructor(
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
-    val audioPlaybackService = AudioPlaybackService()
+    val audioPlaybackService = AudioPlaybackService().also { it.initContext(context) }
 
     val pairedDeviceName: StateFlow<String?> = pairingStateRepository.pairedDeviceName
         .stateIn(scope, SharingStarted.Eagerly, null)
@@ -82,6 +82,15 @@ class ConnectionManager @Inject constructor(
     init {
         _settings.value = runBlocking(Dispatchers.IO) {
             settingsRepository.settings.first()
+        }
+        audioPlaybackService.setSettings(
+            leftOutput = _settings.value.leftVoiceCoilOutput,
+            rightOutput = _settings.value.rightVoiceCoilOutput,
+            controllerAudio = _settings.value.controllerAudioOutput,
+            gameVibrationEnabled = _settings.value.gameVibrationEnabled,
+        )
+        audioPlaybackService.onVibroOutput = { strong, weak ->
+            onRumbleRequest?.invoke(strong, weak)
         }
     }
 

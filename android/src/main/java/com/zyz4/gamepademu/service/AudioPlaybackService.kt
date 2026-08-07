@@ -3,12 +3,15 @@ package com.zyz4.gamepademu.service
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.util.Log
 import com.zyz4.gamepademu.model.AudioOutput
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import javax.inject.Inject
 import javax.inject.Singleton
 
 data class AudioTrackInfo(
@@ -18,10 +21,21 @@ data class AudioTrackInfo(
 )
 
 @Singleton
-class AudioPlaybackService @Inject constructor() {
+class AudioPlaybackService {
+
+    @Volatile
+    private lateinit var androidContext: android.content.Context
+
+    fun initContext(context: android.content.Context) {
+        androidContext = context
+    }
 
     companion object {
         private const val TAG = "AudioPlayback"
+        // Phone motor smoothing and deadzone
+        private const val MOTOR_SMOOTH_FACTOR = 0.65f
+        private const val MOTOR_DEADSHELL_THRESHOLD = 0.05f
+        private const val MOTOR_VIBRATE_DURATION_MS = 20L
     }
 
     private var audioTrack: AudioTrack? = null
@@ -45,8 +59,21 @@ class AudioPlaybackService @Inject constructor() {
     private var rightOutput = AudioOutput.RIGHT_SPEAKER
     private var controllerAudio = AudioOutput.ALL_SPEAKERS
     private var gameVibrationEnabled = true
-    var onVoiceCoilClick: ((strong: Boolean) -> Unit)? = null
-    var onControllerAudioClick: (() -> Unit)? = null
+
+    // Phone motor vibration state
+    private var motorSmoothTotal = 0f
+    private var lastVibrateTime = 0L
+    private var lastHasMotorOutput = false
+
+    private val _vibrator: Vibrator by lazy {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vm = androidContext.getSystemService(android.content.Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            vm.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            androidContext.getSystemService(android.content.Context.VIBRATOR_SERVICE) as Vibrator
+        }
+    }
 
     fun setSettings(
         leftOutput: AudioOutput,
@@ -65,10 +92,46 @@ class AudioPlaybackService @Inject constructor() {
             audioTrack?.stop()
             audioTrack?.release()
         } catch (_: Exception) {}
+        _vibrator.cancel()
         audioTrack = null
     }
 
     fun resumeIfStopped() {}
+
+    var onVibroOutput: ((strong: Int, weak: Int) -> Unit)? = null
+
+    private fun hasPhoneMotorOutput(): Boolean {
+        return leftOutput == AudioOutput.PHONE_MOTOR ||
+               rightOutput == AudioOutput.PHONE_MOTOR ||
+               controllerAudio == AudioOutput.PHONE_MOTOR
+    }
+
+    private fun hasControllerMotorOutput(): Boolean {
+        return leftOutput == AudioOutput.CONTROLLER_MOTOR_1 ||
+               leftOutput == AudioOutput.CONTROLLER_MOTOR_2 ||
+               rightOutput == AudioOutput.CONTROLLER_MOTOR_1 ||
+               rightOutput == AudioOutput.CONTROLLER_MOTOR_2 ||
+               controllerAudio == AudioOutput.CONTROLLER_MOTOR_1 ||
+               controllerAudio == AudioOutput.CONTROLLER_MOTOR_2
+    }
+
+    private fun applyControllerMotorOutput(leftAmp: Int, rightAmp: Int, totalAmp: Int) {
+        if (!hasControllerMotorOutput()) return
+
+        var strongMotor = 0
+        var weakMotor = 0
+
+        fun addMotor(target: AudioOutput, current: Int) {
+            if (target == AudioOutput.CONTROLLER_MOTOR_1) strongMotor = maxOf(strongMotor, current)
+            else if (target == AudioOutput.CONTROLLER_MOTOR_2) weakMotor = maxOf(weakMotor, current)
+        }
+
+        addMotor(leftOutput, leftAmp)
+        addMotor(rightOutput, rightAmp)
+        addMotor(controllerAudio, totalAmp)
+
+        onVibroOutput?.invoke(strongMotor, weakMotor)
+    }
 
     fun submitAudio(pcm: ByteArray, sampleRate: Int, channels: Int, bitsPerSample: Int) {
         val oldRate = this.sampleRate
@@ -93,28 +156,46 @@ class AudioPlaybackService @Inject constructor() {
 
         if (numSamples == 0) return
 
-        // RMS for voice coil (ch1 = left, ch2 = right, skip ch0)
-        var leftEnergy = 0.0
-        var rightEnergy = 0.0
-        var totalEnergy = 0.0
+        // Channel layout (ch0 unused):
+        //   ch1 = controller audio (speaker)
+        //   ch2 = left voice coil (left motor)
+        //   ch3 = right voice coil (right motor)
+        val controllerCh = 1
+        val leftVcmCh = 2
+        val rightVcmCh = 3
+
+        // RMS per channel
+        var controllerEnergy = 0.0
+        var leftVcmEnergy = 0.0
+        var rightVcmEnergy = 0.0
         var energyCount = 0
 
         for (s in 0 until numSamples) {
-            for (ch in 1 until inputCh) {
-                val off = s * bytesPerFrame + ch * 2
-                val v = leBytesToShort(pcm, off)
-                if (v == 0.toShort()) continue
-                when (ch) {
-                    1 -> { leftEnergy += v * v.toDouble(); energyCount++ }
-                    2 -> { rightEnergy += v * v.toDouble(); energyCount++ }
-                    else -> { totalEnergy += v * v.toDouble(); energyCount++ }
-                }
+            val ch2Off = s * bytesPerFrame + leftVcmCh * 2
+            val v2 = if (ch2Off + 1 < pcm.size) leBytesToShort(pcm, ch2Off) else 0
+            if (v2 != 0.toShort()) {
+                leftVcmEnergy += v2 * v2.toDouble()
+                energyCount++
+            }
+
+            val ch3Off = s * bytesPerFrame + rightVcmCh * 2
+            val v3 = if (ch3Off + 1 < pcm.size) leBytesToShort(pcm, ch3Off) else 0
+            if (v3 != 0.toShort()) {
+                rightVcmEnergy += v3 * v3.toDouble()
+                energyCount++
+            }
+
+            val ch1Off = s * bytesPerFrame + controllerCh * 2
+            val v1 = if (ch1Off + 1 < pcm.size) leBytesToShort(pcm, ch1Off) else 0
+            if (v1 != 0.toShort()) {
+                controllerEnergy += v1 * v1.toDouble()
+                energyCount++
             }
         }
 
-        val leftRms = if (energyCount > 0) Math.sqrt(leftEnergy / energyCount) * 2.0 else 0.0
-        val rightRms = if (energyCount > 0) Math.sqrt(rightEnergy / energyCount) * 2.0 else 0.0
-        val totalRms = if (energyCount > 0) Math.sqrt(totalEnergy / energyCount) * 2.0 else 0.0
+        val leftRms = if (energyCount > 0) Math.sqrt(leftVcmEnergy / energyCount) * 2.0 else 0.0
+        val rightRms = if (energyCount > 0) Math.sqrt(rightVcmEnergy / energyCount) * 2.0 else 0.0
+        val totalRms = if (energyCount > 0) Math.sqrt(controllerEnergy / energyCount) * 2.0 else 0.0
 
         coilSmoothLeft = coilSmoothLeft * 0.7f + (leftRms / 255.0).toFloat() * 0.3f
         coilSmoothRight = coilSmoothRight * 0.7f + (rightRms / 255.0).toFloat() * 0.3f
@@ -136,37 +217,102 @@ class AudioPlaybackService @Inject constructor() {
             controllerAudioAmplitude = smoothTotal.toInt().coerceIn(0, 255),
         )
 
-        val play = leftOutput != AudioOutput.NONE || rightOutput != AudioOutput.NONE ||
-                   (gameVibrationEnabled && controllerAudio != AudioOutput.NONE)
+        val leftAmp = smoothLeft.toInt().coerceIn(0, 255)
+        val rightAmp = smoothRight.toInt().coerceIn(0, 255)
+        val totalAmp = smoothTotal.toInt().coerceIn(0, 255)
+
+        // Phone motor output (before play check, independent of speaker output)
+        var phoneMotorIntensity = 0
+        if (leftOutput == AudioOutput.PHONE_MOTOR) {
+            phoneMotorIntensity = maxOf(phoneMotorIntensity, leftAmp)
+        }
+        if (rightOutput == AudioOutput.PHONE_MOTOR) {
+            phoneMotorIntensity = maxOf(phoneMotorIntensity, rightAmp)
+        }
+        if (controllerAudio == AudioOutput.PHONE_MOTOR && gameVibrationEnabled) {
+            phoneMotorIntensity = maxOf(phoneMotorIntensity, totalAmp)
+        }
+        if (phoneMotorIntensity > 0) {
+            triggerPhoneVibrator(phoneMotorIntensity)
+        }
+
+        // Controller motor output
+        applyControllerMotorOutput(leftAmp, rightAmp, totalAmp)
+
+        val play = (leftOutput != AudioOutput.NONE && leftOutput != AudioOutput.PHONE_MOTOR) ||
+                   (rightOutput != AudioOutput.NONE && rightOutput != AudioOutput.PHONE_MOTOR) ||
+                   (gameVibrationEnabled && controllerAudio != AudioOutput.NONE && controllerAudio != AudioOutput.PHONE_MOTOR)
         if (!play) return
 
         // Allocate output: numSamples stereo = numSamples * 2 channels * 2 bytes
         val stereoSize = numSamples * 4
-        val stereoBuf = ByteArray(stereoSize)
+        val stereoBuf = IntArray(stereoSize / 2)
 
-        // Copy ch1 -> left channel, ch2 -> right channel
+        // Determine which audio sources to play and where
+        val playCtrlAudio = gameVibrationEnabled && controllerAudio != AudioOutput.NONE && controllerAudio != AudioOutput.PHONE_MOTOR
+        val playLeftCh2 = leftOutput == AudioOutput.LEFT_SPEAKER
+        val playRightCh3 = rightOutput == AudioOutput.RIGHT_SPEAKER
+
         for (s in 0 until numSamples) {
-            val ch1Off = s * bytesPerFrame + 1 * 2
-            val ch2Off = s * bytesPerFrame + 2 * 2
-            val outOff = s * 4
+            val outOff = s * 2
 
-            if (ch1Off + 1 < pcm.size) {
-                stereoBuf[outOff] = pcm[ch1Off]
-                stereoBuf[outOff + 1] = pcm[ch1Off + 1]
+            if (playCtrlAudio) {
+                val ch1Off = s * bytesPerFrame + controllerCh * 2
+                if (ch1Off + 1 < pcm.size) {
+                    val s1 = leBytesToShort(pcm, ch1Off)
+                    stereoBuf[outOff] += s1.toInt()
+                    stereoBuf[outOff + 1] += s1.toInt()
+                }
             }
-            if (ch2Off + 1 < pcm.size) {
-                stereoBuf[outOff + 2] = pcm[ch2Off]
-                stereoBuf[outOff + 3] = pcm[ch2Off + 1]
+
+            if (playLeftCh2) {
+                val ch2Off = s * bytesPerFrame + leftVcmCh * 2
+                if (ch2Off + 1 < pcm.size) {
+                    val s2 = leBytesToShort(pcm, ch2Off)
+                    stereoBuf[outOff] += s2.toInt()
+                    stereoBuf[outOff + 1] += s2.toInt()
+                }
             }
+
+            if (playRightCh3) {
+                val ch3Off = s * bytesPerFrame + rightVcmCh * 2
+                if (ch3Off + 1 < pcm.size) {
+                    val s3 = leBytesToShort(pcm, ch3Off)
+                    stereoBuf[outOff] += s3.toInt()
+                    stereoBuf[outOff + 1] += s3.toInt()
+                }
+            }
+        }
+
+        val outBytes = ByteArray(stereoSize)
+        for (i in stereoBuf.indices) {
+            val v = stereoBuf[i].toShort()
+            outBytes[i * 2] = v.toInt().toByte()
+            outBytes[i * 2 + 1] = (v.toInt() shr 8).toByte()
         }
 
         recreateTrackIfNeeded()
         val track = audioTrack ?: return
 
-        val written = track.write(stereoBuf, 0, stereoBuf.size, AudioTrack.WRITE_NON_BLOCKING)
+        val written = track.write(outBytes, 0, outBytes.size, AudioTrack.WRITE_NON_BLOCKING)
         if (written <= 0) {
             Log.e(TAG, "write failed: pcm=${pcm.size} stereo=$stereoSize written=$written")
         }
+    }
+
+    private fun triggerPhoneVibrator(intensity: Int) {
+        if (intensity <= 5) return
+        val now = System.currentTimeMillis()
+        if (now - lastVibrateTime < MOTOR_VIBRATE_DURATION_MS) return
+
+        val motorIntensity = intensity.coerceIn(15, 255)
+
+        try {
+            val effect = VibrationEffect.createOneShot(MOTOR_VIBRATE_DURATION_MS, motorIntensity)
+            _vibrator.vibrate(effect)
+            lastVibrateTime = now
+            lastHasMotorOutput = true
+        } catch (_: Exception) {}
     }
 
     private fun leBytesToShort(bytes: ByteArray, offset: Int): Short {
