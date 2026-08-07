@@ -73,7 +73,17 @@ message ServerToClient {
     Disconnect disconnect = 3;
     RttReport rtt_report = 5;
     ServerHello server_hello = 7;
+    AudioFrame audio_frame = 8;
   }
+}
+
+message AudioFrame {
+  uint32 sample_rate_hz = 1;
+  uint32 channels = 2;
+  uint32 bits_per_sample = 3;
+  uint32 frame_index = 4;
+  uint32 sample_count = 5;
+  bytes pcm = 6;
 }
 
 message ServerHello {

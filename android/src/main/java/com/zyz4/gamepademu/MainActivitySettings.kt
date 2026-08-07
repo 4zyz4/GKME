@@ -26,12 +26,14 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.Spinner
 import android.widget.Switch
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import com.zyz4.gamepademu.model.AudioOutput
 import com.zyz4.gamepademu.model.ConnectionMode
 import com.zyz4.gamepademu.model.DisplayMode
 import com.zyz4.gamepademu.model.GyroOrientation
@@ -78,10 +80,12 @@ internal fun MainActivity.hideSettings() {
 
 internal fun MainActivity.selectSettingsCategory(index: Int) {
     val a = this
+    a.audioPollingJob?.cancel()
+    a.audioPollingJob = null
     a.currentSettingsCategory = index
-    val pages = listOf(R.id.pageConnection, R.id.pagePresets, R.id.pageAppearance, R.id.pagePhysicalController, R.id.pageVibration, R.id.pageGyro, R.id.pageMisc, R.id.pageAbout)
+    val pages = listOf(R.id.pageConnection, R.id.pagePresets, R.id.pageAppearance, R.id.pagePhysicalController, R.id.pageVibration, R.id.pageGyro, R.id.pageAudio, R.id.pageMisc, R.id.pageAbout)
     val buttons = listOf(
-        R.id.btnCategoryConnection, R.id.btnCategoryPresets, R.id.btnCategoryAppearance, R.id.btnCategoryPhysicalController, R.id.btnCategoryVibration, R.id.btnCategoryGyro, R.id.btnCategoryMisc, R.id.btnCategoryAbout
+        R.id.btnCategoryConnection, R.id.btnCategoryPresets, R.id.btnCategoryAppearance, R.id.btnCategoryPhysicalController, R.id.btnCategoryVibration, R.id.btnCategoryGyro, R.id.btnCategoryAudio, R.id.btnCategoryMisc, R.id.btnCategoryAbout
     )
     pages.forEachIndexed { i, id ->
         a.findViewById<View>(id).visibility = if (i == index) View.VISIBLE else View.GONE
@@ -106,6 +110,14 @@ internal fun MainActivity.selectSettingsCategory(index: Int) {
             }
         }
     }
+    if (index == 6) {
+        a.audioPollingJob = a.lifecycleScope.launch {
+            while (true) {
+                delay(200)
+                a.refreshAudioVCIndicators()
+            }
+        }
+    }
 }
 
 internal fun MainActivity.setupSettings() {
@@ -119,8 +131,9 @@ internal fun MainActivity.setupSettings() {
     a.findViewById<Button>(R.id.btnCategoryPhysicalController).setOnClickListener { a.selectSettingsCategory(3) }
     a.findViewById<Button>(R.id.btnCategoryVibration).setOnClickListener { a.selectSettingsCategory(4) }
     a.findViewById<Button>(R.id.btnCategoryGyro).setOnClickListener { a.selectSettingsCategory(5) }
-    a.findViewById<Button>(R.id.btnCategoryMisc).setOnClickListener { a.selectSettingsCategory(6) }
-    a.findViewById<Button>(R.id.btnCategoryAbout).setOnClickListener { a.selectSettingsCategory(7) }
+    a.findViewById<Button>(R.id.btnCategoryAudio).setOnClickListener { a.selectSettingsCategory(6) }
+    a.findViewById<Button>(R.id.btnCategoryMisc).setOnClickListener { a.selectSettingsCategory(7) }
+    a.findViewById<Button>(R.id.btnCategoryAbout).setOnClickListener { a.selectSettingsCategory(8) }
 
     // Sidebar scrollbar
     a.findViewById<ScrollView>(R.id.scrollSidebar).apply {
@@ -192,6 +205,29 @@ internal fun MainActivity.setupSettings() {
                 a.viewModel.updateDisplayMode(DisplayMode.entries[idx])
             }
         }
+
+    // ── Audio page ──
+    val audioOutputEntries = listOf(AudioOutput.NONE, AudioOutput.PHONE_MOTOR, AudioOutput.LEFT_SPEAKER, AudioOutput.RIGHT_SPEAKER, AudioOutput.ALL_SPEAKERS).plus(
+        if (a.physicalControllerHandler.controllerMotorCount >= 1) listOf(AudioOutput.CONTROLLER_MOTOR_1) else emptyList()
+    ).plus(
+        if (a.physicalControllerHandler.controllerMotorCount >= 2) listOf(AudioOutput.CONTROLLER_MOTOR_2) else emptyList()
+    )
+    a.audioMappingEntries = audioOutputEntries
+    a.audioControllerOutputEntries = audioOutputEntries
+    a.setupAudioOutputSpinner(R.id.spinnerLeftVoiceCoil, audioOutputEntries) { output ->
+        a.viewModel.updateLeftVoiceCoilOutput(output)
+        a.audioPlaybackService.resumeIfStopped()
+    }
+    a.setupAudioOutputSpinner(R.id.spinnerRightVoiceCoil, audioOutputEntries) { output ->
+        a.viewModel.updateRightVoiceCoilOutput(output)
+        a.audioPlaybackService.resumeIfStopped()
+    }
+    a.setupControllerAudioSpinner(audioOutputEntries) { output ->
+        a.viewModel.updateControllerAudioOutput(output)
+        a.audioPlaybackService.resumeIfStopped()
+    }
+
+    // Audio VC indicator polling will be started in selectSettingsCategory when index == 6
 
     listOf(R.id.btnConnWifi to 0, R.id.btnConnBluetooth to 1).forEach { (id, idx) ->
         a.findViewById<Button>(id).setOnClickListener {
@@ -464,6 +500,61 @@ internal fun MainActivity.updateMappingAdapter(spinner: Spinner) {
     val adapter = ArrayAdapter(a, android.R.layout.simple_spinner_item, names)
     adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
     spinner.adapter = adapter
+}
+
+internal fun MainActivity.setupAudioOutputSpinner(spinnerId: Int, entries: List<AudioOutput>, onChanged: (AudioOutput) -> Unit) {
+    val a = this
+    val spinner = a.findViewById<Spinner>(spinnerId)
+    a.audioOutputEntries = entries
+    a.updateAudioOutputAdapter(spinner)
+    spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+        override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+            if (pos < a.audioOutputEntries.size) onChanged(a.audioOutputEntries[pos])
+        }
+        override fun onNothingSelected(parent: AdapterView<*>?) {}
+    }
+}
+
+internal fun MainActivity.setupControllerAudioSpinner(entries: List<AudioOutput>, onChanged: (AudioOutput) -> Unit) {
+    val a = this
+    val spinner = a.findViewById<Spinner>(R.id.spinnerControllerAudio)
+    a.audioControllerOutputEntries = entries
+    a.updateControllerAudioAdapter(spinner)
+    spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+        override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+            if (pos < a.audioControllerOutputEntries.size) onChanged(a.audioControllerOutputEntries[pos])
+        }
+        override fun onNothingSelected(parent: AdapterView<*>?) {}
+    }
+}
+
+internal fun MainActivity.updateAudioOutputAdapter(spinner: Spinner) {
+    val a = this
+    val names = a.audioOutputEntries.map { it.displayName }.toTypedArray()
+    val adapter = ArrayAdapter(a, android.R.layout.simple_spinner_item, names)
+    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+    spinner.adapter = adapter
+}
+
+internal fun MainActivity.updateControllerAudioAdapter(spinner: Spinner) {
+    val a = this
+    val names = a.audioControllerOutputEntries.map { it.displayName }.toTypedArray()
+    val adapter = ArrayAdapter(a, android.R.layout.simple_spinner_item, names)
+    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+    spinner.adapter = adapter
+}
+
+@SuppressLint("SetTextI18n")
+internal fun MainActivity.refreshAudioVCIndicators() {
+    val a = this
+    val leftVC = a.audioPlaybackService.getVoiceCoilEnvelopeLeft()
+    val rightVC = a.audioPlaybackService.getVoiceCoilEnvelopeRight()
+    val leftProgress = (leftVC * 255).toInt()
+    val rightProgress = (rightVC * 255).toInt()
+    a.findViewById<ProgressBar>(R.id.progressLeftVC)?.progress = leftProgress
+    a.findViewById<ProgressBar>(R.id.progressRightVC)?.progress = rightProgress
+    a.findViewById<TextView>(R.id.tvLeftVCValue)?.text = leftProgress.toString()
+    a.findViewById<TextView>(R.id.tvRightVCValue)?.text = rightProgress.toString()
 }
 
 internal fun MainActivity.updateVibrationUI() {
@@ -937,4 +1028,33 @@ internal fun MainActivity.syncSettingsUI() {
         else "未连接手柄"
 
     a.refreshPresetList()
+    a.syncAudioUI()
+}
+
+@SuppressLint("SetTextI18n")
+internal fun MainActivity.syncAudioUI() {
+    val a = this
+    val s = a.viewModel.settings.value
+
+    val mc = a.physicalControllerHandler.controllerMotorCount
+    val audioEntries = listOf(AudioOutput.NONE, AudioOutput.PHONE_MOTOR, AudioOutput.LEFT_SPEAKER, AudioOutput.RIGHT_SPEAKER, AudioOutput.ALL_SPEAKERS).plus(
+        if (mc >= 1) listOf(AudioOutput.CONTROLLER_MOTOR_1) else emptyList()
+    ).plus(
+        if (mc >= 2) listOf(AudioOutput.CONTROLLER_MOTOR_2) else emptyList()
+    )
+
+    a.audioOutputEntries = audioEntries
+    a.audioControllerOutputEntries = audioEntries
+    a.updateAudioOutputAdapter(a.findViewById(R.id.spinnerLeftVoiceCoil))
+    a.updateAudioOutputAdapter(a.findViewById(R.id.spinnerRightVoiceCoil))
+    a.updateControllerAudioAdapter(a.findViewById(R.id.spinnerControllerAudio))
+
+    fun selAudio(opts: List<AudioOutput>, target: AudioOutput): Int {
+        val idx = opts.indexOf(target)
+        return if (idx >= 0) idx else 0
+    }
+
+    a.findViewById<Spinner>(R.id.spinnerLeftVoiceCoil).setSelection(selAudio(audioEntries, s.leftVoiceCoilOutput))
+    a.findViewById<Spinner>(R.id.spinnerRightVoiceCoil).setSelection(selAudio(audioEntries, s.rightVoiceCoilOutput))
+    a.findViewById<Spinner>(R.id.spinnerControllerAudio).setSelection(selAudio(audioEntries, s.controllerAudioOutput))
 }

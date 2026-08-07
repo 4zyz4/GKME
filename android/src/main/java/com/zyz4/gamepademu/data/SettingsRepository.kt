@@ -15,6 +15,7 @@ import com.zyz4.gamepademu.model.FillType
 import com.zyz4.gamepademu.model.GyroOrientation
 import com.zyz4.gamepademu.model.HapticEffect
 import com.zyz4.gamepademu.model.TargetPlatform
+import com.zyz4.gamepademu.model.AudioOutput
 import com.zyz4.gamepademu.model.VibrationMotor
 import com.zyz4.gamepademu.model.VibrationType
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -61,6 +62,10 @@ class SettingsRepository @Inject constructor(
         val VOLUME_UP_BITS = stringPreferencesKey("volume_up_bits")
         val VOLUME_DOWN_BITS = stringPreferencesKey("volume_down_bits")
         val NON_LINEAR_TRIGGER_ADAPTATION = booleanPreferencesKey("non_linear_trigger_adaptation")
+        // Audio
+        val LEFT_VOICE_COIL_OUTPUT = intPreferencesKey("left_voice_coil_output")
+        val RIGHT_VOICE_COIL_OUTPUT = intPreferencesKey("right_voice_coil_output")
+        val CONTROLLER_AUDIO_OUTPUT = intPreferencesKey("controller_audio_output")
         // Appearance
         val BG_FILL_TYPE = intPreferencesKey("bg_fill_type")
         val BG_COLOR = intPreferencesKey("bg_color")
@@ -180,6 +185,15 @@ class SettingsRepository @Inject constructor(
             tpOutlineColor = prefs[Keys.TP_OUTLINE_COLOR] ?: 0xFF666666.toInt(),
             tpOutlineWidth = prefs[Keys.TP_OUTLINE_WIDTH] ?: 4,
             iconMaxSize = prefs[Keys.ICON_MAX_SIZE] ?: 24,
+            leftVoiceCoilOutput = AudioOutput.fromOrdinalSafe(
+                prefs[Keys.LEFT_VOICE_COIL_OUTPUT] ?: -1
+            ),
+            rightVoiceCoilOutput = AudioOutput.fromOrdinalSafe(
+                prefs[Keys.RIGHT_VOICE_COIL_OUTPUT] ?: -1
+            ),
+            controllerAudioOutput = AudioOutput.fromOrdinalSafe(
+                prefs[Keys.CONTROLLER_AUDIO_OUTPUT] ?: -1
+            ),
         )
     }
 
@@ -244,6 +258,9 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.TP_OUTLINE_COLOR] = settings.tpOutlineColor
             prefs[Keys.TP_OUTLINE_WIDTH] = settings.tpOutlineWidth
             prefs[Keys.ICON_MAX_SIZE] = settings.iconMaxSize
+            prefs[Keys.LEFT_VOICE_COIL_OUTPUT] = settings.leftVoiceCoilOutput.ordinal
+            prefs[Keys.RIGHT_VOICE_COIL_OUTPUT] = settings.rightVoiceCoilOutput.ordinal
+            prefs[Keys.CONTROLLER_AUDIO_OUTPUT] = settings.controllerAudioOutput.ordinal
         }
     }
 

@@ -109,6 +109,18 @@
                     android:background="@drawable/bg_sidebar_item" />
 
                 <Button
+                    android:id="@+id/btnCategoryAudio"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:gravity="center"
+                    android:paddingHorizontal="8dp"
+                    android:text="音频"
+                    android:textColor="@color/text_primary"
+                    android:textSize="13sp"
+                    android:stateListAnimator="@null"
+                    android:background="@drawable/bg_sidebar_item" />
+
+                <Button
                     android:id="@+id/btnCategoryGyro"
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
@@ -1810,6 +1822,210 @@
                         android:layout_width="wrap_content"
                         android:layout_height="match_parent"
                         android:minWidth="100dp" />
+                </LinearLayout>
+
+            </LinearLayout>
+        </ScrollView>
+
+        <!-- Page 6: 音频 -->
+        <ScrollView
+            android:id="@+id/pageAudio"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="音频/音圈马达"
+                    android:textColor="@color/text_primary"
+                    android:textSize="18sp"
+                    android:fontFamily="sans-serif-medium"
+                    android:layout_marginBottom="16dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="音圈马达（Voice Coil）"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:fontFamily="sans-serif-medium"
+                    android:layout_marginBottom="8dp" />
+
+                <!-- Left Voice Coil Output -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:background="@color/bg_surface"
+                    android:paddingHorizontal="12dp"
+                    android:layout_marginBottom="4dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="左音圈马达"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp" />
+
+                    <Spinner
+                        android:id="@+id/spinnerLeftVoiceCoil"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:minWidth="120dp" />
+                </LinearLayout>
+
+                <!-- Right Voice Coil Output -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:background="@color/bg_surface"
+                    android:paddingHorizontal="12dp"
+                    android:layout_marginBottom="8dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="右音圈马达"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp" />
+
+                    <Spinner
+                        android:id="@+id/spinnerRightVoiceCoil"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:minWidth="120dp" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@color/bg_surface_light"
+                    android:layout_marginVertical="8dp" />
+
+                <!-- Controller Audio -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="控制器音频"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:fontFamily="sans-serif-medium"
+                    android:layout_marginBottom="8dp" />
+
+                <!-- Controller Audio Output -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:background="@color/bg_surface"
+                    android:paddingHorizontal="12dp"
+                    android:layout_marginBottom="8dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="控制器音频输出"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp" />
+
+                    <Spinner
+                        android:id="@+id/spinnerControllerAudio"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:minWidth="120dp" />
+                </LinearLayout>
+
+                <!-- Voice Coil Indicator -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="@color/bg_surface"
+                    android:padding="12dp"
+                    android:layout_marginBottom="8dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="音圈马达状态"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:layout_marginBottom="8dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="6dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="左:"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="12sp" />
+
+                        <ProgressBar
+                            android:id="@+id/progressLeftVC"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="120dp"
+                            android:layout_height="8dp"
+                            android:max="255"
+                            android:progress="0" />
+
+                        <TextView
+                            android:id="@+id/tvLeftVCValue"
+                            android:layout_width="40dp"
+                            android:layout_height="wrap_content"
+                            android:text="0"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="右:"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="12sp" />
+
+                        <ProgressBar
+                            android:id="@+id/progressRightVC"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="120dp"
+                            android:layout_height="8dp"
+                            android:max="255"
+                            android:progress="0" />
+
+                        <TextView
+                            android:id="@+id/tvRightVCValue"
+                            android:layout_width="40dp"
+                            android:layout_height="wrap_content"
+                            android:text="0"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="12sp" />
+                    </LinearLayout>
                 </LinearLayout>
 
             </LinearLayout>

@@ -15,6 +15,23 @@ enum class VibrationMotor(val displayName: String) {
     NONE("无"),
 }
 
+enum class AudioOutput(val displayName: String, val isLeft: Boolean) {
+    NONE("无", false),
+    PHONE_MOTOR("手机马达", false),
+    LEFT_SPEAKER("左扬声器", true),
+    RIGHT_SPEAKER("右扬声器", false),
+    ALL_SPEAKERS("全部扬声器", false),
+    CONTROLLER_MOTOR_1("手柄马达1", false),
+    CONTROLLER_MOTOR_2("手柄马达2", false),
+    ;
+
+    companion object {
+        fun fromOrdinalSafe(ordinal: Int, isLeft: Boolean = false): AudioOutput {
+            return entries.getOrElse(ordinal) { NONE }
+        }
+    }
+}
+
 enum class GyroOrientation(val displayName: String) {
     LANDSCAPE("横屏"),
     PORTRAIT("竖屏"),
@@ -74,6 +91,10 @@ data class AppSettings(
     val volumeUpBits: List<Int> = emptyList(),
     val volumeDownBits: List<Int> = emptyList(),
     val nonLinearTriggerAdaptation: Boolean = false,
+    // ── Audio (DualSense Voice Coil + Speaker) ──
+    val leftVoiceCoilOutput: AudioOutput = AudioOutput.LEFT_SPEAKER,
+    val rightVoiceCoilOutput: AudioOutput = AudioOutput.RIGHT_SPEAKER,
+    val controllerAudioOutput: AudioOutput = AudioOutput.ALL_SPEAKERS,
     // ── Appearance ──
     val bgFillType: FillType = FillType.SOLID_COLOR,
     val bgColor: Int = 0xFF000000.toInt(),

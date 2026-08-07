@@ -10,6 +10,7 @@ import android.provider.Settings
 import com.zyz4.gamepademu.data.PairingStateRepository
 import com.zyz4.gamepademu.data.SettingsRepository
 import com.zyz4.gamepademu.model.AppSettings
+import com.zyz4.gamepademu.model.AudioOutput
 import com.zyz4.gamepademu.model.ConnectionMode
 import com.zyz4.gamepademu.model.GamepadState
 import com.zyz4.gamepademu.model.TargetPlatform
@@ -54,6 +55,8 @@ class ConnectionManager @Inject constructor(
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
+    val audioPlaybackService = AudioPlaybackService()
+
     val pairedDeviceName: StateFlow<String?> = pairingStateRepository.pairedDeviceName
         .stateIn(scope, SharingStarted.Eagerly, null)
     private val udpService = UdpService()
@@ -96,6 +99,12 @@ class ConnectionManager @Inject constructor(
         if (!newSettings.gameVibrationEnabled) {
             vibrator.cancel()
         }
+        audioPlaybackService.setSettings(
+            leftOutput = newSettings.leftVoiceCoilOutput,
+            rightOutput = newSettings.rightVoiceCoilOutput,
+            controllerAudio = newSettings.controllerAudioOutput,
+            gameVibrationEnabled = newSettings.gameVibrationEnabled,
+        )
         _settings.value = newSettings
         scope.launch {
             settingsRepository.saveSettings(newSettings)
@@ -338,6 +347,7 @@ class ConnectionManager @Inject constructor(
         dsuService?.stop()
         dsuService = null
         vibrator.cancel()
+        audioPlaybackService.stop()
         activeProtocol = ActiveProtocol.NONE
         _connectionState.value = ConnectionState()
     }
@@ -362,6 +372,16 @@ class ConnectionManager @Inject constructor(
                     val v = msg.vibration
                     onRumbleRequest?.invoke(v.largeMotor, v.smallMotor)
                 }
+            }
+            ServerToClient.PayloadCase.AUDIO_FRAME -> {
+                val af = msg.audioFrame
+                android.util.Log.d("ConnectionManager", "AudioFrame: rate=${af.sampleRateHz} ch=${af.channels} bits=${af.bitsPerSample} pcmSize=${af.pcm.size()}")
+                audioPlaybackService.submitAudio(
+                    pcm = af.pcm.toByteArray(),
+                    sampleRate = af.sampleRateHz.toInt(),
+                    channels = af.channels.toInt(),
+                    bitsPerSample = af.bitsPerSample.toInt(),
+                )
             }
             ServerToClient.PayloadCase.DISCONNECT -> {
                 udpService.clearPcAddress()

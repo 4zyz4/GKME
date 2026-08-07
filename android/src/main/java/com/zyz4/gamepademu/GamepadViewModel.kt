@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.zyz4.gamepademu.data.LayoutRepository
 import com.zyz4.gamepademu.input.SensorHandler
 import com.zyz4.gamepademu.input.toProto
+import com.zyz4.gamepademu.model.AudioOutput
 import com.zyz4.gamepademu.model.AppSettings
 import com.zyz4.gamepademu.model.ConnectionMode
 import com.zyz4.gamepademu.model.DisplayMode
@@ -324,6 +325,18 @@ class GamepadViewModel @Inject constructor(
 
     fun updateNonLinearTriggerAdaptation(enabled: Boolean) {
         connectionManager.updateSettings(settings.value.copy(nonLinearTriggerAdaptation = enabled))
+    }
+
+    fun updateLeftVoiceCoilOutput(output: AudioOutput) {
+        connectionManager.updateSettings(settings.value.copy(leftVoiceCoilOutput = output))
+    }
+
+    fun updateRightVoiceCoilOutput(output: AudioOutput) {
+        connectionManager.updateSettings(settings.value.copy(rightVoiceCoilOutput = output))
+    }
+
+    fun updateControllerAudioOutput(output: AudioOutput) {
+        connectionManager.updateSettings(settings.value.copy(controllerAudioOutput = output))
     }
 
     // ── Appearance updates ──

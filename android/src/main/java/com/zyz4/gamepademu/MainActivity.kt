@@ -31,6 +31,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import com.zyz4.gamepademu.model.AudioOutput
 import com.zyz4.gamepademu.model.GamepadState
 import com.zyz4.gamepademu.model.AppSettings
 import com.zyz4.gamepademu.model.HapticEffect
@@ -51,10 +52,15 @@ class MainActivity : ComponentActivity() {
     internal val touchpadLabels = mutableListOf<TextView>()
     internal var discoverableRequested = false
     internal var vibrationPollingJob: kotlinx.coroutines.Job? = null
+    internal var audioPollingJob: kotlinx.coroutines.Job? = null
     internal var vibrationRedirectStatus: String? = null
     internal var lastAppliedSettings: AppSettings? = null
     internal var lastPresetInfos: Any? = null
     internal var lastPresetCurrentName: String? = null
+
+    internal var audioMappingEntries: List<AudioOutput> = emptyList()
+    internal var audioOutputEntries: List<AudioOutput> = emptyList()
+    internal var audioControllerOutputEntries: List<AudioOutput> = emptyList()
 
     private var mediaSession: MediaSession? = null
 
@@ -107,6 +113,9 @@ class MainActivity : ComponentActivity() {
     private val displayManager by lazy { getSystemService(DISPLAY_SERVICE) as DisplayManager }
 
     internal lateinit var physicalControllerHandler: PhysicalControllerHandler
+
+    internal val audioPlaybackService: com.zyz4.gamepademu.service.AudioPlaybackService
+        get() = viewModel.connectionManager.audioPlaybackService
 
     private val displayListener = object : DisplayManager.DisplayListener {
         override fun onDisplayAdded(displayId: Int) {}
