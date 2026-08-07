@@ -113,7 +113,7 @@ internal fun MainActivity.selectSettingsCategory(index: Int) {
     if (index == 6) {
         a.audioPollingJob = a.lifecycleScope.launch {
             while (true) {
-                delay(200)
+                delay(50)
                 a.refreshAudioVCIndicators()
             }
         }
@@ -547,14 +547,14 @@ internal fun MainActivity.updateControllerAudioAdapter(spinner: Spinner) {
 @SuppressLint("SetTextI18n")
 internal fun MainActivity.refreshAudioVCIndicators() {
     val a = this
-    val leftVC = a.audioPlaybackService.getVoiceCoilEnvelopeLeft()
-    val rightVC = a.audioPlaybackService.getVoiceCoilEnvelopeRight()
-    val leftProgress = (leftVC * 255).toInt()
-    val rightProgress = (rightVC * 255).toInt()
-    a.findViewById<ProgressBar>(R.id.progressLeftVC)?.progress = leftProgress
-    a.findViewById<ProgressBar>(R.id.progressRightVC)?.progress = rightProgress
-    a.findViewById<TextView>(R.id.tvLeftVCValue)?.text = leftProgress.toString()
-    a.findViewById<TextView>(R.id.tvRightVCValue)?.text = rightProgress.toString()
+    val info = a.audioPlaybackService.trackInfo.value
+    a.findViewById<ProgressBar>(R.id.progressLeftVC)?.progress = info.leftVoiceCoilAmplitude
+    a.findViewById<ProgressBar>(R.id.progressRightVC)?.progress = info.rightVoiceCoilAmplitude
+    a.findViewById<TextView>(R.id.tvLeftVCValue)?.text = info.leftVoiceCoilAmplitude.toString()
+    a.findViewById<TextView>(R.id.tvRightVCValue)?.text = info.rightVoiceCoilAmplitude.toString()
+    val controllerAmp = info.controllerAudioAmplitude
+    a.findViewById<ProgressBar>(R.id.progressControllerAudio)?.progress = controllerAmp
+    a.findViewById<TextView>(R.id.tvControllerAudioValue)?.text = controllerAmp.toString()
 }
 
 internal fun MainActivity.updateVibrationUI() {

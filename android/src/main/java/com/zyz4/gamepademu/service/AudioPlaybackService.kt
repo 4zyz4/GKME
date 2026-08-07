@@ -148,7 +148,19 @@ class AudioPlaybackService {
             recreateTrackIfNeeded()
         }
 
-        if (pcm.isEmpty()) return
+        if (pcm.isEmpty()) {
+            leftVoiceCoilAmplitude = 0
+            rightVoiceCoilAmplitude = 0
+            coilSmoothLeft = 0f
+            coilSmoothRight = 0f
+            coilIndex++
+            _trackInfo.value = AudioTrackInfo(
+                leftVoiceCoilAmplitude = 0,
+                rightVoiceCoilAmplitude = 0,
+                controllerAudioAmplitude = 0,
+            )
+            return
+        }
 
         val inputCh = maxOf(channels, 4)
         val bytesPerFrame = inputCh * 2
@@ -197,29 +209,27 @@ class AudioPlaybackService {
         val rightRms = if (energyCount > 0) Math.sqrt(rightVcmEnergy / energyCount) * 2.0 else 0.0
         val totalRms = if (energyCount > 0) Math.sqrt(controllerEnergy / energyCount) * 2.0 else 0.0
 
-        coilSmoothLeft = coilSmoothLeft * 0.7f + (leftRms / 255.0).toFloat() * 0.3f
-        coilSmoothRight = coilSmoothRight * 0.7f + (rightRms / 255.0).toFloat() * 0.3f
-        val smoothLeft = coilSmoothLeft.coerceIn(0f, 1f) * 255f
-        val smoothRight = coilSmoothRight.coerceIn(0f, 1f) * 255f
-        val smoothTotal = (totalRms / 255.0).toFloat().coerceIn(0f, 1f) * 255f
+        val instantLeft = (leftRms / 255.0).toFloat().coerceIn(0f, 1f) * 255f
+        val instantRight = (rightRms / 255.0).toFloat().coerceIn(0f, 1f) * 255f
+        val instantTotal = (totalRms / 255.0).toFloat().coerceIn(0f, 1f) * 255f
 
-        leftVoiceCoilAmplitude = smoothLeft.toInt().coerceIn(0, 255)
-        rightVoiceCoilAmplitude = smoothRight.toInt().coerceIn(0, 255)
+        leftVoiceCoilAmplitude = instantLeft.toInt().coerceIn(0, 255)
+        rightVoiceCoilAmplitude = instantRight.toInt().coerceIn(0, 255)
 
         val idx = coilIndex % leftVoiceCoilData.size
-        leftVoiceCoilData[idx] = (smoothLeft / 255f).coerceIn(0f, 1f)
-        rightVoiceCoilData[idx] = (smoothRight / 255f).coerceIn(0f, 1f)
+        leftVoiceCoilData[idx] = (instantLeft / 255f).coerceIn(0f, 1f)
+        rightVoiceCoilData[idx] = (instantRight / 255f).coerceIn(0f, 1f)
         coilIndex++
 
         _trackInfo.value = AudioTrackInfo(
             leftVoiceCoilAmplitude = leftVoiceCoilAmplitude,
             rightVoiceCoilAmplitude = rightVoiceCoilAmplitude,
-            controllerAudioAmplitude = smoothTotal.toInt().coerceIn(0, 255),
+            controllerAudioAmplitude = instantTotal.toInt().coerceIn(0, 255),
         )
 
-        val leftAmp = smoothLeft.toInt().coerceIn(0, 255)
-        val rightAmp = smoothRight.toInt().coerceIn(0, 255)
-        val totalAmp = smoothTotal.toInt().coerceIn(0, 255)
+        val leftAmp = leftVoiceCoilAmplitude
+        val rightAmp = rightVoiceCoilAmplitude
+        val totalAmp = instantTotal.toInt().coerceIn(0, 255)
 
         // Phone motor output (before play check, independent of speaker output)
         var phoneMotorIntensity = 0
@@ -370,6 +380,12 @@ class AudioPlaybackService {
     }
 
     fun getVoiceCoilEnvelopeLeft(): Float {
+        for (i in leftVoiceCoilData.indices) {
+            if (leftVoiceCoilData[i] > 0f) {
+                leftVoiceCoilData[i] *= 0.9f
+                if (leftVoiceCoilData[i] < 0.001f) leftVoiceCoilData[i] = 0f
+            }
+        }
         var sum = 0f
         var count = 0
         for (v in leftVoiceCoilData) {
@@ -379,6 +395,12 @@ class AudioPlaybackService {
     }
 
     fun getVoiceCoilEnvelopeRight(): Float {
+        for (i in rightVoiceCoilData.indices) {
+            if (rightVoiceCoilData[i] > 0f) {
+                rightVoiceCoilData[i] *= 0.9f
+                if (rightVoiceCoilData[i] < 0.001f) rightVoiceCoilData[i] = 0f
+            }
+        }
         var sum = 0f
         var count = 0
         for (v in rightVoiceCoilData) {

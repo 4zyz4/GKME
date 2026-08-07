@@ -4,9 +4,7 @@ import android.annotation.SuppressLint
 import android.app.Dialog
 import android.hardware.display.DisplayManager
 import android.view.Display
-import android.media.VolumeProvider
 import android.media.session.MediaSession
-import android.media.session.PlaybackState
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -220,19 +218,6 @@ class MainActivity : ComponentActivity() {
 
     private fun setupMediaSession() {
         mediaSession = MediaSession(this, "GamepadEmu").apply {
-            setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS)
-            setPlaybackState(PlaybackState.Builder()
-                .setActions(PlaybackState.ACTION_PLAY_PAUSE)
-                .setState(PlaybackState.STATE_PLAYING, 0, 0f)
-                .build()
-            )
-            val volumeProvider = object : VolumeProvider(
-                VolumeProvider.VOLUME_CONTROL_RELATIVE, 100, 50
-            ) {
-                override fun onAdjustVolume(direction: Int) {
-                }
-            }
-            setPlaybackToRemote(volumeProvider)
             isActive = true
         }
     }
