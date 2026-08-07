@@ -375,7 +375,6 @@ class ConnectionManager @Inject constructor(
             }
             ServerToClient.PayloadCase.AUDIO_FRAME -> {
                 val af = msg.audioFrame
-                android.util.Log.d("ConnectionManager", "AudioFrame: rate=${af.sampleRateHz} ch=${af.channels} bits=${af.bitsPerSample} pcmSize=${af.pcm.size()}")
                 audioPlaybackService.submitAudio(
                     pcm = af.pcm.toByteArray(),
                     sampleRate = af.sampleRateHz.toInt(),
