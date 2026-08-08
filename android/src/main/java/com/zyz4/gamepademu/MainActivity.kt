@@ -410,6 +410,7 @@ class MainActivity : ComponentActivity() {
             GamepadState.DPAD_BIT_UP -> "上方向"; GamepadState.DPAD_BIT_DOWN -> "下方向"
             GamepadState.DPAD_BIT_LEFT -> "左方向"; GamepadState.DPAD_BIT_RIGHT -> "右方向"
             GamepadState.HOME -> "HOME"; GamepadState.TOUCHPAD_CLICK -> "触摸板"
+            GamepadState.MIC_MUTE -> "麦克风静音"
             else -> "位$bit"
         }
     }

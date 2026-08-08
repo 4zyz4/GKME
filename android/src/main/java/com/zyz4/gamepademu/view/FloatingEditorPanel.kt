@@ -68,7 +68,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         "btnY", "btnA", "btnX", "btnB",
         "btnLT", "btnLB", "btnRT", "btnRB",
         "btnSelect", "btnHome", "btnMenu",
-        "btnTouchpad", "btnLS", "btnRS",
+        "btnTouchpad", "btnLS", "btnRS", "btnMic",
     )
 
     private var currentButton: ButtonPosition? = null
@@ -169,6 +169,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             "customKeypad" -> "自定义按键盘"
             "btnCustomCircle" -> "自定义(圆)"
             "btnCustomRect" -> "自定义(方)"
+            "btnMic" -> "麦克风静音"
             "btnSettings" -> "设置按钮"
             "btn" -> "按钮"
             "joystick" -> "摇杆"
@@ -1248,6 +1249,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             GamepadState.DPAD_BIT_DOWN -> "下"
             GamepadState.DPAD_BIT_LEFT -> "左"
             GamepadState.DPAD_BIT_RIGHT -> "右"
+            GamepadState.MIC_MUTE -> "麦克风静音"
             else -> "位$bit"
         }
     }

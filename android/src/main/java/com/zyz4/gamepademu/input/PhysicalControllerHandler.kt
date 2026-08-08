@@ -633,7 +633,7 @@ class PhysicalControllerHandler(private val context: Context) {
             KeyEvent.KEYCODE_BUTTON_THUMBL -> GamepadState.L3
             KeyEvent.KEYCODE_BUTTON_THUMBR -> GamepadState.R3
             KeyEvent.KEYCODE_BUTTON_MODE -> GamepadState.HOME
-            KeyEvent.KEYCODE_MEDIA_RECORD -> GamepadState.SHARE
+            KeyEvent.KEYCODE_MEDIA_RECORD -> GamepadState.MIC_MUTE
             else -> null
         }
     }

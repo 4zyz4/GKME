@@ -15,6 +15,7 @@ enum Button {
   DPAD_UP = 12; DPAD_DOWN = 13;
   DPAD_LEFT = 14; DPAD_RIGHT = 15;
   HOME = 16; TOUCHPAD_CLICK = 17;
+  MIC_MUTE = 18;
 }
 
 message ClientToServer {

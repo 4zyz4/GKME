@@ -47,7 +47,7 @@ data class GamepadState(
         val DPAD_BIT_RIGHT = 0x08000 // bit 15
         const val HOME = 0x10000        // bit 16
         val TOUCHPAD_CLICK = 0x20000  // bit 17
-        const val SHARE = 0x40000       // bit 18
+        const val MIC_MUTE = 0x40000  // bit 18
         const val DPAD_UP = 1
         const val DPAD_DOWN = 2
         const val DPAD_LEFT = 4

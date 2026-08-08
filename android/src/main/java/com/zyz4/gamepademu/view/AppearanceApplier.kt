@@ -35,7 +35,7 @@ object AppearanceApplier {
 
     // Image buttons that draw their icon as content and scale it with the adaptive setting.
     private val adaptiveImageButtonIds = setOf(
-        "btnHome", "btnDpadUp", "btnDpadDown", "btnDpadLeft", "btnDpadRight",
+        "btnHome", "btnDpadUp", "btnDpadDown", "btnDpadLeft", "btnDpadRight", "btnMic",
     )
 
     // Buttons whose foreground icon is content and fills the button with the adaptive setting:
@@ -442,7 +442,7 @@ object AppearanceApplier {
         return baseId in listOf(
             "btnA", "btnB", "btnX", "btnY",
             "btnDpadUp", "btnDpadDown", "btnDpadLeft", "btnDpadRight",
-            "btnHome", "btnSelect", "btnMenu", "btnLS", "btnRS", "btnTouchpad",
+            "btnHome", "btnSelect", "btnMenu", "btnLS", "btnRS", "btnTouchpad", "btnMic",
         ) || baseId.startsWith("btnCustomCircle")
     }
 
