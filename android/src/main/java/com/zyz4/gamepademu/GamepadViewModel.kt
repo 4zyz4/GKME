@@ -89,9 +89,16 @@ class GamepadViewModel @Inject constructor(
         _physicalControllerConnected.value = connected
     }
     private var _dpadBits = 0
+    private var _physicalDpadBits = 0
     private var _customKeypadBits = 0
     private var phoneButtons: UInt = 0u
     private var phoneTouches: List<TouchPoint> = emptyList()
+    private var phoneStickX: Short = 0
+    private var phoneStickY: Short = 0
+    private var phoneRStickX: Short = 0
+    private var phoneRStickY: Short = 0
+    private var phoneLT: Short = 0
+    private var phoneRT: Short = 0
 
     var onHapticFeedbackPress: (() -> Unit)? = null
     var onHapticFeedbackRelease: (() -> Unit)? = null
@@ -359,19 +366,36 @@ class GamepadViewModel @Inject constructor(
         val tx = (touchpadX * 1919).toInt().coerceIn(0, 1919)
         val ty = (touchpadY * 942).toInt().coerceIn(0, 942)
         val hasPhoneTouch = phoneTouches.any { it.active }
+        val hasPhoneLT = phoneLT.toInt() > 0
+        val hasPhoneRT = phoneRT.toInt() > 0
+        _physicalDpadBits = dpad and 0x0F
+        val combinedBits = _dpadBits or _physicalDpadBits
+        val hatValue = when (combinedBits) {
+            0 -> 0
+            GamepadState.DPAD_UP -> GamepadState.DPAD_UP
+            GamepadState.DPAD_DOWN -> GamepadState.DPAD_DOWN
+            GamepadState.DPAD_LEFT -> GamepadState.DPAD_LEFT
+            GamepadState.DPAD_RIGHT -> GamepadState.DPAD_RIGHT
+            GamepadState.DPAD_UP or GamepadState.DPAD_LEFT -> GamepadState.DPAD_UP_LEFT
+            GamepadState.DPAD_UP or GamepadState.DPAD_RIGHT -> GamepadState.DPAD_UP_RIGHT
+            GamepadState.DPAD_DOWN or GamepadState.DPAD_LEFT -> GamepadState.DPAD_DOWN_LEFT
+            GamepadState.DPAD_DOWN or GamepadState.DPAD_RIGHT -> GamepadState.DPAD_DOWN_RIGHT
+            else -> 0
+        }
+        
         _gamepadState.value = _gamepadState.value.copy(
             buttons = phoneButtons or buttons,
-            leftStickX = leftStickX,
-            leftStickY = leftStickY,
-            rightStickX = rightStickX,
-            rightStickY = rightStickY,
-            leftTrigger = leftTrigger,
-            rightTrigger = rightTrigger,
-            dpad = dpad,
+            leftStickX = (phoneStickX.toInt() + leftStickX.toInt()).coerceIn(-32768, 32767).toShort(),
+            leftStickY = (phoneStickY.toInt() + leftStickY.toInt()).coerceIn(-32768, 32767).toShort(),
+            rightStickX = (phoneRStickX.toInt() + rightStickX.toInt()).coerceIn(-32768, 32767).toShort(),
+            rightStickY = (phoneRStickY.toInt() + rightStickY.toInt()).coerceIn(-32768, 32767).toShort(),
+            leftTrigger = if (hasPhoneLT) maxOf(phoneLT.toInt(), leftTrigger) else leftTrigger,
+            rightTrigger = if (hasPhoneRT) maxOf(phoneRT.toInt(), rightTrigger) else rightTrigger,
+            dpad = hatValue,
             touchpadX = if (hasPhoneTouch) _gamepadState.value.touchpadX else tx,
             touchpadY = if (hasPhoneTouch) _gamepadState.value.touchpadY else ty,
             touchpadTouch = if (hasPhoneTouch) _gamepadState.value.touchpadTouch else touchpadTouch,
-            touchpadClick = touchpadClick,
+            touchpadClick = touchpadClick || hasPhoneTouch,
             touches = if (hasPhoneTouch) phoneTouches else touches,
         )
         sendInput()
@@ -630,11 +654,15 @@ class GamepadViewModel @Inject constructor(
     }
 
     fun onLeftStick(x: Short, y: Short) {
+        phoneStickX = x
+        phoneStickY = y
         _gamepadState.value = _gamepadState.value.copy(leftStickX = x, leftStickY = y)
         sendInput()
     }
 
     fun onRightStick(x: Short, y: Short) {
+        phoneRStickX = x
+        phoneRStickY = y
         _gamepadState.value = _gamepadState.value.copy(rightStickX = x, rightStickY = y)
         sendInput()
     }
@@ -687,11 +715,13 @@ class GamepadViewModel @Inject constructor(
     }
 
     fun onLeftTrigger(value: Int) {
+        phoneLT = value.toShort()
         _gamepadState.value = _gamepadState.value.copy(leftTrigger = value)
         sendInput()
     }
 
     fun onRightTrigger(value: Int) {
+        phoneRT = value.toShort()
         _gamepadState.value = _gamepadState.value.copy(rightTrigger = value)
         sendInput()
     }

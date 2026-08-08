@@ -113,7 +113,7 @@ data class ClickResult(
     val secondaryPressed: Boolean = false,
     val secondaryReleased: Boolean = false,
 ) {
-    val isClick: Boolean get() = primaryPressed && primaryReleased
+    val isClick: Boolean get() = primaryPressed || secondaryPressed
 }
 
 /**

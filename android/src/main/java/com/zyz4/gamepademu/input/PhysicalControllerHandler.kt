@@ -62,6 +62,7 @@ class PhysicalControllerHandler(private val context: Context) {
     val controllerState: StateFlow<PhysicalControllerState> = _controllerState.asStateFlow()
 
     private val buttonState = mutableMapOf<Int, Boolean>()
+    private var dpadKeyState = 0
     private var controllerVibratorManager: VibratorManager? = null
     private var controllerVibrator: Vibrator? = null
     private var controllerTypeValue = ControllerType.UNKNOWN
@@ -255,20 +256,19 @@ class PhysicalControllerHandler(private val context: Context) {
 
         val dpadDir = keyCodeToDpad(event.keyCode)
         if (dpadDir != null) {
-            return handleDpadKey(event, dpadDir)
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                dpadKeyState = dpadKeyState or dpadDir
+            } else if (event.action == KeyEvent.ACTION_UP) {
+                dpadKeyState = dpadKeyState and dpadDir.inv()
+            }
+            _controllerState.value = _controllerState.value.copy(
+                dpad = resolveDpad(dpadKeyState, 0f, 0f)
+            )
+            return true
         }
 
         val bit = keyCodeToBit(event.keyCode) ?: return false
         return handleButtonEvent(event, bit)
-    }
-
-    private fun handleDpadKey(event: KeyEvent, dir: Int): Boolean {
-        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
-            _controllerState.value = _controllerState.value.copy(dpad = dir)
-        } else if (event.action == KeyEvent.ACTION_UP) {
-            _controllerState.value = _controllerState.value.copy(dpad = 0)
-        }
-        return true
     }
 
     private fun handleButtonEvent(event: KeyEvent, bit: Int): Boolean {
@@ -584,7 +584,7 @@ class PhysicalControllerHandler(private val context: Context) {
             leftStickY = (axisY * 32767f).toInt().coerceIn(-32768, 32767).toShort(),
             rightStickX = (axisZ * 32767f).toInt().coerceIn(-32768, 32767).toShort(),
             rightStickY = (axisRz * 32767f).toInt().coerceIn(-32768, 32767).toShort(),
-            dpad = computeDpad(hatX, hatY),
+            dpad = resolveDpad(dpadKeyState, hatX, hatY),
         )
         if (!nonLinearTriggerAdaptation) {
             _controllerState.value = _controllerState.value.copy(
@@ -594,16 +594,20 @@ class PhysicalControllerHandler(private val context: Context) {
         }
     }
 
-    private fun computeDpad(hatX: Float, hatY: Float): Int {
+    private fun resolveDpad(dpadBits: Int, hatX: Float, hatY: Float): Int {
+        val up = (dpadBits and GamepadState.DPAD_UP) != 0 || (hatY < -0.5f)
+        val down = (dpadBits and GamepadState.DPAD_DOWN) != 0 || (hatY > 0.5f)
+        val left = (dpadBits and GamepadState.DPAD_LEFT) != 0 || (hatX < -0.5f)
+        val right = (dpadBits and GamepadState.DPAD_RIGHT) != 0 || (hatX > 0.5f)
         return when {
-            hatY < -0.5f && hatX < -0.5f -> GamepadState.DPAD_UP_LEFT
-            hatY < -0.5f && hatX > 0.5f -> GamepadState.DPAD_UP_RIGHT
-            hatY > 0.5f && hatX < -0.5f -> GamepadState.DPAD_DOWN_LEFT
-            hatY > 0.5f && hatX > 0.5f -> GamepadState.DPAD_DOWN_RIGHT
-            hatY < -0.5f -> GamepadState.DPAD_UP
-            hatY > 0.5f -> GamepadState.DPAD_DOWN
-            hatX < -0.5f -> GamepadState.DPAD_LEFT
-            hatX > 0.5f -> GamepadState.DPAD_RIGHT
+            up && left -> GamepadState.DPAD_UP_LEFT
+            up && right -> GamepadState.DPAD_UP_RIGHT
+            down && left -> GamepadState.DPAD_DOWN_LEFT
+            down && right -> GamepadState.DPAD_DOWN_RIGHT
+            up -> GamepadState.DPAD_UP
+            down -> GamepadState.DPAD_DOWN
+            left -> GamepadState.DPAD_LEFT
+            right -> GamepadState.DPAD_RIGHT
             else -> 0
         }
     }

@@ -27,6 +27,7 @@ import com.zyz4.gamepademu.view.inputdispatcher.SlotMatcher
 import com.zyz4.gamepademu.view.inputdispatcher.EditCommand
 import com.zyz4.gamepademu.view.inputdispatcher.toRawEvent
 import com.zyz4.gamepademu.view.inputdispatcher.InteractionResult
+import com.zyz4.gamepademu.view.inputdispatcher.TouchpadClickDetector
 
 class GamepadLayout @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
@@ -181,15 +182,24 @@ class GamepadLayout @JvmOverloads constructor(
         }
     }
 
+    var oldButtonState = 0
+
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCapturedPointerEvent(event: MotionEvent): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return super.onCapturedPointerEvent(event)
 
-        _dispatcherLastButtonState = event.buttonState
+        val newButtonState = event.buttonState
+        val clickResult = TouchpadClickDetector.detect(oldButtonState, newButtonState)
 
         if (event.actionMasked == MotionEvent.ACTION_UP ||
             event.actionMasked == MotionEvent.ACTION_CANCEL) {
             _touchpadClick = false
+            slot0Active = false
+            slot0X = 0f
+            slot0Y = 0f
+            slot1Active = false
+            slot1X = 0f
+            slot1Y = 0f
         } else {
             _slotState = OldSlotState(slot0Active = slot0Active, slot0X = slot0X, slot0Y = slot0Y,
                     slot1Active = slot1Active, slot1X = slot1X, slot1Y = slot1Y)
@@ -197,12 +207,12 @@ class GamepadLayout @JvmOverloads constructor(
             val raw = event.toRawEvent()
             val result = dispatcher.dispatchInteraction(
                 raw, currentButtons, emptyMap(),
-                emptySet(), _slotState, _dispatcherLastButtonState,
+                emptySet(), _slotState, oldButtonState,
                 cellW, cellH, false,
             )
 
             _slotState = result.newSlotState
-            _dispatcherLastButtonState = result.newLastButtonState
+            oldButtonState = newButtonState
 
             slot0Active = result.newSlotState.slot0Active
             slot0X = result.newSlotState.slot0X
@@ -211,7 +221,7 @@ class GamepadLayout @JvmOverloads constructor(
             slot1X = result.newSlotState.slot1X
             slot1Y = result.newSlotState.slot1Y
 
-            _touchpadClick = result.clickResult?.isClick == true
+            _touchpadClick = newButtonState and MotionEvent.BUTTON_PRIMARY != 0
         }
 
         listener?.onTouchpadEvent(

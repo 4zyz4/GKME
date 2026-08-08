@@ -247,8 +247,28 @@ class MainActivity : ComponentActivity() {
 
     // ── Input dispatch ─────────────────────────────────────
 
+    private fun isPhysicalGamepadKey(code: Int): Boolean = code == KeyEvent.KEYCODE_BUTTON_1 ||
+        code == KeyEvent.KEYCODE_DPAD_UP ||
+        code == KeyEvent.KEYCODE_DPAD_DOWN ||
+        code == KeyEvent.KEYCODE_DPAD_LEFT ||
+        code == KeyEvent.KEYCODE_DPAD_RIGHT ||
+        code == KeyEvent.KEYCODE_BUTTON_A ||
+        code == KeyEvent.KEYCODE_BUTTON_B ||
+        code == KeyEvent.KEYCODE_BUTTON_X ||
+        code == KeyEvent.KEYCODE_BUTTON_Y ||
+        code == KeyEvent.KEYCODE_BUTTON_L1 ||
+        code == KeyEvent.KEYCODE_BUTTON_R1 ||
+        code == KeyEvent.KEYCODE_BUTTON_L2 ||
+        code == KeyEvent.KEYCODE_BUTTON_R2 ||
+        code == KeyEvent.KEYCODE_BUTTON_SELECT ||
+        code == KeyEvent.KEYCODE_BUTTON_START ||
+        code == KeyEvent.KEYCODE_BUTTON_THUMBL ||
+        code == KeyEvent.KEYCODE_BUTTON_THUMBR ||
+        code == KeyEvent.KEYCODE_BUTTON_MODE ||
+        code == KeyEvent.KEYCODE_MEDIA_RECORD
+
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (event.keyCode == KeyEvent.KEYCODE_BUTTON_1 &&
+        if (isPhysicalGamepadKey(event.keyCode) &&
             physicalControllerHandler.handleKeyEvent(event)) {
             syncPhysicalControllerState()
             return true
@@ -321,12 +341,19 @@ class MainActivity : ComponentActivity() {
 
     internal fun syncPhysicalControllerState() {
         val state = physicalControllerHandler.controllerState.value
+        val connected = physicalControllerHandler.isConnected.value
+        val stickX = if (connected) state.leftStickX else 0
+        val stickY = if (connected) state.leftStickY else 0
+        val rStickX = if (connected) state.rightStickX else 0
+        val rStickY = if (connected) state.rightStickY else 0
+        val lTrigger = if (connected) state.leftTrigger else 0
+        val rTrigger = if (connected) state.rightTrigger else 0
 
         viewModel.onPhysicalControllerInput(
             state.buttons,
-            state.leftStickX, state.leftStickY,
-            state.rightStickX, state.rightStickY,
-            state.leftTrigger, state.rightTrigger,
+            stickX, stickY,
+            rStickX, rStickY,
+            lTrigger, rTrigger,
             state.dpad,
             state.touchpadX, state.touchpadY,
             state.touchpadTouch, state.touchpadClick,
