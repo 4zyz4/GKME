@@ -164,6 +164,25 @@ class ConnectionManager @Inject constructor(
         const val POLLING_INTERVAL_MS = 8
         const val CONNECTION_TIMEOUT_MS = 3000L
         const val EMOTION_TIMEOUT_MS = 5000L
+
+        fun getAllLocalIpAddressesInternal(): List<String> {
+            return try {
+                val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
+                val addresses = mutableListOf<String>()
+                while (interfaces.hasMoreElements()) {
+                    val intf = interfaces.nextElement()
+                    if (intf.isLoopback || !intf.isUp) continue
+                    val addrs = intf.inetAddresses
+                    while (addrs.hasMoreElements()) {
+                        val addr = addrs.nextElement()
+                        if (addr is java.net.Inet4Address) {
+                            addresses.add(addr.hostAddress ?: "")
+                        }
+                    }
+                }
+                addresses
+            } catch (_: Exception) { emptyList() }
+        }
     }
 
     private suspend fun watchdogLoop() {
@@ -236,15 +255,7 @@ class ConnectionManager @Inject constructor(
     private suspend fun startDsuServer(settings: AppSettings) {
         try {
             val ip = getServerIp()
-            if (ip.isEmpty()) {
-                if (activeProtocol == ActiveProtocol.NONE) {
-                    _connectionState.value = _connectionState.value.copy(
-                        phase = ConnectionPhase.ERROR,
-                        statusText = "无法获取本机 IP"
-                    )
-                }
-                return
-            }
+            if (ip.isEmpty()) return
             dsuService = DsuService(
                 scope = scope,
                 serverIp = ip,
@@ -267,25 +278,13 @@ class ConnectionManager @Inject constructor(
                     )
                 }
             )
-            val started = dsuService?.start() ?: false
-            if (!started && activeProtocol == ActiveProtocol.NONE) {
-                _connectionState.value = _connectionState.value.copy(
-                    phase = ConnectionPhase.ERROR,
-                    statusText = "Emotion 服务启动失败"
-                )
-                return
-            }
+            dsuService?.start()
             while (true) {
                 delay(1000)
             }
-        } catch (e: Exception) {
-            if (e is CancellationException) throw e
-            if (activeProtocol == ActiveProtocol.EMOTION) {
-                _connectionState.value = _connectionState.value.copy(
-                    connected = false, phase = ConnectionPhase.ERROR,
-                    statusText = "Emotion 服务异常: ${e.message}"
-                )
-            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
         }
     }
 
@@ -404,6 +403,7 @@ class ConnectionManager @Inject constructor(
 
     private fun doReconnect() {
         activeProtocol = ActiveProtocol.WIFI
+        udpService.setConnected(true)
         _connectionState.value = _connectionState.value.copy(
             connected = true, phase = ConnectionPhase.CONNECTED,
             statusText = "已连接（WiFi）"
@@ -482,18 +482,10 @@ class ConnectionManager @Inject constructor(
     }
 
     fun getServerIp(): String {
-        return try {
-            val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
-            while (interfaces.hasMoreElements()) {
-                val intf = interfaces.nextElement()
-                if (intf.isLoopback || !intf.isUp) continue
-                val addrs = intf.inetAddresses
-                while (addrs.hasMoreElements()) {
-                    val addr = addrs.nextElement()
-                    if (addr is java.net.Inet4Address) return addr.hostAddress ?: ""
-                }
-            }
-            ""
-        } catch (_: Exception) { "" }
+        return getAllLocalIpAddresses().firstOrNull() ?: ""
+    }
+
+    fun getAllLocalIpAddresses(): List<String> {
+        return getAllLocalIpAddressesInternal()
     }
 }

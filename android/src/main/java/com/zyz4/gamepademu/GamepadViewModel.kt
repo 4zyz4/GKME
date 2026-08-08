@@ -221,7 +221,9 @@ class GamepadViewModel @Inject constructor(
         return layoutRepository.getDefaultPreset()
     }
 
-    fun getServerIp(): String = connectionManager.getServerIp()
+    fun getServerIp(): String = connectionManager.getAllLocalIpAddresses().joinToString(", ")
+
+    fun getServerIpFirst(): String = connectionManager.getServerIp()
 
     fun unpairDevice() {
         connectionManager.unpairDevice()

@@ -25,25 +25,53 @@ class UdpService {
         const val TYPE_GAMEPAD_INPUT: Byte = 0x02
     }
 
-    private var socket: DatagramSocket? = null
-    private var broadcastJob: Job? = null
-    private var receiveJob: Job? = null
+    private var sockets = mutableListOf<DatagramSocket>()
+    private var broadcastJobs = mutableListOf<Job>()
+    private var receiveJobs = mutableListOf<Job>()
     @Volatile var pcAddress: InetSocketAddress? = null
         private set
-    @Volatile var phoneIp: String = ""
+    @Volatile var phoneIps: List<String> = emptyList()
     @Volatile var lastReceiveTime: Long = 0
+    @Volatile private var connected = false
 
     private var onMessage: ((ServerToClient) -> Unit)? = null
 
-    val isActive: Boolean get() = socket != null
+    val isActive: Boolean get() = sockets.isNotEmpty()
+
+    fun setConnected(connected: Boolean) {
+        this.connected = connected
+        if (connected) {
+            stopBroadcast()
+        }
+    }
+
+    private fun stopBroadcast() {
+        broadcastJobs.forEach { it.cancel() }
+        broadcastJobs.clear()
+    }
 
     fun start(ip: String, deviceName: String, onMessage: (ServerToClient) -> Unit) {
         stop()
-        phoneIp = ip
         this.onMessage = onMessage
-        socket = DatagramSocket(PORT).also { it.broadcast = true }
-        startBroadcast(deviceName)
-        startReceiveLoop()
+        val allIps = com.zyz4.gamepademu.service.ConnectionManager.getAllLocalIpAddressesInternal()
+        phoneIps = allIps
+        for (localIp in allIps) {
+            try {
+                val bindAddr = InetAddress.getByName(localIp)
+                val socket = DatagramSocket(PORT, bindAddr).also { it.broadcast = true }
+                sockets.add(socket)
+                startBroadcastForSocket(socket, deviceName)
+                startReceiveLoopForSocket(socket)
+            } catch (_: Exception) {}
+        }
+        if (sockets.isEmpty()) {
+            try {
+                val socket = DatagramSocket(PORT).also { it.broadcast = true }
+                sockets.add(socket)
+                startBroadcastForSocket(socket, deviceName)
+                startReceiveLoopForSocket(socket)
+            } catch (_: Exception) {}
+        }
     }
 
     fun clearPcAddress() {
@@ -51,10 +79,14 @@ class UdpService {
     }
 
     fun stop() {
-        broadcastJob?.cancel()
-        receiveJob?.cancel()
-        socket?.close()
-        socket = null
+        broadcastJobs.forEach { it.cancel() }
+        broadcastJobs.clear()
+        receiveJobs.forEach { it.cancel() }
+        receiveJobs.clear()
+        for (s in sockets) {
+            try { s.close() } catch (_: Exception) {}
+        }
+        sockets.clear()
         pcAddress = null
     }
 
@@ -67,7 +99,12 @@ class UdpService {
                     it[0] = TYPE_GAMEPAD_INPUT
                     payload.copyInto(it, 1)
                 }
-                socket?.send(DatagramPacket(data, data.size, pcAddress))
+                for (socket in sockets) {
+                    try {
+                        val dp = DatagramPacket(data, data.size, pcAddress)
+                        socket.send(dp)
+                    } catch (_: Exception) {}
+                }
             } catch (_: Exception) {}
         }
     }
@@ -81,19 +118,23 @@ class UdpService {
                     it[0] = TYPE_CLIENT_TO_SERVER
                     payload.copyInto(it, 1)
                 }
-                socket?.send(DatagramPacket(data, data.size, pcAddress))
+                for (socket in sockets) {
+                    try {
+                        val dp = DatagramPacket(data, data.size, pcAddress)
+                        socket.send(dp)
+                    } catch (_: Exception) {}
+                }
             } catch (_: Exception) {}
         }
     }
 
-    private fun startReceiveLoop() {
-        receiveJob = CoroutineScope(Dispatchers.IO).launch {
+    private fun startReceiveLoopForSocket(socket: DatagramSocket) {
+        val job = CoroutineScope(Dispatchers.IO).launch {
             val buf = ByteArray(65535)
             while (isActive) {
                 try {
-                    val s = socket ?: break
                     val dp = DatagramPacket(buf, buf.size)
-                    s.receive(dp)
+                    socket.receive(dp)
                     val len = dp.length
                     if (len < 1) continue
                     val type = buf[0]
@@ -106,25 +147,28 @@ class UdpService {
                             onMessage?.invoke(msg)
                         }
                     }
-                } catch (_: Exception) {}
+                } catch (_: Exception) {
+                    if (!isActive) break
+                }
             }
         }
+        receiveJobs.add(job)
     }
 
-    private fun startBroadcast(deviceName: String) {
-        broadcastJob = CoroutineScope(Dispatchers.IO).launch {
+    private fun startBroadcastForSocket(socket: DatagramSocket, deviceName: String) {
+        val job = CoroutineScope(Dispatchers.IO).launch {
             try {
                 val msg = "GAMEPAD_SERVER:$deviceName".toByteArray()
                 val bcAddr = InetAddress.getByName("255.255.255.255")
                 while (isActive) {
                     try {
-                        val s = socket ?: break
                         val dp = DatagramPacket(msg, msg.size, bcAddr, PORT)
-                        s.send(dp)
+                        socket.send(dp)
                     } catch (_: Exception) {}
                     delay(1000.milliseconds)
                 }
             } catch (_: Exception) {}
         }
+        broadcastJobs.add(job)
     }
 }

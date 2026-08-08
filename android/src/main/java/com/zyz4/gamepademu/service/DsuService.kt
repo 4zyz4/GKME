@@ -20,7 +20,7 @@ class DsuService(
     private val onError: ((String) -> Unit)? = null,
     private val onConnected: (() -> Unit)? = null
 ) {
-    private var discoverySocket: DatagramSocket? = null
+    private var discoverySockets = mutableListOf<DatagramSocket>()
     private var dataSocket: DatagramSocket? = null
     private var jobs = mutableListOf<Job>()
 
@@ -32,7 +32,12 @@ class DsuService(
     private var isDataActive: Boolean = false
 
     private var lastGamepadState: GamepadState = GamepadState()
-    private var localIpBytes: ByteArray? = null
+    private var allLocalIpBytes: List<ByteArray> = emptyList()
+    private var allLocalAddresses: Set<InetAddress> = emptySet()
+
+    private fun getPrimaryIpBytes(): ByteArray? {
+        return allLocalIpBytes.firstOrNull()
+    }
 
     @Volatile
     var lastPacketTime: Long = 0L
@@ -40,61 +45,69 @@ class DsuService(
     fun start(): Boolean {
         stop()
         try {
-            discoverySocket = DatagramSocket(DsuConstants.PORT_DISCOVERY).apply {
-                broadcast = true
-                soTimeout = 1000
+            allLocalIpBytes = resolveAllLocalIpBytes()
+            allLocalAddresses = resolveAllLocalAddresses()
+            for (ipBytes in allLocalIpBytes) {
+                val ds = DatagramSocket(DsuConstants.PORT_DISCOVERY, InetAddress.getByAddress(
+                    ipBytes
+                )).apply {
+                    broadcast = true
+                    soTimeout = 1000
+                }
+                discoverySockets.add(ds)
             }
             dataSocket = DatagramSocket(DsuConstants.PORT_DATA).apply {
                 soTimeout = 8
             }
-            localIpBytes = resolveLocalIpBytes()
         } catch (e: Exception) {
             onError?.invoke("创建 DSU 套接字失败: ${e.message}")
             stop()
             return false
         }
 
-        val ds = discoverySocket ?: return false
+        if (discoverySockets.isEmpty()) return false
         val dt = dataSocket ?: return false
-        val ip = localIpBytes ?: return false
 
-        val localAddresses = resolveAllLocalAddresses()
-
-        jobs.add(scope.launch(Dispatchers.IO) {
-            while (isActive && !isDataActive) {
-                try {
-                    val packet = DatagramPacket(
-                        ip, ip.size,
-                        InetAddress.getByName("255.255.255.255"),
-                        DsuConstants.PORT_DISCOVERY
-                    )
-                    ds.send(packet)
-                } catch (_: Exception) {}
-                delay(1000)
-            }
-        })
-
-        jobs.add(scope.launch(Dispatchers.IO) {
-            val buf = ByteArray(512)
-            while (isActive) {
-                try {
-                    val packet = DatagramPacket(buf, buf.size)
-                    ds.receive(packet)
-                    val data = packet.data.copyOf(packet.length)
-                    val from = packet.address
-                    val port = packet.port
-                    if (from in localAddresses) continue
-                    if (data.size >= 20) {
-                        val header = codec.decodeHeader(data)
-                        if (header != null) {
-                            handleDsuPacket(ds, from, port, header)
-                        }
-                    }
-                } catch (_: Exception) {
-                    if (!isActive) break
+        for (ds in discoverySockets) {
+            val ip = allLocalIpBytes[discoverySockets.indexOf(ds)]
+            jobs.add(scope.launch(Dispatchers.IO) {
+                while (isActive && !isDataActive) {
+                    try {
+                        val packet = DatagramPacket(
+                            ip, ip.size,
+                            InetAddress.getByName("255.255.255.255"),
+                            DsuConstants.PORT_DISCOVERY
+                        )
+                        ds.send(packet)
+                    } catch (_: Exception) {}
+                    delay(1000)
                 }
-            }
-        })
+            })
+        }
+
+        for (ds in discoverySockets) {
+            jobs.add(scope.launch(Dispatchers.IO) {
+                val buf = ByteArray(512)
+                while (isActive) {
+                    try {
+                        val packet = DatagramPacket(buf, buf.size)
+                        ds.receive(packet)
+                        val data = packet.data.copyOf(packet.length)
+                        val from = packet.address
+                        val port = packet.port
+                        if (from in allLocalAddresses) continue
+                        if (data.size >= 20) {
+                            val header = codec.decodeHeader(data)
+                            if (header != null) {
+                                handleDsuPacket(ds, from, port, header)
+                            }
+                        }
+                    } catch (_: Exception) {
+                        if (!isActive) break
+                    }
+                }
+            })
+        }
 
         jobs.add(scope.launch(Dispatchers.IO) {
             val buf = ByteArray(DsuConstants.TOTAL_PACKET_SIZE)
@@ -176,6 +189,7 @@ class DsuService(
             val interfaces = NetworkInterface.getNetworkInterfaces()
             while (interfaces.hasMoreElements()) {
                 val intf = interfaces.nextElement()
+                if (intf.isLoopback || !intf.isUp) continue
                 val addrs = intf.inetAddresses
                 while (addrs.hasMoreElements()) {
                     val addr = addrs.nextElement()
@@ -186,7 +200,8 @@ class DsuService(
         return set
     }
 
-    private fun resolveLocalIpBytes(): ByteArray {
+    private fun resolveAllLocalIpBytes(): List<ByteArray> {
+        val result = mutableListOf<ByteArray>()
         try {
             val interfaces = NetworkInterface.getNetworkInterfaces()
             while (interfaces.hasMoreElements()) {
@@ -196,12 +211,15 @@ class DsuService(
                 while (addrs.hasMoreElements()) {
                     val addr = addrs.nextElement()
                     if (addr is Inet4Address) {
-                        return addr.address
+                        result.add(addr.address)
                     }
                 }
             }
         } catch (_: Exception) {}
-        return serverIp.split(".").map { it.toInt().toByte() }.toByteArray()
+        if (result.isEmpty()) {
+            result.add(serverIp.split(".").map { it.toInt().toByte() }.toByteArray())
+        }
+        return result
     }
 
     fun updateGamepadState(state: GamepadState) {
@@ -219,9 +237,11 @@ class DsuService(
         isDataActive = false
         jobs.forEach { it.cancel() }
         jobs.clear()
-        try { discoverySocket?.close() } catch (_: Exception) {}
+        for (ds in discoverySockets) {
+            try { ds.close() } catch (_: Exception) {}
+        }
+        discoverySockets.clear()
         try { dataSocket?.close() } catch (_: Exception) {}
-        discoverySocket = null
         dataSocket = null
         pcAddress = null
         pcPort = 0
