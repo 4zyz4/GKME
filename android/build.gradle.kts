@@ -21,8 +21,8 @@ android {
         minSdk = 26
         //noinspection OldTargetApi
         targetSdk = 36
-        versionCode = 3000
-        versionName = "3.0.0TEST"
+        versionCode = 3002
+        versionName = "3.0.0"
     }
 
     buildTypes {
