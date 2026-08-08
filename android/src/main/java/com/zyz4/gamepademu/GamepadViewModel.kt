@@ -201,6 +201,10 @@ class GamepadViewModel @Inject constructor(
         connectionManager.updateSettings(settings.value.copy(connectionMode = mode))
     }
 
+    fun updatePollingRate(rate: Int) {
+        connectionManager.updateSettings(settings.value.copy(pollingRate = rate))
+    }
+
     fun updateAutoStartEnabled(enabled: Boolean) {
         connectionManager.updateSettings(settings.value.copy(autoStartEnabled = enabled))
     }
@@ -447,15 +451,22 @@ class GamepadViewModel @Inject constructor(
         sendJob?.cancel()
         var lastBatteryRead = 0L
         sendJob = viewModelScope.launch {
+            var nextSendTime = System.currentTimeMillis()
             while (true) {
-                val now = System.currentTimeMillis()
-                if (now - lastBatteryRead > 2000) {
+                if (System.currentTimeMillis() - lastBatteryRead > 2000) {
                     readBattery()
-                    lastBatteryRead = now
+                    lastBatteryRead = System.currentTimeMillis()
                 }
                 val input = _gamepadState.value.toProto()
                 connectionManager.sendGamepadState(input)
-                delay(8)
+                val intervalMs = kotlin.math.round(1000.0 / settings.value.pollingRate).toLong().coerceAtLeast(1L)
+                nextSendTime += intervalMs
+                val waitTime = nextSendTime - System.currentTimeMillis()
+                if (waitTime > 0) {
+                    delay(waitTime)
+                } else {
+                    nextSendTime = System.currentTimeMillis()
+                }
             }
         }
     }
@@ -488,11 +499,11 @@ class GamepadViewModel @Inject constructor(
         sendJob?.cancel()
         var lastBatteryRead = 0L
         sendJob = viewModelScope.launch {
+            var nextSendTime = System.currentTimeMillis()
             while (true) {
-                val now = System.currentTimeMillis()
-                if (now - lastBatteryRead > 2000) {
+                if (System.currentTimeMillis() - lastBatteryRead > 2000) {
                     readBattery()
-                    lastBatteryRead = now
+                    lastBatteryRead = System.currentTimeMillis()
                 }
                 val s = settings.value
                 val sensor = sensorHandler.sensorData.value
@@ -510,7 +521,14 @@ class GamepadViewModel @Inject constructor(
                 }
                 val input = _gamepadState.value.toProto()
                 connectionManager.sendGamepadState(input)
-                delay(8)
+                val intervalMs = kotlin.math.round(1000.0 / settings.value.pollingRate).toLong().coerceAtLeast(1L)
+                nextSendTime += intervalMs
+                val waitTime = nextSendTime - System.currentTimeMillis()
+                if (waitTime > 0) {
+                    delay(waitTime)
+                } else {
+                    nextSendTime = System.currentTimeMillis()
+                }
             }
         }
     }

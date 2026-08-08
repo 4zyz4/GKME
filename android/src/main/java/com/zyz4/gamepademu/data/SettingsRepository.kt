@@ -34,6 +34,7 @@ class SettingsRepository @Inject constructor(
         val DISPLAY_MODE = intPreferencesKey("display_mode")
         val CONNECTION_MODE = intPreferencesKey("connection_mode")
         val TARGET_PLATFORM = intPreferencesKey("target_platform")
+        val POLLING_RATE = intPreferencesKey("polling_rate")
         val DEVICE_NAME = stringPreferencesKey("device_name")
         val CURRENT_PRESET_NAME = stringPreferencesKey("current_preset_name")
         val VIBRATION_ENABLED = booleanPreferencesKey("vibration_enabled")
@@ -111,6 +112,7 @@ class SettingsRepository @Inject constructor(
             targetPlatform = TargetPlatform.entries.getOrElse(
                 prefs[Keys.TARGET_PLATFORM] ?: 0
             ) { TargetPlatform.WINDOWS },
+            pollingRate = prefs[Keys.POLLING_RATE] ?: 120,
             deviceName = prefs[Keys.DEVICE_NAME] ?: "Gamepad Emu",
             currentPresetName = prefs[Keys.CURRENT_PRESET_NAME] ?: "完整布局",
             vibrationEnabled = prefs[Keys.VIBRATION_ENABLED] ?: true,
@@ -202,6 +204,7 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.DISPLAY_MODE] = settings.displayMode.ordinal
             prefs[Keys.CONNECTION_MODE] = settings.connectionMode.ordinal
             prefs[Keys.TARGET_PLATFORM] = settings.targetPlatform.ordinal
+            prefs[Keys.POLLING_RATE] = settings.pollingRate
             prefs[Keys.DEVICE_NAME] = settings.deviceName
             prefs[Keys.CURRENT_PRESET_NAME] = settings.currentPresetName
             prefs[Keys.VIBRATION_ENABLED] = settings.vibrationEnabled

@@ -772,6 +772,19 @@ internal fun MainActivity.setupConnectionPage() {
     a.findViewById<Switch>(R.id.switchAutoStart).setOnCheckedChangeListener { _, isChecked ->
         a.viewModel.updateAutoStartEnabled(isChecked)
     }
+
+    // Polling Rate Spinner
+    val pollingRateOptions = listOf(30, 45, 60, 90, 100, 120, 200, 250, 300, 500, 750, 1000)
+    val pollingRateNames = pollingRateOptions.map { it.toString() + " Hz" }.toTypedArray()
+    val pollingRateAdapter = ArrayAdapter(a, android.R.layout.simple_spinner_item, pollingRateNames)
+    pollingRateAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+    a.findViewById<Spinner>(R.id.spinnerPollingRate).adapter = pollingRateAdapter
+    a.findViewById<Spinner>(R.id.spinnerPollingRate).onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+        override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+            a.viewModel.updatePollingRate(pollingRateOptions[position])
+        }
+        override fun onNothingSelected(parent: AdapterView<*>?) {}
+    }
 }
 
 @Suppress("DEPRECATION")
@@ -968,6 +981,11 @@ internal fun MainActivity.syncSettingsUI() {
         ConnectionMode.entries.indexOf(s.connectionMode).coerceAtLeast(0))
     a.selectChipGroup(listOf(R.id.btnTargetWindows, R.id.btnTargetAndroid, R.id.btnTargetLinux),
         TargetPlatform.entries.indexOf(s.targetPlatform).coerceAtLeast(0))
+    val pollingRateOptions = listOf(30, 45, 60, 90, 100, 120, 200, 250, 300, 500, 750, 1000)
+    val pollingRateIndex = pollingRateOptions.indexOf(s.pollingRate)
+    if (pollingRateIndex >= 0) {
+        a.findViewById<Spinner>(R.id.spinnerPollingRate).setSelection(pollingRateIndex)
+    }
     a.findViewById<Switch>(R.id.switchBtnVibration).isChecked = s.vibrationEnabled
     a.findViewById<Switch>(R.id.switchGameVibration).isChecked = s.gameVibrationEnabled
     a.updateVibrationUI()

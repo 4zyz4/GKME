@@ -9,8 +9,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.net.DatagramPacket
 import java.net.DatagramSocket
@@ -27,7 +25,6 @@ class UdpService {
         const val TYPE_GAMEPAD_INPUT: Byte = 0x02
     }
 
-    private val sendMutex = Mutex()
     private var socket: DatagramSocket? = null
     private var broadcastJob: Job? = null
     private var receiveJob: Job? = null
@@ -62,34 +59,30 @@ class UdpService {
     }
 
     suspend fun sendGamepadInput(input: GamepadInput) {
-        val target = pcAddress ?: return
-        sendMutex.withLock {
-            withContext(Dispatchers.IO) {
-                try {
-                    val payload = input.toByteArray()
-                    val data = ByteArray(1 + payload.size).also {
-                        it[0] = TYPE_GAMEPAD_INPUT
-                        payload.copyInto(it, 1)
-                    }
-                    socket?.send(DatagramPacket(data, data.size, target))
-                } catch (_: Exception) {}
-            }
+        if (pcAddress == null) return
+        withContext(Dispatchers.IO) {
+            try {
+                val payload = input.toByteArray()
+                val data = ByteArray(1 + payload.size).also {
+                    it[0] = TYPE_GAMEPAD_INPUT
+                    payload.copyInto(it, 1)
+                }
+                socket?.send(DatagramPacket(data, data.size, pcAddress))
+            } catch (_: Exception) {}
         }
     }
 
     suspend fun sendClientToServer(msg: ClientToServer) {
-        val target = pcAddress ?: return
-        sendMutex.withLock {
-            withContext(Dispatchers.IO) {
-                try {
-                    val payload = msg.toByteArray()
-                    val data = ByteArray(1 + payload.size).also {
-                        it[0] = TYPE_CLIENT_TO_SERVER
-                        payload.copyInto(it, 1)
-                    }
-                    socket?.send(DatagramPacket(data, data.size, target))
-                } catch (_: Exception) {}
-            }
+        if (pcAddress == null) return
+        withContext(Dispatchers.IO) {
+            try {
+                val payload = msg.toByteArray()
+                val data = ByteArray(1 + payload.size).also {
+                    it[0] = TYPE_CLIENT_TO_SERVER
+                    payload.copyInto(it, 1)
+                }
+                socket?.send(DatagramPacket(data, data.size, pcAddress))
+            } catch (_: Exception) {}
         }
     }
 

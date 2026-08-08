@@ -75,7 +75,7 @@ class ConnectionManager @Inject constructor(
     private val _settings = MutableStateFlow(AppSettings())
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
 
-    private var currentPollingRate = 125
+    private var currentPollingRate = 120
     private val _seq = java.util.concurrent.atomic.AtomicLong(0L)
     private val _rttRing = LongArray(64) { -1L }
 
@@ -83,6 +83,7 @@ class ConnectionManager @Inject constructor(
         _settings.value = runBlocking(Dispatchers.IO) {
             settingsRepository.settings.first()
         }
+        currentPollingRate = _settings.value.pollingRate
         audioPlaybackService.setSettings(
             leftOutput = _settings.value.leftVoiceCoilOutput,
             rightOutput = _settings.value.rightVoiceCoilOutput,
@@ -197,7 +198,7 @@ class ConnectionManager @Inject constructor(
     }
 
     private suspend fun startWifiServer(settings: AppSettings) {
-        currentPollingRate = 1000 / POLLING_INTERVAL_MS
+        currentPollingRate = settings.pollingRate
         try {
             val ip = getServerIp()
             if (ip.isEmpty()) {
@@ -407,7 +408,7 @@ class ConnectionManager @Inject constructor(
             connected = true, phase = ConnectionPhase.CONNECTED,
             statusText = "已连接（WiFi）"
         )
-        scope.launch {
+        CoroutineScope(Dispatchers.IO).launch {
             val hello = Hello.newBuilder()
                 .setProtocolVersion(1)
                 .setDeviceName(getRealDeviceName())

@@ -59,6 +59,7 @@ data class AppSettings(
     val connectionMode: ConnectionMode = ConnectionMode.WIFI,
     val targetPlatform: TargetPlatform = TargetPlatform.WINDOWS,
     val displayMode: DisplayMode = DisplayMode.XBOX,
+    val pollingRate: Int = 120,
     val wifiServerIp: String = "",
     val deviceName: String = "Gamepad Emu",
     val currentPresetName: String = "完整布局",
