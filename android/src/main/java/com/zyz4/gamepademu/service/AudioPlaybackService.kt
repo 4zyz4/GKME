@@ -180,28 +180,24 @@ class AudioPlaybackService {
         var controllerEnergy = 0.0
         var leftVcmEnergy = 0.0
         var rightVcmEnergy = 0.0
-        var energyCount = 0
 
         for (s in 0 until numSamples) {
             val ch2Off = s * bytesPerFrame + leftVcmCh * 2
             val v2 = if (ch2Off + 1 < pcm.size) leBytesToShort(pcm, ch2Off) else 0.toShort()
             leftVcmEnergy += v2.toDouble() * v2.toDouble()
-            energyCount++
 
             val ch3Off = s * bytesPerFrame + rightVcmCh * 2
             val v3 = if (ch3Off + 1 < pcm.size) leBytesToShort(pcm, ch3Off) else 0.toShort()
             rightVcmEnergy += v3.toDouble() * v3.toDouble()
-            energyCount++
 
             val ch1Off = s * bytesPerFrame + controllerCh * 2
             val v1 = if (ch1Off + 1 < pcm.size) leBytesToShort(pcm, ch1Off) else 0.toShort()
             controllerEnergy += v1.toDouble() * v1.toDouble()
-            energyCount++
         }
 
-        val leftRms = if (energyCount > 0) Math.sqrt(leftVcmEnergy / energyCount) else 0.0
-        val rightRms = if (energyCount > 0) Math.sqrt(rightVcmEnergy / energyCount) else 0.0
-        val totalRms = if (energyCount > 0) Math.sqrt(controllerEnergy / energyCount) else 0.0
+        val leftRms = Math.sqrt(leftVcmEnergy / numSamples)
+        val rightRms = Math.sqrt(rightVcmEnergy / numSamples)
+        val totalRms = Math.sqrt(controllerEnergy / numSamples)
 
         val instantLeft = (leftRms / Short.MAX_VALUE.toDouble()).toFloat() * 255f
         val instantRight = (rightRms / Short.MAX_VALUE.toDouble()).toFloat() * 255f
@@ -254,8 +250,8 @@ class AudioPlaybackService {
 
         // Determine which audio sources to play and where
         val playCtrlAudio = gameVibrationEnabled && controllerAudio != AudioOutput.NONE && controllerAudio != AudioOutput.PHONE_MOTOR
-        val playLeftCh2 = leftOutput == AudioOutput.LEFT_SPEAKER
-        val playRightCh3 = rightOutput == AudioOutput.RIGHT_SPEAKER
+        val playLeftCh2 = leftOutput == AudioOutput.LEFT_SPEAKER || leftOutput == AudioOutput.ALL_SPEAKERS
+        val playRightCh3 = rightOutput == AudioOutput.RIGHT_SPEAKER || rightOutput == AudioOutput.ALL_SPEAKERS
 
         for (s in 0 until numSamples) {
             val outOff = s * 2

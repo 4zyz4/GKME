@@ -10,6 +10,7 @@ import android.widget.TextView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.zyz4.gamepademu.model.AudioOutput
 import com.zyz4.gamepademu.model.ConnectionMode
 import com.zyz4.gamepademu.model.VibrationMotor
 import com.zyz4.gamepademu.service.BluetoothTransportType
@@ -152,6 +153,25 @@ internal fun MainActivity.observeState() {
                     a.findViewById<Spinner>(R.id.spinnerStrongVibration).setSelection(sel(strongMapping))
                     a.updateMappingAdapter(a.findViewById(R.id.spinnerWeakVibration))
                     a.findViewById<Spinner>(R.id.spinnerWeakVibration).setSelection(sel(weakMapping))
+
+                    val mc = a.physicalControllerHandler.controllerMotorCount
+                    val audioEntries = listOf(AudioOutput.NONE, AudioOutput.PHONE_MOTOR, AudioOutput.LEFT_SPEAKER, AudioOutput.RIGHT_SPEAKER, AudioOutput.ALL_SPEAKERS).plus(
+                        if (mc >= 1) listOf(AudioOutput.CONTROLLER_MOTOR_1) else emptyList()
+                    ).plus(
+                        if (mc >= 2) listOf(AudioOutput.CONTROLLER_MOTOR_2) else emptyList()
+                    )
+                    a.audioOutputEntries = audioEntries
+                    a.audioControllerOutputEntries = audioEntries
+                    a.updateAudioOutputAdapter(a.findViewById(R.id.spinnerLeftVoiceCoil))
+                    a.updateAudioOutputAdapter(a.findViewById(R.id.spinnerRightVoiceCoil))
+                    a.updateControllerAudioAdapter(a.findViewById(R.id.spinnerControllerAudio))
+                    fun selAudio(opts: List<AudioOutput>, target: AudioOutput): Int {
+                        val idx = opts.indexOf(target)
+                        return if (idx >= 0) idx else 0
+                    }
+                    a.findViewById<Spinner>(R.id.spinnerLeftVoiceCoil).setSelection(selAudio(audioEntries, s.leftVoiceCoilOutput))
+                    a.findViewById<Spinner>(R.id.spinnerRightVoiceCoil).setSelection(selAudio(audioEntries, s.rightVoiceCoilOutput))
+                    a.findViewById<Spinner>(R.id.spinnerControllerAudio).setSelection(selAudio(audioEntries, s.controllerAudioOutput))
                 }
             }
             launch {
