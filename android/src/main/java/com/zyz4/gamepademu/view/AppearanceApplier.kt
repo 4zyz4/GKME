@@ -55,7 +55,7 @@ object AppearanceApplier {
     private val adaptiveContentButtonIds = setOf(
         "btnA", "btnB", "btnX", "btnY",
         "btnDpadUp", "btnDpadDown", "btnDpadLeft", "btnDpadRight",
-        "btnHome", "btnSelect", "btnMenu", "btnTouchpad", "btnLS", "btnRS",
+        "btnHome", "btnMic", "btnSelect", "btnMenu", "btnTouchpad", "btnLS", "btnRS",
     )
 
     // Last auto-size cap applied per TextView (px), so we don't reconfigure on every pass.
@@ -148,28 +148,26 @@ object AppearanceApplier {
         }
 
         // ── Icon / text max size ──
-        // Image buttons (home, dpad): ImageView draws the image via intrinsic bounds + a fit
+        // Image buttons (home, dpad, mic): ImageView draws the image via intrinsic bounds + a fit
         // matrix, so a wrapper that computes from its bounds can never bind the cap (the bounds
         // are the intrinsic 24dp size, not the button). Draw the icon as the view foreground
         // instead, which receives the real view bounds, and let the wrapper cap at draw time.
-        // "Unlimited" keeps the plain image (FIT_CENTER fills the padded button, aspect kept).
+        // "Unlimited" uses CappedContentDrawable with Float.MAX_VALUE so the icon fills the
+        // padded button (same visual behavior as the capped case, just without a max size).
         if (view is ImageButton && baseId in adaptiveImageButtonIds) {
             val raw = (view.foreground as? CappedContentDrawable)?.inner
                 ?: (view.drawable as? CappedContentDrawable)?.inner
                 ?: view.drawable
             if (raw != null) {
-                if (maxPx == null) {
-                    view.foreground = null
-                    view.setImageDrawable(raw)
-                    view.scaleType = ImageView.ScaleType.FIT_CENTER
-                } else {
-                    view.setImageDrawable(null)
-                    view.foregroundGravity = Gravity.FILL
-                    view.foreground = CappedContentDrawable(
-                        raw, maxPx.toFloat(), fitAspect = true,
-                        insetProvider = { view.paddingLeft.toFloat() },
-                    )
-                }
+                view.setImageDrawable(null)
+                view.foregroundGravity = Gravity.FILL
+                // Use Float.MAX_VALUE for "unlimited" so the icon fills the padded button area
+                // (same visual behavior as the capped case, just without a hard max).
+                val effectiveMax = maxPx?.toFloat() ?: Float.MAX_VALUE
+                view.foreground = CappedContentDrawable(
+                    raw, effectiveMax, fitAspect = true,
+                    insetProvider = { view.paddingLeft.toFloat() },
+                )
             }
         }
 
