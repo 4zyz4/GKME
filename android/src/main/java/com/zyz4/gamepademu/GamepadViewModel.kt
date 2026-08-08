@@ -592,23 +592,12 @@ class GamepadViewModel @Inject constructor(
         if (oldBit != null) { b = b and oldBit.toUInt().inv() }
         if (newBit != null) { b = b or newBit.toUInt() }
         _gamepadState.value = _gamepadState.value.copy(buttons = b)
-        if (newIndex in 0..3 && newBit != null && oldIndex == -1) {
-            val hatBit = when (newIndex) {
-                0 -> GamepadState.DPAD_UP
-                1 -> GamepadState.DPAD_DOWN
-                2 -> GamepadState.DPAD_LEFT
-                3 -> GamepadState.DPAD_RIGHT
-                else -> 0
-            }
-            _gamepadState.value = _gamepadState.value.copy(dpad = hatBit)
-        } else if (oldIndex in 0..3 && oldBit != null) {
-            val hatBit = when (oldIndex) {
-                0 -> GamepadState.DPAD_UP
-                1 -> GamepadState.DPAD_DOWN
-                2 -> GamepadState.DPAD_LEFT
-                3 -> GamepadState.DPAD_RIGHT
-                else -> 0
-            }
+
+        // The keypad only affects the D-pad when the cell is bound to a D-pad
+        // direction output; the direction follows the bound value, not the cell position.
+        val oldDpadDir = if (oldIndex in 0..3 && oldBit != null) dpadDirOf(oldBit) else null
+        val newDpadDir = if (newIndex in 0..3 && newBit != null) dpadDirOf(newBit) else null
+        if (oldDpadDir != null || newDpadDir != null) {
             val curBtn = _gamepadState.value.buttons
             val otherUp = (curBtn and GamepadState.DPAD_BIT_UP.toUInt()) != 0u
             val otherDown = (curBtn and GamepadState.DPAD_BIT_DOWN.toUInt()) != 0u
@@ -624,13 +613,24 @@ class GamepadViewModel @Inject constructor(
                 GamepadState.DPAD_DOWN -> GamepadState.DPAD_DOWN
                 GamepadState.DPAD_LEFT -> GamepadState.DPAD_LEFT
                 GamepadState.DPAD_RIGHT -> GamepadState.DPAD_RIGHT
-                in 1..3 -> GamepadState.DPAD_UP_LEFT + combined - 1
-                in 5..6 -> GamepadState.DPAD_DOWN_LEFT + combined - 5
-                in 9..10 -> GamepadState.DPAD_UP_RIGHT + combined - 9
+                GamepadState.DPAD_UP or GamepadState.DPAD_LEFT -> GamepadState.DPAD_UP_LEFT
+                GamepadState.DPAD_UP or GamepadState.DPAD_RIGHT -> GamepadState.DPAD_UP_RIGHT
+                GamepadState.DPAD_DOWN or GamepadState.DPAD_LEFT -> GamepadState.DPAD_DOWN_LEFT
+                GamepadState.DPAD_DOWN or GamepadState.DPAD_RIGHT -> GamepadState.DPAD_DOWN_RIGHT
                 else -> 0
             })
         }
         sendInput()
+    }
+
+    private fun dpadDirOf(bit: Int): Int? {
+        return when (bit) {
+            GamepadState.DPAD_BIT_UP -> GamepadState.DPAD_UP
+            GamepadState.DPAD_BIT_DOWN -> GamepadState.DPAD_DOWN
+            GamepadState.DPAD_BIT_LEFT -> GamepadState.DPAD_LEFT
+            GamepadState.DPAD_BIT_RIGHT -> GamepadState.DPAD_RIGHT
+            else -> null
+        }
     }
 
     fun updateCustomKeypadRelease() {

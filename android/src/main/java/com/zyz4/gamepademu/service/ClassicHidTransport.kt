@@ -301,7 +301,7 @@ class ClassicHidTransport(
         val deviceName = getRealDeviceName()
         val sdp = BluetoothHidDeviceAppSdpSettings(
             deviceName,
-            "Virtual Xbox 360 Controller",
+            "Virtual HID Controller",
             deviceName,
             subclass,
             desc,
