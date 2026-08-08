@@ -184,34 +184,28 @@ class AudioPlaybackService {
 
         for (s in 0 until numSamples) {
             val ch2Off = s * bytesPerFrame + leftVcmCh * 2
-            val v2 = if (ch2Off + 1 < pcm.size) leBytesToShort(pcm, ch2Off) else 0
-            if (v2 != 0.toShort()) {
-                leftVcmEnergy += v2 * v2.toDouble()
-                energyCount++
-            }
+            val v2 = if (ch2Off + 1 < pcm.size) leBytesToShort(pcm, ch2Off) else 0.toShort()
+            leftVcmEnergy += v2.toDouble() * v2.toDouble()
+            energyCount++
 
             val ch3Off = s * bytesPerFrame + rightVcmCh * 2
-            val v3 = if (ch3Off + 1 < pcm.size) leBytesToShort(pcm, ch3Off) else 0
-            if (v3 != 0.toShort()) {
-                rightVcmEnergy += v3 * v3.toDouble()
-                energyCount++
-            }
+            val v3 = if (ch3Off + 1 < pcm.size) leBytesToShort(pcm, ch3Off) else 0.toShort()
+            rightVcmEnergy += v3.toDouble() * v3.toDouble()
+            energyCount++
 
             val ch1Off = s * bytesPerFrame + controllerCh * 2
-            val v1 = if (ch1Off + 1 < pcm.size) leBytesToShort(pcm, ch1Off) else 0
-            if (v1 != 0.toShort()) {
-                controllerEnergy += v1 * v1.toDouble()
-                energyCount++
-            }
+            val v1 = if (ch1Off + 1 < pcm.size) leBytesToShort(pcm, ch1Off) else 0.toShort()
+            controllerEnergy += v1.toDouble() * v1.toDouble()
+            energyCount++
         }
 
-        val leftRms = if (energyCount > 0) Math.sqrt(leftVcmEnergy / energyCount) * 2.0 else 0.0
-        val rightRms = if (energyCount > 0) Math.sqrt(rightVcmEnergy / energyCount) * 2.0 else 0.0
-        val totalRms = if (energyCount > 0) Math.sqrt(controllerEnergy / energyCount) * 2.0 else 0.0
+        val leftRms = if (energyCount > 0) Math.sqrt(leftVcmEnergy / energyCount) else 0.0
+        val rightRms = if (energyCount > 0) Math.sqrt(rightVcmEnergy / energyCount) else 0.0
+        val totalRms = if (energyCount > 0) Math.sqrt(controllerEnergy / energyCount) else 0.0
 
-        val instantLeft = (leftRms / 255.0).toFloat().coerceIn(0f, 1f) * 255f
-        val instantRight = (rightRms / 255.0).toFloat().coerceIn(0f, 1f) * 255f
-        val instantTotal = (totalRms / 255.0).toFloat().coerceIn(0f, 1f) * 255f
+        val instantLeft = (leftRms / Short.MAX_VALUE.toDouble()).toFloat() * 255f
+        val instantRight = (rightRms / Short.MAX_VALUE.toDouble()).toFloat() * 255f
+        val instantTotal = (totalRms / Short.MAX_VALUE.toDouble()).toFloat() * 255f
 
         leftVoiceCoilAmplitude = instantLeft.toInt().coerceIn(0, 255)
         rightVoiceCoilAmplitude = instantRight.toInt().coerceIn(0, 255)
@@ -296,7 +290,7 @@ class AudioPlaybackService {
 
         val outBytes = ByteArray(stereoSize)
         for (i in stereoBuf.indices) {
-            val v = stereoBuf[i].toShort()
+            val v = stereoBuf[i].coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
             outBytes[i * 2] = v.toInt().toByte()
             outBytes[i * 2 + 1] = (v.toInt() shr 8).toByte()
         }
@@ -311,11 +305,11 @@ class AudioPlaybackService {
     }
 
     private fun triggerPhoneVibrator(intensity: Int) {
-        if (intensity <= 5) return
+        if (intensity <= 1) return
         val now = System.currentTimeMillis()
         if (now - lastVibrateTime < MOTOR_VIBRATE_DURATION_MS) return
 
-        val motorIntensity = intensity.coerceIn(15, 255)
+        val motorIntensity = intensity.coerceIn(2, 255)
 
         try {
             val effect = VibrationEffect.createOneShot(MOTOR_VIBRATE_DURATION_MS, motorIntensity)

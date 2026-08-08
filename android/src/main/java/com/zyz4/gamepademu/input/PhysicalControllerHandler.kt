@@ -670,8 +670,8 @@ class PhysicalControllerHandler(private val context: Context) {
         val weakEff = resolveMotor(weakVibrationMapping)
 
         var phoneAmp = 0
-        if (strongEff == VibrationMotor.PHONE_MOTOR && lowNorm > 0) phoneAmp = maxOf(phoneAmp, lowNorm)
-        if (weakEff == VibrationMotor.PHONE_MOTOR && highNorm > 0) phoneAmp = maxOf(phoneAmp, highNorm)
+        if (strongEff == VibrationMotor.PHONE_MOTOR && lowNorm > 1) phoneAmp = maxOf(phoneAmp, lowNorm.coerceIn(2, 255))
+        if (weakEff == VibrationMotor.PHONE_MOTOR && highNorm > 1) phoneAmp = maxOf(phoneAmp, highNorm.coerceIn(2, 255))
         if (phoneAmp > 0) {
             vibratePhone(phoneAmp)
         } else if (lastPhoneAmp >= 0) {
@@ -680,10 +680,10 @@ class PhysicalControllerHandler(private val context: Context) {
 
         if (!_isConnected.value) return
         val ctrlVib = mutableMapOf<Int, Int>()
-        if (strongEff == VibrationMotor.CONTROLLER_MOTOR_1 && lowNorm > 0) ctrlVib.merge(0, lowNorm, Int::plus)
-        if (strongEff == VibrationMotor.CONTROLLER_MOTOR_2 && lowNorm > 0) ctrlVib.merge(1, lowNorm, Int::plus)
-        if (weakEff == VibrationMotor.CONTROLLER_MOTOR_1 && highNorm > 0) ctrlVib.merge(0, highNorm, Int::plus)
-        if (weakEff == VibrationMotor.CONTROLLER_MOTOR_2 && highNorm > 0) ctrlVib.merge(1, highNorm, Int::plus)
+        if (strongEff == VibrationMotor.CONTROLLER_MOTOR_1 && lowNorm > 1) ctrlVib.merge(0, lowNorm.coerceIn(2, 255), Int::plus)
+        if (strongEff == VibrationMotor.CONTROLLER_MOTOR_2 && lowNorm > 1) ctrlVib.merge(1, lowNorm.coerceIn(2, 255), Int::plus)
+        if (weakEff == VibrationMotor.CONTROLLER_MOTOR_1 && highNorm > 1) ctrlVib.merge(0, highNorm.coerceIn(2, 255), Int::plus)
+        if (weakEff == VibrationMotor.CONTROLLER_MOTOR_2 && highNorm > 1) ctrlVib.merge(1, highNorm.coerceIn(2, 255), Int::plus)
 
         if (ctrlVib.isEmpty()) {
             controllerVibratorManager?.cancel()
