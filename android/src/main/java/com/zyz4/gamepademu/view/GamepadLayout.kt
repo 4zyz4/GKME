@@ -575,6 +575,13 @@ class GamepadLayout @JvmOverloads constructor(
             touchSession.touchpadTarget = tp
             touchSession.touchpadPointerIds.add(pid)
             dispatchFilteredToTouchpad(tp, event)
+            val otherChildren = children.filter { it != tp }
+            if (otherChildren.isNotEmpty()) {
+                touchSession.touchTargets[pid] = otherChildren.toMutableList()
+                for (child in otherChildren) {
+                    dispatchToChild(child, event, MotionEvent.ACTION_DOWN, idx)
+                }
+            }
             return
         }
         touchSession.touchTargets[pid] = children.toMutableList()
