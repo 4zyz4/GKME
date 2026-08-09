@@ -658,11 +658,18 @@ class GamepadViewModel @Inject constructor(
     }
 
     fun onDpad(dir: Int, pressed: Boolean) {
+        val dirValue = when (dir) {
+            GamepadState.DPAD_BIT_UP -> GamepadState.DPAD_UP
+            GamepadState.DPAD_BIT_DOWN -> GamepadState.DPAD_DOWN
+            GamepadState.DPAD_BIT_LEFT -> GamepadState.DPAD_LEFT
+            GamepadState.DPAD_BIT_RIGHT -> GamepadState.DPAD_RIGHT
+            else -> dir
+        }
         if (pressed) {
-            _dpadBits = _dpadBits or dir
+            _dpadBits = _dpadBits or dirValue
             onHapticFeedbackPress?.invoke()
         } else {
-            _dpadBits = _dpadBits and dir.inv()
+            _dpadBits = _dpadBits and dirValue.inv()
             onHapticFeedbackRelease?.invoke()
         }
         val hat = when (_dpadBits) {
