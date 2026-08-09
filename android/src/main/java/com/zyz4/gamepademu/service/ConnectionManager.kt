@@ -499,6 +499,8 @@ class ConnectionManager @Inject constructor(
                 }
             }
             ConnectionMode.BLUETOOTH -> {
+                val phase = _connectionState.value.phase
+                if (phase != ConnectionPhase.CONNECTED) return
                 val target = _settings.value.targetPlatform
                 val report = GamepadStateMapper.map(state, target)
                 bluetoothService?.sendReport(report)

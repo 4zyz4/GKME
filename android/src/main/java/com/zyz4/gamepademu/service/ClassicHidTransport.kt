@@ -24,6 +24,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
+import android.util.Log
 
 @SuppressLint("MissingPermission")
 class ClassicHidTransport(
@@ -40,7 +42,9 @@ class ClassicHidTransport(
         bluetoothManager.adapter
     }
 
+    @Volatile
     private var hidDevice: BluetoothHidDevice? = null
+    @Volatile
     private var connectedDevice: BluetoothDevice? = null
     private var lastReport: ByteArray = ByteArray(0)
     private var currentSettings: AppSettings? = null
@@ -57,6 +61,7 @@ class ClassicHidTransport(
 
     /** True during an explicit re-registration (e.g. target platform switch) to ignore disconnect callbacks. */
     private var restarting = false
+    private val sendFailedCounter = AtomicInteger(0)
 
     override val transportType: BluetoothTransportType = BluetoothTransportType.CLASSIC
 
@@ -189,11 +194,28 @@ class ClassicHidTransport(
     override fun sendReport(report: ByteArray) {
         val device = connectedDevice ?: return
         val hid = hidDevice ?: return
+        
+        if (sendFailedCounter.get() > 50) {
+            Log.w("ClassicHid", "sendReport dropped - too many consecutive failures")
+            return
+        }
+
         lastReport = report
         val reportId = 1
         try {
-            hid.sendReport(device, reportId, report)
-        } catch (_: Exception) {}
+            val ok = hid.sendReport(device, reportId, report)
+            if (!ok) {
+                val count = sendFailedCounter.incrementAndGet()
+                if (count % 10 == 0) {
+                    Log.w("ClassicHid", "sendReport returned false, count=$count")
+                }
+            } else {
+                sendFailedCounter.set(0)
+            }
+        } catch (e: Exception) {
+            Log.e("ClassicHid", "sendReport exception", e)
+            sendFailedCounter.incrementAndGet()
+        }
     }
 
     override fun stop() {
