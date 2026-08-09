@@ -342,41 +342,24 @@ internal fun MainActivity.createCustomKeypadView(id: String): CustomKeypadView {
 internal fun MainActivity.setupCustomKeypadTouch(view: CustomKeypadView, initialPos: ButtonPosition?) {
     val a = this
     fun findKeypadPos(): ButtonPosition? = a.gamepadLayout.currentButtons.find { it.id == view.tag }
-    view.onDirectionChange = { oldIndex: Int, newIndex: Int ->
-        a.viewModel.onCustomKeypadDirection(oldIndex, newIndex, findKeypadPos())
-    }
-    view.onDirectionRelease = {
+    view.onRegionPress = { region ->
         val pos = findKeypadPos()
         if (pos != null) {
-            val kpBits = ButtonPosition.keypadBitsOf(pos)
-            val anyActive = (0..3).any { kpBits.getOrNull(it)?.isNotEmpty() == true }
-            if (anyActive) {
-                a.viewModel.updateCustomKeypadRelease()
-            }
+            val bits = ButtonPosition.keypadBitsOf(pos).getOrNull(region).orEmpty()
+            a.viewModel.onCustomButtonDown(bits)
+        }
+    }
+    view.onRegionRelease = { region ->
+        val pos = findKeypadPos()
+        if (pos != null) {
+            val bits = ButtonPosition.keypadBitsOf(pos).getOrNull(region).orEmpty()
+            a.viewModel.onCustomButtonUp(bits)
         }
     }
     view.validDirs = (0..3).filter { i ->
         val kpBits = findKeypadPos()?.let { ButtonPosition.keypadBitsOf(it) } ?: listOf()
         kpBits.getOrNull(i)?.isNotEmpty() == true
     }.toSet()
-    view.onCenterClickDown = {
-        val pos = findKeypadPos()
-        if (pos?.keypadCenterDoubleClick == true) {
-            val kpBits = ButtonPosition.keypadBitsOf(pos)
-            val bits = kpBits.getOrNull(4)?.firstOrNull()
-            if (bits != null) {
-                a.viewModel.onCustomKeypadDirection(-1, 4, pos)
-            }
-        }
-    }
-    view.onCenterClickUp = {
-        val pos = findKeypadPos()
-        if (pos?.keypadCenterDoubleClick == true) {
-            val kpBits = ButtonPosition.keypadBitsOf(pos)
-            val bits = kpBits.getOrNull(4)?.firstOrNull()
-            if (bits != null) a.viewModel.onCustomButtonUp(listOf(bits))
-        }
-    }
 }
 
 @SuppressLint("ClickableViewAccessibility")

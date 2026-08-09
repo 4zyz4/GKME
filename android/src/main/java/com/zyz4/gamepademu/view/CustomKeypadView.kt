@@ -17,9 +17,11 @@ import com.zyz4.gamepademu.model.ButtonPosition
 import com.zyz4.gamepademu.model.FillType
 
 /** Custom keypad: a circle split into 4 directional wedges (up / down / left / right) plus a
- *  centre square. Unlike the integrated D-pad there are no diagonal regions.
+ *  centre square. Every region behaves like an independent button: pressing a region fires its
+ *  [onRegionPress], sliding out (or reaching the centre/invalid region) fires [onRegionRelease].
+ *  There are no direction-combination semantics — the output is whatever each region is bound to.
  *
- *  Index: 0=up, 1=down, 2=left, 3=right, -1=none. */
+ *  Region index: 0=up, 1=down, 2=left, 3=right, 4=centre. */
 class CustomKeypadView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
@@ -29,11 +31,8 @@ class CustomKeypadView @JvmOverloads constructor(
         isFocusableInTouchMode = false
     }
 
-    var onDirectionChange: ((oldIndex: Int, newIndex: Int) -> Unit)? = null
-    var onDirectionRelease: (() -> Unit)? = null
-    var onCenterClickDown: (() -> Unit)? = null
-    var onCenterClickUp: (() -> Unit)? = null
-    var wasCenterDragged: Boolean = false
+    var onRegionPress: ((region: Int) -> Unit)? = null
+    var onRegionRelease: ((region: Int) -> Unit)? = null
     var keypadCenterDoubleClick: Boolean = false
     var validDirs: Set<Int> = setOf(0, 1, 2, 3)
 
@@ -277,29 +276,30 @@ class CustomKeypadView @JvmOverloads constructor(
     private fun updateRegion(x: Float, y: Float) {
         val newDir = directionAt(x, y)
         if (newDir == activeDir) return
-        if (newDir != -1) wasCenterDragged = true
-        val shouldChange = newDir == -1 || newDir in validDirs
-        val old = activeDir
-        activeDir = if (shouldChange) newDir else -1
-        if (old != activeDir) {
-            onDirectionChange?.invoke(old, activeDir)
+        if (newDir in validDirs && newDir != activeDir) {
+            // Mini-model: pressing a new valid wedge = releasing the previous one, then pushing the new one.
+            releaseActiveDir()
+            activeDir = newDir
+            onRegionPress?.invoke(newDir)
+            invalidate()
+        } else if (newDir != activeDir) {
+            // Moved out of a valid wedge (e.g. into the centre or an unbound wedge) = release.
+            releaseActiveDir()
             invalidate()
         }
     }
 
-    private fun releaseAll() {
+    private fun releaseActiveDir() {
         if (activeDir != -1) {
             val old = activeDir
             activeDir = -1
-            onDirectionChange?.invoke(old, -1)
-            onDirectionRelease?.invoke()
+            onRegionRelease?.invoke(old)
+            invalidate()
         }
-        invalidate()
     }
 
     private fun handleDown(x: Float, y: Float) {
         isTouching = true
-        wasCenterDragged = false
         alpha = 1f - (activeTransparency.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
         if (forceFollowFinger) {
             effectiveCenterX = x
@@ -317,7 +317,7 @@ class CustomKeypadView @JvmOverloads constructor(
                 firstTapTime = 0
                 centerPressed = true
                 invalidate()
-                onCenterClickDown?.invoke()
+                onRegionPress?.invoke(4)
             } else {
                 firstTapTime = now
                 firstTapX = x
@@ -335,15 +335,14 @@ class CustomKeypadView @JvmOverloads constructor(
         alpha = 1f - (idleTransparency.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
         if (centerPressed) {
             centerPressed = false
-            wasCenterDragged = wasCenterDragged || activeDir != -1
             invalidate()
-            onCenterClickUp?.invoke()
+            onRegionRelease?.invoke(4)
         }
+        releaseActiveDir()
         if (forceFollowFinger) {
             effectiveCenterX = centerX
             effectiveCenterY = centerY
         }
-        releaseAll()
         performClick()
     }
 

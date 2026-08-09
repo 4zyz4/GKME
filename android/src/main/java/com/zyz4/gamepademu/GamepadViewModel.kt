@@ -90,7 +90,6 @@ class GamepadViewModel @Inject constructor(
     }
     private var _dpadBits = 0
     private var _physicalDpadBits = 0
-    private var _customKeypadBits = 0
     private var phoneButtons: UInt = 0u
     private var phoneTouches: List<TouchPoint> = emptyList()
     private var phoneStickX: Short = 0
@@ -560,6 +559,7 @@ class GamepadViewModel @Inject constructor(
         var b = _gamepadState.value.buttons
         for (bit in bits) { b = b or bit.toUInt() }
         _gamepadState.value = _gamepadState.value.copy(buttons = b)
+        if (bits.any { dpadDirOf(it) != null }) syncDpadFromButtons()
         onHapticFeedbackPress?.invoke()
         sendInput()
     }
@@ -571,58 +571,13 @@ class GamepadViewModel @Inject constructor(
         var b = _gamepadState.value.buttons
         for (bit in bits) { b = b and (bit.toUInt().inv()) }
         _gamepadState.value = _gamepadState.value.copy(buttons = b)
+        if (bits.any { dpadDirOf(it) != null }) syncDpadFromButtons()
         onHapticFeedbackRelease?.invoke()
         sendInput()
     }
 
-    fun onCustomKeypadDirection(oldIndex: Int, newIndex: Int, pos: ButtonPosition?) {
-        val kpBits = pos?.let { ButtonPosition.keypadBitsOf(it) } ?: listOf()
-        val oldBit = if (oldIndex in 0..3) kpBits.getOrNull(oldIndex)?.firstOrNull() else null
-        val newBit = if (newIndex == 4) kpBits.getOrNull(4)?.firstOrNull()
-            else if (newIndex in 0..3) kpBits.getOrNull(newIndex)?.firstOrNull()
-            else null
-        if (oldIndex in 0..3 && oldBit != null) {
-            _customKeypadBits = 0
-        }
-        if (newIndex in 0..4 && newBit != null) {
-            _customKeypadBits = newBit
-            onHapticFeedbackPress?.invoke()
-        }
-        var b = _gamepadState.value.buttons
-        if (oldBit != null) { b = b and oldBit.toUInt().inv() }
-        if (newBit != null) { b = b or newBit.toUInt() }
-        _gamepadState.value = _gamepadState.value.copy(buttons = b)
-
-        // The keypad only affects the D-pad when the cell is bound to a D-pad
-        // direction output; the direction follows the bound value, not the cell position.
-        val oldDpadDir = if (oldIndex in 0..3 && oldBit != null) dpadDirOf(oldBit) else null
-        val newDpadDir = if (newIndex in 0..3 && newBit != null) dpadDirOf(newBit) else null
-        if (oldDpadDir != null || newDpadDir != null) {
-            val curBtn = _gamepadState.value.buttons
-            val otherUp = (curBtn and GamepadState.DPAD_BIT_UP.toUInt()) != 0u
-            val otherDown = (curBtn and GamepadState.DPAD_BIT_DOWN.toUInt()) != 0u
-            val otherLeft = (curBtn and GamepadState.DPAD_BIT_LEFT.toUInt()) != 0u
-            val otherRight = (curBtn and GamepadState.DPAD_BIT_RIGHT.toUInt()) != 0u
-            val combined = (if (otherUp) GamepadState.DPAD_UP else 0) or
-                (if (otherDown) GamepadState.DPAD_DOWN else 0) or
-                (if (otherLeft) GamepadState.DPAD_LEFT else 0) or
-                (if (otherRight) GamepadState.DPAD_RIGHT else 0)
-            _gamepadState.value = _gamepadState.value.copy(dpad = when (combined) {
-                0 -> 0
-                GamepadState.DPAD_UP -> GamepadState.DPAD_UP
-                GamepadState.DPAD_DOWN -> GamepadState.DPAD_DOWN
-                GamepadState.DPAD_LEFT -> GamepadState.DPAD_LEFT
-                GamepadState.DPAD_RIGHT -> GamepadState.DPAD_RIGHT
-                GamepadState.DPAD_UP or GamepadState.DPAD_LEFT -> GamepadState.DPAD_UP_LEFT
-                GamepadState.DPAD_UP or GamepadState.DPAD_RIGHT -> GamepadState.DPAD_UP_RIGHT
-                GamepadState.DPAD_DOWN or GamepadState.DPAD_LEFT -> GamepadState.DPAD_DOWN_LEFT
-                GamepadState.DPAD_DOWN or GamepadState.DPAD_RIGHT -> GamepadState.DPAD_DOWN_RIGHT
-                else -> 0
-            })
-        }
-        sendInput()
-    }
-
+    /** D-pad hat value (GamepadState.DPAD_UP/DOWN/LEFT/… or 0) for a single output bit,
+     *  or null when the bit is not a D-pad direction bit. */
     private fun dpadDirOf(bit: Int): Int? {
         return when (bit) {
             GamepadState.DPAD_BIT_UP -> GamepadState.DPAD_UP
@@ -633,16 +588,29 @@ class GamepadViewModel @Inject constructor(
         }
     }
 
-    fun updateCustomKeypadRelease() {
-        onHapticFeedbackRelease?.invoke()
-        if (_customKeypadBits != 0) {
-            val prev = _customKeypadBits
-            _customKeypadBits = 0
-            var b = _gamepadState.value.buttons
-            b = b and prev.toUInt().inv()
-            _gamepadState.value = _gamepadState.value.copy(buttons = b)
-            sendInput()
-        }
+    /** Recomputes the D-pad hat value from the currently held output bits. Any bit that maps to a
+     *  D-pad direction (DPAD_BIT_UP/DOWN/LEFT/RIGHT, held by any button or keypad region) is folded
+     *  into the combined hat value so Android/Linux HID outputs react despite a single-flight
+     *  `dpad` field. Corner states (e.g. up|left) produce their diagonal hat value. */
+    private fun syncDpadFromButtons() {
+        val b = _gamepadState.value.buttons
+        var combined = 0
+        if ((b and GamepadState.DPAD_BIT_UP.toUInt()) != 0u) combined = combined or GamepadState.DPAD_UP
+        if ((b and GamepadState.DPAD_BIT_DOWN.toUInt()) != 0u) combined = combined or GamepadState.DPAD_DOWN
+        if ((b and GamepadState.DPAD_BIT_LEFT.toUInt()) != 0u) combined = combined or GamepadState.DPAD_LEFT
+        if ((b and GamepadState.DPAD_BIT_RIGHT.toUInt()) != 0u) combined = combined or GamepadState.DPAD_RIGHT
+        _gamepadState.value = _gamepadState.value.copy(dpad = when (combined) {
+            0 -> 0
+            GamepadState.DPAD_UP -> GamepadState.DPAD_UP
+            GamepadState.DPAD_DOWN -> GamepadState.DPAD_DOWN
+            GamepadState.DPAD_LEFT -> GamepadState.DPAD_LEFT
+            GamepadState.DPAD_RIGHT -> GamepadState.DPAD_RIGHT
+            GamepadState.DPAD_UP or GamepadState.DPAD_LEFT -> GamepadState.DPAD_UP_LEFT
+            GamepadState.DPAD_UP or GamepadState.DPAD_RIGHT -> GamepadState.DPAD_UP_RIGHT
+            GamepadState.DPAD_DOWN or GamepadState.DPAD_LEFT -> GamepadState.DPAD_DOWN_LEFT
+            GamepadState.DPAD_DOWN or GamepadState.DPAD_RIGHT -> GamepadState.DPAD_DOWN_RIGHT
+            else -> 0
+        })
     }
 
     fun onVolumeKeyDown(bits: List<Int>) {

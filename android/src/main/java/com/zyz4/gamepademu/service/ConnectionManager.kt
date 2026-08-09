@@ -66,6 +66,7 @@ class ConnectionManager @Inject constructor(
     private var serverJob: Job? = null
     private var btPhaseJob: Job? = null
     private var watchdogJob: Job? = null
+    private var reconnectJob: Job? = null
 
     private var activeProtocol = ActiveProtocol.NONE
 
@@ -192,11 +193,13 @@ class ConnectionManager @Inject constructor(
                 ActiveProtocol.WIFI -> {
                     if (udpService.pcAddress != null &&
                         System.currentTimeMillis() - udpService.lastReceiveTime > CONNECTION_TIMEOUT_MS) {
-                        udpService.clearPcAddress()
                         activeProtocol = ActiveProtocol.NONE
+                        // 保留 pcAddress 用于自动重连握手，同时恢复广播让主机端可重新发现
+                        udpService.resumeBroadcast()
+                        startAutoReconnect()
                         _connectionState.value = _connectionState.value.copy(
                             connected = false, phase = ConnectionPhase.LISTENING,
-                            statusText = "连接已断开，等待重连..."
+                            statusText = "连接已断开，正在重连..."
                         )
                     }
                 }
@@ -351,6 +354,7 @@ class ConnectionManager @Inject constructor(
         watchdogJob = null
         btPhaseJob?.cancel()
         btPhaseJob = null
+        stopAutoReconnect()
         udpService.stop()
         stopBluetooth()
         dsuService?.stop()
@@ -392,7 +396,9 @@ class ConnectionManager @Inject constructor(
                 )
             }
             ServerToClient.PayloadCase.DISCONNECT -> {
+                stopAutoReconnect()
                 udpService.clearPcAddress()
+                udpService.resumeBroadcast()
                 activeProtocol = ActiveProtocol.NONE
                 _connectionState.value = ConnectionState(statusText = "已断开")
             }
@@ -404,6 +410,7 @@ class ConnectionManager @Inject constructor(
     private fun doReconnect() {
         activeProtocol = ActiveProtocol.WIFI
         udpService.setConnected(true)
+        stopAutoReconnect()
         _connectionState.value = _connectionState.value.copy(
             connected = true, phase = ConnectionPhase.CONNECTED,
             statusText = "已连接（WiFi）"
@@ -418,6 +425,33 @@ class ConnectionManager @Inject constructor(
                 .build()
             udpService.sendClientToServer(msg)
         }
+    }
+
+    private fun startAutoReconnect() {
+        if (reconnectJob != null) return
+        reconnectJob = scope.launch {
+            while (true) {
+                // 网络/IP 变化时旧 socket 不再收发，先重新绑定本地 IP 恢复通道
+                udpService.refresh()
+                val addr = udpService.pcAddress
+                if (addr != null && activeProtocol != ActiveProtocol.WIFI) {
+                    val hello = Hello.newBuilder()
+                        .setProtocolVersion(1)
+                        .setDeviceName(getRealDeviceName())
+                        .build()
+                    val msg = ClientToServer.newBuilder()
+                        .setHello(hello)
+                        .build()
+                    udpService.sendClientToServer(msg)
+                }
+                delay(2000)
+            }
+        }
+    }
+
+    private fun stopAutoReconnect() {
+        reconnectJob?.cancel()
+        reconnectJob = null
     }
 
     var onRumbleRequest: ((largeMotor: Int, smallMotor: Int) -> Unit)? = null
@@ -457,6 +491,7 @@ class ConnectionManager @Inject constructor(
                         dsuService?.updateGamepadState(gs)
                     }
                     else -> {
+                        if (activeProtocol != ActiveProtocol.WIFI) return
                         if (udpService.pcAddress == null) return
                         val input = state.toBuilder().setSeq(_seq.incrementAndGet()).build()
                         udpService.sendGamepadInput(input)

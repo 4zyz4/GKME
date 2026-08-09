@@ -35,6 +35,7 @@ class UdpService {
     @Volatile private var connected = false
 
     private var onMessage: ((ServerToClient) -> Unit)? = null
+    private var broadcastName: String? = null
 
     val isActive: Boolean get() = sockets.isNotEmpty()
 
@@ -42,6 +43,14 @@ class UdpService {
         this.connected = connected
         if (connected) {
             stopBroadcast()
+        }
+    }
+
+    fun resumeBroadcast() {
+        val name = broadcastName ?: return
+        if (broadcastJobs.isNotEmpty()) return
+        for (socket in sockets) {
+            startBroadcastForSocket(socket, name)
         }
     }
 
@@ -53,6 +62,7 @@ class UdpService {
     fun start(ip: String, deviceName: String, onMessage: (ServerToClient) -> Unit) {
         stop()
         this.onMessage = onMessage
+        this.broadcastName = deviceName
         val allIps = com.zyz4.gamepademu.service.ConnectionManager.getAllLocalIpAddressesInternal()
         phoneIps = allIps
         for (localIp in allIps) {
@@ -76,6 +86,40 @@ class UdpService {
 
     fun clearPcAddress() {
         pcAddress = null
+    }
+
+    /**
+     * Rebinds all UDP sockets to the current local IPs without dropping the
+     * known PC address. A WiFi drop/reconnect can invalidate sockets that are
+     * bound to a stale local IP — auto-reconnect calls this so the handshake
+     * keeps flowing even after the phone changed networks/IP.
+     */
+    fun refresh() {
+        val savedPc = pcAddress
+        val savedName = broadcastName
+        stop()
+        this.onMessage = onMessage
+        this.broadcastName = savedName
+        val allIps = com.zyz4.gamepademu.service.ConnectionManager.getAllLocalIpAddressesInternal()
+        phoneIps = allIps
+        for (localIp in allIps) {
+            try {
+                val bindAddr = InetAddress.getByName(localIp)
+                val socket = DatagramSocket(PORT, bindAddr).also { it.broadcast = true }
+                sockets.add(socket)
+                startBroadcastForSocket(socket, savedName ?: return)
+                startReceiveLoopForSocket(socket)
+            } catch (_: Exception) {}
+        }
+        if (sockets.isEmpty()) {
+            try {
+                val socket = DatagramSocket(PORT).also { it.broadcast = true }
+                sockets.add(socket)
+                startBroadcastForSocket(socket, savedName ?: return)
+                startReceiveLoopForSocket(socket)
+            } catch (_: Exception) {}
+        }
+        pcAddress = savedPc
     }
 
     fun stop() {
