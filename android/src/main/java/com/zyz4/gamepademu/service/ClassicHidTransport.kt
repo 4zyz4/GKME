@@ -108,7 +108,7 @@ class ClassicHidTransport(
                         scope.launch {
                             delay(500)
                             if (started.get() && !stopping.get() && _connectionPhase.value == ConnectionPhase.DISCONNECTED) {
-                                enterDiscoverable()
+                                tryAutoReconnect()
                             }
                         }
                     }
@@ -133,7 +133,12 @@ class ClassicHidTransport(
                 if (stopping.get()) return
                 connectedDevice = null
                 if (restarting || _connectionPhase.value == ConnectionPhase.REGISTERING_PROFILE) return
-                enterDiscoverable()
+                scope.launch {
+                    delay(500)
+                    if (started.get() && !stopping.get()) {
+                        tryAutoReconnect()
+                    }
+                }
             }
         }
     }

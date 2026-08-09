@@ -27,7 +27,9 @@ import com.zyz4.gamepademu.model.VibrationType
 import com.zyz4.gamepademu.service.ConnectionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -451,7 +453,7 @@ class GamepadViewModel @Inject constructor(
     private fun startPeriodicSendLoop() {
         sendJob?.cancel()
         var lastBatteryRead = 0L
-        sendJob = viewModelScope.launch {
+        sendJob = CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             var nextSendTime = System.currentTimeMillis()
             while (true) {
                 if (System.currentTimeMillis() - lastBatteryRead > 2000) {
@@ -499,7 +501,7 @@ class GamepadViewModel @Inject constructor(
     private fun startSensorSendLoop() {
         sendJob?.cancel()
         var lastBatteryRead = 0L
-        sendJob = viewModelScope.launch {
+        sendJob = CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             var nextSendTime = System.currentTimeMillis()
             while (true) {
                 if (System.currentTimeMillis() - lastBatteryRead > 2000) {
