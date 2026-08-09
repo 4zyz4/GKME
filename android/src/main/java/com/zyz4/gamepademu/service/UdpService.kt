@@ -30,7 +30,6 @@ class UdpService {
     private var receiveJobs = mutableListOf<Job>()
     @Volatile var pcAddress: InetSocketAddress? = null
         private set
-    @Volatile var phoneIps: List<String> = emptyList()
     @Volatile var lastReceiveTime: Long = 0
     @Volatile private var connected = false
 
@@ -59,33 +58,8 @@ class UdpService {
         broadcastJobs.clear()
     }
 
-    fun start(ip: String, deviceName: String, onMessage: (ServerToClient) -> Unit) {
-        stop()
-        this.onMessage = onMessage
-        this.broadcastName = deviceName
-        val allIps = com.zyz4.gamepademu.service.ConnectionManager.getAllLocalIpAddressesInternal()
-        phoneIps = allIps
-        for (localIp in allIps) {
-            try {
-                val bindAddr = InetAddress.getByName(localIp)
-                val socket = DatagramSocket(PORT, bindAddr).also { it.broadcast = true }
-                sockets.add(socket)
-                startBroadcastForSocket(socket, deviceName)
-                startReceiveLoopForSocket(socket)
-            } catch (_: Exception) {}
-        }
-        if (sockets.isEmpty()) {
-            try {
-                val socket = DatagramSocket(PORT).also { it.broadcast = true }
-                sockets.add(socket)
-                startBroadcastForSocket(socket, deviceName)
-                startReceiveLoopForSocket(socket)
-            } catch (_: Exception) {}
-        }
-    }
-
-    fun clearPcAddress() {
-        pcAddress = null
+    fun start(deviceName: String, onMessage: (ServerToClient) -> Unit) {
+        rebind(deviceName, onMessage, keepPcAddress = false)
     }
 
     /**
@@ -95,19 +69,21 @@ class UdpService {
      * keeps flowing even after the phone changed networks/IP.
      */
     fun refresh() {
+        rebind(broadcastName, onMessage, keepPcAddress = true)
+    }
+
+    private fun rebind(deviceName: String?, onMessage: ((ServerToClient) -> Unit)?, keepPcAddress: Boolean) {
         val savedPc = pcAddress
-        val savedName = broadcastName
         stop()
         this.onMessage = onMessage
-        this.broadcastName = savedName
+        this.broadcastName = deviceName
         val allIps = com.zyz4.gamepademu.service.ConnectionManager.getAllLocalIpAddressesInternal()
-        phoneIps = allIps
         for (localIp in allIps) {
             try {
                 val bindAddr = InetAddress.getByName(localIp)
                 val socket = DatagramSocket(PORT, bindAddr).also { it.broadcast = true }
                 sockets.add(socket)
-                startBroadcastForSocket(socket, savedName ?: return)
+                startBroadcastForSocket(socket, deviceName ?: return)
                 startReceiveLoopForSocket(socket)
             } catch (_: Exception) {}
         }
@@ -115,11 +91,15 @@ class UdpService {
             try {
                 val socket = DatagramSocket(PORT).also { it.broadcast = true }
                 sockets.add(socket)
-                startBroadcastForSocket(socket, savedName ?: return)
+                startBroadcastForSocket(socket, deviceName ?: return)
                 startReceiveLoopForSocket(socket)
             } catch (_: Exception) {}
         }
-        pcAddress = savedPc
+        if (keepPcAddress) pcAddress = savedPc
+    }
+
+    fun clearPcAddress() {
+        pcAddress = null
     }
 
     fun stop() {

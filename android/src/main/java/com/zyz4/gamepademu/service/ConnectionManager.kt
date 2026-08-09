@@ -76,15 +76,10 @@ class ConnectionManager @Inject constructor(
     private val _settings = MutableStateFlow(AppSettings())
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
 
-    private var currentPollingRate = 120
-    private val _seq = java.util.concurrent.atomic.AtomicLong(0L)
-    private val _rttRing = LongArray(64) { -1L }
-
     init {
         _settings.value = runBlocking(Dispatchers.IO) {
             settingsRepository.settings.first()
         }
-        currentPollingRate = _settings.value.pollingRate
         audioPlaybackService.setSettings(
             leftOutput = _settings.value.leftVoiceCoilOutput,
             rightOutput = _settings.value.rightVoiceCoilOutput,
@@ -148,11 +143,9 @@ class ConnectionManager @Inject constructor(
             ConnectionMode.WIFI -> {
                 serverJob = scope.launch {
                     // Start both WiFi UDP and DSU servers simultaneously for auto-detection
-                    val wifiJob = launch { startWifiServer(s) }
-                    val dsuJob = launch { startDsuServer(s) }
+                    startWifiServer(s)
+                    startDsuServer(s)
                     watchdogJob = launch { watchdogLoop() }
-                    wifiJob.join()
-                    dsuJob.join()
                 }
             }
             ConnectionMode.BLUETOOTH -> {
@@ -220,7 +213,6 @@ class ConnectionManager @Inject constructor(
     }
 
     private suspend fun startWifiServer(settings: AppSettings) {
-        currentPollingRate = settings.pollingRate
         try {
             val ip = getServerIp()
             if (ip.isEmpty()) {
@@ -232,7 +224,7 @@ class ConnectionManager @Inject constructor(
                 }
                 return
             }
-            udpService.start(ip, getRealDeviceName()) { msg ->
+            udpService.start(getRealDeviceName()) { msg ->
                 handleServerToClient(msg)
             }
             if (activeProtocol == ActiveProtocol.NONE) {
@@ -240,9 +232,6 @@ class ConnectionManager @Inject constructor(
                     phase = ConnectionPhase.LISTENING,
                     statusText = "服务已启动，等待连接..."
                 )
-            }
-            while (true) {
-                delay(1000)
             }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
@@ -282,9 +271,6 @@ class ConnectionManager @Inject constructor(
                 }
             )
             dsuService?.start()
-            while (true) {
-                delay(1000)
-            }
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
@@ -402,7 +388,6 @@ class ConnectionManager @Inject constructor(
                 activeProtocol = ActiveProtocol.NONE
                 _connectionState.value = ConnectionState(statusText = "已断开")
             }
-            ServerToClient.PayloadCase.RTT_REPORT -> {}
             else -> {}
         }
     }
@@ -493,8 +478,7 @@ class ConnectionManager @Inject constructor(
                     else -> {
                         if (activeProtocol != ActiveProtocol.WIFI) return
                         if (udpService.pcAddress == null) return
-                        val input = state.toBuilder().setSeq(_seq.incrementAndGet()).build()
-                        udpService.sendGamepadInput(input)
+                        udpService.sendGamepadInput(state)
                     }
                 }
             }

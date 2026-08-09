@@ -22,7 +22,6 @@ message ClientToServer {
   oneof payload {
     Hello hello = 1;
     GamepadInput gamepad_input = 2;
-    KeepAlive keep_alive = 3;
   }
 }
 
@@ -47,7 +46,6 @@ message GamepadInput {
   float accel_x = 12;
   float accel_y = 13;
   float accel_z = 14;
-  uint64 seq = 15;
   uint32 battery_level = 16;
   bool is_charging = 17;
   uint32 touchpad_x = 18;
@@ -64,15 +62,10 @@ message TouchPoint {
   bool active = 4;
 }
 
-message KeepAlive {
-  uint64 timestamp = 1;
-}
-
 message ServerToClient {
   oneof payload {
     Vibration vibration = 1;
     Disconnect disconnect = 3;
-    RttReport rtt_report = 5;
     ServerHello server_hello = 7;
     AudioFrame audio_frame = 8;
   }
@@ -92,12 +85,6 @@ message ServerHello {
   string host_name = 2;
   uint32 max_downlink_rate_hz = 3;
   uint32 recommended_uplink_interval_us = 4;
-}
-
-message RttReport {
-  uint64 ack_seq = 1;
-  uint32 measured_uplink_rate_hz = 2;
-  uint32 recommended_uplink_interval_us = 3;
 }
 
 message Vibration {
