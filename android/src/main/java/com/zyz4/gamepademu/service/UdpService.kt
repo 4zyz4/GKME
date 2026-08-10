@@ -159,6 +159,7 @@ class UdpService {
                 try {
                     val dp = DatagramPacket(buf, buf.size)
                     socket.receive(dp)
+                    lastReceiveTime = System.currentTimeMillis()
                     val len = dp.length
                     if (len < 1) continue
                     val type = buf[0]
@@ -166,7 +167,6 @@ class UdpService {
                     when (type) {
                         TYPE_SERVER_TO_CLIENT -> {
                             pcAddress = InetSocketAddress(dp.address, PORT)
-                            lastReceiveTime = System.currentTimeMillis()
                             val msg = ServerToClient.parseFrom(payload)
                             onMessage?.invoke(msg)
                         }
