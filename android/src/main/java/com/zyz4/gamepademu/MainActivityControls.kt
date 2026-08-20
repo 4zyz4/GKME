@@ -9,8 +9,10 @@ import android.os.Looper
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.GestureDetector
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.view.GestureDetectorCompat
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.ImageButton
@@ -26,11 +28,14 @@ import com.zyz4.gamepademu.view.GamepadLayout
 import com.zyz4.gamepademu.view.JoystickView
 import com.zyz4.gamepademu.view.RotatableButton
 
+private val _mainHandler = Handler(Looper.getMainLooper())
+
 internal data class CtrlEntry(
     val baseId: String, val name: String, val icon: Int,
     val bgRes: Int = R.drawable.button_circle,
     val isJoystick: Boolean = false,
     val isTouchpad: Boolean = false,
+    val isMousepad: Boolean = false,
     val isDpad: Boolean = false,
     val isTrigger: Boolean = false,
     val isDpadPad: Boolean = false,
@@ -59,6 +64,7 @@ internal val allControls = listOf(
     CtrlEntry("leftJoystick", "左摇杆", R.drawable.joystick_outer, isJoystick = true, w = 17, h = 17),
     CtrlEntry("rightJoystick", "右摇杆", R.drawable.joystick_outer, isJoystick = true, w = 17, h = 17),
     CtrlEntry("touchpad", "触摸板", R.drawable.center_rect, isTouchpad = true, w = 34, h = 22, lockAspect = false),
+    CtrlEntry("mousepad", "鼠标", R.drawable.center_rect, isMousepad = true, w = 34, h = 22, lockAspect = false),
     CtrlEntry("btnTouchpad", "触摸板按下", R.drawable.btn_touchpad, R.drawable.btn_touchpad, bit = GamepadState.TOUCHPAD_CLICK, w = 9, h = 9),
     CtrlEntry("btnLS", "左摇杆按下", R.drawable.btn_ls, R.drawable.btn_ls, bit = GamepadState.L3, w = 9, h = 9),
     CtrlEntry("btnRS", "右摇杆按下", R.drawable.btn_rs, R.drawable.btn_rs, bit = GamepadState.R3, w = 9, h = 9),
@@ -138,9 +144,28 @@ internal fun MainActivity.setupGamepadLayoutListener() {
     }
 
     a.physicalControllerHandler.onPointerCaptureNeeded = { enabled ->
-        a.pointerCaptureNeeded = enabled
+        val needCapture = enabled
+        a.pointerCaptureNeeded = needCapture
         a.physicalControllerHandler.isPointerCaptureActive = enabled
-        a.gamepadLayout.setTouchpadCaptureMode(enabled)
+        a.gamepadLayout.setTouchpadCaptureMode(needCapture)
+    }
+
+    // Set up mouse mode: when mousepad control exists in the layout, route captured pointer events
+    // through MouseInputDispatcher and send reports via Bluetooth HID Report ID 2.
+    a.gamepadLayout.onCapturedMouseReport = { dx, dy, wheelV, wheelH, buttonDown, buttonUp, _, _ ->
+        val s = a.viewModel.settings.value
+        if (s.connectionMode != com.zyz4.gamepademu.model.ConnectionMode.BLUETOOTH) {
+            ByteArray(0)
+        } else {
+            val btn = (buttonDown.toInt() and 0x03) or (buttonUp.toInt() and 0xFC)
+            a.viewModel.connectionManager.sendMouseReport(
+                button = btn.toByte(),
+                dx = dx.toByte(),
+                dy = dy.toByte(),
+                wheel = wheelV.toByte(),
+            )
+            ByteArray(4)
+        }
     }
 }
 
@@ -155,7 +180,7 @@ internal fun MainActivity.createAllControls() {
     data class Def(
         val baseId: String, val bit: Int = 0,
         val isDpad: Boolean = false, val isTrigger: Boolean = false,
-        val isJoystick: Boolean = false, val isTouchpad: Boolean = false,
+        val isJoystick: Boolean = false, val isTouchpad: Boolean = false, val isMousepad: Boolean = false,
         val useImageButton: Boolean = false, val icon: Int = 0,
         val bgRes: Int = R.drawable.button_circle,
     )
@@ -176,6 +201,7 @@ internal fun MainActivity.createAllControls() {
         Def("leftJoystick", isJoystick = true),
         Def("rightJoystick", isJoystick = true),
         Def("touchpad", isTouchpad = true),
+        Def("mousepad", isMousepad = true),
         Def("btnSelect", bit = GamepadState.SELECT),
         Def("btnHome", bit = GamepadState.HOME, useImageButton = true, icon = R.drawable.ic_home),
         Def("btnMenu", bit = GamepadState.START),
@@ -218,6 +244,26 @@ internal fun MainActivity.createAllControls() {
                 a.setupTouchpadView(tp)
                 tp
             }
+            d.isMousepad -> {
+                val mp = FrameLayout(a).apply {
+                    this.id = View.generateViewId(); tag = d.baseId
+                    setBackgroundResource(R.drawable.center_rect)
+                }
+                val label = TextView(a).apply {
+                    layoutParams = FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        android.view.Gravity.CENTER
+                    )
+                    setTextColor(-0x6699999a)
+                    textSize = 11f
+                    text = a.viewModel.connectionState.value.statusText
+                }
+                mp.addView(label)
+                a.mousepadLabels.add(label)
+                a.setupMousepadView(mp)
+                mp
+            }
             d.baseId in listOf("btnLB", "btnRB", "btnLT", "btnRT") -> RotatableButton(a).apply {
                 this.id = View.generateViewId(); tag = d.baseId
                 setTextColor(-0x333334); textSize = 12f
@@ -235,7 +281,7 @@ internal fun MainActivity.createAllControls() {
                 enableAutoFitButtonText(20f)
             }
         }
-        if (!d.isTouchpad) {
+        if (!d.isTouchpad && !d.isMousepad) {
             a.setupTouchHandler(view, d.bit, d.isDpad, d.isTrigger, d.isJoystick)
         }
         a.gamepadLayout.addView(view)
@@ -522,6 +568,134 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
 
         true
     }
+}
+
+/**
+ * Set up a mousepad control.
+ *
+ * Uses GestureDetectorCompat on the mousepad View itself
+ * (exactly like Mousedroid's GestureHandler on the touchpadSensor View).
+ * Works regardless of pointer capture / connection mode.
+ *
+ * Gesture map:
+ *   Single-finger slide  → cursor movement (Bluetooth HID)
+ *   Two-finger slide    → vertical/horizontal scroll
+ *   Single-finger tap    → left click (no highlight, no vibration)
+ *   Double-tap           → left button hold-down (highlight + vibration, release on finger up)
+ *   Two-finger tap       → right click
+ */
+@SuppressLint("ClickableViewAccessibility")
+internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
+    val a = this
+    val mouseState = object {
+        var singleTapHandler: Runnable? = null
+        var isDoubleTapPress = false
+    }
+
+    val gestureDetector = GestureDetectorCompat(a, object : GestureDetector.SimpleOnGestureListener() {
+        override fun onSingleTapUp(e: MotionEvent): Boolean {
+            mouseState.singleTapHandler?.let { _mainHandler.removeCallbacks(it) }
+            mouseState.singleTapHandler = Runnable {
+                a.sendMouseTap(button = 1)
+                mouseState.singleTapHandler = null
+            }
+            _mainHandler.postDelayed(mouseState.singleTapHandler!!, 150)
+            return true
+        }
+
+        override fun onDoubleTap(e: MotionEvent): Boolean {
+            mouseState.singleTapHandler?.let { _mainHandler.removeCallbacks(it) }
+            mouseState.isDoubleTapPress = true
+            mp.isPressed = true
+            mousepadHighlight(mp, true, a)
+            a.performHaptic(isPress = true)
+            a.sendMouseReportDirect(buttonDown = 1, buttonUp = 0, dx = 0, dy = 0)
+            return true
+        }
+
+        override fun onScroll(e1: MotionEvent?, e2: MotionEvent, distanceX: Float, distanceY: Float): Boolean {
+            @Suppress("SENSELESS_COMPARISON")
+            if (e1 == null || e2 == null) return false
+            if (e2.pointerCount == 2) {
+                val dy = (distanceY.coerceIn(-127f, 127f) * -1).toInt().toByte()
+                val dx = (distanceX.coerceIn(-127f, 127f) * -1).toInt().toByte()
+                a.sendMouseReportDirect(buttonDown = 0, buttonUp = 0, dx = 0, dy = 0, wheel = dy, hWheel = dx)
+            } else {
+                val dy = (distanceY.coerceIn(-127f, 127f) * -1).toInt().toByte()
+                val dx = (distanceX.coerceIn(-127f, 127f) * -1).toInt().toByte()
+                a.sendMouseReportDirect(buttonDown = 0, buttonUp = 0, dx = dx, dy = dy)
+            }
+            return true
+        }
+    })
+
+    mp.setOnTouchListener { _, event ->
+        @Suppress("SENSELESS_COMPARISON")
+        if (gestureDetector.onTouchEvent(event) == true) return@setOnTouchListener true
+        val masked = event.action and MotionEvent.ACTION_MASK
+        when (masked) {
+            MotionEvent.ACTION_UP -> {
+                if (mouseState.isDoubleTapPress) {
+                    mp.isPressed = false
+                    mousepadHighlight(mp, false, a)
+                    a.performHaptic(isPress = false)
+                    a.sendMouseReportDirect(buttonDown = 0, buttonUp = 2, dx = 0, dy = 0)
+                    mouseState.isDoubleTapPress = false
+                }
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                if (mouseState.isDoubleTapPress) {
+                    mp.isPressed = false
+                    mousepadHighlight(mp, false, a)
+                    a.performHaptic(isPress = false)
+                    a.sendMouseReportDirect(buttonDown = 0, buttonUp = 2, dx = 0, dy = 0)
+                    mouseState.isDoubleTapPress = false
+                }
+            }
+            MotionEvent.ACTION_POINTER_UP -> {
+                if (event.pointerCount == 2) {
+                    a.sendMouseTap(button = 4)
+                }
+            }
+        }
+        true
+    }
+}
+
+/** Mousepad visual highlight (alpha) matching touchpad behavior. */
+private fun mousepadHighlight(mp: FrameLayout, active: Boolean, a: MainActivity) {
+    val id = mp.tag as? String ?: return
+    val pos = a.gamepadLayout.currentButtons.find { it.id == id } ?: return
+    mp.alpha = 1f - ((if (active) pos.activeTransparency else pos.idleTransparency).coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
+}
+
+/** Send a mouse button tap (down then up) directly via Bluetooth HID. */
+private fun MainActivity.sendMouseTap(button: Int) {
+    val s = viewModel.settings.value
+    if (s.connectionMode != com.zyz4.gamepademu.model.ConnectionMode.BLUETOOTH) return
+    viewModel.connectionManager.sendMouseReport(
+        button = button.toByte(), // button bitmask: bit0=left, bit1=right, bit2=middle
+        dx = 0.toByte(), dy = 0.toByte(), wheel = 0.toByte(),
+    )
+    _mainHandler.postDelayed(Runnable {
+        viewModel.connectionManager.sendMouseReport(
+            button = 0.toByte(), // release all buttons
+            dx = 0.toByte(), dy = 0.toByte(), wheel = 0.toByte(),
+        )
+    }, 150)
+}
+
+/** Send a mouse report with button state changes and delta movement (Bluetooth only). */
+private fun MainActivity.sendMouseReportDirect(
+    buttonDown: Int, buttonUp: Int,
+    dx: Byte, dy: Byte, wheel: Byte = 0, hWheel: Byte = 0
+) {
+    val s = viewModel.settings.value
+    if (s.connectionMode != com.zyz4.gamepademu.model.ConnectionMode.BLUETOOTH) return
+    viewModel.connectionManager.sendMouseReport(
+        button = ((buttonDown and 0x03) or (buttonUp and 0xFC)).toByte(),
+        dx = dx, dy = dy, wheel = wheel,
+    )
 }
 
 @SuppressLint("ClickableViewAccessibility")

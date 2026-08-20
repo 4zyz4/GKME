@@ -48,6 +48,7 @@ class MainActivity : ComponentActivity() {
     internal val floatingEditor: FloatingEditorPanel by lazy { createFloatingEditor() }
     internal val controlViews = mutableMapOf<String, View>()
     internal val touchpadLabels = mutableListOf<TextView>()
+    internal val mousepadLabels = mutableListOf<TextView>()
     internal var discoverableRequested = false
     internal var vibrationPollingJob: kotlinx.coroutines.Job? = null
     internal var audioPollingJob: kotlinx.coroutines.Job? = null

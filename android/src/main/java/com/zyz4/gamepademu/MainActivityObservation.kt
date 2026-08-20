@@ -27,6 +27,7 @@ internal fun MainActivity.observeState() {
                 var lastRestartToken = 0
                 a.viewModel.connectionState.collect { st ->
                     for (label in a.touchpadLabels) label.text = st.statusText
+                    for (label in a.mousepadLabels) label.text = st.statusText
                     if (a.settingsInflated) {
                         a.findViewById<TextView>(R.id.tvConnectionStatus).text = st.statusText
                         val btn = a.findViewById<Button>(R.id.btnConnectAction)

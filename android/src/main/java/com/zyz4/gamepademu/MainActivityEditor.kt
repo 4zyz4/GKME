@@ -331,6 +331,26 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
             a.setupTouchpadView(tp)
             tp
         }
+        entry.isMousepad -> {
+            val mp = FrameLayout(a).apply {
+                this.id = View.generateViewId(); tag = id
+                setBackgroundResource(R.drawable.center_rect)
+            }
+            val label = TextView(a).apply {
+                layoutParams = FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    Gravity.CENTER
+                )
+                setTextColor(-0x6699999a)
+                textSize = 11f
+            }
+            mp.addView(label)
+            label.text = a.viewModel.connectionState.value.statusText
+            a.mousepadLabels.add(label)
+            a.setupMousepadView(mp)
+            mp
+        }
         entry.isDpadPad -> a.createDpadPadView(id)
         entry.isKeypad -> a.createCustomKeypadView(id)
         entry.isCustom -> {
@@ -395,7 +415,7 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
         a.gamepadLayout.addView(view)
         a.gamepadLayout.addButtonPosition(pos)
 
-        if (!entry.isTouchpad && !entry.isDpadPad) {
+        if (!entry.isTouchpad && !entry.isMousepad && !entry.isDpadPad) {
             if (entry.isCustom) {
                 a.setupCustomTouchHandler(view)
             } else if (!entry.isKeypad) {
@@ -442,6 +462,23 @@ internal fun MainActivity.createCustomButtonView(pos: ButtonPosition): View {
 }
 
 internal fun MainActivity.applyPreset(preset: com.zyz4.gamepademu.model.LayoutPreset) {
+    val buttons = preset.buttons.toMutableList()
+    val hasMousepadChild = (0 until gamepadLayout.childCount).any {
+        gamepadLayout.getChildAt(it).tag == "mousepad"
+    }
+    if (hasMousepadChild && !buttons.any { it.id == "mousepad" }) {
+        val mpPos = com.zyz4.gamepademu.model.ButtonPosition(
+            id = "mousepad",
+            x = 39, y = 7,
+            width = 34, height = 22,
+            lockAspect = false,
+        )
+        buttons.add(mpPos)
+        val presetToLoad = preset.copy(buttons = buttons)
+        gamepadLayout.loadPreset(presetToLoad)
+        ensureViewsForAllPresetButtons()
+        return
+    }
     gamepadLayout.loadPreset(preset)
     ensureViewsForAllPresetButtons()
 }
@@ -517,6 +554,24 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
             a.setupTouchpadView(tp)
             tp
         }
+        entry.isMousepad -> {
+            val mp = FrameLayout(a).apply {
+                id = View.generateViewId(); tag = pos.id
+                setBackgroundResource(R.drawable.center_rect)
+            }
+            val label = TextView(a).apply {
+                layoutParams = FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                    Gravity.CENTER
+                )
+                setTextColor(-0x6699999a); textSize = 11f
+                text = a.viewModel.connectionState.value.statusText
+            }
+            mp.addView(label)
+            a.mousepadLabels.add(label)
+            a.setupMousepadView(mp)
+            mp
+        }
         entry.isDpadPad -> a.createDpadPadView(pos.id)
         entry.isKeypad -> a.createCustomKeypadView(pos.id)
         entry.isCustom -> {
@@ -550,7 +605,7 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
         }
     }
 
-    if (!entry.isTouchpad && !entry.isCustom && !entry.isDpadPad && !entry.isKeypad) {
+    if (!entry.isTouchpad && !entry.isMousepad && !entry.isCustom && !entry.isDpadPad && !entry.isKeypad) {
         val bit = a.getBitForEntry(entry) ?: 0
         a.setupTouchHandler(view, bit, entry.isDpad, entry.isTrigger, entry.isJoystick)
     } else if (entry.isCustom) {

@@ -10,6 +10,7 @@ enum class BluetoothTransportType { CLASSIC, BLE }
 interface BluetoothHidService {
     fun start(settings: AppSettings, onOutputReport: (ByteArray) -> Unit)
     fun sendReport(report: ByteArray)
+    fun sendMouseReport(button: Byte, dx: Byte, dy: Byte, wheel: Byte, hWheel: Byte)
     fun restart(settings: AppSettings, onOutputReport: (ByteArray) -> Unit)
     fun stop()
     val connectionPhase: StateFlow<ConnectionPhase>

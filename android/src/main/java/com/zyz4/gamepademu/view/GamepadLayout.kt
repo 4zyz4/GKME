@@ -28,6 +28,8 @@ import com.zyz4.gamepademu.view.inputdispatcher.EditCommand
 import com.zyz4.gamepademu.view.inputdispatcher.toRawEvent
 import com.zyz4.gamepademu.view.inputdispatcher.InteractionResult
 import com.zyz4.gamepademu.view.inputdispatcher.TouchpadClickDetector
+import com.zyz4.gamepademu.view.inputdispatcher.MouseInputDispatcher
+import com.zyz4.gamepademu.view.inputdispatcher.isTouchpadId
 
 class GamepadLayout @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
@@ -188,6 +190,39 @@ class GamepadLayout @JvmOverloads constructor(
     override fun onCapturedPointerEvent(event: MotionEvent): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return super.onCapturedPointerEvent(event)
 
+        // ── Mouse mode via pointer capture ──
+        // NOTE: Mousepad now uses touch events via setupMousepadView() instead of
+        // pointer capture.  This pointer capture path is used for touchpad input
+        // (physical controller touchpad emulation) only.
+        //
+        // We keep hasMousepad check here so that external code can still check
+        // the property, but mouse events no longer flow through this method.
+        if (hasMousepad) {
+            // Mousepad does not use pointer capture anymore — route captured
+            // events through MouseInputDispatcher for legacy support.
+            val result = MouseInputDispatcher.dispatch(
+                actionMasked = event.actionMasked,
+                pointerCount = event.pointerCount,
+                event = event,
+                prevState = mouseModeState,
+                doubleTapDrag = false,
+                keepLeftDown = true,
+                sensitivity = 1.0f,
+            )
+            mouseModeState = result.newState
+            onCapturedMouseReport?.invoke(
+                result.dx, result.dy, result.wheelV, result.wheelH,
+                result.buttonDown, result.buttonUp,
+                1.0f, event
+            )
+            if (event.actionMasked == MotionEvent.ACTION_UP ||
+                event.actionMasked == MotionEvent.ACTION_CANCEL
+            ) {
+                _touchpadClick = false
+            }
+            return true
+        }
+
         val newButtonState = event.buttonState
         val clickResult = TouchpadClickDetector.detect(oldButtonState, newButtonState)
 
@@ -251,7 +286,14 @@ class GamepadLayout @JvmOverloads constructor(
     private var slot1Y = 0f
     private var slot1Active = false
 
+    // ── Mouse mode state ──
+    private var mouseModeState = MouseInputDispatcher.State()
     private var _touchpadClick = false
+
+    /** True when the current layout includes a "mousepad" control. */
+    val hasMousepad: Boolean
+        get() = currentButtons.any { it.id == "mousepad" }
+            || (0 until childCount).any { getChildAt(it).tag == "mousepad" }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         if (!isEditMode) {
@@ -639,6 +681,14 @@ class GamepadLayout @JvmOverloads constructor(
             touchpadTouch: Boolean, touchpadClick: Boolean
         )
     }
+
+    /** Callback for mouse-mode: convert a MouseResult into a Bluetooth HID report. */
+    var onCapturedMouseReport: ((
+        dx: Short, dy: Short,
+        wheelV: Short, wheelH: Short,
+        buttonDown: Byte, buttonUp: Byte,
+        sensitivity: Float, event: MotionEvent
+    ) -> ByteArray)? = null
 
     var onCapturedTouchpadEvent: ((normalizedX: Float, normalizedY: Float,
         touches: List<FloatArray>, touchpadTouch: Boolean, touchpadClick: Boolean) -> Unit)? = null

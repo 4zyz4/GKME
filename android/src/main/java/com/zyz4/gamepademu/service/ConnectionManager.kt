@@ -492,6 +492,15 @@ class ConnectionManager @Inject constructor(
         }
     }
 
+    /** Send a mouse HID report (Report ID 2) directly to the connected Bluetooth host. */
+    fun sendMouseReport(button: Byte, dx: Byte, dy: Byte, wheel: Byte) {
+        val s = _settings.value
+        if (s.connectionMode != ConnectionMode.BLUETOOTH) return
+        val phase = _connectionState.value.phase
+        if (phase != ConnectionPhase.CONNECTED) return
+        bluetoothService?.sendMouseReport(button, dx, dy, wheel, 0.toByte())
+    }
+
     private fun getRealDeviceName(): String {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
             Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME)
