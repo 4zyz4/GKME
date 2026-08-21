@@ -102,6 +102,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     private fun isSettingsButton(id: String): Boolean = id == GamepadLayout.SETTINGS_BUTTON_ID
 
     private fun isTouchpadId(id: String): Boolean = id.substringBefore("_") == "touchpad"
+    private fun isMousepadId(id: String): Boolean = id.substringBefore("_") == "mousepad"
 
     /** On-screen size of the touchpad in grid units (accounts for 90/270 rotation swap). */
     private fun touchpadScreenSize(pos: ButtonPosition): Pair<Int, Int> {
@@ -165,6 +166,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             "btnLS" -> "左摇杆按下"
             "btnRS" -> "右摇杆按下"
             "touchpad" -> "触摸板"
+            "mousepad" -> "鼠标"
             "dpadPad" -> "一体十字键/自定义按键盘"
             "customKeypad" -> "自定义按键盘"
             "btnCustomCircle" -> "自定义(圆)"
@@ -628,6 +630,26 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 btnRow.addView(btnEnterAdjust)
                 buttonParamsInner.addView(btnRow)
             }
+        }
+        if (isMousepadId(buttonId)) {
+            addSeekbarFloat(buttonParamsInner, "鼠标灵敏度", button.mouseSensitivity, 0.1f, 3f, 0.05f) { v ->
+                currentButton = currentButton?.copy(mouseSensitivity = v)
+                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+            }
+            addSeekbarFloat(buttonParamsInner, "滚动灵敏度", button.scrollSensitivity, 0.01f, 1f, 0.01f) { v ->
+                currentButton = currentButton?.copy(scrollSensitivity = v)
+                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+            }
+            val cbInvert = CheckBox(context).apply {
+                text = "反转滚动"
+                setTextColor(-0x444445)
+                textSize = 14f
+                isChecked = button.invertScroll
+                setOnCheckedChangeListener { _, isChecked ->
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(invertScroll = isChecked)) }
+                }
+            }
+            buttonParamsInner.addView(cbInvert, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
         }
         if (buttonId.substringBefore("_") in joystickIds) {
             // ── Rectangular area follow ──
@@ -1376,6 +1398,157 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 override fun onStopTrackingTouch(sb: SeekBar) {
                     onStopTracking?.invoke()
                 }
+            })
+        }
+
+        val row1 = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+        row1.addView(tv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { gravity = Gravity.CENTER_VERTICAL })
+        row1.addView(et, LinearLayout.LayoutParams(0, btnSize, 1f).apply { leftMargin = (8f * density).toInt(); rightMargin = (4f * density).toInt() })
+        row1.addView(btnMinus, LinearLayout.LayoutParams(btnSize, btnSize).apply { rightMargin = (4f * density).toInt() })
+        row1.addView(btnPlus, LinearLayout.LayoutParams(btnSize, btnSize))
+        container.addView(row1)
+
+        val row2 = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (4f * density).toInt() }
+        }
+        row2.addView(seek)
+        container.addView(row2)
+    }
+
+    private fun addSeekbarFloat(
+        container: LinearLayout,
+        label: String,
+        value: Float,
+        min: Float,
+        max: Float,
+        step: Float = 0.05f,
+        scale: Int = 100,
+        onChange: (Float) -> Unit,
+    ) {
+        val density = context.resources.displayMetrics.density
+        val btnSize = (32f * density).toInt()
+        var currentValue = value.coerceIn(min, max)
+
+        var et: EditText? = null
+        var seek: SeekBar? = null
+
+        val tv = TextView(context).apply {
+            text = label
+            setTextColor(-0x444445)
+            textSize = 13f
+        }
+
+        fun fmt(v: Float) = String.format("%.2f", v)
+        fun progressOf(v: Float) = ((v - min) * scale).toInt().coerceAtLeast(0)
+
+        et = EditText(context).apply {
+            setText(fmt(currentValue))
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+            gravity = Gravity.CENTER
+            textSize = 13f
+            setTextColor(-0x444445)
+            setBackgroundResource(R.drawable.bg_small_btn)
+            setPadding((4f * density).toInt(), 0, (4f * density).toInt(), 0)
+            setOnEditorActionListener { _, actionId, _ ->
+                if (actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_NEXT) {
+                    val parsed = text.toString().toFloatOrNull() ?: currentValue
+                    val clamped = parsed.coerceIn(min, max)
+                    if (clamped != currentValue) {
+                        currentValue = clamped
+                        seek?.progress = progressOf(clamped)
+                        onChange(clamped)
+                    }
+                    clearFocus()
+                }
+                false
+            }
+            setOnFocusChangeListener { _, hasFocus ->
+                if (!hasFocus) {
+                    val parsed = text.toString().toFloatOrNull() ?: currentValue
+                    val clamped = parsed.coerceIn(min, max)
+                    if (clamped != currentValue) {
+                        currentValue = clamped
+                        seek?.progress = progressOf(clamped)
+                        onChange(clamped)
+                    }
+                }
+            }
+        }
+
+        val btnMinus = TextView(context).apply {
+            text = "-"
+            setTextColor(-0x1)
+            textSize = 16f
+            gravity = Gravity.CENTER
+            isClickable = true
+            setBackgroundResource(R.drawable.button_flat)
+            setOnClickListener {
+                val clamped = (currentValue - step).coerceIn(min, max)
+                if (clamped != currentValue) {
+                    currentValue = clamped
+                    et?.setText(fmt(clamped))
+                    seek?.progress = progressOf(clamped)
+                    onChange(clamped)
+                }
+            }
+        }
+
+        val btnPlus = TextView(context).apply {
+            text = "+"
+            setTextColor(-0x1)
+            textSize = 16f
+            gravity = Gravity.CENTER
+            isClickable = true
+            setBackgroundResource(R.drawable.button_flat)
+            setOnClickListener {
+                val clamped = (currentValue + step).coerceIn(min, max)
+                if (clamped != currentValue) {
+                    currentValue = clamped
+                    et?.setText(fmt(clamped))
+                    seek?.progress = progressOf(clamped)
+                    onChange(clamped)
+                }
+            }
+        }
+
+        seek = SeekBar(context).apply {
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            this.max = ((max - min) * scale).toInt()
+            progress = progressOf(currentValue)
+            setOnTouchListener { v, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        var p = v.parent
+                        while (p != null) {
+                            p.requestDisallowInterceptTouchEvent(true)
+                            p = p.parent
+                        }
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        var p = v.parent
+                        while (p != null) {
+                            p.requestDisallowInterceptTouchEvent(false)
+                            p = p.parent
+                        }
+                    }
+                }
+                false
+            }
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
+                    if (fromUser) {
+                        val newVal = (min + progress.toFloat() / scale).coerceIn(min, max)
+                        currentValue = newVal
+                        et?.setText(fmt(newVal))
+                        onChange(newVal)
+                    }
+                }
+                override fun onStartTrackingTouch(sb: SeekBar) {}
+                override fun onStopTrackingTouch(sb: SeekBar) {}
             })
         }
 

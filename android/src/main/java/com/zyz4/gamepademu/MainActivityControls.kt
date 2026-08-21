@@ -595,6 +595,14 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
     var multiTouch = false          // 本次手势是否涉及多指（双指滚动/右键）
     var twoFingerMoved = false      // 双指手势是否产生明显位移（滚动而非轻触）
     var tracked = 0                 // 当前按在 mousepad 上的手指数（自有计数）
+    val SCROLL_SENSITIVITY = 0.3f  // 滚动灵敏度默认值（像素 -> 滚轮单位，越小越慢）
+    var wheelAccumX = 0f           // 双指滚动的水平/垂直累积量（传统滚动，降灵敏度用）
+    var wheelAccumY = 0f
+    var cursorAccumX = 0f          // 移动光标的累积量（鼠标灵敏度 <1 时保留小数位移）
+    var cursorAccumY = 0f
+    var mouseSens = 1f             // 鼠标灵敏度（来自布局配置）
+    var scrollSens = SCROLL_SENSITIVITY // 滚动灵敏度（来自布局配置）
+    var invertScroll = false       // 反转滚动方向（来自布局配置）
 
     // per-pointer down times for right-click detection
     val pointerDownTimes = mutableMapOf<Int, Long>()
@@ -602,9 +610,17 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
     val prevX = mutableMapOf<Int, Float>()
     val prevY = mutableMapOf<Int, Float>()
 
-    val DOUBLE_TAP_WINDOW = 200L   // 第一击按下后一定时间的再次轻点 -> 保持按下
+    val DOUBLE_TAP_WINDOW = 200L   // 第一击按下后一定时间的再次轻点 -> 潜在双击/按住拖动
     val TAP_TIMEOUT = 200L         // 轻触时长上限 / 单击按住时长
     val MOVE_SLOP = 8f             // 区分点击与拖动的最小位移
+
+    fun readConfig() {
+        val id = mp.tag as? String ?: return
+        val pos = a.gamepadLayout.currentButtons.find { it.id == id } ?: return
+        mouseSens = pos.mouseSensitivity
+        scrollSens = pos.scrollSensitivity
+        invertScroll = pos.invertScroll
+    }
 
     fun press(bit: Int) {
         heldButtons = heldButtons or bit
@@ -615,9 +631,15 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
         a.sendMouseReportDirect(buttonDown = heldButtons, buttonUp = 0, dx = 0, dy = 0)
     }
     fun moveRaw(dx: Float, dy: Float) {
-        if (dx != 0f || dy != 0f) {
+        cursorAccumX += dx * mouseSens
+        cursorAccumY += dy * mouseSens
+        val ix = cursorAccumX.toInt()
+        val iy = cursorAccumY.toInt()
+        if (ix != 0 || iy != 0) {
+            cursorAccumX -= ix
+            cursorAccumY -= iy
             a.sendMouseReportDirect(buttonDown = heldButtons, buttonUp = 0,
-                dx = dx.toInt().toByte(), dy = dy.toInt().toByte())
+                dx = ix.toByte(), dy = iy.toByte())
         }
     }
     fun cancelSingleClick() {
@@ -640,6 +662,9 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
                 twoFingerMoved = false
                 multiTouch = false
                 tracked = 1
+                cursorAccumX = 0f
+                cursorAccumY = 0f
+                readConfig()
 
                 val isPotentialDouble = lastTapDownTime > 0 &&
                         (event.eventTime - lastTapDownTime) < DOUBLE_TAP_WINDOW
@@ -663,7 +688,10 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
                 prevY[pid] = event.getY(idx)
                 twoFingerMoved = false
                 multiTouch = true
+                gestureMoved = false
                 tracked = 2
+                wheelAccumX = 0f
+                wheelAccumY = 0f
                 if (singleClickUp != null) {
                     cancelSingleClick()
                     release(1)
@@ -717,12 +745,20 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
                     if ((Math.abs(totalDx) + Math.abs(totalDy)) > MOVE_SLOP) {
                         twoFingerMoved = true
                     }
-                    val cX = totalDx.coerceIn(-127f, 127f)
-                    val cY = totalDy.coerceIn(-127f, 127f)
-                    a.sendMouseReportDirect(
-                        buttonDown = 0, buttonUp = 0, dx = 0, dy = 0,
-                        wheel = cY.toInt().toByte(), hWheel = cX.toInt().toByte()
-                    )
+                    val sDy = if (invertScroll) -totalDy else totalDy
+                    val sDx = if (invertScroll) -totalDx else totalDx
+                    wheelAccumY += sDy * scrollSens
+                    wheelAccumX += sDx * scrollSens
+                    val wY = wheelAccumY.toInt().coerceIn(-127, 127)
+                    val wX = wheelAccumX.toInt().coerceIn(-127, 127)
+                    wheelAccumY -= wY
+                    wheelAccumX -= wX
+                    if (wX != 0 || wY != 0) {
+                        a.sendMouseReportDirect(
+                            buttonDown = 0, buttonUp = 0, dx = 0, dy = 0,
+                            wheel = wY.toByte(), hWheel = wX.toByte()
+                        )
+                    }
                 } else if (isDoubleTapPress) {
                     moveRaw(totalDx, totalDy)
                 } else if (count == 1) {
@@ -752,6 +788,10 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
                         twoFingerMoved = false
                         gestureMoved = false
                         tracked = 0
+                        wheelAccumX = 0f
+                        wheelAccumY = 0f
+                        cursorAccumX = 0f
+                        cursorAccumY = 0f
                     }
                 } else if (isDoubleTapPress) {
                     release(1)
@@ -759,6 +799,11 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
                     mp.isPressed = false
                     mousepadHighlight(mp, false, a)
                     a.performHaptic(isPress = false)
+                    // 第二次轻点很快抬起且无大范围滑动 -> 追加一次点击，模拟双击
+                    if (!gestureMoved && dur < TAP_TIMEOUT) {
+                        press(1)
+                        release(1)
+                    }
                 } else {
                     val isTap = !gestureMoved && dur < TAP_TIMEOUT
                     if (isTap) {
@@ -801,6 +846,10 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
                 multiTouch = false
                 twoFingerMoved = false
                 tracked = 0
+                wheelAccumX = 0f
+                wheelAccumY = 0f
+                cursorAccumX = 0f
+                cursorAccumY = 0f
             }
         }
         true

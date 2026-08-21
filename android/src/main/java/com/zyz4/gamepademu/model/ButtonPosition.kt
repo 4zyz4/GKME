@@ -32,6 +32,9 @@ data class ButtonPosition(
     val followAreaH: Int = 0,
     val overlapTrigger: Boolean = true,
     val followAreaOverlapTrigger: Boolean = false,
+    val mouseSensitivity: Float = 1f,
+    val scrollSensitivity: Float = 0.3f,
+    val invertScroll: Boolean = false,
 ) {
     companion object {
         const val KEYPAD_BASE_ID = "customKeypad"

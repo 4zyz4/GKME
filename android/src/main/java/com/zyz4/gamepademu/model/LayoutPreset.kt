@@ -16,6 +16,7 @@ data class LayoutPreset(
         private val JOYSTICK_IDS = setOf("leftJoystick", "rightJoystick")
         private val AREA_IDS = setOf("leftJoystick", "rightJoystick", "touchpad", "dpadPad", "customKeypad")
         private val KEYPAD_IDS = setOf("customKeypad")
+        private val MOUSEPAD_IDS = setOf("mousepad")
 
         fun fromJson(json: String): LayoutPreset {
             val type = object : TypeToken<LayoutPreset>() {}.type
@@ -87,6 +88,11 @@ data class LayoutPreset(
                     m["followAreaW"] = b.followAreaW
                     m["followAreaH"] = b.followAreaH
                 }
+            }
+            if (baseId in MOUSEPAD_IDS) {
+                m["mouseSensitivity"] = b.mouseSensitivity
+                m["scrollSensitivity"] = b.scrollSensitivity
+                m["invertScroll"] = b.invertScroll
             }
             list.add(m)
         }
