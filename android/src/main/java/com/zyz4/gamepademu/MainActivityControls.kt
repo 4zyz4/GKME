@@ -487,7 +487,7 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
         tp.alpha = 1f - ((if (active) pos.activeTransparency else pos.idleTransparency).coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
     }
 
-    tp.setOnTouchListener { v, event ->
+    val touchpadListener = View.OnTouchListener touchpadListenerLabel@ { v, event ->
         val btnId = v.tag as? String
         val doubleClickEnable = btnId?.let { a.gamepadLayout.currentButtons.find { p -> p.id == it }?.doubleClickEnable } ?: true
         val masked = event.action and MotionEvent.ACTION_MASK
@@ -502,7 +502,7 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
                 touchpadAlpha(false)
             }
             send()
-            return@setOnTouchListener true
+            return@touchpadListenerLabel true
         }
 
         if (masked == MotionEvent.ACTION_CANCEL) {
@@ -511,7 +511,7 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
             isDoubleClick = false
             touchpadAlpha(false)
             send()
-            return@setOnTouchListener true
+            return@touchpadListenerLabel true
         }
 
         if (masked == MotionEvent.ACTION_DOWN || masked == MotionEvent.ACTION_POINTER_DOWN) {
@@ -546,7 +546,7 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
                 }
             }
             send()
-            return@setOnTouchListener true
+            return@touchpadListenerLabel true
         }
 
         if (masked == MotionEvent.ACTION_POINTER_UP) {
@@ -556,7 +556,7 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
             if (slot >= 0) slots[slot] = null
             if (slots.all { it == null }) touchpadAlpha(false)
             send()
-            return@setOnTouchListener true
+            return@touchpadListenerLabel true
         }
 
         if (masked == MotionEvent.ACTION_MOVE) {
@@ -567,10 +567,21 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
                 else { val e = emptySlot(); if (e >= 0) slots[e] = TouchPoint(id = e, x = sx, y = sy, active = true) }
             }
             send()
-            return@setOnTouchListener true
+            return@touchpadListenerLabel true
         }
 
         true
+    }
+    // When connected over Bluetooth, a regular touchpad control simulates a mouse
+    // (single-finger move, two-finger scroll, tap = click, etc.) using default
+    // sensitivity / scroll-direction settings.
+    val mouseListener = a.attachMousepadGestures(tp, useConfig = false)
+    tp.setOnTouchListener { v, event ->
+        if (a.viewModel.settings.value.connectionMode == com.zyz4.gamepademu.model.ConnectionMode.BLUETOOTH) {
+            mouseListener.onTouch(v, event)
+        } else {
+            touchpadListener.onTouch(v, event)
+        }
     }
 }
 
@@ -590,6 +601,20 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
  */
 @SuppressLint("ClickableViewAccessibility")
 internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
+    mp.setOnTouchListener(attachMousepadGestures(mp, useConfig = true))
+}
+
+/**
+ * Attach mouse-pad gesture handling to a [FrameLayout] and return the
+ * [View.OnTouchListener] to install on it.
+ *
+ * @param useConfig when true, sensitivity / scroll direction are read from the
+ *   layout [ButtonPosition] (dedicated "mousepad" control). When false, default
+ *   settings are used — this is how a regular "touchpad" control simulates a
+ *   mouse over a Bluetooth connection.
+ */
+@SuppressLint("ClickableViewAccessibility")
+internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boolean): View.OnTouchListener {
     val a = this
     var isDoubleTapPress = false     // 左键是否保持按下（双击按住）
     var lastTapDownTime = 0L        // 第一击按下时刻，用于 150ms 双击窗口
@@ -620,6 +645,7 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
     val MOVE_SLOP = 8f             // 区分点击与拖动的最小位移
 
     fun readConfig() {
+        if (!useConfig) return
         val id = mp.tag as? String ?: return
         val pos = a.gamepadLayout.currentButtons.find { it.id == id } ?: return
         mouseSens = pos.mouseSensitivity
@@ -653,7 +679,7 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
         singleClickUp = null
     }
 
-    mp.setOnTouchListener { _, event ->
+    return View.OnTouchListener { _, event ->
         val masked = event.action and MotionEvent.ACTION_MASK
         val pointerCount = event.pointerCount
 
