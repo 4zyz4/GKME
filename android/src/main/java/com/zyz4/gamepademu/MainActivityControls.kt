@@ -587,75 +587,205 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
 @SuppressLint("ClickableViewAccessibility")
 internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
     val a = this
-    val mouseState = object {
-        var singleTapHandler: Runnable? = null
-        var isDoubleTapPress = false
+    var isDoubleTapPress = false     // 左键是否保持按下（双击按住）
+    var lastTapDownTime = 0L        // 第一击按下时刻，用于 150ms 双击窗口
+    var gestureMoved = false        // 本次单指手势是否明显移动
+    var singleClickUp: Runnable? = null  // 第一击单击的延迟释放（可被第二击取消）
+    var heldButtons = 0             // 当前按住的鼠标键位（绝对状态）
+
+    // per-pointer down times for right-click detection
+    val pointerDownTimes = mutableMapOf<Int, Long>()
+    // per-pointer last-known position for delta calculation
+    val prevX = mutableMapOf<Int, Float>()
+    val prevY = mutableMapOf<Int, Float>()
+
+    val DOUBLE_TAP_WINDOW = 200L   // 第一击按下后一定时间的再次轻点 -> 保持按下
+    val TAP_TIMEOUT = 200L         // 轻触时长上限 / 单击按住时长
+    val MOVE_SLOP = 8f             // 区分点击与拖动的最小位移
+
+    fun press(bit: Int) {
+        heldButtons = heldButtons or bit
+        a.sendMouseReportDirect(buttonDown = heldButtons, buttonUp = 0, dx = 0, dy = 0)
+    }
+    fun release(bit: Int) {
+        heldButtons = heldButtons and bit.inv()
+        a.sendMouseReportDirect(buttonDown = heldButtons, buttonUp = 0, dx = 0, dy = 0)
+    }
+    fun moveRaw(dx: Float, dy: Float) {
+        if (dx != 0f || dy != 0f) {
+            a.sendMouseReportDirect(buttonDown = heldButtons, buttonUp = 0,
+                dx = dx.toInt().toByte(), dy = dy.toInt().toByte())
+        }
+    }
+    fun cancelSingleClick() {
+        singleClickUp?.let { _mainHandler.removeCallbacks(it) }
+        singleClickUp = null
     }
 
-    val gestureDetector = GestureDetectorCompat(a, object : GestureDetector.SimpleOnGestureListener() {
-        override fun onSingleTapUp(e: MotionEvent): Boolean {
-            mouseState.singleTapHandler?.let { _mainHandler.removeCallbacks(it) }
-            mouseState.singleTapHandler = Runnable {
-                a.sendMouseTap(button = 1)
-                mouseState.singleTapHandler = null
-            }
-            _mainHandler.postDelayed(mouseState.singleTapHandler!!, 150)
-            return true
-        }
-
-        override fun onDoubleTap(e: MotionEvent): Boolean {
-            mouseState.singleTapHandler?.let { _mainHandler.removeCallbacks(it) }
-            mouseState.isDoubleTapPress = true
-            mp.isPressed = true
-            mousepadHighlight(mp, true, a)
-            a.performHaptic(isPress = true)
-            a.sendMouseReportDirect(buttonDown = 1, buttonUp = 0, dx = 0, dy = 0)
-            return true
-        }
-
-        override fun onScroll(e1: MotionEvent?, e2: MotionEvent, distanceX: Float, distanceY: Float): Boolean {
-            @Suppress("SENSELESS_COMPARISON")
-            if (e1 == null || e2 == null) return false
-            if (e2.pointerCount == 2) {
-                val dy = (distanceY.coerceIn(-127f, 127f) * -1).toInt().toByte()
-                val dx = (distanceX.coerceIn(-127f, 127f) * -1).toInt().toByte()
-                a.sendMouseReportDirect(buttonDown = 0, buttonUp = 0, dx = 0, dy = 0, wheel = dy, hWheel = dx)
-            } else {
-                val dy = (distanceY.coerceIn(-127f, 127f) * -1).toInt().toByte()
-                val dx = (distanceX.coerceIn(-127f, 127f) * -1).toInt().toByte()
-                a.sendMouseReportDirect(buttonDown = 0, buttonUp = 0, dx = dx, dy = dy)
-            }
-            return true
-        }
-    })
-
     mp.setOnTouchListener { _, event ->
-        @Suppress("SENSELESS_COMPARISON")
-        if (gestureDetector.onTouchEvent(event) == true) return@setOnTouchListener true
         val masked = event.action and MotionEvent.ACTION_MASK
+        val pointerCount = event.pointerCount
+
         when (masked) {
-            MotionEvent.ACTION_UP -> {
-                if (mouseState.isDoubleTapPress) {
-                    mp.isPressed = false
-                    mousepadHighlight(mp, false, a)
-                    a.performHaptic(isPress = false)
-                    a.sendMouseReportDirect(buttonDown = 0, buttonUp = 2, dx = 0, dy = 0)
-                    mouseState.isDoubleTapPress = false
+            MotionEvent.ACTION_DOWN -> {
+                val idx = event.actionIndex
+                val pid = event.getPointerId(idx)
+                pointerDownTimes[pid] = event.eventTime
+                prevX[pid] = event.getX(idx)
+                prevY[pid] = event.getY(idx)
+                gestureMoved = false
+
+                val isPotentialDouble = lastTapDownTime > 0 &&
+                        (event.eventTime - lastTapDownTime) < DOUBLE_TAP_WINDOW
+                if (isPotentialDouble) {
+                    // 接上第一次单击：取消其延迟释放，但不释放左键，直接保持按下
+                    cancelSingleClick()
+                    isDoubleTapPress = true
+                    mp.isPressed = true
+                    mousepadHighlight(mp, true, a)
+                    a.performHaptic(isPress = true)
+                    press(1)
+                } else if (singleClickUp != null) {
+                    // 非双击的再次按下：先结束第一击单击，避免按键泄漏
+                    cancelSingleClick()
+                    release(1)
                 }
             }
-            MotionEvent.ACTION_CANCEL -> {
-                if (mouseState.isDoubleTapPress) {
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                val idx = event.actionIndex
+                val pid = event.getPointerId(idx)
+                pointerDownTimes[pid] = event.eventTime
+                prevX[pid] = event.getX(idx)
+                prevY[pid] = event.getY(idx)
+                // 出现第二指：取消第一击单击遗留的延迟释放并结束可能的双击按住
+                if (singleClickUp != null) {
+                    cancelSingleClick()
+                    release(1)
+                }
+                if (isDoubleTapPress) {
+                    release(1)
+                    isDoubleTapPress = false
                     mp.isPressed = false
                     mousepadHighlight(mp, false, a)
                     a.performHaptic(isPress = false)
-                    a.sendMouseReportDirect(buttonDown = 0, buttonUp = 2, dx = 0, dy = 0)
-                    mouseState.isDoubleTapPress = false
                 }
             }
             MotionEvent.ACTION_POINTER_UP -> {
-                if (event.pointerCount == 2) {
-                    a.sendMouseTap(button = 4)
+                val idx = event.actionIndex
+                val pid = event.getPointerId(idx)
+                val liftTime = event.eventTime
+                pointerDownTimes.remove(pid)
+                prevX.remove(pid)
+                prevY.remove(pid)
+
+                // 双指轻触 -> 右键
+                if (pointerCount == 1 && !isDoubleTapPress) {
+                    val remainingPid = event.getPointerId(0)
+                    val remainingDownTime = pointerDownTimes[remainingPid]
+                    if (remainingDownTime != null && remainingDownTime > 0) {
+                        val timeSinceRemainingDown = liftTime - remainingDownTime
+                        val firstDownTime = pointerDownTimes.values.minOrNull() ?: 0L
+                        val timeBetweenDowns = (remainingDownTime - firstDownTime).coerceAtLeast(0L)
+                        if (timeSinceRemainingDown < 300 && timeBetweenDowns < 150) {
+                            a.sendMouseTap(button = 2)
+                        }
+                    }
                 }
+            }
+            MotionEvent.ACTION_MOVE -> {
+                var totalDx = 0f
+                var totalDy = 0f
+                val count = pointerCount
+                for (i in 0 until count) {
+                    val pid = event.getPointerId(i)
+                    val ex = event.getX(i)
+                    val ey = event.getY(i)
+                    val prevPx = prevX[pid] ?: ex
+                    val prevPy = prevY[pid] ?: ey
+                    totalDx += (ex - prevPx)
+                    totalDy += (ey - prevPy)
+                    prevX[pid] = ex
+                    prevY[pid] = ey
+                }
+                if (count > 0) {
+                    totalDx /= count
+                    totalDy /= count
+                }
+
+                // 明显移动 -> 标记为拖动
+                if (!gestureMoved &&
+                    (Math.abs(totalDx) + Math.abs(totalDy)) > MOVE_SLOP) {
+                    gestureMoved = true
+                }
+
+                if (isDoubleTapPress) {
+                    // 双击按住：保持左键，发送光标位移
+                    moveRaw(totalDx, totalDy)
+                } else if (count == 2) {
+                    // 双指滚动
+                    val cX = totalDx.coerceIn(-127f, 127f)
+                    val cY = totalDy.coerceIn(-127f, 127f)
+                    a.sendMouseReportDirect(
+                        buttonDown = 0, buttonUp = 0, dx = 0, dy = 0,
+                        wheel = cY.toInt().toByte(), hWheel = cX.toInt().toByte()
+                    )
+                } else {
+                    // 单指移动光标（携带当前按键状态，通常为无键）
+                    moveRaw(totalDx, totalDy)
+                }
+            }
+            MotionEvent.ACTION_UP -> {
+                val pid = event.getPointerId(event.actionIndex)
+                val downTime = pointerDownTimes[pid] ?: event.downTime
+                val dur = event.eventTime - downTime
+                pointerDownTimes.remove(pid)
+                prevX.remove(pid)
+                prevY.remove(pid)
+
+                if (isDoubleTapPress) {
+                    // 双击按住结束，释放左键
+                    release(1)
+                    isDoubleTapPress = false
+                    mp.isPressed = false
+                    mousepadHighlight(mp, false, a)
+                    a.performHaptic(isPress = false)
+                } else {
+                    val isTap = !gestureMoved && dur < TAP_TIMEOUT
+                    if (isTap) {
+                        // 第一击轻触：单击（按下 -> 延迟释放）
+                        press(1)
+                        lastTapDownTime = downTime
+                        val r = object : Runnable {
+                            override fun run() {
+                                release(1)
+                                singleClickUp = null
+                            }
+                        }
+                        singleClickUp = r
+                        _mainHandler.postDelayed(r, TAP_TIMEOUT)
+                    } else if (heldButtons != 0) {
+                        // 拖动或长按：清理任何残留按键，避免卡住
+                        heldButtons = 0
+                        a.sendMouseReportDirect(buttonDown = 0, buttonUp = 0, dx = 0, dy = 0)
+                    }
+                }
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                if (isDoubleTapPress) {
+                    release(1)
+                    isDoubleTapPress = false
+                    mp.isPressed = false
+                    mousepadHighlight(mp, false, a)
+                    a.performHaptic(isPress = false)
+                }
+                cancelSingleClick()
+                if (heldButtons != 0) {
+                    heldButtons = 0
+                    a.sendMouseReportDirect(buttonDown = 0, buttonUp = 0, dx = 0, dy = 0)
+                }
+                pointerDownTimes.clear()
+                prevX.clear()
+                prevY.clear()
             }
         }
         true
