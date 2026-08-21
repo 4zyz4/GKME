@@ -592,6 +592,9 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
     var gestureMoved = false        // 本次单指手势是否明显移动
     var singleClickUp: Runnable? = null  // 第一击单击的延迟释放（可被第二击取消）
     var heldButtons = 0             // 当前按住的鼠标键位（绝对状态）
+    var multiTouch = false          // 本次手势是否涉及多指（双指滚动/右键）
+    var twoFingerMoved = false      // 双指手势是否产生明显位移（滚动而非轻触）
+    var tracked = 0                 // 当前按在 mousepad 上的手指数（自有计数）
 
     // per-pointer down times for right-click detection
     val pointerDownTimes = mutableMapOf<Int, Long>()
@@ -634,11 +637,13 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
                 prevX[pid] = event.getX(idx)
                 prevY[pid] = event.getY(idx)
                 gestureMoved = false
+                twoFingerMoved = false
+                multiTouch = false
+                tracked = 1
 
                 val isPotentialDouble = lastTapDownTime > 0 &&
                         (event.eventTime - lastTapDownTime) < DOUBLE_TAP_WINDOW
                 if (isPotentialDouble) {
-                    // 接上第一次单击：取消其延迟释放，但不释放左键，直接保持按下
                     cancelSingleClick()
                     isDoubleTapPress = true
                     mp.isPressed = true
@@ -646,7 +651,6 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
                     a.performHaptic(isPress = true)
                     press(1)
                 } else if (singleClickUp != null) {
-                    // 非双击的再次按下：先结束第一击单击，避免按键泄漏
                     cancelSingleClick()
                     release(1)
                 }
@@ -657,7 +661,9 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
                 pointerDownTimes[pid] = event.eventTime
                 prevX[pid] = event.getX(idx)
                 prevY[pid] = event.getY(idx)
-                // 出现第二指：取消第一击单击遗留的延迟释放并结束可能的双击按住
+                twoFingerMoved = false
+                multiTouch = true
+                tracked = 2
                 if (singleClickUp != null) {
                     cancelSingleClick()
                     release(1)
@@ -671,26 +677,14 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
                 }
             }
             MotionEvent.ACTION_POINTER_UP -> {
+                // 经 touchpad 派发后，抬指通常以 ACTION_UP（单指）送达，
+                // 这里仅做状态清理，右键判定放在 ACTION_UP 中按 tracked 处理。
                 val idx = event.actionIndex
-                val pid = event.getPointerId(idx)
-                val liftTime = event.eventTime
-                pointerDownTimes.remove(pid)
-                prevX.remove(pid)
-                prevY.remove(pid)
-
-                // 双指轻触 -> 右键
-                if (pointerCount == 1 && !isDoubleTapPress) {
-                    val remainingPid = event.getPointerId(0)
-                    val remainingDownTime = pointerDownTimes[remainingPid]
-                    if (remainingDownTime != null && remainingDownTime > 0) {
-                        val timeSinceRemainingDown = liftTime - remainingDownTime
-                        val firstDownTime = pointerDownTimes.values.minOrNull() ?: 0L
-                        val timeBetweenDowns = (remainingDownTime - firstDownTime).coerceAtLeast(0L)
-                        if (timeSinceRemainingDown < 300 && timeBetweenDowns < 150) {
-                            a.sendMouseTap(button = 2)
-                        }
-                    }
-                }
+                val liftedPid = event.getPointerId(idx)
+                pointerDownTimes.remove(liftedPid)
+                prevX.remove(liftedPid)
+                prevY.remove(liftedPid)
+                if (tracked > 0) tracked -= 1
             }
             MotionEvent.ACTION_MOVE -> {
                 var totalDx = 0f
@@ -712,25 +706,26 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
                     totalDy /= count
                 }
 
-                // 明显移动 -> 标记为拖动
                 if (!gestureMoved &&
                     (Math.abs(totalDx) + Math.abs(totalDy)) > MOVE_SLOP) {
                     gestureMoved = true
                 }
 
-                if (isDoubleTapPress) {
-                    // 双击按住：保持左键，发送光标位移
-                    moveRaw(totalDx, totalDy)
-                } else if (count == 2) {
-                    // 双指滚动
+                if (count == 2) {
+                    multiTouch = true
+                    tracked = 2
+                    if ((Math.abs(totalDx) + Math.abs(totalDy)) > MOVE_SLOP) {
+                        twoFingerMoved = true
+                    }
                     val cX = totalDx.coerceIn(-127f, 127f)
                     val cY = totalDy.coerceIn(-127f, 127f)
                     a.sendMouseReportDirect(
                         buttonDown = 0, buttonUp = 0, dx = 0, dy = 0,
                         wheel = cY.toInt().toByte(), hWheel = cX.toInt().toByte()
                     )
-                } else {
-                    // 单指移动光标（携带当前按键状态，通常为无键）
+                } else if (isDoubleTapPress) {
+                    moveRaw(totalDx, totalDy)
+                } else if (count == 1) {
                     moveRaw(totalDx, totalDy)
                 }
             }
@@ -742,8 +737,23 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
                 prevX.remove(pid)
                 prevY.remove(pid)
 
-                if (isDoubleTapPress) {
-                    // 双击按住结束，释放左键
+                if (multiTouch) {
+                    // 双指手势：第一指抬起且未滚动 -> 右键；第二指抬起仅清理
+                    if (tracked >= 2 && !twoFingerMoved) {
+                        a.sendMouseTap(button = 2)
+                    }
+                    if (heldButtons != 0) {
+                        heldButtons = 0
+                        a.sendMouseReportDirect(buttonDown = 0, buttonUp = 0, dx = 0, dy = 0)
+                    }
+                    tracked -= 1
+                    if (tracked <= 0) {
+                        multiTouch = false
+                        twoFingerMoved = false
+                        gestureMoved = false
+                        tracked = 0
+                    }
+                } else if (isDoubleTapPress) {
                     release(1)
                     isDoubleTapPress = false
                     mp.isPressed = false
@@ -752,7 +762,6 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
                 } else {
                     val isTap = !gestureMoved && dur < TAP_TIMEOUT
                     if (isTap) {
-                        // 第一击轻触：单击（按下 -> 延迟释放）
                         press(1)
                         lastTapDownTime = downTime
                         val r = object : Runnable {
@@ -764,10 +773,13 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
                         singleClickUp = r
                         _mainHandler.postDelayed(r, TAP_TIMEOUT)
                     } else if (heldButtons != 0) {
-                        // 拖动或长按：清理任何残留按键，避免卡住
                         heldButtons = 0
                         a.sendMouseReportDirect(buttonDown = 0, buttonUp = 0, dx = 0, dy = 0)
                     }
+                }
+                if (!multiTouch) {
+                    tracked = 0
+                    twoFingerMoved = false
                 }
             }
             MotionEvent.ACTION_CANCEL -> {
@@ -786,6 +798,9 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
                 pointerDownTimes.clear()
                 prevX.clear()
                 prevY.clear()
+                multiTouch = false
+                twoFingerMoved = false
+                tracked = 0
             }
         }
         true

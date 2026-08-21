@@ -290,10 +290,10 @@ class GamepadLayout @JvmOverloads constructor(
     private var mouseModeState = MouseInputDispatcher.State()
     private var _touchpadClick = false
 
-    /** True when the current layout includes a "mousepad" control. */
+    /** True when the current layout includes a mousepad control (id starts with "mousepad"). */
     val hasMousepad: Boolean
-        get() = currentButtons.any { it.id == "mousepad" }
-            || (0 until childCount).any { getChildAt(it).tag == "mousepad" }
+        get() = currentButtons.any { it.id.startsWith("mousepad") }
+            || (0 until childCount).any { (getChildAt(it).tag as? String)?.startsWith("mousepad") == true }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         if (!isEditMode) {
@@ -313,6 +313,9 @@ class GamepadLayout @JvmOverloads constructor(
                     if (touchSession.touchpadTarget != null) {
                         dispatchFilteredToTouchpad(touchSession.touchpadTarget!!, event)
                     }
+                    if (touchSession.mousepadTarget != null) {
+                        dispatchFilteredToTouchpad(touchSession.mousepadTarget!!, event, pointerIds = touchSession.mousepadPointerIds)
+                    }
                     for ((pid, children) in touchSession.touchTargets.toMap()) {
                         val idx = event.findPointerIndex(pid)
                         if (idx >= 0) {
@@ -331,6 +334,13 @@ class GamepadLayout @JvmOverloads constructor(
                             dispatchFilteredToTouchpad(touchSession.touchpadTarget!!, event, listOf(idx))
                         }
                     }
+                    if (touchSession.mousepadTarget != null) {
+                        val idx = event.actionIndex
+                        val liftedPid = event.getPointerId(idx)
+                        if (liftedPid in touchSession.mousepadPointerIds) {
+                            dispatchFilteredToTouchpad(touchSession.mousepadTarget!!, event, listOf(idx), touchSession.mousepadPointerIds)
+                        }
+                    }
                     pointerUp(event, event.actionIndex)
                     return true
                 }
@@ -340,6 +350,11 @@ class GamepadLayout @JvmOverloads constructor(
                         touchSession.touchpadTarget = null
                     }
                     touchSession.touchpadPointerIds.clear()
+                    if (touchSession.mousepadTarget != null) {
+                        dispatchFilteredToTouchpad(touchSession.mousepadTarget!!, event, pointerIds = touchSession.mousepadPointerIds)
+                        touchSession.mousepadTarget = null
+                    }
+                    touchSession.mousepadPointerIds.clear()
                     for ((_, children) in touchSession.touchTargets.toMap()) {
                         for (child in children) {
                             dispatchToChild(child, event, MotionEvent.ACTION_UP, 0)
@@ -355,6 +370,11 @@ class GamepadLayout @JvmOverloads constructor(
                         touchSession.touchpadTarget = null
                     }
                     touchSession.touchpadPointerIds.clear()
+                    if (touchSession.mousepadTarget != null) {
+                        dispatchFilteredToTouchpad(touchSession.mousepadTarget!!, event, pointerIds = touchSession.mousepadPointerIds)
+                        touchSession.mousepadTarget = null
+                    }
+                    touchSession.mousepadPointerIds.clear()
                     for ((_, children) in touchSession.touchTargets) {
                         for (child in children) {
                             val ev = MotionEvent.obtain(
@@ -636,6 +656,24 @@ class GamepadLayout @JvmOverloads constructor(
             }
             return
         }
+
+        val mp = children.firstOrNull { getButtonId(it)?.startsWith("mousepad") == true }
+        if (mp != null) {
+            // Mousepad needs full multi-touch events so two-finger gestures
+            // (scroll / right-click) work. Route it like the touchpad via the
+            // pointer-preserving dispatcher instead of the single-pointer one.
+            touchSession.mousepadTarget = mp
+            touchSession.mousepadPointerIds.add(pid)
+            dispatchFilteredToTouchpad(mp, event, pointerIds = touchSession.mousepadPointerIds)
+            val otherChildren = children.filter { it != mp }
+            if (otherChildren.isNotEmpty()) {
+                touchSession.touchTargets[pid] = otherChildren.toMutableList()
+                for (child in otherChildren) {
+                    dispatchToChild(child, event, MotionEvent.ACTION_DOWN, idx)
+                }
+            }
+            return
+        }
         touchSession.touchTargets[pid] = children.toMutableList()
         for (child in children) {
             dispatchToChild(child, event, MotionEvent.ACTION_DOWN, idx)
@@ -659,13 +697,22 @@ class GamepadLayout @JvmOverloads constructor(
         if (touchSession.touchpadPointerIds.isEmpty()) {
             touchSession.touchpadTarget = null
         }
+        touchSession.mousepadPointerIds.remove(pid)
+        if (touchSession.mousepadPointerIds.isEmpty()) {
+            touchSession.mousepadTarget = null
+        }
     }
 
     /** Deliver only touchpad-originated pointers to the touchpad child.
      *  When [indices] is given, only those pointer indices are included;
      *  otherwise all pointers whose ID is in [touchSession.touchpadPointerIds] are included. */
-    private fun dispatchFilteredToTouchpad(child: View, event: MotionEvent, indices: List<Int>? = null) {
-        GamepadTouchDispatchUtils.dispatchFilteredToTouchpad(child, event, touchSession.touchpadPointerIds, indices)
+    private fun dispatchFilteredToTouchpad(
+        child: View,
+        event: MotionEvent,
+        indices: List<Int>? = null,
+        pointerIds: Set<Int> = touchSession.touchpadPointerIds,
+    ) {
+        GamepadTouchDispatchUtils.dispatchFilteredToTouchpad(child, event, pointerIds, indices)
     }
 
     private fun dispatchToChild(child: View, event: MotionEvent, action: Int, pointerIdx: Int) {

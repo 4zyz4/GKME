@@ -15,6 +15,10 @@ class TouchSession {
 
     var touchpadPointerIds: MutableSet<Int> = mutableSetOf()
 
+    var mousepadTarget: View? = null
+
+    var mousepadPointerIds: MutableSet<Int> = mutableSetOf()
+
     var activeSwipeButtons: MutableMap<String, View> = mutableMapOf()
 
     companion object {
@@ -25,6 +29,8 @@ class TouchSession {
         touchTargets.clear()
         touchpadTarget = null
         touchpadPointerIds.clear()
+        mousepadTarget = null
+        mousepadPointerIds.clear()
         activeSwipeButtons.clear()
     }
 }

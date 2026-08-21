@@ -462,23 +462,6 @@ internal fun MainActivity.createCustomButtonView(pos: ButtonPosition): View {
 }
 
 internal fun MainActivity.applyPreset(preset: com.zyz4.gamepademu.model.LayoutPreset) {
-    val buttons = preset.buttons.toMutableList()
-    val hasMousepadChild = (0 until gamepadLayout.childCount).any {
-        gamepadLayout.getChildAt(it).tag == "mousepad"
-    }
-    if (hasMousepadChild && !buttons.any { it.id == "mousepad" }) {
-        val mpPos = com.zyz4.gamepademu.model.ButtonPosition(
-            id = "mousepad",
-            x = 39, y = 7,
-            width = 34, height = 22,
-            lockAspect = false,
-        )
-        buttons.add(mpPos)
-        val presetToLoad = preset.copy(buttons = buttons)
-        gamepadLayout.loadPreset(presetToLoad)
-        ensureViewsForAllPresetButtons()
-        return
-    }
     gamepadLayout.loadPreset(preset)
     ensureViewsForAllPresetButtons()
 }
