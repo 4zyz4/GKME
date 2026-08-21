@@ -92,7 +92,8 @@ data class LayoutPreset(
             if (baseId in MOUSEPAD_IDS) {
                 m["mouseSensitivity"] = b.mouseSensitivity
                 m["scrollSensitivity"] = b.scrollSensitivity
-                m["invertScroll"] = b.invertScroll
+                m["invertScrollV"] = b.invertScrollV
+                m["invertScrollH"] = b.invertScrollH
             }
             list.add(m)
         }

@@ -641,15 +641,25 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             }
             val cbInvert = CheckBox(context).apply {
-                text = "反转滚动"
+                text = "反转纵向滚动"
                 setTextColor(-0x444445)
                 textSize = 14f
-                isChecked = button.invertScroll
+                isChecked = button.invertScrollV
                 setOnCheckedChangeListener { _, isChecked ->
-                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(invertScroll = isChecked)) }
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(invertScrollV = isChecked)) }
                 }
             }
             buttonParamsInner.addView(cbInvert, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+            val cbInvertH = CheckBox(context).apply {
+                text = "反转横向滚动"
+                setTextColor(-0x444445)
+                textSize = 14f
+                isChecked = button.invertScrollH
+                setOnCheckedChangeListener { _, isChecked ->
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(invertScrollH = isChecked)) }
+                }
+            }
+            buttonParamsInner.addView(cbInvertH, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
         }
         if (buttonId.substringBefore("_") in joystickIds) {
             // ── Rectangular area follow ──

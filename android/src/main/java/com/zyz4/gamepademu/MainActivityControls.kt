@@ -157,12 +157,16 @@ internal fun MainActivity.setupGamepadLayoutListener() {
         if (s.connectionMode != com.zyz4.gamepademu.model.ConnectionMode.BLUETOOTH) {
             ByteArray(0)
         } else {
+            val mp = a.gamepadLayout.currentButtons.find { it.id.startsWith("mousepad") }
+            val v = if (mp?.invertScrollV == true) (-wheelV).toShort() else wheelV
+            val h = if (mp?.invertScrollH == true) wheelH else (-wheelH).toShort()
             val btn = (buttonDown.toInt() and 0x03) or (buttonUp.toInt() and 0xFC)
             a.viewModel.connectionManager.sendMouseReport(
                 button = btn.toByte(),
                 dx = dx.toByte(),
                 dy = dy.toByte(),
-                wheel = wheelV.toByte(),
+                wheel = v.toByte(),
+                hWheel = h.toByte(),
             )
             ByteArray(4)
         }
@@ -602,7 +606,8 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
     var cursorAccumY = 0f
     var mouseSens = 1f             // 鼠标灵敏度（来自布局配置）
     var scrollSens = SCROLL_SENSITIVITY // 滚动灵敏度（来自布局配置）
-    var invertScroll = false       // 反转滚动方向（来自布局配置）
+    var invertScrollV = false      // 反转纵向滚动方向（来自布局配置）
+    var invertScrollH = false      // 反转横向滚动方向（来自布局配置）
 
     // per-pointer down times for right-click detection
     val pointerDownTimes = mutableMapOf<Int, Long>()
@@ -619,7 +624,8 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
         val pos = a.gamepadLayout.currentButtons.find { it.id == id } ?: return
         mouseSens = pos.mouseSensitivity
         scrollSens = pos.scrollSensitivity
-        invertScroll = pos.invertScroll
+        invertScrollV = pos.invertScrollV
+        invertScrollH = pos.invertScrollH
     }
 
     fun press(bit: Int) {
@@ -745,8 +751,8 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
                     if ((Math.abs(totalDx) + Math.abs(totalDy)) > MOVE_SLOP) {
                         twoFingerMoved = true
                     }
-                    val sDy = if (invertScroll) -totalDy else totalDy
-                    val sDx = if (invertScroll) -totalDx else totalDx
+                    val sDy = if (invertScrollV) -totalDy else totalDy
+                    val sDx = if (invertScrollH) totalDx else -totalDx
                     wheelAccumY += sDy * scrollSens
                     wheelAccumX += sDx * scrollSens
                     val wY = wheelAccumY.toInt().coerceIn(-127, 127)
@@ -754,6 +760,7 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
                     wheelAccumY -= wY
                     wheelAccumX -= wX
                     if (wX != 0 || wY != 0) {
+                        twoFingerMoved = true
                         a.sendMouseReportDirect(
                             buttonDown = 0, buttonUp = 0, dx = 0, dy = 0,
                             wheel = wY.toByte(), hWheel = wX.toByte()
@@ -888,7 +895,7 @@ private fun MainActivity.sendMouseReportDirect(
     if (s.connectionMode != com.zyz4.gamepademu.model.ConnectionMode.BLUETOOTH) return
     viewModel.connectionManager.sendMouseReport(
         button = ((buttonDown and 0x03) or (buttonUp and 0xFC)).toByte(),
-        dx = dx, dy = dy, wheel = wheel,
+        dx = dx, dy = dy, wheel = wheel, hWheel = hWheel,
     )
 }
 

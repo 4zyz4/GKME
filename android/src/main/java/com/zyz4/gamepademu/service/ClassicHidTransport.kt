@@ -47,6 +47,8 @@ class ClassicHidTransport(
     @Volatile
     private var connectedDevice: BluetoothDevice? = null
     private var lastReport: ByteArray = ByteArray(0)
+    /** Resolution Multiplier feature value for the mouse (Report ID 18): bits0-1 vertical, bits2-3 horizontal, ×2^N. */
+    private var resolutionFeature: Byte = 0x0A  // 0x0A = vertical 2, horizontal 2 => ×4 each
     private var currentSettings: AppSettings? = null
     private var onOutputReport: ((ByteArray) -> Unit)? = null
 
@@ -121,6 +123,12 @@ class ClassicHidTransport(
             }
 
             override fun onGetReport(device: BluetoothDevice, type: Byte, id: Byte, bufferSize: Int) {
+                if (type == BluetoothHidDevice.REPORT_TYPE_FEATURE && id == 18.toByte()) {
+                    try {
+                        hidDevice?.replyReport(device, type, id, byteArrayOf(resolutionFeature))
+                    } catch (_: Exception) {}
+                    return
+                }
                 val size = bufferSize.coerceIn(1, 64)
                 val data = lastReport.copyOf(size)
                 try {
@@ -129,6 +137,13 @@ class ClassicHidTransport(
             }
 
             override fun onSetReport(device: BluetoothDevice, type: Byte, id: Byte, data: ByteArray) {
+                if (type == BluetoothHidDevice.REPORT_TYPE_FEATURE && id == 18.toByte() && data.isNotEmpty()) {
+                    resolutionFeature = data[0]
+                    try {
+                        hidDevice?.replyReport(device, type, id, data)
+                    } catch (_: Exception) {}
+                    return
+                }
                 onOutputReport?.invoke(data)
             }
 
@@ -220,8 +235,7 @@ class ClassicHidTransport(
 
     private val mouseSendFailedCounter = AtomicInteger(0)
 
-    override fun sendMouseReport(button: Byte, dx: Byte, dy: Byte, wheel: Byte, hWheel: Byte) {
-        val device = connectedDevice ?: return
+    override fun sendMouseReport(button: Byte, dx: Byte, dy: Byte, wheel: Byte, hWheel: Byte) {        val device = connectedDevice ?: return
         val hid = hidDevice ?: return
 
         if (mouseSendFailedCounter.get() > 50) {
@@ -531,34 +545,71 @@ class ClassicHidTransport(
             b(0x81), b(0x00),          //   Input (Data,Array)
             b(0xC0),                     // End Collection
 
-            // MOUSE — Report ID 18
+            // MOUSE — Report ID 18 — high-resolution wheel (vertical + horizontal AC Pan)
             b(0x05), b(0x01),          // Usage Page (Generic Desktop)
             b(0x09), b(0x02),          // Usage (Mouse)
             b(0xA1), b(0x01),          // Collection (Application)
             b(0x85), b(0x12),          //   Report ID (18)
-            b(0x09), b(0x01),          //   Usage (Pointer)
-            b(0xA1), b(0x00),          //   Collection (Physical)
-            b(0x05), b(0x09),          //     Usage Page (Button)
-            b(0x19), b(0x01),          //     Usage Minimum (Left)
-            b(0x29), b(0x03),          //     Usage Maximum (Middle)
-            b(0x15), b(0x00),          //     Logical Minimum (0)
-            b(0x25), b(0x01),          //     Logical Maximum (1)
-            b(0x95), b(0x03),          //     Report Count (3)
-            b(0x75), b(0x01),          //     Report Size (1)
-            b(0x81), b(0x02),          //     Input (Data,Var,Abs)
-            b(0x95), b(0x01),          //     Report Count (1)
-            b(0x75), b(0x05),          //     Report Size (5)
-            b(0x81), b(0x03),          //     Input (Const)
-            b(0x05), b(0x01),          //     Usage Page (Generic Desktop)
-            b(0x09), b(0x30),          //     Usage (X)
-            b(0x09), b(0x31),          //     Usage (Y)
-            b(0x09), b(0x38),          //     Usage (Wheel)
-            b(0x15), b(0x81),          //     Logical Minimum (-127)
-            b(0x25), b(0x7F),          //     Logical Maximum (127)
-            b(0x75), b(0x08),          //     Report Size (8)
-            b(0x95), b(0x03),          //     Report Count (3)
-            b(0x81), b(0x06),          //     Input (Data,Var,Rel)
-            b(0xC0),                     //   End Collection
+            b(0x09), b(0x02),          //   Usage (Mouse)
+            b(0xA1), b(0x02),          //   Collection (Logical)
+            b(0x09), b(0x01),          //     Usage (Pointer)
+            b(0xA1), b(0x00),          //     Collection (Physical)
+            // Buttons (5) + padding (3) = 1 byte
+            b(0x05), b(0x09),          //       Usage Page (Button)
+            b(0x19), b(0x01),          //       Usage Minimum (Button 1)
+            b(0x29), b(0x05),          //       Usage Maximum (Button 5)
+            b(0x15), b(0x00),          //       Logical Minimum (0)
+            b(0x25), b(0x01),          //       Logical Maximum (1)
+            b(0x75), b(0x01),          //       Report Size (1)
+            b(0x95), b(0x05),          //       Report Count (5)
+            b(0x81), b(0x02),          //       Input (Data,Var,Abs)
+            b(0x75), b(0x03),          //       Report Size (3)
+            b(0x95), b(0x01),          //       Report Count (1)
+            b(0x81), b(0x03),          //       Input (Const,Var,Abs)
+            // X, Y
+            b(0x05), b(0x01),          //       Usage Page (Generic Desktop)
+            b(0x09), b(0x30),          //       Usage (X)
+            b(0x09), b(0x31),          //       Usage (Y)
+            b(0x15), b(0x81),          //       Logical Minimum (-127)
+            b(0x25), b(0x7F),          //       Logical Maximum (127)
+            b(0x75), b(0x08),          //       Report Size (8)
+            b(0x95), b(0x02),          //       Report Count (2)
+            b(0x81), b(0x06),          //       Input (Data,Var,Rel)
+            b(0xA1), b(0x02),          //       Collection (Logical) — Vertical wheel
+            b(0x09), b(0x48),          //         Usage (Resolution Multiplier)
+            b(0x15), b(0x00),          //         Logical Minimum (0)
+            b(0x25), b(0x02),          //         Logical Maximum (2)
+            b(0x35), b(0x01),          //         Physical Minimum (1)
+            b(0x45), b(0x08),          //         Physical Maximum (8)
+            b(0x75), b(0x02),          //         Report Size (2)
+            b(0x95), b(0x01),          //         Report Count (1)
+            b(0xA4),                    //         PUSH
+            b(0xB1), b(0x02),          //         Feature (Data,Var,Abs)
+            b(0x09), b(0x38),          //         Usage (Wheel)
+            b(0x15), b(0x81),          //         Logical Minimum (-127)
+            b(0x25), b(0x7F),          //         Logical Maximum (127)
+            b(0x35), b(0x00),          //         Physical Minimum (0)
+            b(0x45), b(0x00),          //         Physical Maximum (0)
+            b(0x75), b(0x08),          //         Report Size (8)
+            b(0x81), b(0x06),          //         Input (Data,Var,Rel)
+            b(0xC0),                     //       End Collection
+            b(0xA1), b(0x02),          //       Collection (Logical) — Horizontal wheel
+            b(0x09), b(0x48),          //         Usage (Resolution Multiplier)
+            b(0xB4),                    //         POP
+            b(0xB1), b(0x02),          //         Feature (Data,Var,Abs)
+            b(0x35), b(0x00),          //         Physical Minimum (0)
+            b(0x45), b(0x00),          //         Physical Maximum (0)
+            b(0x75), b(0x04),          //         Report Size (4)
+            b(0xB1), b(0x03),          //         Feature (Const,Var,Abs)
+            b(0x05), b(0x0C),          //         Usage Page (Consumer Devices)
+            b(0x0A), b(0x38), b(0x02), //         Usage (AC Pan)
+            b(0x15), b(0x81),          //         Logical Minimum (-127)
+            b(0x25), b(0x7F),          //         Logical Maximum (127)
+            b(0x75), b(0x08),          //         Report Size (8)
+            b(0x81), b(0x06),          //         Input (Data,Var,Rel)
+            b(0xC0),                     //       End Collection
+            b(0xC0),                     //     End Collection (Physical)
+            b(0xC0),                     //   End Collection (Logical)
             b(0xC0),                     // End Collection
 
             // GAMEPAD — Report ID 19 — using Windows 11-byte layout
@@ -735,34 +786,71 @@ b(0xC0),                // End Collection
             b(0x81), b(0x00),          //   Input (Data,Array)
             b(0xC0),                     // End Collection
 
-            // MOUSE — Report ID 18
+            // MOUSE — Report ID 18 — high-resolution wheel (vertical + horizontal AC Pan)
             b(0x05), b(0x01),          // Usage Page (Generic Desktop)
             b(0x09), b(0x02),          // Usage (Mouse)
             b(0xA1), b(0x01),          // Collection (Application)
             b(0x85), b(0x12),          //   Report ID (18)
-            b(0x09), b(0x01),          //   Usage (Pointer)
-            b(0xA1), b(0x00),          //   Collection (Physical)
-            b(0x05), b(0x09),          //     Usage Page (Button)
-            b(0x19), b(0x01),          //     Usage Minimum (Left)
-            b(0x29), b(0x03),          //     Usage Maximum (Middle)
-            b(0x15), b(0x00),          //     Logical Minimum (0)
-            b(0x25), b(0x01),          //     Logical Maximum (1)
-            b(0x95), b(0x03),          //     Report Count (3)
-            b(0x75), b(0x01),          //     Report Size (1)
-            b(0x81), b(0x02),          //     Input (Data,Var,Abs)
-            b(0x95), b(0x01),          //     Report Count (1)
-            b(0x75), b(0x05),          //     Report Size (5)
-            b(0x81), b(0x03),          //     Input (Const)
-            b(0x05), b(0x01),          //     Usage Page (Generic Desktop)
-            b(0x09), b(0x30),          //     Usage (X)
-            b(0x09), b(0x31),          //     Usage (Y)
-            b(0x09), b(0x38),          //     Usage (Wheel)
-            b(0x15), b(0x81),          //     Logical Minimum (-127)
-            b(0x25), b(0x7F),          //     Logical Maximum (127)
-            b(0x75), b(0x08),          //     Report Size (8)
-            b(0x95), b(0x03),          //     Report Count (3)
-            b(0x81), b(0x06),          //     Input (Data,Var,Rel)
-            b(0xC0),                     //   End Collection
+            b(0x09), b(0x02),          //   Usage (Mouse)
+            b(0xA1), b(0x02),          //   Collection (Logical)
+            b(0x09), b(0x01),          //     Usage (Pointer)
+            b(0xA1), b(0x00),          //     Collection (Physical)
+            // Buttons (5) + padding (3) = 1 byte
+            b(0x05), b(0x09),          //       Usage Page (Button)
+            b(0x19), b(0x01),          //       Usage Minimum (Button 1)
+            b(0x29), b(0x05),          //       Usage Maximum (Button 5)
+            b(0x15), b(0x00),          //       Logical Minimum (0)
+            b(0x25), b(0x01),          //       Logical Maximum (1)
+            b(0x75), b(0x01),          //       Report Size (1)
+            b(0x95), b(0x05),          //       Report Count (5)
+            b(0x81), b(0x02),          //       Input (Data,Var,Abs)
+            b(0x75), b(0x03),          //       Report Size (3)
+            b(0x95), b(0x01),          //       Report Count (1)
+            b(0x81), b(0x03),          //       Input (Const,Var,Abs)
+            // X, Y
+            b(0x05), b(0x01),          //       Usage Page (Generic Desktop)
+            b(0x09), b(0x30),          //       Usage (X)
+            b(0x09), b(0x31),          //       Usage (Y)
+            b(0x15), b(0x81),          //       Logical Minimum (-127)
+            b(0x25), b(0x7F),          //       Logical Maximum (127)
+            b(0x75), b(0x08),          //       Report Size (8)
+            b(0x95), b(0x02),          //       Report Count (2)
+            b(0x81), b(0x06),          //       Input (Data,Var,Rel)
+            b(0xA1), b(0x02),          //       Collection (Logical) — Vertical wheel
+            b(0x09), b(0x48),          //         Usage (Resolution Multiplier)
+            b(0x15), b(0x00),          //         Logical Minimum (0)
+            b(0x25), b(0x02),          //         Logical Maximum (2)
+            b(0x35), b(0x01),          //         Physical Minimum (1)
+            b(0x45), b(0x08),          //         Physical Maximum (8)
+            b(0x75), b(0x02),          //         Report Size (2)
+            b(0x95), b(0x01),          //         Report Count (1)
+            b(0xA4),                    //         PUSH
+            b(0xB1), b(0x02),          //         Feature (Data,Var,Abs)
+            b(0x09), b(0x38),          //         Usage (Wheel)
+            b(0x15), b(0x81),          //         Logical Minimum (-127)
+            b(0x25), b(0x7F),          //         Logical Maximum (127)
+            b(0x35), b(0x00),          //         Physical Minimum (0)
+            b(0x45), b(0x00),          //         Physical Maximum (0)
+            b(0x75), b(0x08),          //         Report Size (8)
+            b(0x81), b(0x06),          //         Input (Data,Var,Rel)
+            b(0xC0),                     //       End Collection
+            b(0xA1), b(0x02),          //       Collection (Logical) — Horizontal wheel
+            b(0x09), b(0x48),          //         Usage (Resolution Multiplier)
+            b(0xB4),                    //         POP
+            b(0xB1), b(0x02),          //         Feature (Data,Var,Abs)
+            b(0x35), b(0x00),          //         Physical Minimum (0)
+            b(0x45), b(0x00),          //         Physical Maximum (0)
+            b(0x75), b(0x04),          //         Report Size (4)
+            b(0xB1), b(0x03),          //         Feature (Const,Var,Abs)
+            b(0x05), b(0x0C),          //         Usage Page (Consumer Devices)
+            b(0x0A), b(0x38), b(0x02), //         Usage (AC Pan)
+            b(0x15), b(0x81),          //         Logical Minimum (-127)
+            b(0x25), b(0x7F),          //         Logical Maximum (127)
+            b(0x75), b(0x08),          //         Report Size (8)
+            b(0x81), b(0x06),          //         Input (Data,Var,Rel)
+            b(0xC0),                     //       End Collection
+            b(0xC0),                     //     End Collection (Physical)
+            b(0xC0),                     //   End Collection (Logical)
             b(0xC0),                     // End Collection
 
             // GAMEPAD — Report ID 19 — 9-byte Android layout
@@ -865,34 +953,71 @@ b(0xC0),                // End Collection
             b(0x81), b(0x00),          //   Input (Data,Array)
             b(0xC0),                     // End Collection
 
-            // MOUSE — Report ID 18
+            // MOUSE — Report ID 18 — high-resolution wheel (vertical + horizontal AC Pan)
             b(0x05), b(0x01),          // Usage Page (Generic Desktop)
             b(0x09), b(0x02),          // Usage (Mouse)
             b(0xA1), b(0x01),          // Collection (Application)
             b(0x85), b(0x12),          //   Report ID (18)
-            b(0x09), b(0x01),          //   Usage (Pointer)
-            b(0xA1), b(0x00),          //   Collection (Physical)
-            b(0x05), b(0x09),          //     Usage Page (Button)
-            b(0x19), b(0x01),          //     Usage Minimum (Left)
-            b(0x29), b(0x03),          //     Usage Maximum (Middle)
-            b(0x15), b(0x00),          //     Logical Minimum (0)
-            b(0x25), b(0x01),          //     Logical Maximum (1)
-            b(0x95), b(0x03),          //     Report Count (3)
-            b(0x75), b(0x01),          //     Report Size (1)
-            b(0x81), b(0x02),          //     Input (Data,Var,Abs)
-            b(0x95), b(0x01),          //     Report Count (1)
-            b(0x75), b(0x05),          //     Report Size (5)
-            b(0x81), b(0x03),          //     Input (Const)
-            b(0x05), b(0x01),          //     Usage Page (Generic Desktop)
-            b(0x09), b(0x30),          //     Usage (X)
-            b(0x09), b(0x31),          //     Usage (Y)
-            b(0x09), b(0x38),          //     Usage (Wheel)
-            b(0x15), b(0x81),          //     Logical Minimum (-127)
-            b(0x25), b(0x7F),          //     Logical Maximum (127)
-            b(0x75), b(0x08),          //     Report Size (8)
-            b(0x95), b(0x03),          //     Report Count (3)
-            b(0x81), b(0x06),          //     Input (Data,Var,Rel)
-            b(0xC0),                     //   End Collection
+            b(0x09), b(0x02),          //   Usage (Mouse)
+            b(0xA1), b(0x02),          //   Collection (Logical)
+            b(0x09), b(0x01),          //     Usage (Pointer)
+            b(0xA1), b(0x00),          //     Collection (Physical)
+            // Buttons (5) + padding (3) = 1 byte
+            b(0x05), b(0x09),          //       Usage Page (Button)
+            b(0x19), b(0x01),          //       Usage Minimum (Button 1)
+            b(0x29), b(0x05),          //       Usage Maximum (Button 5)
+            b(0x15), b(0x00),          //       Logical Minimum (0)
+            b(0x25), b(0x01),          //       Logical Maximum (1)
+            b(0x75), b(0x01),          //       Report Size (1)
+            b(0x95), b(0x05),          //       Report Count (5)
+            b(0x81), b(0x02),          //       Input (Data,Var,Abs)
+            b(0x75), b(0x03),          //       Report Size (3)
+            b(0x95), b(0x01),          //       Report Count (1)
+            b(0x81), b(0x03),          //       Input (Const,Var,Abs)
+            // X, Y
+            b(0x05), b(0x01),          //       Usage Page (Generic Desktop)
+            b(0x09), b(0x30),          //       Usage (X)
+            b(0x09), b(0x31),          //       Usage (Y)
+            b(0x15), b(0x81),          //       Logical Minimum (-127)
+            b(0x25), b(0x7F),          //       Logical Maximum (127)
+            b(0x75), b(0x08),          //       Report Size (8)
+            b(0x95), b(0x02),          //       Report Count (2)
+            b(0x81), b(0x06),          //       Input (Data,Var,Rel)
+            b(0xA1), b(0x02),          //       Collection (Logical) — Vertical wheel
+            b(0x09), b(0x48),          //         Usage (Resolution Multiplier)
+            b(0x15), b(0x00),          //         Logical Minimum (0)
+            b(0x25), b(0x02),          //         Logical Maximum (2)
+            b(0x35), b(0x01),          //         Physical Minimum (1)
+            b(0x45), b(0x08),          //         Physical Maximum (8)
+            b(0x75), b(0x02),          //         Report Size (2)
+            b(0x95), b(0x01),          //         Report Count (1)
+            b(0xA4),                    //         PUSH
+            b(0xB1), b(0x02),          //         Feature (Data,Var,Abs)
+            b(0x09), b(0x38),          //         Usage (Wheel)
+            b(0x15), b(0x81),          //         Logical Minimum (-127)
+            b(0x25), b(0x7F),          //         Logical Maximum (127)
+            b(0x35), b(0x00),          //         Physical Minimum (0)
+            b(0x45), b(0x00),          //         Physical Maximum (0)
+            b(0x75), b(0x08),          //         Report Size (8)
+            b(0x81), b(0x06),          //         Input (Data,Var,Rel)
+            b(0xC0),                     //       End Collection
+            b(0xA1), b(0x02),          //       Collection (Logical) — Horizontal wheel
+            b(0x09), b(0x48),          //         Usage (Resolution Multiplier)
+            b(0xB4),                    //         POP
+            b(0xB1), b(0x02),          //         Feature (Data,Var,Abs)
+            b(0x35), b(0x00),          //         Physical Minimum (0)
+            b(0x45), b(0x00),          //         Physical Maximum (0)
+            b(0x75), b(0x04),          //         Report Size (4)
+            b(0xB1), b(0x03),          //         Feature (Const,Var,Abs)
+            b(0x05), b(0x0C),          //         Usage Page (Consumer Devices)
+            b(0x0A), b(0x38), b(0x02), //         Usage (AC Pan)
+            b(0x15), b(0x81),          //         Logical Minimum (-127)
+            b(0x25), b(0x7F),          //         Logical Maximum (127)
+            b(0x75), b(0x08),          //         Report Size (8)
+            b(0x81), b(0x06),          //         Input (Data,Var,Rel)
+            b(0xC0),                     //       End Collection
+            b(0xC0),                     //     End Collection (Physical)
+            b(0xC0),                     //   End Collection (Logical)
             b(0xC0),                     // End Collection
 
             // GAMEPAD — Report ID 19 — 9-byte Linux layout

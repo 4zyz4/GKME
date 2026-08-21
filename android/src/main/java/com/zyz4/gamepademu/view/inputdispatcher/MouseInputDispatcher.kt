@@ -23,6 +23,8 @@ object MouseInputDispatcher {
         var dragging: Boolean = false,
         var dragButton: Byte = 0,       // 1=left, 2=right, 4=middle, 0=none
         val tapInfo: Map<Int, TapInfo> = emptyMap(),
+        val wheelAccumX: Float = 0f,    // 横向滚轮小数累积（平滑滚动用）
+        val wheelAccumY: Float = 0f,    // 纵向滚轮小数累积（平滑滚动用）
     )
 
     /** Track a finger's state: is it tapping (single tap not yet resolved)? */
@@ -80,7 +82,9 @@ object MouseInputDispatcher {
             MotionEvent.ACTION_DOWN -> {
                 val pid = event.getPointerId(0)
                 newS = newS.copy(
-                    tapInfo = newS.tapInfo + Pair(pid, TapInfo(now, event.getX(0), event.getY(0)))
+                    tapInfo = newS.tapInfo + Pair(pid, TapInfo(now, event.getX(0), event.getY(0))),
+                    wheelAccumX = 0f,
+                    wheelAccumY = 0f,
                 )
             }
 
@@ -92,13 +96,19 @@ object MouseInputDispatcher {
 
                 when (pointerCount) {
                     2 -> {
-                        newS = newS.copy(tapInfo = newS.tapInfo + Pair(pid, TapInfo(now, px, py)))
+                        newS = newS.copy(
+                            tapInfo = newS.tapInfo + Pair(pid, TapInfo(now, px, py)),
+                            wheelAccumX = 0f,
+                            wheelAccumY = 0f,
+                        )
                     }
                     3 -> {
                         newS = newS.copy(
                             dragging = true,
                             dragButton = 4,
                             tapInfo = newS.tapInfo + Pair(pid, TapInfo(now, px, py)),
+                            wheelAccumX = 0f,
+                            wheelAccumY = 0f,
                         )
                         buttonDown = 4
                     }
@@ -127,11 +137,17 @@ object MouseInputDispatcher {
                         }
                     }
 
-                    2 -> {
-                        val (v, h) = computeTwoFingerScroll(event, sensitivity)
-                        wheelV = v
-                        wheelH = h
+                     2 -> {
+                        val (dV, dH) = computeTwoFingerScroll(event, sensitivity)
+                        val accX = (newS.wheelAccumX + dH).coerceIn(-127f, 127f)
+                        val accY = (newS.wheelAccumY + dV).coerceIn(-127f, 127f)
+                        val wX = accX.toInt().coerceIn(-127, 127)
+                        val wY = accY.toInt().coerceIn(-127, 127)
+                        wheelH = wX.toShort()
+                        wheelV = wY.toShort()
                         newS = newS.copy(
+                            wheelAccumX = accX - wX,
+                            wheelAccumY = accY - wY,
                             scrollActive = true,
                             lastScrollTime = now,
                             tapInfo = emptyMap(),
@@ -174,7 +190,7 @@ object MouseInputDispatcher {
             MotionEvent.ACTION_UP -> {
                 if (newS.dragging) {
                     buttonUp = newS.dragButton
-                    newS = newS.copy(dragging = false, dragButton = 0)
+                    newS = newS.copy(dragging = false, dragButton = 0, wheelAccumX = 0f, wheelAccumY = 0f)
                 } else if (newS.tapInfo.isNotEmpty()) {
                     val count = newS.tapInfo.size
                     newS = newS.copy(tapInfo = emptyMap())
@@ -205,7 +221,7 @@ object MouseInputDispatcher {
             MotionEvent.ACTION_CANCEL -> {
                 if (newS.dragging) {
                     buttonUp = newS.dragButton
-                    newS = newS.copy(dragging = false, dragButton = 0)
+                    newS = newS.copy(dragging = false, dragButton = 0, wheelAccumX = 0f, wheelAccumY = 0f)
                 }
             }
         }
@@ -222,16 +238,16 @@ object MouseInputDispatcher {
     private fun computeTwoFingerScroll(
         event: MotionEvent,
         sensitivity: Float,
-    ): Pair<Short, Short> {
-        if (event.pointerCount != 2) return 0.toShort() to 0.toShort()
+    ): Pair<Float, Float> {
+        if (event.pointerCount != 2) return 0f to 0f
 
         val cx = (event.getX(0) + event.getX(1)) / 2f
         val cy = (event.getY(0) + event.getY(1)) / 2f
         val hx = (event.getHistoricalX(0, 0) + event.getHistoricalX(1, 0)) / 2f
         val hy = (event.getHistoricalY(0, 0) + event.getHistoricalY(1, 0)) / 2f
 
-        val dX = ((hx - cx) * sensitivity).toInt().toShort()
-        val dY = ((hy - cy) * sensitivity).toInt().toShort()
+        val dX = (hx - cx) * sensitivity
+        val dY = (hy - cy) * sensitivity
 
         return dX to dY
     }
