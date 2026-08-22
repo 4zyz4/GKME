@@ -23,7 +23,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import android.widget.Button
-import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
@@ -43,9 +42,9 @@ import com.zyz4.gamepademu.model.TargetPlatform
 import com.zyz4.gamepademu.model.VibrationMotor
 import com.zyz4.gamepademu.model.VibrationType
 import com.zyz4.gamepademu.service.ConnectionPhase
-import com.zyz4.gamepademu.GamepadViewModel.PresetInfo
 import com.zyz4.gamepademu.view.WrapContentGridView
 import com.zyz4.gamepademu.view.PresetPreviewView
+import kotlin.time.Duration.Companion.milliseconds
 
 // ── Settings ─────────────────────────────────────────────
 
@@ -106,14 +105,14 @@ internal fun MainActivity.selectSettingsCategory(index: Int) {
         a.vibrationPollingJob = a.lifecycleScope.launch {
             while (true) {
                 a.refreshVibrationRedirect()
-                kotlinx.coroutines.delay(1000)
+                delay(1000.milliseconds)
             }
         }
     }
     if (index == 6) {
         a.audioPollingJob = a.lifecycleScope.launch {
             while (true) {
-                delay(50)
+                delay(50.milliseconds)
                 a.refreshAudioVCIndicators()
             }
         }
@@ -775,7 +774,7 @@ internal fun MainActivity.setupConnectionPage() {
 
     // Polling Rate Spinner
     val pollingRateOptions = listOf(30, 45, 60, 90, 100, 120, 200, 250, 300, 500, 750, 1000)
-    val pollingRateNames = pollingRateOptions.map { it.toString() + " Hz" }.toTypedArray()
+    val pollingRateNames = pollingRateOptions.map { "$it Hz" }.toTypedArray()
     val pollingRateAdapter = ArrayAdapter(a, android.R.layout.simple_spinner_item, pollingRateNames)
     pollingRateAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
     a.findViewById<Spinner>(R.id.spinnerPollingRate).adapter = pollingRateAdapter

@@ -66,15 +66,4 @@ data class ButtonPosition(
         }
     }
 
-    fun sanitize(): ButtonPosition = if (isCustom) {
-        copy(customText = customText ?: "自定义", customBits = customBits ?: emptyList(), id = id ?: "")
-    } else if (isKeypad) {
-        copy(
-            keypadTexts = keypadTexts ?: KEYPAD_DEFAULT_TEXTS,
-            keypadBits = keypadBits ?: KEYPAD_DEFAULT_BITS,
-            id = id ?: "",
-        )
-    } else {
-        copy(customText = null, customBits = null, id = id ?: "")
-    }
 }

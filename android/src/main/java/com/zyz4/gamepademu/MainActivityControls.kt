@@ -19,6 +19,7 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
 import com.zyz4.gamepademu.model.ButtonPosition
+import com.zyz4.gamepademu.model.ConnectionMode
 import com.zyz4.gamepademu.model.DisplayMode
 import com.zyz4.gamepademu.model.GamepadState
 import com.zyz4.gamepademu.model.TouchPoint
@@ -621,6 +622,8 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
     var gestureMoved = false        // 本次单指手势是否明显移动
     var singleClickUp: Runnable? = null  // 第一击单击的延迟释放（可被第二击取消）
     var heldButtons = 0             // 当前按住的鼠标键位（绝对状态）
+    var longPressFired = false      // 长按计时器是否已触发（开始按住拖拽）
+    var longPressRunnable: Runnable? = null  // 长按计时器
     var multiTouch = false          // 本次手势是否涉及多指（双指滚动/右键）
     var twoFingerMoved = false      // 双指手势是否产生明显位移（滚动而非轻触）
     var tracked = 0                 // 当前按在 mousepad 上的手指数（自有计数）
@@ -642,6 +645,7 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
 
     val DOUBLE_TAP_WINDOW = 200L   // 第一击按下后一定时间的再次轻点 -> 潜在双击/按住拖动
     val TAP_TIMEOUT = 200L         // 轻触时长上限 / 单击按住时长
+    val LONG_PRESS_TIMEOUT = 150L  // 单指按下超过此时长未移动 -> 视为长按，开始按住拖拽
     val MOVE_SLOP = 8f             // 区分点击与拖动的最小位移
 
     fun readConfig() {
@@ -696,10 +700,15 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                 tracked = 1
                 cursorAccumX = 0f
                 cursorAccumY = 0f
+                longPressRunnable?.let { _mainHandler.removeCallbacks(it) }
+                longPressRunnable = null
+                longPressFired = false
                 readConfig()
 
                 val isPotentialDouble = lastTapDownTime > 0 &&
                         (event.eventTime - lastTapDownTime) < DOUBLE_TAP_WINDOW
+                lastTapDownTime = event.eventTime
+
                 if (isPotentialDouble) {
                     cancelSingleClick()
                     isDoubleTapPress = true
@@ -707,9 +716,9 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                     mousepadHighlight(mp, true, a)
                     a.performHaptic(isPress = true)
                     press(1)
-                } else if (singleClickUp != null) {
-                    cancelSingleClick()
-                    release(1)
+                } else {
+// 单指普通按下：不再启动长按计时器，单指长按不移动不触发任何操作
+                    longPressFired = false
                 }
             }
             MotionEvent.ACTION_POINTER_DOWN -> {
@@ -724,6 +733,10 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                 tracked = 2
                 wheelAccumX = 0f
                 wheelAccumY = 0f
+                // 第二指落下 -> 不再是单指长按拖拽
+                longPressRunnable?.let { _mainHandler.removeCallbacks(it) }
+                longPressRunnable = null
+                longPressFired = false
                 if (singleClickUp != null) {
                     cancelSingleClick()
                     release(1)
@@ -769,6 +782,9 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                 if (!gestureMoved &&
                     (Math.abs(totalDx) + Math.abs(totalDy)) > MOVE_SLOP) {
                     gestureMoved = true
+                    // 滑动（非按住拖拽）：取消长按计时器
+                    longPressRunnable?.let { _mainHandler.removeCallbacks(it) }
+                    longPressRunnable = null
                 }
 
                 if (count == 2) {
@@ -779,8 +795,9 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                     }
                     val sDy = if (invertScrollV) -totalDy else totalDy
                     val sDx = if (invertScrollH) totalDx else -totalDx
-                    wheelAccumY += sDy * scrollSens
-                    wheelAccumX += sDx * scrollSens
+                    val wifiScrollFactor = if (a.viewModel.settings.value.connectionMode == ConnectionMode.WIFI) 33f else 1f
+                    wheelAccumY += sDy * scrollSens * wifiScrollFactor
+                    wheelAccumX += sDx * scrollSens * wifiScrollFactor
                     val wY = wheelAccumY.toInt().coerceIn(-127, 127)
                     val wX = wheelAccumX.toInt().coerceIn(-127, 127)
                     wheelAccumY -= wY
@@ -799,6 +816,11 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                 }
             }
             MotionEvent.ACTION_UP -> {
+                cancelSingleClick()
+                if (heldButtons != 0) {
+                    heldButtons = 0
+                    a.sendMouseReportDirect(buttonDown = 0, buttonUp = 0, dx = 0, dy = 0)
+                }
                 val pid = event.getPointerId(event.actionIndex)
                 val downTime = pointerDownTimes[pid] ?: event.downTime
                 val dur = event.eventTime - downTime
@@ -838,21 +860,30 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                         release(1)
                     }
                 } else {
-                    val isTap = !gestureMoved && dur < TAP_TIMEOUT
-                    if (isTap) {
-                        press(1)
-                        lastTapDownTime = downTime
-                        val r = object : Runnable {
-                            override fun run() {
-                                release(1)
-                                singleClickUp = null
+                    // 单指抬起（非双指、非双击按住）
+                    if (longPressFired) {
+                        // 长按拖拽结束 -> 释放按住的左键
+                        release(1)
+                        longPressFired = false
+                        mp.isPressed = false
+                        mousepadHighlight(mp, false, a)
+                    } else {
+                        // 长按计时器未触发：确保已取消
+                        longPressRunnable?.let { _mainHandler.removeCallbacks(it) }
+                        longPressRunnable = null
+                        if (!gestureMoved && dur < TAP_TIMEOUT) {
+                            // 轻点 -> 点击（按下后短暂保持再释放，支持双击）
+                            press(1)
+                            lastTapDownTime = downTime
+                            val r = object : Runnable {
+                                override fun run() {
+                                    release(1)
+                                    singleClickUp = null
+                                }
                             }
+                            singleClickUp = r
+                            _mainHandler.postDelayed(r, TAP_TIMEOUT)
                         }
-                        singleClickUp = r
-                        _mainHandler.postDelayed(r, TAP_TIMEOUT)
-                    } else if (heldButtons != 0) {
-                        heldButtons = 0
-                        a.sendMouseReportDirect(buttonDown = 0, buttonUp = 0, dx = 0, dy = 0)
                     }
                 }
                 if (!multiTouch) {
@@ -868,6 +899,9 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                     mousepadHighlight(mp, false, a)
                     a.performHaptic(isPress = false)
                 }
+                longPressRunnable?.let { _mainHandler.removeCallbacks(it) }
+                longPressRunnable = null
+                longPressFired = false
                 cancelSingleClick()
                 if (heldButtons != 0) {
                     heldButtons = 0
@@ -896,32 +930,38 @@ private fun mousepadHighlight(mp: FrameLayout, active: Boolean, a: MainActivity)
     mp.alpha = 1f - ((if (active) pos.activeTransparency else pos.idleTransparency).coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
 }
 
-/** Send a mouse button tap (down then up) directly via Bluetooth HID. */
+/** Send a mouse button tap (down then up). Works in both WiFi and Bluetooth. */
 private fun MainActivity.sendMouseTap(button: Int) {
-    val s = viewModel.settings.value
-    if (s.connectionMode != com.zyz4.gamepademu.model.ConnectionMode.BLUETOOTH) return
-    viewModel.connectionManager.sendMouseReport(
-        button = button.toByte(), // button bitmask: bit0=left, bit1=right, bit2=middle
-        dx = 0.toByte(), dy = 0.toByte(), wheel = 0.toByte(),
+    val b = button.toByte() // button bitmask: bit0=left, bit1=right, bit2=middle
+    this.viewModel.connectionManager.sendMouseReport(
+        button = b, dx = 0, dy = 0, wheel = 0
     )
     _mainHandler.postDelayed(Runnable {
-        viewModel.connectionManager.sendMouseReport(
-            button = 0.toByte(), // release all buttons
-            dx = 0.toByte(), dy = 0.toByte(), wheel = 0.toByte(),
+        this.viewModel.connectionManager.sendMouseReport(
+            button = 0, // release all buttons
+            dx = 0, dy = 0, wheel = 0
         )
     }, 150)
 }
 
-/** Send a mouse report with button state changes and delta movement (Bluetooth only). */
+/**
+ * Send a mouse report with button state changes and delta movement.
+ * Routes through [ConnectionManager.sendMouseReport] which handles both
+ * WiFi (one-shot protobuf) and Bluetooth (HID Report 18). The report is
+ * fire-and-forget so it is never re-sent by the periodic gamepad loop,
+ * which previously caused cursor drift after lifting the finger.
+ */
 private fun MainActivity.sendMouseReportDirect(
     buttonDown: Int, buttonUp: Int,
     dx: Byte, dy: Byte, wheel: Byte = 0, hWheel: Byte = 0
 ) {
-    val s = viewModel.settings.value
-    if (s.connectionMode != com.zyz4.gamepademu.model.ConnectionMode.BLUETOOTH) return
-    viewModel.connectionManager.sendMouseReport(
-        button = ((buttonDown and 0x03) or (buttonUp and 0xFC)).toByte(),
-        dx = dx, dy = dy, wheel = wheel, hWheel = hWheel,
+    val button = (buttonDown or buttonUp).toByte()
+    this.viewModel.connectionManager.sendMouseReport(
+        button = button,
+        dx = dx,
+        dy = dy,
+        wheel = wheel,
+        hWheel = hWheel
     )
 }
 

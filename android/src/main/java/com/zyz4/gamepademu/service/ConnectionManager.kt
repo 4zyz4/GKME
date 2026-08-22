@@ -70,6 +70,13 @@ class ConnectionManager @Inject constructor(
 
     private var activeProtocol = ActiveProtocol.NONE
 
+    // 持久化的鼠标按键电平状态。普通手柄状态包会以较高速率持续发送，
+    // 若其中包含 mouse_buttons=0 会把 Windows 端"按住"的按键清零，造成连点。
+    // 因此在每次发送普通状态包时注入当前真实电平。
+    // 鼠标状态更新回调 —— sendMouseReport 通过它把鼠标字段写入 ViewModel 的
+    // _gamepadState，使鼠标数据跟普通手柄数据合并到同一个 UDP 包里发送。
+    var onMouseReport: ((button: Int, dx: Int, dy: Int, wheel: Int, hWheel: Int) -> Unit)? = null
+
     private val _connectionState = MutableStateFlow(ConnectionState())
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
 
@@ -492,13 +499,25 @@ class ConnectionManager @Inject constructor(
         }
     }
 
-    /** Send a mouse HID report (Report ID 2) directly to the connected Bluetooth host. */
-    fun sendMouseReport(button: Byte, dx: Byte, dy: Byte, wheel: Byte, hWheel: Byte = 0) {
-        val s = _settings.value
-        if (s.connectionMode != ConnectionMode.BLUETOOTH) return
-        val phase = _connectionState.value.phase
-        if (phase != ConnectionPhase.CONNECTED) return
-        bluetoothService?.sendMouseReport(button, dx, dy, wheel, hWheel)
+    /** Send a mouse report for WiFi/UDP mode. */
+    fun sendMouseReport(
+        button: Byte, dx: Byte, dy: Byte, wheel: Byte, hWheel: Byte = 0
+    ) {
+        when (_settings.value.connectionMode) {
+            ConnectionMode.BLUETOOTH -> {
+                val phase = _connectionState.value.phase
+                if (phase != ConnectionPhase.CONNECTED) return
+                bluetoothService?.sendMouseReport(button, dx, dy, wheel, hWheel)
+            }
+            ConnectionMode.WIFI -> {
+                // 鼠标数据不再走独立 UDP 包，而是写入 ViewModel 的 _gamepadState。
+                // 普通手柄循环包（每 ~10ms）自动带上最新的鼠标字段，合并为一个包。
+                if (activeProtocol != ActiveProtocol.WIFI) return
+                onMouseReport?.invoke(
+                    button.toInt(), dx.toInt(), dy.toInt(), wheel.toInt(), hWheel.toInt()
+                )
+            }
+        }
     }
 
     private fun getRealDeviceName(): String {

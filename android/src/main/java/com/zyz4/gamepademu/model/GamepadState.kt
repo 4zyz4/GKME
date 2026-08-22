@@ -22,6 +22,12 @@ data class GamepadState(
     val touches: List<TouchPoint> = emptyList(),
     val batteryLevel: Int = 100,
     val isCharging: Boolean = false,
+    // Mouse fields for WiFi/UDP mode
+    val mouseButtons: Int = 0,
+    val mouseDx: Short = 0,
+    val mouseDy: Short = 0,
+    val mouseWheel: Short = 0,
+    val mousePan: Short = 0,
 ) {
     companion object {
         // Bits 0-5 = A/B/X/Y/LB/RB

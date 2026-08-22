@@ -26,6 +26,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import android.util.Log
+import kotlin.time.Duration.Companion.milliseconds
 
 @SuppressLint("MissingPermission")
 class ClassicHidTransport(
@@ -86,7 +87,7 @@ class ClassicHidTransport(
                         // Unregister finished — now (re)register with a clean slate.
                         pendingUnregisterThenRegister = false
                         scope.launch {
-                            delay(300)
+                            delay(300.milliseconds)
                             if (started.get() && !stopping.get() &&
                                 _connectionPhase.value == ConnectionPhase.REGISTERING_PROFILE
                             ) {
@@ -113,7 +114,7 @@ class ClassicHidTransport(
                         if (restarting || _connectionPhase.value == ConnectionPhase.REGISTERING_PROFILE) return
                         _connectionPhase.value = ConnectionPhase.DISCONNECTED
                         scope.launch {
-                            delay(500)
+                            delay(500.milliseconds)
                             if (started.get() && !stopping.get() && _connectionPhase.value == ConnectionPhase.DISCONNECTED) {
                                 tryAutoReconnect()
                             }
@@ -154,7 +155,7 @@ class ClassicHidTransport(
                 connectedDevice = null
                 if (restarting || _connectionPhase.value == ConnectionPhase.REGISTERING_PROFILE) return
                 scope.launch {
-                    delay(500)
+                    delay(500.milliseconds)
                     if (started.get() && !stopping.get()) {
                         tryAutoReconnect()
                     }
@@ -178,7 +179,7 @@ class ClassicHidTransport(
             hidDevice = null
             if (started.get() && _connectionPhase.value != ConnectionPhase.IDLE) {
                 scope.launch {
-                    delay(500)
+                    delay(500.milliseconds)
                     if (started.get() && !stopping.get() && hidDevice == null) {
                         requestProfileProxy()
                     }
@@ -345,7 +346,7 @@ class ClassicHidTransport(
             // Nothing stale registered — no callback will arrive, register directly.
             pendingUnregisterThenRegister = false
             scope.launch {
-                delay(300)
+                delay(300.milliseconds)
                 if (started.get() && !stopping.get() &&
                     _connectionPhase.value == ConnectionPhase.REGISTERING_PROFILE
                 ) {
@@ -364,9 +365,9 @@ class ClassicHidTransport(
             return
         }
         val settings = currentSettings
-        val desc = when {
-            settings?.targetPlatform == TargetPlatform.WINDOWS -> COMBO_WIN_HID_DESCRIPTOR
-            settings?.targetPlatform == TargetPlatform.LINUX -> COMBO_LINUX_HID_DESCRIPTOR
+        val desc = when (settings?.targetPlatform) {
+            TargetPlatform.WINDOWS -> COMBO_WIN_HID_DESCRIPTOR
+            TargetPlatform.LINUX -> COMBO_LINUX_HID_DESCRIPTOR
             else -> COMBO_ANDROID_HID_DESCRIPTOR
         }
         val deviceName = getRealDeviceName()
@@ -389,7 +390,7 @@ class ClassicHidTransport(
             } else {
                 handleRegisterFailure()
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             handleRegisterFailure()
         }
     }
@@ -405,7 +406,7 @@ class ClassicHidTransport(
         }
         _connectionPhase.value = ConnectionPhase.REGISTERING_PROFILE
         scope.launch {
-            delay(REGISTER_RETRY_DELAY_MS)
+            delay(REGISTER_RETRY_DELAY_MS.milliseconds)
             if (started.get() && !stopping.get() &&
                 _connectionPhase.value == ConnectionPhase.REGISTERING_PROFILE
             ) {
@@ -431,7 +432,7 @@ class ClassicHidTransport(
         if (!ok) {
             pendingUnregisterThenRegister = false
             scope.launch {
-                delay(300)
+                delay(300.milliseconds)
                 if (started.get() && !stopping.get() &&
                     _connectionPhase.value == ConnectionPhase.REGISTERING_PROFILE
                 ) {
@@ -444,7 +445,7 @@ class ClassicHidTransport(
     private fun scheduleRegisterWatchdog() {
         cancelRegisterWatchdog()
         registerJob = scope.launch {
-            delay(REGISTER_TIMEOUT_MS)
+            delay(REGISTER_TIMEOUT_MS.milliseconds)
             if (started.get() && !stopping.get() &&
                 _connectionPhase.value == ConnectionPhase.REGISTERING_PROFILE
             ) {
@@ -460,7 +461,7 @@ class ClassicHidTransport(
 
     private fun isBluetoothEnabled(): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return false
-        return bluetoothAdapter?.isEnabled == true
+        return bluetoothAdapter.isEnabled
     }
 
     private suspend fun tryAutoReconnect() {
@@ -474,7 +475,7 @@ class ClassicHidTransport(
                 if (!ok) {
                     enterDiscoverable()
                 }
-            } catch (e: IllegalArgumentException) {
+            } catch (_: IllegalArgumentException) {
                 enterDiscoverable()
             }
         } else {
@@ -483,14 +484,10 @@ class ClassicHidTransport(
     }
 
     private fun getRealDeviceName(): String {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
-            android.provider.Settings.Global.getString(
-                context.contentResolver,
-                android.provider.Settings.Global.DEVICE_NAME
-            ) ?: bluetoothAdapter.name ?: Build.MODEL
-        } else {
-            bluetoothAdapter.name ?: Build.MODEL
-        }
+        return android.provider.Settings.Global.getString(
+            context.contentResolver,
+            android.provider.Settings.Global.DEVICE_NAME
+        ) ?: bluetoothAdapter.name ?: Build.MODEL
     }
 
     private fun enterDiscoverable() {
@@ -646,108 +643,6 @@ class ClassicHidTransport(
             b(0x81), b(0x02),       //   Input (Data,Var,Abs)
 
             b(0xC0),                // End Collection
-        )
-
-        /** 11‑byte report for Windows Classic (matches DInput layout). */
-        private val WINDOWS_HID_DESCRIPTOR = byteArrayOf(
-            b(0x05), b(0x01),       // Usage Page (Generic Desktop)
-            b(0x09), b(0x05),       // Usage (Game Pad)
-            b(0xA1), b(0x01),       // Collection (Application)
-            b(0x85), b(0x01),       //   Report ID (1)
-
-            // Buttons (18 buttons + 6 padding = 24 bits / 3 bytes)
-            b(0x05), b(0x09),       //   Usage Page (Button)
-            b(0x19), b(0x01),       //   Usage Minimum (1)
-            b(0x29), b(0x12),       //   Usage Maximum (18)
-            b(0x15), b(0x00),       //   Logical Minimum (0)
-            b(0x25), b(0x01),       //   Logical Maximum (1)
-            b(0x75), b(0x01),       //   Report Size (1)
-            b(0x95), b(0x12),       //   Report Count (18)
-            b(0x81), b(0x02),       //   Input (Data,Var,Abs)
-
-            b(0x75), b(0x01),       //   Report Size (1)
-            b(0x95), b(0x06),       //   Report Count (6)
-            b(0x81), b(0x01),       //   Input (Const)
-
-            // Axes (LX, LY, RX, RY - 4 x 16-bit = 8 bytes)
-            b(0x05), b(0x01),       //   Usage Page (Generic Desktop)
-            b(0x09), b(0x30),       //   Usage (X)  → LX
-            b(0x09), b(0x31),       //   Usage (Y)  → LY
-            b(0x09), b(0x32),       //   Usage (Z)  → RX
-            b(0x09), b(0x33),       //   Usage (Ry) → RY
-            b(0x16), b(0x00), b(0x80),  // Logical Minimum (-32768)
-            b(0x26), b(0xFF), b(0x7F),  // Logical Maximum (32767)
-            b(0x75), b(0x10),       //   Report Size (16)
-            b(0x95), b(0x04),       //   Report Count (4)
-            b(0x81), b(0x02),       //   Input (Data,Var,Abs)
-
-            b(0xC0),                // End Collection
-        )
-
-        /** Standard 9‑byte report for Android Bluetooth (HID descriptor, Report ID 1). */
-        private val ANDROID_HID_DESCRIPTOR = byteArrayOf(
-            b(0x05), b(0x01),             // Usage Page (Generic Desktop)
-            b(0x09), b(0x05),             // Usage (Game Pad)
-            b(0xA1), b(0x01),             // Collection (Application)
-            b(0x85), b(0x01),             //   Report ID (1)
-
-            // Bytes 0‑1: 16 buttons
-            b(0x05), b(0x09),             //   Usage Page (Button)
-            b(0x19), b(0x01),             //   Usage Minimum (1)
-            b(0x29), b(0x10),             //   Usage Maximum (16)
-            b(0x15), b(0x00),             //   Logical Minimum (0)
-            b(0x25), b(0x01),             //   Logical Maximum (1)
-            b(0x95), b(0x10),             //   Report Count (16)
-            b(0x75), b(0x01),             //   Report Size (1)
-            b(0x81), b(0x02),             //   Input (Data,Var,Abs)
-
-            // Bytes 2‑3: Left stick X (X), Y (Y)
-            b(0x05), b(0x01),             //   Usage Page (Generic Desktop)
-            b(0x09), b(0x30),             //   Usage (X)
-            b(0x09), b(0x31),             //   Usage (Y)
-            b(0x15), b(0x81),             //   Logical Minimum (-127)
-            b(0x25), b(0x7F),             //   Logical Maximum (127)
-            b(0x75), b(0x08),             //   Report Size (8)
-            b(0x95), b(0x02),             //   Report Count (2)
-            b(0x81), b(0x02),             //   Input (Data,Var,Abs)
-
-            // Byte 4: Hat switch (D-Pad, 4 bits) + padding (4 bits)
-            b(0x05), b(0x01),             //   Usage Page (Generic Desktop)
-            b(0x09), b(0x39),             //   Usage (Hat switch)
-            b(0x15), b(0x01),             //   Logical Minimum (1)
-            b(0x25), b(0x08),             //   Logical Maximum (8)
-            b(0x55), b(0x00),             //   Unit Exponent (0)
-            b(0x46), b(0x3B), b(0x01),    //   Physical Maximum (315)
-            b(0x65), b(0x14),             //   Unit (System: English Rotation, Length: Centimeter)
-            b(0x75), b(0x04),             //   Report Size (4)
-            b(0x95), b(0x01),             //   Report Count (1)
-            b(0x81), b(0x42),             //   Input (Data,Var,Abs,Null State)
-
-            b(0x75), b(0x04),             //   Report Size (4)
-            b(0x95), b(0x01),             //   Report Count (1)
-            b(0x81), b(0x03),             //   Input (Const,Var,Abs)
-
-            // Bytes 5‑6: Right stick X (Z), Y (Rz)
-            b(0x05), b(0x01),             //   Usage Page (Generic Desktop)
-            b(0x09), b(0x32),             //   Usage (Z)
-            b(0x09), b(0x35),             //   Usage (Rz)
-            b(0x15), b(0x81),             //   Logical Minimum (-127)
-            b(0x25), b(0x7F),             //   Logical Maximum (127)
-            b(0x75), b(0x08),             //   Report Size (8)
-            b(0x95), b(0x02),             //   Report Count (2)
-            b(0x81), b(0x02),             //   Input (Data,Var,Abs)
-
-            // Bytes 7‑8: LT (Brake), RT (Accelerator)
-            b(0x05), b(0x02),             //   Usage Page (Sim Ctrls)
-            b(0x09), b(0xC4),             //   Usage (Brake)
-            b(0x09), b(0xC5),             //   Usage (Accelerator)
-            b(0x15), b(0x00),             //   Logical Minimum (0)
-            b(0x25), b(0xFF),             //   Logical Maximum (255)
-            b(0x75), b(0x08),             //   Report Size (8)
-            b(0x95), b(0x02),             //   Report Count (2)
-            b(0x81), b(0x02),             //   Input (Data,Var,Abs)
-
-b(0xC0),                // End Collection
         )
 
         /** Combo device (Keyboard + Mouse + Android Gamepad 9-byte) descriptor. */
@@ -1084,69 +979,5 @@ b(0xC0),                // End Collection
             b(0xC0),                      // End Collection
         )
 
-        /** 9‑byte report for Linux Bluetooth (based on Android, but X/Y swapped, right stick uses Rx/Ry). */
-        private val LINUX_HID_DESCRIPTOR = byteArrayOf(
-            b(0x05), b(0x01),             // Usage Page (Generic Desktop)
-            b(0x09), b(0x05),             // Usage (Game Pad)
-            b(0xA1), b(0x01),             // Collection (Application)
-            b(0x85), b(0x01),             //   Report ID (1)
-
-            // Bytes 0‑1: 16 buttons
-            b(0x05), b(0x09),
-            b(0x19), b(0x01),
-            b(0x29), b(0x10),
-            b(0x15), b(0x00),
-            b(0x25), b(0x01),
-            b(0x95), b(0x10),
-            b(0x75), b(0x01),
-            b(0x81), b(0x02),
-
-            // Bytes 2‑3: Left stick X (X), Y (Y) — same as Android
-            b(0x05), b(0x01),
-            b(0x09), b(0x30),             // Usage (X)
-            b(0x09), b(0x31),             // Usage (Y)
-            b(0x15), b(0x81),
-            b(0x25), b(0x7F),
-            b(0x75), b(0x08),
-            b(0x95), b(0x02),
-            b(0x81), b(0x02),
-
-            // Byte 4: Hat switch + padding
-            b(0x05), b(0x01),
-            b(0x09), b(0x39),
-            b(0x15), b(0x01),
-            b(0x25), b(0x08),
-            b(0x55), b(0x00),
-            b(0x46), b(0x3B), b(0x01),
-            b(0x65), b(0x14),
-            b(0x75), b(0x04),
-            b(0x95), b(0x01),
-            b(0x81), b(0x42),
-            b(0x75), b(0x04),
-            b(0x95), b(0x01),
-            b(0x81), b(0x03),
-
-            // Bytes 5‑6: Right stick Rx, Ry
-            b(0x05), b(0x01),
-            b(0x09), b(0x33),             // Usage (Rx)
-            b(0x09), b(0x34),             // Usage (Ry)
-            b(0x15), b(0x81),
-            b(0x25), b(0x7F),
-            b(0x75), b(0x08),
-            b(0x95), b(0x02),
-            b(0x81), b(0x02),
-
-            // Bytes 7‑8: LT (Brake), RT (Accelerator)
-            b(0x05), b(0x02),
-            b(0x09), b(0xC4),
-            b(0x09), b(0xC5),
-            b(0x15), b(0x00),
-            b(0x25), b(0xFF),
-            b(0x75), b(0x08),
-            b(0x95), b(0x02),
-            b(0x81), b(0x02),
-
-            b(0xC0),
-        )
     }
 }

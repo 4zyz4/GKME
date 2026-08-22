@@ -53,6 +53,12 @@ message GamepadInput {
   bool touchpad_touch = 20;
   bool touchpad_click = 21;
   repeated TouchPoint touches = 22;
+  // Mouse fields for high-precision scroll and relative movement
+  sint32 mouse_dx = 23;
+  sint32 mouse_dy = 24;
+  sint32 mouse_wheel = 25;
+  sint32 mouse_pan = 26;
+  uint32 mouse_buttons = 27;
 }
 
 message TouchPoint {

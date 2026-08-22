@@ -19,6 +19,11 @@ fun GamepadState.toProto(): GamepadInput {
         .setTouchpadTouch(touchpadTouch)
         .setTouchpadClick(touchpadClick)
         .setIsCharging(isCharging)
+        .setMouseButtons(mouseButtons)
+        .setMouseDx(mouseDx.toInt())
+        .setMouseDy(mouseDy.toInt())
+        .setMouseWheel(mouseWheel.toInt())
+        .setMousePan(mousePan.toInt())
     for (t in touches) {
         builder.addTouches(
             com.zyz4.gamepademu.proto.TouchPoint.newBuilder()

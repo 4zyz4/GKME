@@ -422,6 +422,36 @@ class GamepadViewModel @Inject constructor(
 
     fun startServer() {
         connectionManager.startServer(viewModelScope)
+        // 鼠标数据写入 _gamepadState，并立即发一次。
+        // 动摇杆/触摸板时 sendInput 会立即发包，鼠标也需要同样的行为——
+        // 不能只靠循环线程发（循环线程发的包可能因为各种条件被丢弃，导致鼠标
+        // 单独使用时轮询率降到 5-10Hz）。
+        connectionManager.onMouseReport = { button, dx, dy, wheel, hWheel ->
+            _gamepadState.value = _gamepadState.value.copy(
+                mouseButtons = button,
+                mouseDx = dx.toShort(),
+                mouseDy = dy.toShort(),
+                mouseWheel = wheel.toShort(),
+                mousePan = hWheel.toShort(),
+            )
+            // 有操作时立即发送（和摇杆/触摸板行为一致）。
+            if (settings.value.connectionMode == ConnectionMode.WIFI &&
+                (button != 0 || dx != 0 || dy != 0 || wheel != 0 || hWheel != 0)) {
+                viewModelScope.launch {
+                    connectionManager.sendGamepadState(_gamepadState.value.toProto())
+                }
+            }
+            // 增量字段延迟清零（避免循环包重复叠加）。
+            if (dx != 0 || dy != 0 || wheel != 0 || hWheel != 0) {
+                viewModelScope.launch {
+                    delay(50)
+                    _gamepadState.value = _gamepadState.value.copy(
+                        mouseDx = 0, mouseDy = 0,
+                        mouseWheel = 0, mousePan = 0,
+                    )
+                }
+            }
+        }
         if (settings.value.connectionMode == ConnectionMode.WIFI ||
             settings.value.connectionMode == ConnectionMode.BLUETOOTH
         ) {
