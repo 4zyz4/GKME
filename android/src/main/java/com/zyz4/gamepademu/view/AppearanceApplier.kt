@@ -90,6 +90,8 @@ object AppearanceApplier {
         layout.setTouchpadAreaAppearance(settings.tpTriggerOutlineColor, settings.tpTriggerOutlineWidth)
         layout.setDpadPadTriggerAreaAppearance(settings.dpadPadTriggerOutlineColor, settings.dpadPadTriggerOutlineWidth)
 
+        val buttonMap = layout.currentButtons.associateBy { it.id }.toMap()
+
         for (i in 0 until layout.childCount) {
             val child = layout.getChildAt(i)
             val tag = child.tag as? String ?: continue
@@ -99,6 +101,12 @@ object AppearanceApplier {
                 child is JoystickView -> applyToJoystick(child, settings)
                 child is CustomKeypadView -> applyToKeypad(child, settings)
                 child is DpadPadView -> applyToDpadPad(child, settings)
+                child is com.zyz4.gamepademu.view.LinearTriggerView -> {
+                    val pos = buttonMap[tag] ?: continue
+                    val density = child.resources.displayMetrics.density
+                    child.updateFromButton(pos)
+                    applyToButtonWithColor(child, settings, false, density)
+                }
                 baseId == "touchpad" -> applyToTouchpad(child, settings)
                 else -> applyToButton(child, settings)
             }
@@ -337,7 +345,7 @@ object AppearanceApplier {
         }
     }
 
-    private fun shapeImageDrawable(bmp: Bitmap, isCircle: Boolean, cornerRadius: Float,
+    internal fun shapeImageDrawable(bmp: Bitmap, isCircle: Boolean, cornerRadius: Float,
                                    outlineWidth: Int = 0, outlineColor: Int = 0): Drawable {
         return object : Drawable() {
             private val paint = Paint(Paint.ANTI_ALIAS_FLAG)

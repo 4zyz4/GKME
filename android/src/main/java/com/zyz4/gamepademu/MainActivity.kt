@@ -140,7 +140,8 @@ class MainActivity : ComponentActivity() {
         physicalControllerHandler = PhysicalControllerHandler(this)
         setupMediaSession()
         setupGamepadLayoutListener()
-        createAllControls()
+        viewModel.onHapticFeedbackPress = { performHaptic(isPress = true) }
+        viewModel.onHapticFeedbackRelease = { performHaptic(isPress = false) }
         gamepadLayout.applyAppearance(viewModel.settings.value)
         // Register the appearance image-picker launchers now (registration must happen before
         // the activity is resumed). The settings panel itself is inflated lazily on the first

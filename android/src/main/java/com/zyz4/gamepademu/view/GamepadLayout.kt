@@ -742,7 +742,7 @@ class GamepadLayout @JvmOverloads constructor(
 
     fun loadPreset(preset: LayoutPreset) {
         currentButtons = preset.buttons.map {
-            if (it.id == "centerArea") it.copy(id = "touchpad") else it
+            if (it.id == "centerArea") it.copy(id = "touchpad", linearTriggerEnabled = false, slideDirection = com.zyz4.gamepademu.model.SlideDirection.DOWN) else it
         }.let { list ->
             if (list.none { it.id == SETTINGS_BUTTON_ID }) {
                 list + ButtonPosition(
@@ -769,7 +769,8 @@ class GamepadLayout @JvmOverloads constructor(
     /** Settings button: no rotation, swipe trigger always off, overlap trigger always on, fully visible on screen. */
     private fun sanitizeSettingsButton(pos: ButtonPosition): ButtonPosition {
         var p = pos.copy(rotation = 0, swipeTrigger = false, overlapTrigger = true, lockAspect = true,
-            idleTransparency = 0, activeTransparency = 0)
+            idleTransparency = 0, activeTransparency = 0,
+            linearTriggerEnabled = false, slideDirection = com.zyz4.gamepademu.model.SlideDirection.DOWN)
         val maxCol = (GRID_COLS - p.width).coerceAtLeast(0)
         val maxRow = if (cellH > 0f) ((height / cellH).toInt() - p.height).coerceAtLeast(0) else Int.MAX_VALUE
         p = p.copy(

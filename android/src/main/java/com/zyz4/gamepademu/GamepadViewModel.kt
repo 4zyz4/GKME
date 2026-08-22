@@ -150,9 +150,16 @@ class GamepadViewModel @Inject constructor(
     }
 
     fun savePreset(name: String, preset: LayoutPreset) {
+        val existingPresets = layoutRepository.listPresets()
+        var finalName = name
+        if (finalName in existingPresets) {
+            var suffix = 1
+            while ("${finalName}_${suffix}" in existingPresets) suffix++
+            finalName = "${finalName}_${suffix}"
+        }
         _currentPreset.value = preset
-        layoutRepository.savePreset(name, preset)
-        connectionManager.updateSettings(settings.value.copy(currentPresetName = name))
+        layoutRepository.savePreset(finalName, preset)
+        connectionManager.updateSettings(settings.value.copy(currentPresetName = finalName))
         refreshPresetList()
     }
 

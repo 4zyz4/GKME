@@ -310,6 +310,7 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
             onStickClickDown = { a.viewModel.onButtonDown(if (isLeft) GamepadState.L3 else GamepadState.R3) }
             onStickClickUp = { a.viewModel.onButtonUp(if (isLeft) GamepadState.L3 else GamepadState.R3) }
             onStickMoved = { sx, sy -> if (isLeft) a.viewModel.onLeftStick(sx, sy) else a.viewModel.onRightStick(sx, sy) }
+            doubleClickEnable = true
         }
         entry.isTouchpad -> {
             val tp = FrameLayout(a).apply {
@@ -469,13 +470,17 @@ internal fun MainActivity.applyPreset(preset: com.zyz4.gamepademu.model.LayoutPr
 internal fun MainActivity.ensureViewsForAllPresetButtons() {
     val a = this
     val buttons = a.gamepadLayout.currentButtons
+    val triggerBaseIds = setOf("btnLT", "btnRT")
 
-    val existingIds = (0 until a.gamepadLayout.childCount).mapNotNull {
-        a.gamepadLayout.getChildAt(it).tag as? String
-    }.toSet()
+    // Rebuild all views from scratch to ensure correct view types
+    for (i in (a.gamepadLayout.childCount - 1) downTo 0) {
+        val child = a.gamepadLayout.getChildAt(i)
+        val tag = child.tag as? String ?: continue
+        if (tag == GamepadLayout.SETTINGS_BUTTON_ID) continue
+        a.gamepadLayout.removeViewAt(i)
+    }
 
     for (pos in buttons) {
-        if (pos.id in existingIds) continue
         if (pos.id == GamepadLayout.SETTINGS_BUTTON_ID) {
             a.createSettingsButtonView()
             continue
@@ -486,7 +491,7 @@ internal fun MainActivity.ensureViewsForAllPresetButtons() {
             a.createStandardControlView(pos)
         }
     }
-a.gamepadLayout.bringSettingsToFront()
+ a.gamepadLayout.bringSettingsToFront()
     a.updateButtonLabels(a.viewModel.settings.value.displayMode)
     val maxSuffix = a.gamepadLayout.currentButtons
         .filter { it.id.startsWith("customKeypad_") }
@@ -504,7 +509,28 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
     val baseId = pos.id.substringBefore("_")
     val entry = allControls.find { it.baseId == baseId } ?: return
 
+    val triggerBaseIds = setOf("btnLT", "btnRT")
     val view: View = when {
+        pos.linearTriggerEnabled && baseId in triggerBaseIds -> {
+            com.zyz4.gamepademu.view.LinearTriggerView(a).apply {
+                id = View.generateViewId(); tag = pos.id
+                text = "LT"
+                this.slideDirection = pos.slideDirection
+                this.travelDistance = pos.travelDistance
+                this.idleTransparency = pos.idleTransparency
+                this.activeTransparency = pos.activeTransparency
+                onValueChange = { value ->
+                    if (baseId == "btnLT") {
+                        viewModel.onLeftTrigger(value)
+                    } else {
+                        viewModel.onRightTrigger(value)
+                    }
+                }
+                onTriggerBottomVibrate = {
+                    viewModel.onHapticFeedbackPress?.invoke()
+                }
+            }
+        }
         entry.useImageButton -> ImageButton(a).apply {
             id = View.generateViewId(); tag = pos.id
             setBackgroundResource(entry.bgRes)
@@ -590,9 +616,16 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
 
     if (!entry.isTouchpad && !entry.isMousepad && !entry.isCustom && !entry.isDpadPad && !entry.isKeypad) {
         val bit = a.getBitForEntry(entry) ?: 0
-        a.setupTouchHandler(view, bit, entry.isDpad, entry.isTrigger, entry.isJoystick)
+        val isTrigger = baseId in triggerBaseIds
+        if (pos.linearTriggerEnabled && isTrigger) {
+            // LinearTriggerView handles its own touch events
+        } else {
+            a.setupTouchHandler(view, bit, entry.isDpad, entry.isTrigger && !pos.linearTriggerEnabled, entry.isJoystick)
+        }
     } else if (entry.isCustom) {
         a.setupCustomTouchHandler(view)
+    } else if (pos.linearTriggerEnabled && baseId in triggerBaseIds) {
+        // LinearTriggerView handles its own touch events
     }
     a.gamepadLayout.addView(view)
 }

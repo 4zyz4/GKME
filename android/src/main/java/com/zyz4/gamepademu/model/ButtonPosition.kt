@@ -36,6 +36,9 @@ data class ButtonPosition(
     val scrollSensitivity: Float = 0.1f,
     val invertScrollV: Boolean = false,
     val invertScrollH: Boolean = false,
+    val linearTriggerEnabled: Boolean = false,
+    val slideDirection: SlideDirection = SlideDirection.DOWN,
+    val travelDistance: Int = 10,
 ) {
     companion object {
         const val KEYPAD_BASE_ID = "customKeypad"

@@ -27,6 +27,7 @@ import com.zyz4.gamepademu.R
 import com.zyz4.gamepademu.model.ButtonPosition
 import com.zyz4.gamepademu.model.GamepadState
 import com.zyz4.gamepademu.model.GyroOrientation
+import com.zyz4.gamepademu.model.SlideDirection
 
 class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
@@ -879,17 +880,132 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             buildKeypadParams(density)
         }
 
+        val triggerIds = setOf("btnLT", "btnRT")
         if (isButton(buttonId)) {
-            val cb = CheckBox(context).apply {
+            val isTrigger = buttonId in triggerIds
+            val cbSwipe = CheckBox(context).apply {
                 text = "滑动触发"
                 setTextColor(-0x444445)
                 textSize = 14f
-                isChecked = button.swipeTrigger
+                isChecked = button.swipeTrigger && !button.linearTriggerEnabled
                 setOnCheckedChangeListener { _, isChecked ->
-                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(swipeTrigger = isChecked)) }
+                    if (isChecked && isTrigger) {
+                        currentButton = currentButton?.copy(
+                            swipeTrigger = true,
+                            linearTriggerEnabled = false,
+                            slideDirection = button.slideDirection,
+                            travelDistance = button.travelDistance
+                        )
+                        currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                        showParameters(buttonId, currentButton!!)
+                    } else {
+                        currentButton = currentButton?.copy(
+                            swipeTrigger = isChecked,
+                            linearTriggerEnabled = false,
+                            slideDirection = button.slideDirection,
+                            travelDistance = button.travelDistance
+                        )
+                        currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                        showParameters(buttonId, currentButton!!)
+                    }
                 }
             }
-            buttonParamsInner.addView(cb, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+            buttonParamsInner.addView(cbSwipe, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+
+            if (isTrigger) {
+                val cbLinear = CheckBox(context).apply {
+                    text = "模拟线性扳机"
+                    setTextColor(-0x444445)
+                    textSize = 14f
+                    isChecked = button.linearTriggerEnabled
+                    setOnCheckedChangeListener { _, isChecked ->
+                        currentButton = currentButton?.copy(
+                            linearTriggerEnabled = isChecked,
+                            swipeTrigger = if (isChecked) false else button.swipeTrigger,
+                            slideDirection = button.slideDirection,
+                            travelDistance = button.travelDistance
+                        )
+                        currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                        showParameters(buttonId, currentButton!!)
+                    }
+                }
+                buttonParamsInner.addView(cbLinear, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+
+                val linearContainer = LinearLayout(context).apply {
+                    orientation = LinearLayout.VERTICAL
+                    id = View.generateViewId()
+                }
+
+                // slide direction spinner
+                val tvDirection = TextView(context).apply {
+                    text = "滑动方向"
+                    setTextColor(-0x444445)
+                    textSize = 13f
+                }
+                linearContainer.addView(tvDirection, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+
+                val directionItems = listOf("向下", "向上", "向左", "向右")
+                val directionSpinner = Spinner(context).apply {
+                    adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, directionItems).also {
+                        it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                    }
+                    val defDir = currentButton?.slideDirection ?: SlideDirection.DOWN
+                    val initialPos = when (defDir) {
+                        SlideDirection.DOWN -> 0
+                        SlideDirection.UP -> 1
+                        SlideDirection.LEFT -> 2
+                        SlideDirection.RIGHT -> 3
+                        else -> 0
+                    }
+                    setSelection(initialPos)
+                    onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                        override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                            val dir = when (pos) {
+                                0 -> SlideDirection.DOWN
+                                1 -> SlideDirection.UP
+                                2 -> SlideDirection.LEFT
+                                3 -> SlideDirection.RIGHT
+                                else -> SlideDirection.DOWN
+                            }
+                            currentButton = currentButton?.copy(slideDirection = dir)
+                            currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                        }
+                        override fun onNothingSelected(parent: AdapterView<*>?) {}
+                    }
+                }
+                linearContainer.addView(directionSpinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
+
+                // travel distance seekbar
+                val tvTravel = TextView(context).apply {
+                    text = "扳机行程"
+                    setTextColor(-0x444445)
+                    textSize = 13f
+                }
+                linearContainer.addView(tvTravel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+                val travelSeekbar = createSimpleSeekbarLinear("行程", button.travelDistance, 1, 40, { value ->
+                    currentButton = currentButton?.copy(travelDistance = value)
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                })
+                linearContainer.addView(travelSeekbar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
+
+                // visibility controlled dynamically
+                val updateLinearVisibility = { enabled: Boolean ->
+                    val vis = if (enabled) View.VISIBLE else View.GONE
+                    tvDirection.visibility = vis
+                    directionSpinner.visibility = vis
+                    tvTravel.visibility = vis
+                    travelSeekbar.visibility = vis
+                }
+                // set initial visibility
+                if (button.linearTriggerEnabled) {
+                    updateLinearVisibility(true)
+                } else {
+                    updateLinearVisibility(false)
+                }
+
+                buttonParamsInner.addView(linearContainer, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt() })
+            }
         }
 
         // ── Custom button settings ─────────────────────────
@@ -1627,6 +1743,94 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 false
             }
         }
+        row.addView(et, LinearLayout.LayoutParams(0, (32f * density).toInt(), 1f).apply { leftMargin = (8f * density).toInt(); rightMargin = (4f * density).toInt() })
+
+        val btnMinus = TextView(context).apply {
+            text = "-"
+            setTextColor(-0x1)
+            textSize = 16f
+            gravity = Gravity.CENTER
+            isClickable = true
+            setBackgroundResource(R.drawable.button_flat)
+            setOnClickListener { updateValue(currentValue - 1) }
+        }
+        row.addView(btnMinus, LinearLayout.LayoutParams((32f * density).toInt(), (32f * density).toInt()).apply { rightMargin = (4f * density).toInt() })
+
+        val btnPlus = TextView(context).apply {
+            text = "+"
+            setTextColor(-0x1)
+            textSize = 16f
+            gravity = Gravity.CENTER
+            isClickable = true
+            setBackgroundResource(R.drawable.button_flat)
+            setOnClickListener { updateValue(currentValue + 1) }
+        }
+        row.addView(btnPlus, LinearLayout.LayoutParams((32f * density).toInt(), (32f * density).toInt()))
+
+        seek = SeekBar(context).apply {
+            this.max = max - min
+            progress = currentValue - min
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
+                    if (fromUser) updateValue(progress + min)
+                }
+                override fun onStartTrackingTouch(sb: SeekBar) {}
+                override fun onStopTrackingTouch(sb: SeekBar) {}
+            })
+        }
+
+        container.addView(row)
+        container.addView(seek, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (4f * density).toInt() })
+        return container
+    }
+
+    private fun createSimpleSeekbarLinear(label: String, value: Int, min: Int, max: Int, onChange: (Int) -> Unit): View {
+        val density = context.resources.displayMetrics.density
+        var currentValue = value.coerceIn(min, max)
+        var et: EditText? = null
+        var seek: SeekBar? = null
+
+        fun updateValue(newValue: Int) {
+            currentValue = newValue.coerceIn(min, max)
+            et?.setText("$currentValue")
+            seek?.progress = currentValue - min
+            onChange(currentValue)
+        }
+
+        val container = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+
+        val row = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        val tv = TextView(context).apply {
+            text = label
+            setTextColor(-0x444445)
+            textSize = 13f
+        }
+
+        et = EditText(context).apply {
+            setText("$currentValue")
+            inputType = InputType.TYPE_CLASS_NUMBER
+            gravity = Gravity.CENTER
+            textSize = 13f
+            setTextColor(-0x444445)
+            setBackgroundResource(R.drawable.bg_small_btn)
+            setPadding((4f * density).toInt(), 0, (4f * density).toInt(), 0)
+            setOnEditorActionListener { _, actionId, _ ->
+                if (actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_NEXT) {
+                    updateValue(text.toString().toIntOrNull() ?: currentValue)
+                    clearFocus()
+                }
+                false
+            }
+        }
+        row.addView(tv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         row.addView(et, LinearLayout.LayoutParams(0, (32f * density).toInt(), 1f).apply { leftMargin = (8f * density).toInt(); rightMargin = (4f * density).toInt() })
 
         val btnMinus = TextView(context).apply {
