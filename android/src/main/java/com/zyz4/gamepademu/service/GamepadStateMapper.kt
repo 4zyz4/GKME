@@ -47,8 +47,8 @@ object GamepadStateMapper {
         report[5] = scaleAxis(input.rightStickX)
         report[6] = scaleAxis(input.rightStickY)
 
-        report[7] = input.leftTrigger.coerceIn(0, 255).toByte()
-        report[8] = input.rightTrigger.coerceIn(0, 255).toByte()
+        report[7] = input.rightTrigger.coerceIn(0, 255).toByte()
+        report[8] = input.leftTrigger.coerceIn(0, 255).toByte()
         return report
     }
 
@@ -76,8 +76,9 @@ object GamepadStateMapper {
         report[5] = scaleAxis(input.rightStickX)
         report[6] = scaleAxis(input.rightStickY)
 
-        report[7] = input.leftTrigger.coerceIn(0, 255).toByte()
-        report[8] = input.rightTrigger.coerceIn(0, 255).toByte()
+        // Linux: Brake=RT (right trigger), Accelerator=LT (left trigger)
+        report[7] = input.rightTrigger.coerceIn(0, 255).toByte()
+        report[8] = input.leftTrigger.coerceIn(0, 255).toByte()
         return report
     }
 
