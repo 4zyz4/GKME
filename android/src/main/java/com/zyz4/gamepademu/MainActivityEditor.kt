@@ -83,7 +83,13 @@ internal fun MainActivity.createFloatingEditor(): FloatingEditorPanel {
                     )
                 } ?: updated
                 a.gamepadLayout.updateButtonPosition(buttonId, merged)
-                a.updateButtonLabels(a.viewModel.settings.value.displayMode)
+                val wasLinearTrigger = current?.linearTriggerEnabled == true
+                val isLinearTrigger = merged.linearTriggerEnabled && setOf("btnLT", "btnRT").contains(merged.id.substringBefore("_"))
+                if (wasLinearTrigger != isLinearTrigger) {
+                    a.recreateViewForButton(buttonId, merged)
+                } else {
+                    a.updateButtonLabels(a.viewModel.settings.value.displayMode)
+                }
             }
 
             override fun onPickOutputValues(buttonId: String, currentBits: List<Int>, onResult: (List<Int>) -> Unit) {
@@ -777,4 +783,72 @@ internal fun MainActivity.showOutputValuePicker(currentBits: List<Int>, onResult
 
     content.addView(grid)
     a.outputPickerDialog = CustomDialog.showCustomView(a, "选择传出值", content, negativeText = "取消", scrollable = true)
+}
+
+internal fun MainActivity.recreateViewForButton(buttonId: String, pos: ButtonPosition) {
+    val a = this
+    var viewIndex = -1
+    var existingView: View? = null
+    for (i in 0 until a.gamepadLayout.childCount) {
+        val child = a.gamepadLayout.getChildAt(i)
+        if (child.tag as? String == buttonId) {
+            viewIndex = i
+            existingView = child
+            break
+        }
+    }
+    if (existingView == null) return
+    a.gamepadLayout.removeViewAt(viewIndex)
+
+    val entry = allControls.find { it.baseId == pos.id.substringBefore("_") }
+    val isTriggerBase = setOf("btnLT", "btnRT").contains(pos.id.substringBefore("_"))
+    val newView: View = if (pos.linearTriggerEnabled && isTriggerBase) {
+        com.zyz4.gamepademu.view.LinearTriggerView(a).apply {
+            id = View.generateViewId()
+            tag = buttonId
+            text = entry?.name ?: "LT"
+            setTextColor(-0x333334)
+            textSize = 12f
+            setTypeface(null, Typeface.BOLD)
+            slideDirection = pos.slideDirection
+            travelDistance = pos.travelDistance
+            idleTransparency = pos.idleTransparency
+            activeTransparency = pos.activeTransparency
+            onValueChange = { value ->
+                val baseId = pos.id.substringBefore("_")
+                if (baseId == "btnLT") {
+                    viewModel.onLeftTrigger(value)
+                } else {
+                    viewModel.onRightTrigger(value)
+                }
+            }
+            onTriggerBottomVibrate = {
+                viewModel.onHapticFeedbackPress?.invoke()
+            }
+        }
+    } else {
+        val lockAspect = entry?.lockAspect ?: true
+        val customText = pos.customText
+        val buttonView = if (!lockAspect) RotatableButton(a) else Button(a)
+        buttonView.apply {
+            id = View.generateViewId()
+            tag = buttonId
+            setTextColor(-0x333334)
+            textSize = 12f
+            setTypeface(null, Typeface.BOLD)
+            setBackgroundResource(entry?.bgRes ?: R.drawable.button_circle)
+            gravity = Gravity.CENTER
+            enableAutoFitButtonText(20f)
+            text = customText ?: entry?.name ?: "按钮"
+        }
+        val bit = entry?.bit ?: 0
+        val isDpad = entry?.isDpad ?: false
+        val isTrigger = entry?.isTrigger ?: false
+        val isJoystick = entry?.isJoystick ?: false
+        a.setupTouchHandler(buttonView, bit, isDpad, isTrigger, isJoystick)
+        buttonView
+    }
+
+    a.gamepadLayout.addView(newView, viewIndex)
+    a.gamepadLayout.applyAppearance(a.viewModel.settings.value)
 }

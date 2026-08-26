@@ -1266,7 +1266,13 @@ class GamepadLayout @JvmOverloads constructor(
             }
             if (resizingChild != null) {
                 val id = getButtonId(resizingChild!!)
-                if (id != null) setSelectedButton(id)
+                if (id != null) {
+                    // Force refresh floating editor by calling listener directly,
+                    // since setSelectedButton won't trigger when selectedButtonId == id.
+                    // This updates SeekBar values after drag-resize.
+                    listener?.onButtonSelected(id)
+                    setSelectedButton(id)
+                }
                 resizingChild = null
             }
             if (draggingChild != null) {

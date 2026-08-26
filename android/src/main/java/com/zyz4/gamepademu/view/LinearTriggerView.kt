@@ -52,9 +52,25 @@ class LinearTriggerView @JvmOverloads constructor(
     private var currentValue = 0
     private var wasAtMax = false
 
+    fun getCellSize(): Float {
+        var p = parent
+        while (p != null) {
+            if (p is com.zyz4.gamepademu.view.GamepadLayout) {
+                return p.getCellSize()
+            }
+            p = if (p is android.view.View) p.parent else null
+        }
+        return 0f
+    }
+
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        travelPx = (min(w.toFloat(), h.toFloat()) * travelDistance / 40f).coerceAtLeast(1f)
+        val cellSize = getCellSize()
+        travelPx = if (cellSize > 0f) {
+            (cellSize * travelDistance).coerceAtLeast(1f)
+        } else {
+            (min(w.toFloat(), h.toFloat()) * travelDistance / 40f).coerceAtLeast(1f)
+        }
     }
 
     override fun onDraw(canvas: android.graphics.Canvas) {
@@ -102,12 +118,11 @@ class LinearTriggerView @JvmOverloads constructor(
                 initialTouchY = event.y
                 setTranslationX(0f)
                 setTranslationY(0f)
-                currentValue = 1
+                currentValue = 0
                 wasAtMax = false
                 isPressed = true
                 invalidate()
                 onValueChange?.invoke(currentValue)
-                onTriggerBottomVibrate()
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
@@ -116,17 +131,37 @@ class LinearTriggerView @JvmOverloads constructor(
                 val dy = event.y - initialTouchY
 
                 when (slideDirection) {
-                    SlideDirection.DOWN -> setTranslationY(dy.coerceIn(-travelPx, travelPx))
-                    SlideDirection.UP -> setTranslationY((-dy).coerceIn(-travelPx, travelPx))
-                    SlideDirection.LEFT -> setTranslationX((-dx).coerceIn(-travelPx, travelPx))
-                    SlideDirection.RIGHT -> setTranslationX(dx.coerceIn(-travelPx, travelPx))
+                    SlideDirection.DOWN -> {
+                        // 手指向下（dy>0）→ 按钮向下移动（translationY>0）
+                        // 不允许手指向上（dy<0）移动
+                        val clampedDy = dy.coerceIn(0f, travelPx)
+                        setTranslationY(clampedDy)
+                    }
+                    SlideDirection.UP -> {
+                        // 手指向上（dy<0）→ 按钮向上移动（translationY<0）
+                        // 不允许手指向下（dy>0）移动
+                        val clampedDy = dy.coerceIn(-travelPx, 0f)
+                        setTranslationY(clampedDy)
+                    }
+                    SlideDirection.LEFT -> {
+                        // 手指向左（dx<0）→ 按钮向左移动（translationX<0）
+                        // 不允许手指向右（dx>0）移动
+                        val clampedDx = dx.coerceIn(-travelPx, 0f)
+                        setTranslationX(clampedDx)
+                    }
+                    SlideDirection.RIGHT -> {
+                        // 手指向右（dx>0）→ 按钮向右移动（translationX>0）
+                        // 不允许手指向左（dx<0）移动
+                        val clampedDx = dx.coerceIn(0f, travelPx)
+                        setTranslationX(clampedDx)
+                    }
                 }
 
                 val absOffset = when (slideDirection) {
-                    SlideDirection.DOWN, SlideDirection.UP -> abs(translationY)
-                    SlideDirection.LEFT, SlideDirection.RIGHT -> abs(translationX)
+                    SlideDirection.DOWN, SlideDirection.UP -> translationY
+                    SlideDirection.LEFT, SlideDirection.RIGHT -> translationX
                 }
-                val normalized = absOffset / travelPx
+                val normalized = abs(absOffset) / travelPx
                 currentValue = if (normalized < 0.004f) 0 else (normalized * 255).toInt().coerceIn(0, 255)
 
                 invalidate()
