@@ -203,6 +203,12 @@ internal fun MainActivity.setupTouchHandler(view: View, bit: Int, isDpad: Boolea
         val pos = a.gamepadLayout.currentButtons.find { it.id == id } ?: return
         view.alpha = 1f - (pos.idleTransparency.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
     }
+
+    // Auto-hold state per view
+    val autoHoldState = mutableMapOf<String, Boolean>()
+    fun getAutoHoldState(id: String): Boolean = autoHoldState[id] ?: false
+    fun setAutoHoldState(id: String, state: Boolean) { autoHoldState[id] = state }
+
     // Skip linear trigger views — they handle their own touch events
     if (view is com.zyz4.gamepademu.view.LinearTriggerView) return
     when {
@@ -224,9 +230,38 @@ internal fun MainActivity.setupTouchHandler(view: View, bit: Int, isDpad: Boolea
             }
         }
         !isJoystick -> view.setOnTouchListener { v, e ->
+            val id = v.tag as? String
+            val curPos = id?.let { id2 -> a.gamepadLayout.currentButtons.find { it.id == id2 } }
+            val holdEnabled = curPos?.autoHold == true
             when (e.action) {
-                MotionEvent.ACTION_DOWN -> { v.isPressed = true; v.performClick(); applyActiveAlpha(); if (bit != 0) a.viewModel.onButtonDown(bit); true }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.isPressed = false; applyIdleAlpha(); if (bit != 0) a.viewModel.onButtonUp(bit); true }
+                MotionEvent.ACTION_DOWN -> {
+                    v.isPressed = true
+                    v.performClick()
+                    applyActiveAlpha()
+                    if (bit != 0) {
+                        if (holdEnabled) {
+                            val held = getAutoHoldState(id)
+                            if (held) {
+                                a.viewModel.onButtonUp(bit)
+                                setAutoHoldState(id, false)
+                            } else {
+                                a.viewModel.onButtonDown(bit)
+                                setAutoHoldState(id, true)
+                            }
+                        } else {
+                            a.viewModel.onButtonDown(bit)
+                        }
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    v.isPressed = false
+                    applyIdleAlpha()
+                    if (bit != 0 && !(holdEnabled && getAutoHoldState(id))) {
+                        a.viewModel.onButtonUp(bit)
+                    }
+                    true
+                }
                 else -> true
             }
         }

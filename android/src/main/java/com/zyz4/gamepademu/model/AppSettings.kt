@@ -38,6 +38,14 @@ enum class GyroOrientation(val displayName: String) {
     PORTRAIT_INVERTED("倒置竖屏"),
 }
 
+enum class GyroMode(val displayName: String) {
+    NONE("关闭"),
+    HANDHELD("手柄陀螺仪"),
+    MOUSE("陀螺仪转鼠标"),
+    LEFT_STICK("陀螺仪转左摇杆"),
+    RIGHT_STICK("陀螺仪转右摇杆"),
+}
+
 enum class HapticEffect(val displayName: String) {
     KEYBOARD_TAP("轻触"),
     KEYBOARD_PRESS("按键按下"),
@@ -80,6 +88,9 @@ data class AppSettings(
     val gyroSensitivityY: Int = 100,
     val gyroSensitivityZ: Int = 100,
     val gyroOrientation: GyroOrientation = GyroOrientation.LANDSCAPE,
+    // ── Gyro mapping mode ──
+    val gyroMode: GyroMode = GyroMode.HANDHELD,
+    val gyroModeSensitivity: Int = 20,
     val keepScreenOn: Boolean = false,
     // Disconnected state
     val controllerGyroEnabled: Boolean = false,

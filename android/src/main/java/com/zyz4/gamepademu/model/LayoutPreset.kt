@@ -65,6 +65,8 @@ data class LayoutPreset(
                     if (!btnObj.has("customBits")) {
                         btnObj.add("customBits", com.google.gson.JsonArray())
                     }
+                    if (!btnObj.has("gyroActivate")) btnObj.addProperty("gyroActivate", false)
+                    if (!btnObj.has("autoHold")) btnObj.addProperty("autoHold", false)
                     // Fix slideDirection: Gson uses enum name, not jsonValue
                     val dirStr = btnObj.get("slideDirection")?.asString
                     if (dirStr != null) {
@@ -151,6 +153,8 @@ data class LayoutPreset(
                 m["keypadBits"] = b.keypadBits ?: ButtonPosition.KEYPAD_DEFAULT_BITS
                 if (!b.keypadCenterDoubleClick) m["keypadCenterDoubleClick"] = b.keypadCenterDoubleClick
             }
+            if (b.gyroActivate) m["gyroActivate"] = b.gyroActivate
+            if (b.autoHold) m["autoHold"] = b.autoHold
             list.add(m)
         }
         val obj = LinkedHashMap<String, Any?>()

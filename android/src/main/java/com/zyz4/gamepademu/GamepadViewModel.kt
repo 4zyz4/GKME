@@ -16,6 +16,7 @@ import com.zyz4.gamepademu.model.ConnectionMode
 import com.zyz4.gamepademu.model.DisplayMode
 import com.zyz4.gamepademu.model.FillType
 import com.zyz4.gamepademu.model.GamepadState
+import com.zyz4.gamepademu.model.GyroMode
 import com.zyz4.gamepademu.model.GyroOrientation
 import com.zyz4.gamepademu.model.ButtonPosition
 import com.zyz4.gamepademu.model.HapticEffect
@@ -284,7 +285,7 @@ class GamepadViewModel @Inject constructor(
     fun updateGyroEnabled(enabled: Boolean) {
         val updated = settings.value.copy(gyroEnabled = enabled)
         connectionManager.updateSettings(updated)
-        if (enabled) {
+        if (enabled || settings.value.gyroMode != GyroMode.NONE) {
             startSensorDisplay()
             if (settings.value.connectionMode == ConnectionMode.WIFI) {
                 startSensorSendLoop()
@@ -318,6 +319,24 @@ class GamepadViewModel @Inject constructor(
         if (currentPresetGyroOrientation == null) {
             sensorHandler.gyroOrientation = orientation
         }
+    }
+
+    fun updateGyroMode(mode: GyroMode) {
+        val updated = settings.value.copy(gyroMode = mode)
+        connectionManager.updateSettings(updated)
+        if (settings.value.connectionMode == ConnectionMode.WIFI) {
+            if (mode != GyroMode.NONE || settings.value.gyroEnabled) {
+                startSensorSendLoop()
+            } else {
+                sendJob?.cancel()
+                startPeriodicSendLoop()
+            }
+        }
+    }
+
+    fun updateGyroModeSensitivity(value: Int) {
+        val updated = settings.value.copy(gyroModeSensitivity = value)
+        connectionManager.updateSettings(updated)
     }
 
     fun updateStrongVibrationMapping(mapping: VibrationMotor) {
@@ -462,13 +481,13 @@ class GamepadViewModel @Inject constructor(
         if (settings.value.connectionMode == ConnectionMode.WIFI ||
             settings.value.connectionMode == ConnectionMode.BLUETOOTH
         ) {
-            if (settings.value.gyroEnabled) {
+            if (settings.value.gyroEnabled || settings.value.gyroMode != GyroMode.NONE) {
                 startSensorSendLoop()
             } else {
                 startPeriodicSendLoop()
             }
         }
-        if (settings.value.gyroEnabled) {
+        if (settings.value.gyroEnabled || settings.value.gyroMode != GyroMode.NONE) {
             startSensorDisplay()
         }
     }
@@ -559,6 +578,37 @@ class GamepadViewModel @Inject constructor(
                         accelZ = sensor.accelZ,
                     )
                 }
+
+                // Apply gyro mapping mode (world coordinate system)
+                val sens = s.gyroModeSensitivity / 100f
+                when (s.gyroMode) {
+                    GyroMode.MOUSE -> {
+                        val mx = (-sensor.gyroY * sens * 50f).toInt().coerceIn(-127, 127).toShort()
+                        val my = (-sensor.gyroX * sens * 50f).toInt().coerceIn(-127, 127).toShort()
+                        _gamepadState.value = _gamepadState.value.copy(
+                            mouseDx = mx,
+                            mouseDy = my,
+                        )
+                    }
+                    GyroMode.LEFT_STICK -> {
+                        val lx = (-sensor.gyroY * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
+                        val ly = (-sensor.gyroX * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
+                        _gamepadState.value = _gamepadState.value.copy(
+                            leftStickX = lx,
+                            leftStickY = ly,
+                        )
+                    }
+                    GyroMode.RIGHT_STICK -> {
+                        val rx = (-sensor.gyroY * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
+                        val ry = (-sensor.gyroX * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
+                        _gamepadState.value = _gamepadState.value.copy(
+                            rightStickX = rx,
+                            rightStickY = ry,
+                        )
+                    }
+                    else -> {}
+                }
+
                 val input = _gamepadState.value.toProto()
                 connectionManager.sendGamepadState(input)
                 val intervalMs = kotlin.math.round(1000.0 / settings.value.pollingRate).toLong().coerceAtLeast(1L)

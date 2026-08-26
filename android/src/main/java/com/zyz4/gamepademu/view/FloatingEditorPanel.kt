@@ -27,6 +27,7 @@ import com.zyz4.gamepademu.R
 import com.zyz4.gamepademu.model.ButtonPosition
 import com.zyz4.gamepademu.model.GamepadState
 import com.zyz4.gamepademu.model.GyroOrientation
+import com.zyz4.gamepademu.model.GyroMode
 import com.zyz4.gamepademu.model.SlideDirection
 
 class FloatingEditorPanel(context: Context) : FrameLayout(context) {
@@ -43,6 +44,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         fun onExitFollowAreaAdjust()
         fun onTransparencyPreviewStart(buttonId: String, isIdle: Boolean)
         fun onTransparencyPreviewEnd(buttonId: String)
+        fun onGyroModeChanged(mode: com.zyz4.gamepademu.model.GyroMode)
+        fun onGyroModeSensitivityChanged(value: Int)
     }
 
     var editorListener: EditorListener? = null
@@ -59,10 +62,34 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     var presetGyroOrientation: GyroOrientation? = null
         set(value) {
             field = value
-            gyroSpinner?.setSelection((value?.ordinal?.plus(1)) ?: 0)
+            if (!showingGlobalSettings) {
+                gyroSpinner?.setSelection((value?.ordinal?.plus(1)) ?: 0)
+            }
         }
 
+    var presetGyroMode: com.zyz4.gamepademu.model.GyroMode = com.zyz4.gamepademu.model.GyroMode.HANDHELD
+        set(value) {
+            field = value
+            if (!showingGlobalSettings) {
+                val idx = mappingModeValues.indexOf(value)
+                if (idx >= 0) gyroModeSpinner?.setSelection(idx)
+            }
+        }
+
+    var presetGyroModeSensitivity: Int = 20
+
     private var gyroSpinner: Spinner? = null
+    private var gyroModeSpinner: Spinner? = null
+    private var gyroModeSensSeek: SeekBar? = null
+    private var globalSettingsContainer: LinearLayout? = null
+    private var showingGlobalSettings = false
+
+    private val mappingModeValues = listOf(
+        com.zyz4.gamepademu.model.GyroMode.HANDHELD,
+        com.zyz4.gamepademu.model.GyroMode.MOUSE,
+        com.zyz4.gamepademu.model.GyroMode.LEFT_STICK,
+        com.zyz4.gamepademu.model.GyroMode.RIGHT_STICK,
+    )
 
     private val BUTTON_IDS = setOf(
         "btnDpadUp", "btnDpadDown", "btnDpadLeft", "btnDpadRight",
@@ -80,6 +107,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             actionBtnRow?.visibility = vis
             gyroSpinnerRow?.visibility = vis
             separatorLine?.visibility = vis
+            buttonParamsInner?.visibility = vis
         }
     private var panelX = 0f
     private var panelY = 0f
@@ -92,6 +120,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     private var actionBtnRow: LinearLayout? = null
     private var gyroSpinnerRow: View? = null
     private var separatorLine: View? = null
+    private var btnGlobalSettings: Button? = null
     private var contentW = 0
     private var panelW = 0
 
@@ -289,19 +318,30 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             setBackgroundResource(R.drawable.button_flat)
             setOnClickListener { editorListener?.onAddButton() }
         }
+        btnGlobalSettings = Button(context).apply {
+            text = "全局设置"
+            setTextColor(-0x1)
+            textSize = 13f
+            setBackgroundResource(R.drawable.button_flat)
+            setOnClickListener {
+                showingGlobalSettings = !showingGlobalSettings
+                if (showingGlobalSettings) {
+                    text = "返回"
+                    setTextColor(-0x1)
+                    buildGlobalSettingsPanel(density)
+                } else {
+                    text = "全局设置"
+                    clearGlobalSettingsPanel()
+                }
+            }
+        }
         btnRow.addView(btnSave, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = btnSpacing })
         btnRow.addView(btnDiscard, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = btnSpacing })
-        btnRow.addView(btnAdd, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        btnRow.addView(btnAdd, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = btnSpacing })
+        btnRow.addView(btnGlobalSettings, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         paramsContainer.addView(btnRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
 
-        // Gyro orientation selector
-        val gyroContainer = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-        }
-        gyroSpinnerRow = gyroContainer
-        buildGyroSelector(density, gyroContainer)
-        paramsContainer.addView(gyroContainer)
-
+        // Gyro orientation selector (moved into global settings)
         // Separator
         val sep = View(context).apply {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (1f * density).toInt()).apply {
@@ -351,6 +391,117 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
         gyroSpinner = spinner
         container.addView(spinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
+    }
+
+    private fun buildGlobalSettingsPanel(density: Float) {
+        buttonParamsInner.removeAllViews()
+        globalSettingsContainer = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((8f * density).toInt(), (8f * density).toInt(), (8f * density).toInt(), (8f * density).toInt())
+        }
+        val container = globalSettingsContainer!!
+
+        // ── Gyro mapping mode ──
+        val tvGyroMode = TextView(context).apply {
+            text = "陀螺仪行为"
+            setTextColor(-0x1)
+            textSize = 15f
+            setPadding(0, (8f * density).toInt(), 0, 0)
+        }
+        container.addView(tvGyroMode)
+
+        val gyroModeItems = listOf("手柄陀螺仪", "陀螺仪转鼠标", "陀螺仪转左摇杆", "陀螺仪转右摇杆")
+        val modeSpinner = Spinner(context).apply {
+            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, gyroModeItems).also {
+                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+            setSelection(mappingModeValues.indexOf(presetGyroMode).coerceAtLeast(0))
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                    val mode = mappingModeValues.getOrNull(pos) ?: GyroMode.HANDHELD
+                    presetGyroMode = mode
+                    editorListener?.onGyroModeChanged(mode)
+                    updateGyroModeVisibility()
+                }
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
+        }
+        gyroModeSpinner = modeSpinner
+        container.addView(modeSpinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt(); bottomMargin = (12f * density).toInt() })
+
+        // ── Gyro sensitivity (only for mouse/stick mapping) ──
+        val tvSens = TextView(context).apply {
+            text = "灵敏度"
+            setTextColor(-0x1)
+            textSize = 14f
+            setPadding(0, (4f * density).toInt(), 0, 0)
+        }
+        container.addView(tvSens)
+
+        val row = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = (4f * density).toInt()
+            }
+        }
+        val label = TextView(context).apply {
+            text = "灵敏度"
+            setTextColor(-0x444445)
+            textSize = 13f
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        row.addView(label)
+        val sensSeek = SeekBar(context).apply {
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2f)
+            max = 100
+            progress = presetGyroModeSensitivity
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(sb: SeekBar, p: Int, fromUser: Boolean) {
+                    presetGyroModeSensitivity = p
+                    gyroModeSensSeek = sb
+                    editorListener?.onGyroModeSensitivityChanged(p)
+                }
+                override fun onStartTrackingTouch(sb: SeekBar) {}
+                override fun onStopTrackingTouch(sb: SeekBar) {}
+            })
+        }
+        gyroModeSensSeek = sensSeek
+        row.addView(sensSeek)
+        container.addView(row)
+
+        // Separator
+        val sep = View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (1f * density).toInt()).apply {
+                topMargin = (12f * density).toInt()
+                bottomMargin = (8f * density).toInt()
+            }
+            background = GradientDrawable().apply { setColor(-0x444445) }
+        }
+        container.addView(sep)
+
+        // ── Gyro orientation (moved from its previous location) ──
+        val tvOri = TextView(context).apply {
+            text = "体感握持方向"
+            setTextColor(-0x1)
+            textSize = 14f
+        }
+        container.addView(tvOri)
+        buildGyroSelector(density, container)
+
+        // Store seekbar for visibility toggling
+
+        buttonParamsInner.addView(container)
+    }
+
+    private fun clearGlobalSettingsPanel() {
+        globalSettingsContainer?.removeAllViews()
+        globalSettingsContainer = null
+    }
+
+    private fun updateGyroModeVisibility() {
+        val vis = if (presetGyroMode != com.zyz4.gamepademu.model.GyroMode.HANDHELD) View.VISIBLE else View.GONE
+        gyroModeSensSeek?.parent?.let { (it as View).visibility = vis }
     }
 
     private fun buildGripBar(density: Float): View {
@@ -564,6 +715,34 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 }
             }
             buttonParamsInner.addView(cbOverlap, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+        }
+
+        // ── Gyro activation for all controls ──
+        if (!isSettingsButton(buttonId)) {
+            val cbGyro = CheckBox(context).apply {
+                text = "陀螺仪激活"
+                setTextColor(-0x444445)
+                textSize = 14f
+                isChecked = button.gyroActivate
+                setOnCheckedChangeListener { _, isChecked ->
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(gyroActivate = isChecked)) }
+                }
+            }
+            buttonParamsInner.addView(cbGyro, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+        }
+
+        // ── Auto hold for buttons ──
+        if (isButton(buttonId) && !isSettingsButton(buttonId)) {
+            val cbAutoHold = CheckBox(context).apply {
+                text = "自动保持"
+                setTextColor(-0x444445)
+                textSize = 14f
+                isChecked = button.autoHold
+                setOnCheckedChangeListener { _, isChecked ->
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(autoHold = isChecked)) }
+                }
+            }
+            buttonParamsInner.addView(cbAutoHold, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
         }
 
         val joystickOrTouchpadIds = setOf("leftJoystick", "rightJoystick", "touchpad")

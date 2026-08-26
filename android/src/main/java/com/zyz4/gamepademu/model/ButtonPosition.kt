@@ -39,6 +39,10 @@ data class ButtonPosition(
     val linearTriggerEnabled: Boolean = false,
     val slideDirection: SlideDirection = SlideDirection.DOWN,
     val travelDistance: Int = 10,
+    // ── Per-control gyro activation ──
+    val gyroActivate: Boolean = false,
+    // ── Auto hold: one tap holds, second tap releases ──
+    val autoHold: Boolean = false,
 ) {
     companion object {
         const val KEYPAD_BASE_ID = "customKeypad"

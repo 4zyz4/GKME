@@ -122,9 +122,17 @@ internal fun MainActivity.createFloatingEditor(): FloatingEditorPanel {
                 a.gamepadLayout.setTransparencyPreview(buttonId, isIdle, true)
             }
 
-            override fun onTransparencyPreviewEnd(buttonId: String) {
-                a.gamepadLayout.setTransparencyPreview(buttonId, true, false)
-            }
+override fun onTransparencyPreviewEnd(buttonId: String) {
+                    a.gamepadLayout.setTransparencyPreview(buttonId, true, false)
+                }
+
+                override fun onGyroModeChanged(mode: com.zyz4.gamepademu.model.GyroMode) {
+                    a.viewModel.updateGyroMode(mode)
+                }
+
+                override fun onGyroModeSensitivityChanged(value: Int) {
+                    a.viewModel.updateGyroModeSensitivity(value)
+                }
         }
     }.also { panel ->
         (a.findViewById<View>(android.R.id.content) as ViewGroup).addView(
