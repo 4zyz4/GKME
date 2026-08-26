@@ -296,6 +296,11 @@ class GamepadLayout @JvmOverloads constructor(
             || (0 until childCount).any { (getChildAt(it).tag as? String)?.startsWith("mousepad") == true }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (isEditMode) {
+            // In edit mode, bypass all children and route directly to onTouchEvent
+            // so the parent can handle dragging/resizing, instead of children consuming them.
+            return onTouchEvent(event)
+        }
         if (!isEditMode) {
             if (swipeTriggerIds.isNotEmpty()) {
                 return handleSwipeTriggerTouch(event)
@@ -915,6 +920,12 @@ class GamepadLayout @JvmOverloads constructor(
             }
             hasChanges = true
             refreshSwipeTriggers()
+            // Reset edit gesture state to prevent stale drag state when position is updated externally
+            gamepadEditGesture.reset()
+            draggingChild = null
+            resizingChild = null
+            draggingFollowArea = false
+            resizingFollowArea = false
             requestLayout()
             invalidate()
         }
@@ -1114,13 +1125,6 @@ class GamepadLayout @JvmOverloads constructor(
             if (child is CustomKeypadView) {
                 child.keypadTexts = ButtonPosition.keypadTextsOf(pos)
                 child.keypadCenterDoubleClick = pos.keypadCenterDoubleClick
-            }
-
-            // ViewGroup children: rotate nested children
-            if (child is ViewGroup) {
-                for (j in 0 until child.childCount) {
-                    child.getChildAt(j).rotation = pos.rotation.toFloat()
-                }
             }
         }
     }

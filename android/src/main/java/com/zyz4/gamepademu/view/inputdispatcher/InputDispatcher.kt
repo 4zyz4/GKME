@@ -187,6 +187,8 @@ data class ChildResizeStart(
     val startH: Int,
     val resizeStartGridX: Int,
     val resizeStartGridY: Int,
+    val localStartX: Float,
+    val localStartY: Float,
 )
 
 /**

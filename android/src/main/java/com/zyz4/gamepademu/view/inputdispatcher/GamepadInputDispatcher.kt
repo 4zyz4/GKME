@@ -212,11 +212,15 @@ override fun dispatchEdit(
 
         for ((id, rect) in bounds) {
             val pos = buttons.find { it.id == id } ?: continue
-            if (isOnHandleLocal(x, y, id, rect, handleHitPx)) {
+            if (isOnVisualHandle(x, y, pos, rect, handleHitPx, cellW, cellH)) {
                 commands += ResizeButton(id, pos.width, pos.height)
+                val vb = visualBounds(pos, cellW, cellH)
+                val localX = (x - vb[0]) / cellW
+                val localY = (y - vb[1]) / cellH
                 return EditDispatchResult(commands, state.copy(
                     childResizeStart = ChildResizeStart(id, pos.width, pos.height,
-                        (x / cellW).toInt(), (y / cellH).toInt()),
+                        (x / cellW).toInt(), (y / cellH).toInt(),
+                        localX, localY),
                 ))
             }
         }
@@ -296,18 +300,36 @@ override fun dispatchEdit(
             val dx = gx - rs.resizeStartGridX
             val dy = gy - rs.resizeStartGridY
             val oldPos = buttons.find { it.id == rs.buttonId } ?: return EditDispatchResult(commands, state)
-            val isSwapped = !oldPos.lockAspect && (oldPos.rotation == 90 || oldPos.rotation == 270)
-            var nw = if (isSwapped) (rs.startH + dy).coerceAtLeast(1) else (rs.startW + dx).coerceAtLeast(1)
-            var nh = if (isSwapped) (rs.startW + dx).coerceAtLeast(1) else (rs.startH + dy).coerceAtLeast(1)
+            
+            val rot = oldPos.rotation % 360
+            val screenDx = dx.toFloat()
+            val screenDy = dy.toFloat()
+            val localDx = when (rot) {
+                90  ->  screenDy
+                180 -> -screenDx
+                270 -> -screenDy
+                else -> screenDx
+            }
+            val localDy = when (rot) {
+                90  -> -screenDx
+                180 -> -screenDy
+                270 -> screenDx
+                else -> screenDy
+            }
+            
+            val localCurrentX = rs.localStartX + localDx
+            val localCurrentY = rs.localStartY + localDy
+            var nw = localCurrentX.coerceAtLeast(1f)
+            var nh = localCurrentY.coerceAtLeast(1f)
             if (oldPos.lockAspect) {
                 val side = maxOf(nw, nh); nw = side; nh = side
             }
             if (rs.buttonId == SETTINGS_BUTTON_ID) {
-                nw = nw.coerceAtMost(LayoutEngine.GRID_COLS - oldPos.x)
-                nh = nh.coerceAtMost(120 - oldPos.y)
+                nw = nw.coerceAtMost((LayoutEngine.GRID_COLS - oldPos.x).toFloat())
+                nh = nh.coerceAtMost((120 - oldPos.y).toFloat())
                 if (oldPos.lockAspect) { val s = minOf(nw, nh); nw = s; nh = s }
             }
-            commands += ResizeButton(rs.buttonId, nw, nh)
+            commands += ResizeButton(rs.buttonId, nw.toInt(), nh.toInt())
             return EditDispatchResult(commands, state)
         }
 
@@ -342,6 +364,21 @@ override fun dispatchEdit(
 
     // ──────── Geometry helpers ────────
 
+    private fun visualBounds(pos: com.zyz4.gamepademu.model.ButtonPosition, cellW: Float, cellH: Float): FloatArray {
+        val isSwapped = !pos.lockAspect && (pos.rotation % 360 in listOf(90, 270))
+        val lw = if (isSwapped) pos.height else pos.width
+        val lh = if (isSwapped) pos.width else pos.height
+        return floatArrayOf(pos.x * cellW, pos.y * cellH, lw * cellW, lh * cellH)
+    }
+
+    private fun isOnVisualHandle(x: Float, y: Float, pos: com.zyz4.gamepademu.model.ButtonPosition,
+                                  rect: android.graphics.Rect, handleHitPx: Float,
+                                  cellW: Float, cellH: Float): Boolean {
+        val vb = visualBounds(pos, cellW, cellH)
+        val vx = vb[0]; val vy = vb[1]; val vw = vb[2]; val vh = vb[3]
+        return x >= vx + vw - handleHitPx && x <= vx + vw && y >= vy + vh - handleHitPx && y <= vy + vh
+    }
+
     private fun isOnFollowAreaHandle(x: Float, y: Float, pos: com.zyz4.gamepademu.model.ButtonPosition, cellW: Float, handleHitPx: Float): Boolean {
         val fl = pos.followAreaX * cellW
         val ft = pos.followAreaY * cellW
@@ -357,9 +394,4 @@ override fun dispatchEdit(
         val fb = (pos.followAreaY + pos.followAreaH) * cellW
         return x >= fl && x <= fr && y >= ft && y <= fb
     }
-
-    private fun isOnHandleLocal(x: Float, y: Float, id: String, rect: android.graphics.Rect, handleHitPx: Float): Boolean {
-        return x >= rect.right - handleHitPx && x <= rect.right && y >= rect.bottom - handleHitPx && y <= rect.bottom
-    }
-
-    }
+}

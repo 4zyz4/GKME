@@ -71,7 +71,18 @@ internal fun MainActivity.createFloatingEditor(): FloatingEditorPanel {
             }
 
             override fun onButtonUpdated(buttonId: String, updated: ButtonPosition) {
-                a.gamepadLayout.updateButtonPosition(buttonId, updated)
+                val current = a.gamepadLayout.currentButtons.find { it.id == buttonId }
+                val merged = current?.let { cur ->
+                    updated.copy(
+                        x = cur.x,
+                        y = cur.y,
+                        followAreaX = cur.followAreaX,
+                        followAreaY = cur.followAreaY,
+                        followAreaW = cur.followAreaW,
+                        followAreaH = cur.followAreaH,
+                    )
+                } ?: updated
+                a.gamepadLayout.updateButtonPosition(buttonId, merged)
                 a.updateButtonLabels(a.viewModel.settings.value.displayMode)
             }
 

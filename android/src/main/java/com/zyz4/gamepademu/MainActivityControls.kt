@@ -917,7 +917,7 @@ internal fun MainActivity.updateButtonLabels(mode: DisplayMode) {
                         val labels = listOf("LB", "RB", "LT", "RT")
                         for (i in 0 until a.gamepadLayout.childCount) {
                             val child = a.gamepadLayout.getChildAt(i)
-                            if (child.tag == baseId) {
+                            if (child.tag.toString().startsWith(baseId)) {
                                 if (child is Button) child.text = labels[idx]
                                 break
                             }
@@ -927,7 +927,7 @@ internal fun MainActivity.updateButtonLabels(mode: DisplayMode) {
                         val labels = listOf("L1", "R1", "L2", "R2")
                         for (i in 0 until a.gamepadLayout.childCount) {
                             val child = a.gamepadLayout.getChildAt(i)
-                            if (child.tag == baseId) {
+                            if (child.tag.toString().startsWith(baseId)) {
                                 if (child is Button) child.text = labels[idx]
                                 break
                             }
@@ -937,7 +937,7 @@ internal fun MainActivity.updateButtonLabels(mode: DisplayMode) {
                         val labels = listOf("L", "R", "ZL", "ZR")
                         for (i in 0 until a.gamepadLayout.childCount) {
                             val child = a.gamepadLayout.getChildAt(i)
-                            if (child.tag == baseId) {
+                            if (child.tag.toString().startsWith(baseId)) {
                                 if (child is Button) child.text = labels[idx]
                                 break
                             }

@@ -148,7 +148,7 @@ class CustomKeypadView @JvmOverloads constructor(
         // All arcs sweep +90° (CW). arcTo(forceMoveTo=false) starts the arc at the current position.
         // After lineTo(circlePt), current position IS on the circle, so arc starts without a bridging line.
 
-        // UP(0):   edge NW↔NE, arc NW(225°)→NE(315°) via top. Start NE square, go to NW square, out to NW circle, arc to NE circle, close.
+        // UP(0):   edge NW→NE, arc NW(225°)→NE(315°) via top. Start NE square, go to NW square, out to NW circle, arc to NE circle, close.
         wedgePaths[0].reset()
         wedgePaths[0].moveTo(cx + c, cy - c)
         wedgePaths[0].lineTo(cx - c, cy - c)
@@ -156,7 +156,7 @@ class CustomKeypadView @JvmOverloads constructor(
         wedgePaths[0].arcTo(rect, 225f, 90f, false)
         wedgePaths[0].close()
 
-        // DOWN(1): edge SW↔SE, arc SE(45°)→SW(135°) via bottom. Start SW square, go to SE, out to SE circle, arc to SW circle, close.
+        // DOWN(1): edge SW→SE, arc SE(45°)→SW(135°) via bottom. Start SW square, go to SE, out to SE circle, arc to SW circle, close.
         wedgePaths[1].reset()
         wedgePaths[1].moveTo(cx - c, cy + c)
         wedgePaths[1].lineTo(cx + c, cy + c)
@@ -164,7 +164,7 @@ class CustomKeypadView @JvmOverloads constructor(
         wedgePaths[1].arcTo(rect, 45f, 90f, false)
         wedgePaths[1].close()
 
-        // LEFT(2): edge NW↔SW, arc SW(135°)→NW(225°) via left. Start NW square, go to SW, out to SW circle, arc to NW circle, close.
+        // LEFT(2): edge NW→SW, arc SW(135°)→NW(225°) via left. Start NW square, go to SW, out to SW circle, arc to NW circle, close.
         wedgePaths[2].reset()
         wedgePaths[2].moveTo(cx - c, cy - c)
         wedgePaths[2].lineTo(cx - c, cy + c)
@@ -172,7 +172,7 @@ class CustomKeypadView @JvmOverloads constructor(
         wedgePaths[2].arcTo(rect, 135f, 90f, false)
         wedgePaths[2].close()
 
-        // RIGHT(3): edge NE↔SE, arc NE(315°)→SE(45°) via right. Start NE square, out to NE circle, arc to SE circle, to SE square, close.
+        // RIGHT(3): edge NE→SE, arc NE(315°)→SE(45°) via right. Start NE square, out to NE circle, arc to SE circle, to SE square, close.
         wedgePaths[3].reset()
         wedgePaths[3].moveTo(cx + c, cy - c)
         wedgePaths[3].lineTo(cx + d, cy - d)

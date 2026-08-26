@@ -2,6 +2,7 @@ package com.zyz4.gamepademu.view
 
 import android.view.View
 import android.widget.Button
+import android.view.ViewGroup
 import com.zyz4.gamepademu.model.ButtonPosition
 import com.zyz4.gamepademu.model.GyroOrientation
 
@@ -113,7 +114,13 @@ class GamepadLayoutApplier {
             child.rotation = pos.rotation.toFloat()
         } else if (child is CustomKeypadView) {
             child.rotation = pos.rotation.toFloat()
-        } else if (pos.lockAspect && child !is com.zyz4.gamepademu.view.RotatableButton) {
+        } else if (child is com.zyz4.gamepademu.view.RotatableButton) {
+            child.textRotation = pos.rotation
+        } else if (child is ViewGroup) {
+            for (j in 0 until child.childCount) {
+                child.getChildAt(j).rotation = pos.rotation.toFloat()
+            }
+        } else if (pos.lockAspect) {
             child.rotation = pos.rotation.toFloat()
         }
     }

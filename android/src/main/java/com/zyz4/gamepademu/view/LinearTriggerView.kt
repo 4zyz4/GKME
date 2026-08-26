@@ -72,7 +72,29 @@ class LinearTriggerView @JvmOverloads constructor(
         super.onDraw(canvas)
     }
 
+    private fun isGamepadEditMode(): Boolean {
+        val p = parent
+        if (p != null && p is android.view.ViewGroup) {
+            var current: android.view.View? = this
+            while (current != null) {
+                val parent = current.parent
+                if (parent is com.zyz4.gamepademu.view.GamepadLayout) {
+                    return parent.isEditModeActive()
+                }
+                if (parent is android.view.View) {
+                    current = parent
+                } else {
+                    break
+                }
+            }
+        }
+        return false
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (isGamepadEditMode()) {
+            return super.onTouchEvent(event)
+        }
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 isDragging = true
