@@ -89,6 +89,7 @@ object AppearanceApplier {
         layout.setFollowAreaAppearance(settings.joyTriggerOutlineColor, settings.joyTriggerOutlineWidth)
         layout.setTouchpadAreaAppearance(settings.tpTriggerOutlineColor, settings.tpTriggerOutlineWidth)
         layout.setDpadPadTriggerAreaAppearance(settings.dpadPadTriggerOutlineColor, settings.dpadPadTriggerOutlineWidth)
+        layout.setLinearTriggerBoxAppearance(settings.linearTriggerBoxOutlineColor, settings.linearTriggerBoxOutlineWidth)
 
         val buttonMap = layout.currentButtons.associateBy { it.id }.toMap()
 

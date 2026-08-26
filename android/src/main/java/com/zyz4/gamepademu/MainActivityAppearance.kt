@@ -351,6 +351,22 @@ internal fun MainActivity.setupAppearancePage() {
     )
 
     // ── Reset buttons ──
+    a.findViewById<Button>(R.id.btnLinearTriggerBoxOutlineColor).setOnClickListener {
+        a.showColorPickerDialog(a.viewModel.settings.value.linearTriggerBoxOutlineColor) { color ->
+            a.onAppearanceChange { it.copy(linearTriggerBoxOutlineColor = color) }
+        }
+    }
+    a.findViewById<SeekBar>(R.id.seekLinearTriggerBoxOutlineWidth).setOnSeekBarChangeListener(
+        object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar, p: Int, fromUser: Boolean) {
+                if (!fromUser) return
+                a.findViewById<TextView>(R.id.tvLinearTriggerBoxOutlineWidth).text = "线框粗细: $p"
+                a.onAppearanceChange { it.copy(linearTriggerBoxOutlineWidth = p) }
+            }
+            override fun onStartTrackingTouch(sb: SeekBar?) {}
+            override fun onStopTrackingTouch(sb: SeekBar?) {}
+        }
+    )
     a.findViewById<Button>(R.id.btnResetBgColor).setOnClickListener {
         a.onAppearanceChange { it.copy(bgColor = 0xFF000000.toInt()) }
     }
@@ -374,6 +390,9 @@ internal fun MainActivity.setupAppearancePage() {
     }
     a.findViewById<Button>(R.id.btnResetJoyTriggerOutlineColor).setOnClickListener {
         a.onAppearanceChange { it.copy(joyTriggerOutlineColor = -0x666667) }
+    }
+    a.findViewById<Button>(R.id.btnResetLinearTriggerBoxOutlineColor).setOnClickListener {
+        a.onAppearanceChange { it.copy(linearTriggerBoxOutlineColor = 0xFF888888.toInt()) }
     }
     a.findViewById<Button>(R.id.btnResetTpColor).setOnClickListener {
         a.onAppearanceChange { it.copy(tpColor = 0xFF121212.toInt()) }
@@ -539,6 +558,11 @@ internal fun MainActivity.syncAppearanceUI() {
     a.findViewById<Button>(R.id.btnJoyTriggerOutlineColor).background = colorBg(s.joyTriggerOutlineColor)
     a.findViewById<SeekBar>(R.id.seekJoyTriggerOutlineWidth).progress = s.joyTriggerOutlineWidth
     a.findViewById<TextView>(R.id.tvJoyTriggerOutlineWidth).text = "触发区域粗细: ${s.joyTriggerOutlineWidth}"
+
+    // Linear Trigger Box
+    a.findViewById<Button>(R.id.btnLinearTriggerBoxOutlineColor).background = colorBg(s.linearTriggerBoxOutlineColor)
+    a.findViewById<SeekBar>(R.id.seekLinearTriggerBoxOutlineWidth).progress = s.linearTriggerBoxOutlineWidth
+    a.findViewById<TextView>(R.id.tvLinearTriggerBoxOutlineWidth).text = "线框粗细: ${s.linearTriggerBoxOutlineWidth}"
 
     // Touchpad
     a.selectChipGroup(listOf(R.id.btnTpFillSolid, R.id.btnTpFillImage), s.tpFillType.ordinal)

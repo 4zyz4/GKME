@@ -66,6 +66,12 @@ class GamepadRenderer(
         strokeWidth = 4f
     }
 
+    private val linearTriggerBoxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFF888888.toInt()
+        style = Paint.Style.STROKE
+        strokeWidth = 4f
+    }
+
     // ── Public API ──────────────────────────────────────────
 
     fun setFollowAreaAppearance(color: Int, strokeWidth: Float) {
@@ -81,6 +87,11 @@ class GamepadRenderer(
     fun setDpadPadTriggerAreaAppearance(color: Int, strokeWidth: Float) {
         dpadPadAreaPaint.color = color
         dpadPadAreaPaint.strokeWidth = strokeWidth
+    }
+
+    fun setLinearTriggerBoxAppearance(color: Int, strokeWidth: Float) {
+        linearTriggerBoxPaint.color = color
+        linearTriggerBoxPaint.strokeWidth = strokeWidth
     }
 
     /** Grid overlay animation progress [0f, 1f]. */
@@ -153,6 +164,44 @@ class GamepadRenderer(
             if (pos.id == adjustingFollowAreaId && isAdjustingFollowArea) {
                 val handleDpPx = handleSizeDp * density
                 canvas.drawRect(fRight - handleDpPx, fBottom - handleDpPx, fRight, fBottom, handlePaint)
+            }
+        }
+
+        // ── Draw linear trigger box outlines ──
+
+        for (pos in buttons) {
+            if (!pos.linearTriggerEnabled) continue
+
+            val vb = visualBounds(pos)
+            var left = vb[0] * cellW
+            var top = vb[1] * cellH
+            var width = vb[2] * cellW
+            var height = vb[3] * cellH
+
+            when (pos.slideDirection) {
+                com.zyz4.gamepademu.model.SlideDirection.DOWN -> {
+                    val travelH = pos.travelDistance * cellW
+                    height = height + travelH
+                }
+                com.zyz4.gamepademu.model.SlideDirection.UP -> {
+                    val travelH = pos.travelDistance * cellW
+                    top = top - travelH
+                    height = height + travelH
+                }
+                com.zyz4.gamepademu.model.SlideDirection.RIGHT -> {
+                    val travelW = pos.travelDistance * cellW
+                    width = width + travelW
+                }
+                com.zyz4.gamepademu.model.SlideDirection.LEFT -> {
+                    val travelW = pos.travelDistance * cellW
+                    left = left - travelW
+                    width = width + travelW
+                }
+            }
+
+            if (linearTriggerBoxPaint.strokeWidth > 0f) {
+                linearTriggerBoxPaint.alpha = 255
+                canvas.drawRect(left, top, left + width, top + height, linearTriggerBoxPaint)
             }
         }
 

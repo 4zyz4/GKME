@@ -826,6 +826,11 @@ class GamepadLayout @JvmOverloads constructor(
         invalidate()
     }
 
+    fun setLinearTriggerBoxAppearance(color: Int, strokeWidth: Int) {
+        gamepadRenderer.setLinearTriggerBoxAppearance(color, strokeWidth.toFloat())
+        invalidate()
+    }
+
     fun applyAppearance(settings: AppSettings) {
         appearanceSettings = settings
         AppearanceApplier.applyToGamepadLayout(this, settings)
