@@ -52,7 +52,8 @@ class GamepadViewModel @Inject constructor(
     val pairedDeviceName = connectionManager.pairedDeviceName
     val isBluetoothRunning: Boolean get() = connectionManager.isBluetoothRunning
 
-    private val _gamepadState = MutableStateFlow(GamepadState())
+    internal val _gamepadState = MutableStateFlow(GamepadState())
+    internal val gamepadState: StateFlow<GamepadState> = _gamepadState
 
     private val _displayMode = MutableStateFlow(DisplayMode.XBOX)
     val displayMode: StateFlow<DisplayMode> = _displayMode.asStateFlow()
@@ -287,7 +288,9 @@ class GamepadViewModel @Inject constructor(
         connectionManager.updateSettings(updated)
         if (enabled || settings.value.gyroMode != GyroMode.NONE) {
             startSensorDisplay()
-            if (settings.value.connectionMode == ConnectionMode.WIFI) {
+            if (settings.value.connectionMode == ConnectionMode.WIFI ||
+                settings.value.connectionMode == ConnectionMode.BLUETOOTH
+            ) {
                 startSensorSendLoop()
             }
         } else {
@@ -324,7 +327,9 @@ class GamepadViewModel @Inject constructor(
     fun updateGyroMode(mode: GyroMode) {
         val updated = settings.value.copy(gyroMode = mode)
         connectionManager.updateSettings(updated)
-        if (settings.value.connectionMode == ConnectionMode.WIFI) {
+        if (settings.value.connectionMode == ConnectionMode.WIFI ||
+            settings.value.connectionMode == ConnectionMode.BLUETOOTH
+        ) {
             if (mode != GyroMode.NONE || settings.value.gyroEnabled) {
                 startSensorSendLoop()
             } else {
@@ -431,7 +436,6 @@ class GamepadViewModel @Inject constructor(
             touchpadClick = touchpadClick || hasPhoneTouch,
             touches = if (hasPhoneTouch) phoneTouches else touches,
         )
-        sendInput()
     }
 
     fun onPhysicalControllerGyro(gyroX: Float, gyroY: Float, gyroZ: Float, accelX: Float, accelY: Float, accelZ: Float) {
@@ -448,35 +452,14 @@ class GamepadViewModel @Inject constructor(
 
     fun startServer() {
         connectionManager.startServer(viewModelScope)
-        // 鼠标数据写入 _gamepadState，并立即发一次。
-        // 动摇杆/触摸板时 sendInput 会立即发包，鼠标也需要同样的行为——
-        // 不能只靠循环线程发（循环线程发的包可能因为各种条件被丢弃，导致鼠标
-        // 单独使用时轮询率降到 5-10Hz）。
         connectionManager.onMouseReport = { button, dx, dy, wheel, hWheel ->
             _gamepadState.value = _gamepadState.value.copy(
                 mouseButtons = button,
-                mouseDx = dx.toShort(),
-                mouseDy = dy.toShort(),
-                mouseWheel = wheel.toShort(),
-                mousePan = hWheel.toShort(),
+                mouseDx = (dx.toInt() + _gamepadState.value.mouseDx.toInt()).coerceIn(-127, 127).toShort(),
+                mouseDy = (dy.toInt() + _gamepadState.value.mouseDy.toInt()).coerceIn(-127, 127).toShort(),
+                mouseWheel = (wheel.toInt() + _gamepadState.value.mouseWheel.toInt()).coerceIn(-127, 127).toShort(),
+                mousePan = (hWheel.toInt() + _gamepadState.value.mousePan.toInt()).coerceIn(-127, 127).toShort(),
             )
-            // 有操作时立即发送（和摇杆/触摸板行为一致）。
-            if (settings.value.connectionMode == ConnectionMode.WIFI &&
-                (button != 0 || dx != 0 || dy != 0 || wheel != 0 || hWheel != 0)) {
-                viewModelScope.launch {
-                    connectionManager.sendGamepadState(_gamepadState.value.toProto())
-                }
-            }
-            // 增量字段延迟清零（避免循环包重复叠加）。
-            if (dx != 0 || dy != 0 || wheel != 0 || hWheel != 0) {
-                viewModelScope.launch {
-                    delay(50)
-                    _gamepadState.value = _gamepadState.value.copy(
-                        mouseDx = 0, mouseDy = 0,
-                        mouseWheel = 0, mousePan = 0,
-                    )
-                }
-            }
         }
         if (settings.value.connectionMode == ConnectionMode.WIFI ||
             settings.value.connectionMode == ConnectionMode.BLUETOOTH
@@ -518,6 +501,27 @@ class GamepadViewModel @Inject constructor(
                 }
                 val input = _gamepadState.value.toProto()
                 connectionManager.sendGamepadState(input)
+                val pMx = _gamepadState.value.mouseDx
+                val pMy = _gamepadState.value.mouseDy
+                val pMw = _gamepadState.value.mouseWheel
+                val pMp = _gamepadState.value.mousePan
+                if (settings.value.connectionMode == ConnectionMode.BLUETOOTH && (pMx != 0.toShort() || pMy != 0.toShort() || pMw != 0.toShort() || pMp != 0.toShort() || _gamepadState.value.mouseButtons != 0)) {
+                    viewModelScope.launch {
+                        connectionManager.sendMouseReport(
+                            button = _gamepadState.value.mouseButtons.toByte(),
+                            dx = pMx.toByte(),
+                            dy = pMy.toByte(),
+                            wheel = pMw.toByte(),
+                            hWheel = pMp.toByte(),
+                        )
+                    }
+                }
+                if (pMx != 0.toShort() || pMy != 0.toShort() || pMw != 0.toShort() || pMp != 0.toShort()) {
+                    _gamepadState.value = _gamepadState.value.copy(
+                        mouseDx = 0, mouseDy = 0,
+                        mouseWheel = 0, mousePan = 0,
+                    )
+                }
                 val intervalMs = kotlin.math.round(1000.0 / settings.value.pollingRate).toLong().coerceAtLeast(1L)
                 nextSendTime += intervalMs
                 val waitTime = nextSendTime - System.currentTimeMillis()
@@ -583,11 +587,13 @@ class GamepadViewModel @Inject constructor(
                 val sens = s.gyroModeSensitivity / 100f
                 when (s.gyroMode) {
                     GyroMode.MOUSE -> {
-                        val mx = (-sensor.gyroY * sens * 50f).toInt().coerceIn(-127, 127).toShort()
-                        val my = (-sensor.gyroX * sens * 50f).toInt().coerceIn(-127, 127).toShort()
+                        val gyroMx = (-sensor.gyroY * sens * 50f).toInt().coerceIn(-127, 127)
+                        val gyroMy = (-sensor.gyroX * sens * 50f).toInt().coerceIn(-127, 127)
+                        val totalDx = (gyroMx + _gamepadState.value.mouseDx.toInt()).coerceIn(-127, 127).toShort()
+                        val totalDy = (gyroMy + _gamepadState.value.mouseDy.toInt()).coerceIn(-127, 127).toShort()
                         _gamepadState.value = _gamepadState.value.copy(
-                            mouseDx = mx,
-                            mouseDy = my,
+                            mouseDx = totalDx,
+                            mouseDy = totalDy,
                         )
                     }
                     GyroMode.LEFT_STICK -> {
@@ -611,6 +617,27 @@ class GamepadViewModel @Inject constructor(
 
                 val input = _gamepadState.value.toProto()
                 connectionManager.sendGamepadState(input)
+                val mDx = _gamepadState.value.mouseDx
+                val mDy = _gamepadState.value.mouseDy
+                val mWheel = _gamepadState.value.mouseWheel
+                val mPan = _gamepadState.value.mousePan
+                if (s.connectionMode == ConnectionMode.BLUETOOTH && (mDx != 0.toShort() || mDy != 0.toShort() || mWheel != 0.toShort() || mPan != 0.toShort() || _gamepadState.value.mouseButtons != 0)) {
+                    viewModelScope.launch {
+                        connectionManager.sendMouseReport(
+                            button = _gamepadState.value.mouseButtons.toByte(),
+                            dx = mDx.toByte(),
+                            dy = mDy.toByte(),
+                            wheel = mWheel.toByte(),
+                            hWheel = mPan.toByte(),
+                        )
+                    }
+                }
+                if (mDx != 0.toShort() || mDy != 0.toShort() || mWheel != 0.toShort() || mPan != 0.toShort()) {
+                    _gamepadState.value = _gamepadState.value.copy(
+                        mouseDx = 0, mouseDy = 0,
+                        mouseWheel = 0, mousePan = 0,
+                    )
+                }
                 val intervalMs = kotlin.math.round(1000.0 / settings.value.pollingRate).toLong().coerceAtLeast(1L)
                 nextSendTime += intervalMs
                 val waitTime = nextSendTime - System.currentTimeMillis()
@@ -624,36 +651,46 @@ class GamepadViewModel @Inject constructor(
     }
 
     fun onButtonDown(bit: Int) {
+        val wasDown = (_gamepadState.value.buttons and bit.toUInt()) != 0u
         phoneButtons = phoneButtons or bit.toUInt()
         _gamepadState.value = _gamepadState.value.copy(
             buttons = _gamepadState.value.buttons or bit.toUInt()
         )
-        onHapticFeedbackPress?.invoke()
-        sendInput()
+        if (!wasDown) {
+            onHapticFeedbackPress?.invoke()
+        }
     }
 
     fun onButtonUp(bit: Int) {
+        val wasUp = (_gamepadState.value.buttons and bit.toUInt()) == 0u
         phoneButtons = phoneButtons and (bit.toUInt().inv())
         _gamepadState.value = _gamepadState.value.copy(
             buttons = _gamepadState.value.buttons and (bit.toUInt().inv())
         )
+        if (wasUp) return
         onHapticFeedbackRelease?.invoke()
-        sendInput()
     }
 
     fun onCustomButtonDown(bits: List<Int>) {
         var pb = phoneButtons
         for (bit in bits) { pb = pb or bit.toUInt() }
         phoneButtons = pb
-        var b = _gamepadState.value.buttons
+        var prevButtons = _gamepadState.value.buttons
+        var b = prevButtons
         for (bit in bits) { b = b or bit.toUInt() }
         _gamepadState.value = _gamepadState.value.copy(buttons = b)
         if (bits.any { dpadDirOf(it) != null }) syncDpadFromButtons()
-        onHapticFeedbackPress?.invoke()
-        sendInput()
+        for (bit in bits) {
+            val wasDown = (prevButtons and bit.toUInt()) != 0u
+            if (!wasDown) {
+                onHapticFeedbackPress?.invoke()
+                break
+            }
+        }
     }
 
     fun onCustomButtonUp(bits: List<Int>) {
+        var prevButtons = _gamepadState.value.buttons
         var pb = phoneButtons
         for (bit in bits) { pb = pb and (bit.toUInt().inv()) }
         phoneButtons = pb
@@ -661,11 +698,19 @@ class GamepadViewModel @Inject constructor(
         for (bit in bits) { b = b and (bit.toUInt().inv()) }
         _gamepadState.value = _gamepadState.value.copy(buttons = b)
         if (bits.any { dpadDirOf(it) != null }) syncDpadFromButtons()
-        onHapticFeedbackRelease?.invoke()
-        sendInput()
+        var anyReleased = false
+        for (bit in bits) {
+            if (((prevButtons and bit.toUInt()) != 0u) && ((b and bit.toUInt()) == 0u)) {
+                anyReleased = true
+                break
+            }
+        }
+        if (anyReleased) {
+            onHapticFeedbackRelease?.invoke()
+        }
     }
 
-    /** D-pad hat value (GamepadState.DPAD_UP/DOWN/LEFT/… or 0) for a single output bit,
+    /** D-pad hat value (GamepadState.DPAD_UP/DOWN/LEFT/�?or 0) for a single output bit,
      *  or null when the bit is not a D-pad direction bit. */
     private fun dpadDirOf(bit: Int): Int? {
         return when (bit) {
@@ -709,7 +754,6 @@ class GamepadViewModel @Inject constructor(
         var b = _gamepadState.value.buttons
         for (bit in bits) { b = b or bit.toUInt() }
         _gamepadState.value = _gamepadState.value.copy(buttons = b)
-        fastSend()
     }
 
     fun onVolumeKeyUp(bits: List<Int>) {
@@ -719,29 +763,20 @@ class GamepadViewModel @Inject constructor(
         var b = _gamepadState.value.buttons
         for (bit in bits) { b = b and (bit.toUInt().inv()) }
         _gamepadState.value = _gamepadState.value.copy(buttons = b)
-        fastSend()
     }
 
-    private fun fastSend() {
-        if (settings.value.connectionMode == ConnectionMode.BLUETOOTH) return
-        viewModelScope.launch(Dispatchers.IO) {
-            val input = _gamepadState.value.toProto()
-            connectionManager.sendGamepadState(input)
-        }
-    }
+    
 
     fun onLeftStick(x: Short, y: Short) {
         phoneStickX = x
         phoneStickY = y
         _gamepadState.value = _gamepadState.value.copy(leftStickX = x, leftStickY = y)
-        sendInput()
     }
 
     fun onRightStick(x: Short, y: Short) {
         phoneRStickX = x
         phoneRStickY = y
         _gamepadState.value = _gamepadState.value.copy(rightStickX = x, rightStickY = y)
-        sendInput()
     }
 
     fun onDpad(dir: Int, pressed: Boolean) {
@@ -767,12 +802,11 @@ class GamepadViewModel @Inject constructor(
             else -> 0
         }
         _gamepadState.value = _gamepadState.value.copy(dpad = hat)
-        sendInput()
     }
 
     /** Batched D-pad update for multi-direction controls (e.g. the integrated d-pad). Fires the
      *  press haptic whenever the reported direction changes to another non-zero direction
-     *  (including corner → cardinal switches), never on release to zero. */
+     *  (including corner �?cardinal switches), never on release to zero. */
     fun updateDpad(pressed: Int, released: Int) {
         _dpadBits = (_dpadBits or pressed) and released.inv()
         if (_dpadBits != 0) onHapticFeedbackPress?.invoke()
@@ -784,7 +818,6 @@ class GamepadViewModel @Inject constructor(
             else -> 0
         }
         _gamepadState.value = _gamepadState.value.copy(dpad = hat)
-        sendInput()
     }
 
     /** Full release of a multi-direction control: plays the key-release haptic and clears all
@@ -794,20 +827,17 @@ class GamepadViewModel @Inject constructor(
         if (_dpadBits != 0) {
             _dpadBits = 0
             _gamepadState.value = _gamepadState.value.copy(dpad = 0)
-            sendInput()
         }
     }
 
     fun onLeftTrigger(value: Int) {
         phoneLT = value.toShort()
         _gamepadState.value = _gamepadState.value.copy(leftTrigger = value)
-        sendInput()
     }
 
     fun onRightTrigger(value: Int) {
         phoneRT = value.toShort()
         _gamepadState.value = _gamepadState.value.copy(rightTrigger = value)
-        sendInput()
     }
 
     fun onTouchpadTouches(touches: List<TouchPoint>) {
@@ -819,14 +849,7 @@ class GamepadViewModel @Inject constructor(
             touchpadY = primary?.y ?: 0,
             touchpadTouch = primary != null
         )
-        sendInput()
     }
 
-    private fun sendInput() {
-        if (settings.value.connectionMode == ConnectionMode.BLUETOOTH) return
-        viewModelScope.launch {
-            val input = _gamepadState.value.toProto()
-            connectionManager.sendGamepadState(input)
-        }
-    }
+    
 }

@@ -36,6 +36,7 @@ class GamepadLayoutApplier {
         getChildAt: (index: Int) -> View,
         getButtonId: (View) -> String?,
         buttons: Map<String, ButtonPosition>,
+        ctrlEntryBitMap: Map<String, Int>,
         cellW: Float,
         cellH: Float,
         selectedButtonId: String?,
@@ -43,11 +44,13 @@ class GamepadLayoutApplier {
         previewTransparency: Boolean,
         previewButtonId: String?,
         previewIdleTransparency: Boolean,
+        getPressedBits: () -> UInt,
         isAdaptiveContentButton: (String, View) -> Boolean,
         contentCapPx: (View, com.zyz4.gamepademu.model.AppSettings?) -> Int?,
         applyContentTextCap: (Button, Int) -> Unit,
         getRotation: (String) -> Int,
     ) {
+        val pressedBits = getPressedBits()
         for (i in 0 until childCount) {
             val child = getChildAt(i)
             val id = getButtonId(child) ?: continue
@@ -65,21 +68,15 @@ class GamepadLayoutApplier {
 
             applyChildLayout(child, pos, cellW, cellH, getRotation)
 
-            // Adaptive content padding
             if (isAdaptiveContentButton(id, child)) {
                 // Note: child.width/height may be 0 at this point; caller handles this
             }
 
-            // Content text cap
-            // (caller must invoke applyContentTextCap on Button children)
-
-            // Transparency
             applyChildTransparency(
-                child, pos, isEditMode, previewTransparency,
+                child, pos, ctrlEntryBitMap, pressedBits, isEditMode, previewTransparency,
                 previewButtonId, previewIdleTransparency, selectedButtonId,
             )
 
-            // Special child types
             applyChildSpecialProperties(
                 child, pos, id, isEditMode, selectedButtonId,
             )
@@ -128,6 +125,8 @@ class GamepadLayoutApplier {
     private fun applyChildTransparency(
         child: View,
         pos: ButtonPosition,
+        ctrlEntryBitMap: Map<String, Int>,
+        pressedBits: UInt,
         isEditMode: Boolean,
         previewTransparency: Boolean,
         previewButtonId: String?,
@@ -140,7 +139,11 @@ class GamepadLayoutApplier {
         } else if (isEditMode) {
             child.alpha = 1f
         } else {
-            child.alpha = 1f - (pos.idleTransparency.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
+            val baseId = child.tag?.toString()?.substringBefore("_") ?: ""
+            val bit = ctrlEntryBitMap[baseId] ?: 0
+            val isDown = bit != 0 && (pressedBits and bit.toUInt()) != 0u
+            val transVal = if (isDown) pos.activeTransparency else pos.idleTransparency
+            child.alpha = 1f - (transVal.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
         }
     }
 

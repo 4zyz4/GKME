@@ -3,7 +3,11 @@ package com.zyz4.gamepademu
 import android.bluetooth.BluetoothAdapter
 import android.content.Intent
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
+import android.widget.FrameLayout
+import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.Spinner
 import android.widget.Switch
 import android.widget.TextView
@@ -11,7 +15,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.zyz4.gamepademu.model.AudioOutput
+import com.zyz4.gamepademu.model.ButtonPosition
 import com.zyz4.gamepademu.model.ConnectionMode
+import com.zyz4.gamepademu.model.GamepadState
 import com.zyz4.gamepademu.model.VibrationMotor
 import com.zyz4.gamepademu.service.BluetoothTransportType
 import com.zyz4.gamepademu.service.ConnectionPhase
@@ -99,6 +105,12 @@ internal fun MainActivity.observeState() {
                         a.applyPreset(preset)
                     }
                     if (a.settingsInflated) a.updateGyroChipsLockState(preset.gyroOrientation)
+                }
+            }
+            launch {
+                a.viewModel._gamepadState.collect { state ->
+                    a.gamepadLayout._gamepadButtons = state.buttons
+                    a.gamepadLayout.ctrlEntryBitMap = com.zyz4.gamepademu.ctrlEntryBitMap
                 }
             }
             launch {

@@ -39,6 +39,19 @@ internal data class CtrlEntry(
     val lockAspect: Boolean = true,
 )
 
+internal val ctrlEntryBitMap: Map<String, Int> = listOf(
+    "btnA" to GamepadState.A, "btnB" to GamepadState.B,
+    "btnX" to GamepadState.X, "btnY" to GamepadState.Y,
+    "btnLB" to GamepadState.LB, "btnRB" to GamepadState.RB,
+    "btnLT" to GamepadState.LT, "btnRT" to GamepadState.RT,
+    "btnLS" to GamepadState.L3, "btnRS" to GamepadState.R3,
+    "btnSelect" to GamepadState.SELECT, "btnHome" to GamepadState.HOME,
+    "btnMenu" to GamepadState.START, "btnTouchpad" to GamepadState.TOUCHPAD_CLICK,
+    "btnMic" to GamepadState.MIC_MUTE,
+    "btnDpadUp" to GamepadState.DPAD_BIT_UP, "btnDpadDown" to GamepadState.DPAD_BIT_DOWN,
+    "btnDpadLeft" to GamepadState.DPAD_BIT_LEFT, "btnDpadRight" to GamepadState.DPAD_BIT_RIGHT,
+).toMap()
+
 internal val allControls = listOf(
     CtrlEntry("btnDpadUp", "上方向", R.drawable.ic_arrow_up, isDpad = true, useImageButton = true, bit = GamepadState.DPAD_UP),
     CtrlEntry("btnDpadDown", "下方向", R.drawable.ic_arrow_down, isDpad = true, useImageButton = true, bit = GamepadState.DPAD_DOWN),
@@ -193,18 +206,7 @@ internal fun MainActivity.createSettingsButtonView(): View {
 @SuppressLint("ClickableViewAccessibility")
 internal fun MainActivity.setupTouchHandler(view: View, bit: Int, isDpad: Boolean, isTrigger: Boolean, isJoystick: Boolean) {
     val a = this
-    fun applyActiveAlpha() {
-        val id = view.tag as? String ?: return
-        val pos = a.gamepadLayout.currentButtons.find { it.id == id } ?: return
-        view.alpha = 1f - (pos.activeTransparency.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
-    }
-    fun applyIdleAlpha() {
-        val id = view.tag as? String ?: return
-        val pos = a.gamepadLayout.currentButtons.find { it.id == id } ?: return
-        view.alpha = 1f - (pos.idleTransparency.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
-    }
-
-    // Auto-hold state per view
+    // Auto-hold state per view (local to this handler instance)
     val autoHoldState = mutableMapOf<String, Boolean>()
     fun getAutoHoldState(id: String): Boolean = autoHoldState[id] ?: false
     fun setAutoHoldState(id: String, state: Boolean) { autoHoldState[id] = state }
@@ -214,8 +216,8 @@ internal fun MainActivity.setupTouchHandler(view: View, bit: Int, isDpad: Boolea
     when {
         isDpad -> view.setOnTouchListener { v, e ->
             when (e.action) {
-                MotionEvent.ACTION_DOWN -> { v.isPressed = true; v.performClick(); applyActiveAlpha(); a.viewModel.onDpad(bit, true); true }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.isPressed = false; applyIdleAlpha(); a.viewModel.onDpad(bit, false); true }
+                MotionEvent.ACTION_DOWN -> { v.isPressed = true; v.performClick(); a.viewModel.onDpad(bit, true); true }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.isPressed = false; a.viewModel.onDpad(bit, false); true }
                 else -> true
             }
         }
@@ -223,8 +225,8 @@ internal fun MainActivity.setupTouchHandler(view: View, bit: Int, isDpad: Boolea
             val analogFn: (Int) -> Unit = if (bit == GamepadState.LT) a.viewModel::onLeftTrigger else a.viewModel::onRightTrigger
             view.setOnTouchListener { v, e ->
                 when (e.action) {
-                    MotionEvent.ACTION_DOWN -> { v.isPressed = true; v.performClick(); applyActiveAlpha(); a.viewModel.onButtonDown(bit); analogFn(255); true }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.isPressed = false; applyIdleAlpha(); a.viewModel.onButtonUp(bit); analogFn(0); true }
+                    MotionEvent.ACTION_DOWN -> { v.isPressed = true; v.performClick(); a.viewModel.onButtonDown(bit); analogFn(255); true }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.isPressed = false; a.viewModel.onButtonUp(bit); analogFn(0); true }
                     else -> true
                 }
             }
@@ -237,7 +239,6 @@ internal fun MainActivity.setupTouchHandler(view: View, bit: Int, isDpad: Boolea
                 MotionEvent.ACTION_DOWN -> {
                     v.isPressed = true
                     v.performClick()
-                    applyActiveAlpha()
                     if (bit != 0) {
                         if (holdEnabled) {
                             val held = getAutoHoldState(id)
@@ -256,7 +257,6 @@ internal fun MainActivity.setupTouchHandler(view: View, bit: Int, isDpad: Boolea
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     v.isPressed = false
-                    applyIdleAlpha()
                     if (bit != 0 && !(holdEnabled && getAutoHoldState(id))) {
                         a.viewModel.onButtonUp(bit)
                     }
@@ -879,7 +879,6 @@ internal fun MainActivity.setupCustomTouchHandler(view: View) {
             MotionEvent.ACTION_DOWN -> {
                 v.isPressed = true; v.performClick()
                 val pos = a.gamepadLayout.currentButtons.find { it.id == id }
-                if (pos != null) view.alpha = 1f - (pos.activeTransparency.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
                 val bits = pos?.customBits.orEmpty()
                 a.viewModel.onCustomButtonDown(bits)
                 true
@@ -887,7 +886,6 @@ internal fun MainActivity.setupCustomTouchHandler(view: View) {
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 v.isPressed = false
                 val pos = a.gamepadLayout.currentButtons.find { it.id == id }
-                if (pos != null) view.alpha = 1f - (pos.idleTransparency.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
                 val bits = pos?.customBits.orEmpty()
                 a.viewModel.onCustomButtonUp(bits)
                 true

@@ -77,6 +77,8 @@ class ConnectionManager @Inject constructor(
     // _gamepadState，使鼠标数据跟普通手柄数据合并到同一个 UDP 包里发送。
     var onMouseReport: ((button: Int, dx: Int, dy: Int, wheel: Int, hWheel: Int) -> Unit)? = null
 
+    private var _lastMouseButtonsBt = 0
+
     private val _connectionState = MutableStateFlow(ConnectionState())
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
 
@@ -507,7 +509,13 @@ class ConnectionManager @Inject constructor(
             ConnectionMode.BLUETOOTH -> {
                 val phase = _connectionState.value.phase
                 if (phase != ConnectionPhase.CONNECTED) return
-                bluetoothService?.sendMouseReport(button, dx, dy, wheel, hWheel)
+                var btn = button.toInt()
+                if (btn == 0 && (dx != 0.toByte() || dy != 0.toByte())) {
+                    btn = _lastMouseButtonsBt
+                } else {
+                    _lastMouseButtonsBt = btn
+                }
+                bluetoothService?.sendMouseReport(btn.toByte(), dx, dy, wheel, hWheel)
             }
             ConnectionMode.WIFI -> {
                 // 鼠标数据不再走独立 UDP 包，而是写入 ViewModel 的 _gamepadState。

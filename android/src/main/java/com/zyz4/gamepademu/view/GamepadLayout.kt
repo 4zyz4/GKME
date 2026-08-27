@@ -119,6 +119,10 @@ class GamepadLayout @JvmOverloads constructor(
     var hasChanges = false
         private set
 
+    // Button pressed state for active/idle transparency
+    var _gamepadButtons: UInt = 0u
+    var ctrlEntryBitMap: Map<String, Int> = emptyMap()
+
     var isAdjustingFollowArea = false
         private set
     var adjustingFollowAreaId: String? = null
@@ -1079,6 +1083,7 @@ class GamepadLayout @JvmOverloads constructor(
             getChildAt = { i -> getChildAt(i) },
             getButtonId = ::getButtonId,
             buttons = buttonMap,
+            ctrlEntryBitMap = ctrlEntryBitMap,
             cellW = cellW,
             cellH = cellH,
             selectedButtonId = selectedButtonId,
@@ -1086,6 +1091,7 @@ class GamepadLayout @JvmOverloads constructor(
             previewTransparency = previewTransparency,
             previewButtonId = previewButtonId,
             previewIdleTransparency = previewIdleTransparency,
+            getPressedBits = { _gamepadButtons },
             isAdaptiveContentButton = ::isAdaptiveContentButton,
             contentCapPx = { view, settings -> AppearanceApplier.contentCapPx(view, settings) },
             applyContentTextCap = { btn, capPx -> AppearanceApplier.applyContentTextCap(btn, capPx) },

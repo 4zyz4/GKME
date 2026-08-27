@@ -566,7 +566,7 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
                     }
                 }
                 onTriggerBottomVibrate = {
-                    viewModel.onHapticFeedbackPress?.invoke()
+                    a.performHaptic(isPress = true)
                 }
             }
         }
@@ -845,7 +845,7 @@ internal fun MainActivity.recreateViewForButton(buttonId: String, pos: ButtonPos
                 }
             }
             onTriggerBottomVibrate = {
-                viewModel.onHapticFeedbackPress?.invoke()
+                a.performHaptic(isPress = true)
             }
         }
     } else {
