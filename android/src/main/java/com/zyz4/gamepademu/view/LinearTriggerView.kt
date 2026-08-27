@@ -43,6 +43,8 @@ class LinearTriggerView @JvmOverloads constructor(
 
     var onValueChange: ((value: Int) -> Unit)? = null
     var onTriggerBottomVibrate: () -> Unit = {}
+    var onButtonDown: (() -> Unit)? = null
+    var onButtonUp: (() -> Unit)? = null
 
     private var travelPx = 0f
 
@@ -162,10 +164,19 @@ class LinearTriggerView @JvmOverloads constructor(
                     SlideDirection.LEFT, SlideDirection.RIGHT -> translationX
                 }
                 val normalized = abs(absOffset) / travelPx
-                currentValue = if (normalized < 0.004f) 0 else (normalized * 255).toInt().coerceIn(0, 255)
+                val newValue = if (normalized < 0.004f) 0 else (normalized * 255).toInt().coerceIn(0, 255)
 
                 invalidate()
-                onValueChange?.invoke(currentValue)
+                if (newValue != currentValue) {
+                    val prevValue = currentValue
+                    currentValue = newValue
+                    onValueChange?.invoke(currentValue)
+                    if (prevValue == 0 && currentValue > 0) {
+                        onButtonDown?.invoke()
+                    } else if (prevValue > 0 && currentValue == 0) {
+                        onButtonUp?.invoke()
+                    }
+                }
 
                 if (currentValue >= 255 && !wasAtMax) {
                     wasAtMax = true

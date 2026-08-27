@@ -551,6 +551,20 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
                         viewModel.onRightTrigger(value)
                     }
                 }
+                onButtonDown = {
+                    if (baseId == "btnLT") {
+                        viewModel.onButtonDown(GamepadState.LT)
+                    } else {
+                        viewModel.onButtonDown(GamepadState.RT)
+                    }
+                }
+                onButtonUp = {
+                    if (baseId == "btnLT") {
+                        viewModel.onButtonUp(GamepadState.LT)
+                    } else {
+                        viewModel.onButtonUp(GamepadState.RT)
+                    }
+                }
                 onTriggerBottomVibrate = {
                     viewModel.onHapticFeedbackPress?.invoke()
                 }
