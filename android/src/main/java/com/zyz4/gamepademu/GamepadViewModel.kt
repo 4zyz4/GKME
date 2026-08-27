@@ -702,9 +702,6 @@ class GamepadViewModel @Inject constructor(
         _gamepadState.value = _gamepadState.value.copy(
             buttons = _gamepadState.value.buttons or bit.toUInt()
         )
-        if (!wasDown) {
-            onHapticFeedbackPress?.invoke()
-        }
     }
 
     fun onButtonUp(bit: Int) {
@@ -713,7 +710,13 @@ class GamepadViewModel @Inject constructor(
         _gamepadState.value = _gamepadState.value.copy(
             buttons = _gamepadState.value.buttons and (bit.toUInt().inv())
         )
-        if (wasUp) return
+    }
+
+    fun triggerHapticPress() {
+        onHapticFeedbackPress?.invoke()
+    }
+
+    fun triggerHapticRelease() {
         onHapticFeedbackRelease?.invoke()
     }
 

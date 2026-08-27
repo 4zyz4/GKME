@@ -440,9 +440,10 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
         entry.isJoystick -> JoystickView(a).apply {
             this.id = View.generateViewId(); tag = id
             val isLeft = entry.baseId == "leftJoystick"
+            val clickBit = if (isLeft) GamepadState.L3 else GamepadState.R3
             label = if (isLeft) "L" else "R"
-            onStickClickDown = { a.viewModel.onButtonDown(if (isLeft) GamepadState.L3 else GamepadState.R3) }
-            onStickClickUp = { a.viewModel.onButtonUp(if (isLeft) GamepadState.L3 else GamepadState.R3) }
+            onStickClickDown = { a.viewModel.onButtonDown(clickBit); a.viewModel.triggerHapticPress() }
+            onStickClickUp = { a.viewModel.onButtonUp(clickBit); a.viewModel.triggerHapticRelease() }
             onStickMoved = { sx, sy -> if (isLeft) a.viewModel.onLeftStick(sx, sy) else a.viewModel.onRightStick(sx, sy) }
             doubleClickEnable = true
         }
@@ -703,9 +704,10 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
         entry.isJoystick -> JoystickView(a).apply {
             id = View.generateViewId(); tag = pos.id
             val isLeft = baseId == "leftJoystick"
+            val clickBit = if (isLeft) GamepadState.L3 else GamepadState.R3
             label = if (isLeft) "L" else "R"
-            onStickClickDown = { a.viewModel.onButtonDown(if (isLeft) GamepadState.L3 else GamepadState.R3) }
-            onStickClickUp = { a.viewModel.onButtonUp(if (isLeft) GamepadState.L3 else GamepadState.R3) }
+            onStickClickDown = { a.viewModel.onButtonDown(clickBit); a.viewModel.triggerHapticPress() }
+            onStickClickUp = { a.viewModel.onButtonUp(clickBit); a.viewModel.triggerHapticRelease() }
             onStickMoved = { sx, sy -> if (isLeft) a.viewModel.onLeftStick(sx, sy) else a.viewModel.onRightStick(sx, sy) }
         }
         entry.isTouchpad -> {
@@ -829,7 +831,7 @@ internal fun MainActivity.showOutputValuePicker(currentBits: List<Int>, onResult
     val mode = a.viewModel.settings.value.displayMode
     val cellW = (400f * density).toInt()
 
-    val gamepadBits = allControls.filter { it.baseId != "btnCustomCircle" && it.baseId != "btnCustomRect" && it.baseId != "customKeypad" && !it.isJoystick && !it.isTouchpad && !it.isMousepad }
+    val gamepadBits = allControls.filter { !it.baseId.startsWith("btnMouse") && it.baseId != "mousepad" && it.baseId != "btnCustomCircle" && it.baseId != "btnCustomRect" && it.baseId != "customKeypad" && !it.isJoystick && !it.isTouchpad && !it.isMousepad }
     val mouseBits = listOf("btnMouseLMB", "btnMouseRMB", "btnMouseMMB")
     val customBitsControls = allControls.filter { it.baseId == "btnCustomCircle" || it.baseId == "btnCustomRect" }
 
@@ -853,6 +855,12 @@ internal fun MainActivity.showOutputValuePicker(currentBits: List<Int>, onResult
         }
         if (alreadySelected) {
             wrapper.setBackgroundResource(R.drawable.bg_chip_selected)
+        }
+        val labelText = when (entry.baseId) {
+            "btnMouseLMB" -> "鼠标左键"
+            "btnMouseRMB" -> "鼠标右键"
+            "btnMouseMMB" -> "鼠标中键"
+            else -> entry.name
         }
         val text = a.getPreviewText(entry, mode)
         if (text != null) {
@@ -916,6 +924,12 @@ val btn = Button(a).apply {
             }
             wrapper.addView(iv)
         }
+        val label = TextView(a)
+        label.text = labelText
+        label.setTextColor(-0x333334)
+        label.textSize = 10f
+        label.gravity = Gravity.CENTER
+        wrapper.addView(label)
         return wrapper
     }
 

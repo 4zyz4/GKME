@@ -19,6 +19,8 @@ import com.zyz4.gamepademu.model.TouchPoint
 import com.zyz4.gamepademu.view.CustomKeypadView
 import com.zyz4.gamepademu.view.DpadPadView
 import com.zyz4.gamepademu.view.GamepadLayout
+import com.zyz4.gamepademu.view.ButtonEventHandler
+import com.zyz4.gamepademu.view.ButtonTracker
 
 private val _mainHandler = Handler(Looper.getMainLooper())
 
@@ -71,8 +73,8 @@ internal val allControls = listOf(
     CtrlEntry("btnRT", "RT", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, isTrigger = true, bit = GamepadState.RT, w = 14, h = 8, lockAspect = false),
     CtrlEntry("leftJoystick", "左摇杆", R.drawable.joystick_outer, isJoystick = true, w = 17, h = 17),
     CtrlEntry("rightJoystick", "右摇杆", R.drawable.joystick_outer, isJoystick = true, w = 17, h = 17),
-    CtrlEntry("touchpad", "触摸板", R.drawable.center_rect, isTouchpad = true, w = 34, h = 22, lockAspect = false),
-    CtrlEntry("mousepad", "鼠标", R.drawable.center_rect, isMousepad = true, w = 34, h = 22, lockAspect = false),
+    CtrlEntry("touchpad", "触摸板（手柄）", R.drawable.center_rect, isTouchpad = true, w = 34, h = 22, lockAspect = false),
+    CtrlEntry("mousepad", "触摸板（鼠标）", R.drawable.center_rect, isMousepad = true, w = 34, h = 22, lockAspect = false),
     CtrlEntry("btnTouchpad", "触摸板按下", R.drawable.btn_touchpad, R.drawable.btn_touchpad, bit = GamepadState.TOUCHPAD_CLICK, w = 9, h = 9),
     CtrlEntry("btnLS", "左摇杆按下", R.drawable.btn_ls, R.drawable.btn_ls, bit = GamepadState.L3, w = 9, h = 9),
     CtrlEntry("btnRS", "右摇杆按下", R.drawable.btn_rs, R.drawable.btn_rs, bit = GamepadState.R3, w = 9, h = 9),
@@ -212,16 +214,19 @@ internal fun MainActivity.createSettingsButtonView(): View {
     return view
 }
 
-@SuppressLint("ClickableViewAccessibility")
-internal fun MainActivity.setupTouchHandler(view: View, bit: Int, isDpad: Boolean, isTrigger: Boolean, isJoystick: Boolean) {
-    val a = this
-    // Auto-hold state per view (local to this handler instance)
-    val autoHoldState = mutableMapOf<String, Boolean>()
-    fun getAutoHoldState(id: String): Boolean = autoHoldState[id] ?: false
-    fun setAutoHoldState(id: String, state: Boolean) { autoHoldState[id] = state }
 
-    // Skip linear trigger views — they handle their own touch events
+
+@SuppressLint("ClickableViewAccessibility")
+internal fun MainActivity.setupTouchHandler(
+    view: View,
+    bit: Int,
+    isDpad: Boolean,
+    isTrigger: Boolean,
+    isJoystick: Boolean,
+) {
+    val a = this
     if (view is com.zyz4.gamepademu.view.LinearTriggerView) return
+
     when {
         isDpad -> view.setOnTouchListener { v, e ->
             when (e.action) {
@@ -234,69 +239,42 @@ internal fun MainActivity.setupTouchHandler(view: View, bit: Int, isDpad: Boolea
             val analogFn: (Int) -> Unit = if (bit == GamepadState.LT) a.viewModel::onLeftTrigger else a.viewModel::onRightTrigger
             view.setOnTouchListener { v, e ->
                 when (e.action) {
-                    MotionEvent.ACTION_DOWN -> { v.isPressed = true; v.performClick(); a.viewModel.onButtonDown(bit); analogFn(255); true }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.isPressed = false; a.viewModel.onButtonUp(bit); analogFn(0); true }
+                    MotionEvent.ACTION_DOWN -> { v.isPressed = true; v.performClick(); a.viewModel.onButtonDown(bit); a.viewModel.triggerHapticPress(); analogFn(255); true }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.isPressed = false; a.viewModel.onButtonUp(bit); a.viewModel.triggerHapticRelease(); analogFn(0); true }
                     else -> true
                 }
             }
         }
-        !isJoystick -> view.setOnTouchListener { v, e ->
-            val id = v.tag as? String
-            val curPos = id?.let { id2 -> a.gamepadLayout.currentButtons.find { it.id == id2 } }
+        !isJoystick -> {
+            val id = view.tag as? String
+            val curPos = id?.let { a.gamepadLayout.currentButtons.find { it.id == id } }
             val holdEnabled = curPos?.autoHold == true
             val gyroActivate = curPos?.gyroActivate == true
-            when (e.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    v.isPressed = true
-                    v.performClick()
-                    if (bit != 0) {
-                        if (holdEnabled) {
-                            val held = getAutoHoldState(id)
-                            if (held) {
-                                a.viewModel.onButtonUp(bit)
-                                setAutoHoldState(id, false)
-                                if (gyroActivate) {
-                                    a.viewModel.onGyroActivateButtonUp()
-                                }
-                            } else {
-                                a.viewModel.onButtonDown(bit)
-                                setAutoHoldState(id, true)
-                                if (gyroActivate) {
-                                    a.viewModel.onGyroActivateButtonDown()
-                                }
-                            }
-                        } else {
-                            if (gyroActivate) {
-                                a.viewModel.onGyroActivateButtonDown()
-                            }
-                            a.viewModel.onButtonDown(bit)
-                        }
-                    } else if (gyroActivate) {
-                        a.viewModel.onGyroActivateButtonDown()
-                    }
-                    true
+            val tracker = ButtonTracker()
+            val handler = object : ButtonEventHandler {
+                override fun onPress(viewId: String, bit: Int) {
+                    a.viewModel.triggerHapticPress()
+                    if (bit != 0) a.viewModel.onButtonDown(bit)
                 }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    v.isPressed = false
-                    if (bit != 0) {
-                        if (holdEnabled && getAutoHoldState(id)) {
-                            // button is locked in held state, do not release button or gyro
-                        } else {
-                            if (gyroActivate && !holdEnabled) {
-                                a.viewModel.onGyroActivateButtonUp()
-                            }
-                            a.viewModel.onButtonUp(bit)
-                        }
-                    } else if (gyroActivate && !holdEnabled) {
-                        a.viewModel.onGyroActivateButtonUp()
-                    }
-                    true
+                override fun onRelease(viewId: String, bit: Int) {
+                    a.viewModel.triggerHapticRelease()
+                    if (bit != 0) a.viewModel.onButtonUp(bit)
                 }
-                else -> true
+                override fun onGyroActivateDown(viewId: String) {
+                    if (gyroActivate) a.viewModel.onGyroActivateButtonDown()
+                }
+                override fun onGyroActivateUp(viewId: String) {
+                    if (gyroActivate) a.viewModel.onGyroActivateButtonUp()
+                }
+            }
+            view.setOnTouchListener { v, e ->
+                val viewId = v.tag as? String ?: ""
+                tracker.feed(e, v, viewId, bit, holdEnabled, gyroActivate, handler)
             }
         }
     }
 }
+
 
 @SuppressLint("ClickableViewAccessibility")
 internal fun MainActivity.createDpadPadView(id: String): DpadPadView {
@@ -355,6 +333,7 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
     val handler = Handler(Looper.getMainLooper())
     var firstTapTime = 0L; var firstTapX = 0f; var firstTapY = 0f
     var isDoubleClick = false
+    var wasDoubleClickUp = false
     val density = resources.displayMetrics.density
     val doubleTapTimeout = Runnable { firstTapTime = 0 }
     val slots = arrayOfNulls<TouchPoint>(10)
@@ -434,7 +413,12 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
             val slot = nearestSlot(sx, sy)
             if (slot >= 0) slots[slot] = null
             if (slots.all { it == null }) {
-                if (isDoubleClick) { v.isPressed = false; a.viewModel.onButtonUp(GamepadState.TOUCHPAD_CLICK) }
+                if (isDoubleClick) {
+                    v.isPressed = false
+                    wasDoubleClickUp = true
+                    a.viewModel.onButtonUp(GamepadState.TOUCHPAD_CLICK)
+                    a.viewModel.triggerHapticRelease()
+                }
                 isDoubleClick = false
                 touchpadAlpha(false)
             }
@@ -444,7 +428,12 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
 
         if (masked == MotionEvent.ACTION_CANCEL) {
             slots.fill(null)
-            if (isDoubleClick) { v.isPressed = false; a.viewModel.onButtonUp(GamepadState.TOUCHPAD_CLICK) }
+            if (isDoubleClick) {
+                v.isPressed = false
+                wasDoubleClickUp = true
+                a.viewModel.onButtonUp(GamepadState.TOUCHPAD_CLICK)
+                a.viewModel.triggerHapticRelease()
+            }
             isDoubleClick = false
             touchpadAlpha(false)
             send()
@@ -457,6 +446,10 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
             var slot = emptySlot()
             if (slot < 0) slot = nearestSlot(sx, sy)
             if (slot < 0) slot = if (masked == MotionEvent.ACTION_DOWN) 0 else 1
+            if (wasDoubleClickUp) {
+                a.viewModel.triggerHapticPress()
+                wasDoubleClickUp = false
+            }
             slots[slot] = TouchPoint(id = slot, x = sx, y = sy, active = true)
             touchpadAlpha(true)
             if (masked == MotionEvent.ACTION_DOWN) {
@@ -472,6 +465,7 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
                             handler.removeCallbacks(doubleTapTimeout)
                             v.isPressed = true; isDoubleClick = true; firstTapTime = 0
                             a.viewModel.onButtonDown(GamepadState.TOUCHPAD_CLICK)
+                            a.viewModel.triggerHapticPress()
                         } else {
                             firstTapTime = now; firstTapX = event.getX(0); firstTapY = event.getY(0); isDoubleClick = false
                             handler.postDelayed(doubleTapTimeout, 300)
