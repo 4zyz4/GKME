@@ -172,6 +172,9 @@ internal fun MainActivity.getPreviewText(entry: CtrlEntry, mode: DisplayMode): S
         "btnMenu" -> when (mode) { DisplayMode.PLAYSTATION -> "OPTION"; else -> null }
         "btnLS" -> "L"
         "btnRS" -> "R"
+        "btnMouseLMB" -> "LMB"
+        "btnMouseRMB" -> "RMB"
+        "btnMouseMMB" -> "MMB"
         "btnCustomCircle", "btnCustomRect" -> "自定义"
         else -> null
     }
@@ -182,7 +185,7 @@ internal fun MainActivity.getPreviewIcon(entry: CtrlEntry, mode: DisplayMode): I
     if (text != null) {
         return when (entry.baseId) {
             "btnLB", "btnRB", "btnLT", "btnRT" -> R.drawable.button_rounded_rect
-            "btnCustomRect" -> R.drawable.button_rounded_rect
+            "btnCustomRect", "btnMouseLMB", "btnMouseRMB", "btnMouseMMB" -> R.drawable.button_rounded_rect
             else -> R.drawable.button_circle
         }
     }
@@ -206,128 +209,221 @@ internal fun MainActivity.showAddButtonDialog() {
     val a = this
     val density = a.resources.displayMetrics.density
     val cols = 6
-    val cellW = (400f * density).toInt()
     val iconSize = (48f * density).toInt()
     val mode = a.viewModel.settings.value.displayMode
+    val cellW = (400f * density).toInt()
 
-    val content = NestedScrollView(a)
-    val grid = LinearLayout(a).apply {
-        orientation = LinearLayout.VERTICAL
-        setPadding((12f * density).toInt(), (12f * density).toInt(), (12f * density).toInt(), (12f * density).toInt())
+    // Categorize controls
+    val gamepadControls = allControls.filter {
+        val base = it.baseId
+        !base.startsWith("btnMouse") && base != "mousepad" && base != "btnCustomCircle" && base != "btnCustomRect" && base != "customKeypad"
     }
+    val mouseControls = allControls.filter { it.baseId.startsWith("btnMouse") || it.baseId == "mousepad" }
+    val customControls = allControls.filter { it.baseId in listOf("btnCustomCircle", "btnCustomRect", "customKeypad") }
 
-    allControls.chunked(cols).forEach { rowItems ->
-        val row = LinearLayout(a).apply {
-            orientation = LinearLayout.HORIZONTAL
+    fun createPreviewView(entry: CtrlEntry): View {
+        val wrapper = LinearLayout(a).apply {
+            orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
+            setOnClickListener { a.addDialog?.dismiss(); a.addControl(entry) }
+            isClickable = true
+            isFocusable = true
+            setPadding((6f * density).toInt(), (6f * density).toInt(), (6f * density).toInt(), (6f * density).toInt())
         }
-        rowItems.forEach { entry ->
-            val wrapper = LinearLayout(a).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER
-                setOnClickListener { a.addDialog?.dismiss(); a.addControl(entry) }
-                isClickable = true
-                isFocusable = true
-                setPadding((6f * density).toInt(), (6f * density).toInt(), (6f * density).toInt(), (6f * density).toInt())
-            }
-            val text = a.getPreviewText(entry, mode)
-            if (text != null) {
-                if (entry.baseId in listOf("btnLS", "btnRS")) {
-                    val fl = FrameLayout(a).apply {
-                        setBackgroundResource(R.drawable.button_circle)
-                        layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
-                    }
-                    val iconId = if (entry.baseId == "btnLS") R.drawable.ic_ls else R.drawable.ic_rs
-                    ImageView(a).apply {
-                        setImageResource(iconId)
-                        layoutParams = FrameLayout.LayoutParams(
-                            ViewGroup.LayoutParams.WRAP_CONTENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT,
-                            Gravity.TOP or Gravity.CENTER_HORIZONTAL
-                        )
-                    }.also { fl.addView(it) }
-                    TextView(a).apply {
-                        this.text = text
-                        setTextColor(-0x333334)
-                        textSize = 12f
-                        setTypeface(null, Typeface.BOLD)
-                        gravity = Gravity.CENTER
-                        layoutParams = FrameLayout.LayoutParams(
-                            ViewGroup.LayoutParams.WRAP_CONTENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT,
-                            Gravity.CENTER
-                        )
-                    }.also { fl.addView(it) }
-                    wrapper.addView(fl)
-                } else {
-                    val btn = Button(a).apply {
-                        this.text = text
-                        setTextColor(-0x333334)
-                        textSize = 12f
-                        setTypeface(null, Typeface.BOLD)
-                        setBackgroundResource(a.getPreviewIcon(entry, mode))
-                        gravity = Gravity.CENTER
-                        layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
-                        isClickable = false
-                    }
-                    wrapper.addView(btn)
-                }
-            } else if (entry.isJoystick) {
-                val jl = if (entry.baseId.startsWith("left")) "L" else "R"
-                val jv = object : View(a) {
-                    private val outerP = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = -0xdddddd; style = Paint.Style.FILL }
-                    private val outerS = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = -0xaaaaab; style = Paint.Style.STROKE; strokeWidth = 2f }
-                    private val innerP = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = -0xaaaaab; style = Paint.Style.FILL }
-                    private val innerS = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = -0x888889; style = Paint.Style.STROKE; strokeWidth = 1.5f }
-                    private val lp = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = -0x555556; textAlign = Paint.Align.CENTER }
-                    override fun onDraw(canvas: Canvas) {
-                        val cx = width / 2f; val cy = height / 2f
-                        val r = minOf(cx, cy)
-                        val kr = r * 0.32f
-                        canvas.drawCircle(cx, cy, r, outerP)
-                        canvas.drawCircle(cx, cy, r, outerS)
-                        canvas.drawCircle(cx, cy, kr, innerP)
-                        canvas.drawCircle(cx, cy, kr, innerS)
-                        lp.textSize = kr * 1.1f
-                        val textY = cy - (lp.ascent() + lp.descent()) / 2f
-                        canvas.drawText(jl, cx, textY, lp)
-                    }
-                }
-                jv.layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
-                wrapper.addView(jv)
-            } else if (entry.isTouchpad) {
-                val iv = ImageView(a).apply {
-                    setImageResource(a.getPreviewIcon(entry, mode))
+        val text = a.getPreviewText(entry, mode)
+        val labelText = when (entry.baseId) {
+            "btnMouseLMB" -> "鼠标左键"
+            "btnMouseRMB" -> "鼠标右键"
+            "btnMouseMMB" -> "鼠标中键"
+            else -> entry.name
+        }
+        if (text != null) {
+            if (entry.baseId in listOf("btnLS", "btnRS")) {
+                val fl = FrameLayout(a).apply {
+                    setBackgroundResource(R.drawable.button_circle)
                     layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
                 }
-                wrapper.addView(iv)
-            } else if (entry.isKeypad) {
-                val iv = ImageView(a).apply {
-                    setImageResource(a.getPreviewIcon(entry, mode))
-                    layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
-                }
-                wrapper.addView(iv)
+                val iconId = if (entry.baseId == "btnLS") R.drawable.ic_ls else R.drawable.ic_rs
+                ImageView(a).apply {
+                    setImageResource(iconId)
+                    layoutParams = FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                    )
+                }.also { fl.addView(it) }
+                TextView(a).apply {
+                    this.text = text
+                    setTextColor(-0x333334)
+                    textSize = 12f
+                    setTypeface(null, Typeface.BOLD)
+                    gravity = Gravity.CENTER
+                    layoutParams = FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        Gravity.CENTER
+                    )
+                }.also { fl.addView(it) }
+                wrapper.addView(fl)
             } else {
-                val iv = ImageView(a).apply {
-                    setImageResource(a.getPreviewIcon(entry, mode))
-                    if (!entry.isDpadPad) setBackgroundResource(R.drawable.button_circle)
+                val btn = Button(a).apply {
+                    this.text = text
+                    setTextColor(-0x333334)
+                    textSize = 12f
+                    setTypeface(null, Typeface.BOLD)
+                    setBackgroundResource(a.getPreviewIcon(entry, mode))
+                    gravity = Gravity.CENTER
                     layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+                    isClickable = false
                 }
-                wrapper.addView(iv)
+                wrapper.addView(btn)
             }
-            val label = TextView(a)
-            label.text = entry.name
-            label.setTextColor(-0x333334)
-            label.textSize = 10f
-            label.gravity = Gravity.CENTER
-            wrapper.addView(label)
-            row.addView(wrapper, LinearLayout.LayoutParams(cellW / cols, ViewGroup.LayoutParams.WRAP_CONTENT))
+        } else if (entry.isJoystick) {
+            val jl = if (entry.baseId.startsWith("left")) "L" else "R"
+            val jv = object : View(a) {
+                private val outerP = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = -0xdddddd; style = Paint.Style.FILL }
+                private val outerS = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = -0xaaaaab; style = Paint.Style.STROKE; strokeWidth = 2f }
+                private val innerP = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = -0xaaaaab; style = Paint.Style.FILL }
+                private val innerS = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = -0x888889; style = Paint.Style.STROKE; strokeWidth = 1.5f }
+                private val lp = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = -0x555556; textAlign = Paint.Align.CENTER }
+                override fun onDraw(canvas: Canvas) {
+                    val cx = width / 2f; val cy = height / 2f
+                    val r = minOf(cx, cy)
+                    val kr = r * 0.32f
+                    canvas.drawCircle(cx, cy, r, outerP)
+                    canvas.drawCircle(cx, cy, r, outerS)
+                    canvas.drawCircle(cx, cy, kr, innerP)
+                    canvas.drawCircle(cx, cy, kr, innerS)
+                    lp.textSize = kr * 1.1f
+                    val textY = cy - (lp.ascent() + lp.descent()) / 2f
+                    canvas.drawText(jl, cx, textY, lp)
+                }
+            }
+            jv.layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+            wrapper.addView(jv)
+        } else if (entry.isTouchpad) {
+            val iv = ImageView(a).apply {
+                setImageResource(a.getPreviewIcon(entry, mode))
+                layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+            }
+            wrapper.addView(iv)
+        } else if (entry.isKeypad) {
+            val iv = ImageView(a).apply {
+                setImageResource(a.getPreviewIcon(entry, mode))
+                layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+            }
+            wrapper.addView(iv)
+        } else if (entry.isMousepad) {
+            val iv = ImageView(a).apply {
+                setImageResource(a.getPreviewIcon(entry, mode))
+                layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+            }
+            wrapper.addView(iv)
+        } else {
+            val iv = ImageView(a).apply {
+                setImageResource(a.getPreviewIcon(entry, mode))
+                if (!entry.isDpadPad) setBackgroundResource(R.drawable.button_circle)
+                layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+            }
+            wrapper.addView(iv)
         }
-        grid.addView(row)
+        val label = TextView(a)
+        label.text = labelText
+        label.setTextColor(-0x333334)
+        label.textSize = 10f
+        label.gravity = Gravity.CENTER
+        wrapper.addView(label)
+        return wrapper
     }
 
-    content.addView(grid)
-    a.addDialog = CustomDialog.showCustomView(a, "添加控件", content, negativeText = "取消", scrollable = true)
+    fun buildGrid(controls: List<CtrlEntry>): View {
+        val grid = LinearLayout(a).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((12f * density).toInt(), (12f * density).toInt(), (12f * density).toInt(), (12f * density).toInt())
+        }
+        controls.chunked(cols).forEach { rowItems ->
+            val row = LinearLayout(a).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+            }
+            rowItems.forEach { entry ->
+                row.addView(createPreviewView(entry), LinearLayout.LayoutParams(cellW / cols, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                    if (rowItems.indexOf(entry) < rowItems.lastIndex) rightMargin = (6f * density).toInt()
+                })
+            }
+            grid.addView(row)
+        }
+        return grid
+    }
+
+    // Tab layout
+    val content = NestedScrollView(a)
+    val contentLayout = LinearLayout(a).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding((12f * density).toInt(), 0, (12f * density).toInt(), (12f * density).toInt())
+    }
+
+    val tabRow = LinearLayout(a).apply {
+        orientation = LinearLayout.HORIZONTAL
+        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        gravity = Gravity.CENTER
+    }
+
+    var selectedIndex = 0
+    val tabLabels = arrayOf("手柄", "鼠标", "自定义")
+    val tabViews = arrayOfNulls<TextView>(3)
+    val tabDatas = arrayOf(gamepadControls, mouseControls, customControls)
+
+    // Page container - defined before updateTabs so the lambda can reference it
+    val pageContainer = LinearLayout(a).apply {
+        orientation = LinearLayout.VERTICAL
+    }
+
+    // Pre-build pages first so pageViews is available in updateTabs lambda
+    val pageViews = arrayOfNulls<View>(3)
+    for (i in tabDatas.indices) {
+        pageViews[i] = buildGrid(tabDatas[i])
+    }
+    pageViews[0]?.let { pageContainer.addView(it) }
+
+    fun updateTabs() {
+        tabRow.removeAllViews()
+        for (i in tabLabels.indices) {
+            val tab = TextView(a).apply {
+                text = tabLabels[i]
+                setTextColor(if (i == selectedIndex) -0x1 else -0x666667)
+                textSize = 14f
+                setTypeface(null, Typeface.BOLD)
+                gravity = Gravity.CENTER
+                setBackgroundResource(if (i == selectedIndex) R.drawable.bg_chip_selected else R.drawable.bg_chip)
+                setPadding((16f * density).toInt(), (6f * density).toInt(), (16f * density).toInt(), (6f * density).toInt())
+                setOnClickListener {
+                    if (it != this) return@setOnClickListener
+                    selectedIndex = i
+                    pageContainer.removeAllViews()
+                    pageViews[i]?.let { pageContainer.addView(it) }
+                    // Re-render tabs to update selected style
+                    updateTabs()
+                }
+            }
+            tabViews[i] = tab
+            tabRow.addView(tab, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                if (i < tabLabels.lastIndex) rightMargin = (8f * density).toInt()
+            })
+        }
+    }
+
+    updateTabs()
+    contentLayout.addView(tabRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+        topMargin = (8f * density).toInt()
+        bottomMargin = (8f * density).toInt()
+    })
+
+    contentLayout.addView(pageContainer)
+    content.addView(contentLayout)
+
+    val dialogW = minOf((a.resources.displayMetrics.widthPixels * 0.85f).toInt(), (700f * density).toInt())
+    a.addDialog = CustomDialog.showCustomView(a, "添加控件", content, dialogW, negativeText = "取消", scrollable = true)
 }
 
 @SuppressLint("ClickableViewAccessibility")
@@ -406,6 +502,16 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
             }
             btn
         }
+        entry.baseId.startsWith("btnMouse") -> Button(a).apply {
+            this.id = View.generateViewId(); tag = id
+            text = entry.name
+            setAllCaps(false)
+            setTextColor(-0x333334); textSize = 12f
+            setTypeface(null, Typeface.BOLD)
+            setBackgroundResource(R.drawable.button_rounded_rect)
+            gravity = Gravity.CENTER
+            enableAutoFitButtonText(20f)
+        }
         !entry.lockAspect -> RotatableButton(a).apply {
             this.id = View.generateViewId(); tag = id
             setTextColor(-0x333334); textSize = 12f
@@ -426,6 +532,11 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
 
     // Add both the view and position together using post to ensure they are processed
     // in the same layout pass, avoiding a layout request where only the view exists.
+    val mouseTexts = mapOf(
+        "btnMouseLMB" to "LMB",
+        "btnMouseRMB" to "RMB",
+        "btnMouseMMB" to "MMB",
+    )
     val pos = if (entry.isKeypad) {
         ButtonPosition(
             id = id, x = 50, y = 20,
@@ -444,8 +555,8 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
             width = entry.w, height = entry.h,
             lockAspect = entry.lockAspect,
             isCustom = entry.isCustom,
-            customText = "自定义",
-            customBits = emptyList(),
+            customText = mouseTexts[entry.baseId] ?: "自定义",
+            customBits = if (entry.isCustom) emptyList() else listOfNotNull(a.getBitForEntry(entry)),
             roundShape = entry.baseId == "btnCustomCircle",
         )
     }
@@ -648,6 +759,16 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
                 enableAutoFitButtonText(20f)
             }
         }
+        baseId.startsWith("btnMouse") -> Button(a).apply {
+            id = View.generateViewId(); tag = pos.id
+            text = pos.customText ?: entry.name
+            setAllCaps(false)
+            setTextColor(-0x333334); textSize = 12f
+            setTypeface(null, Typeface.BOLD)
+            setBackgroundResource(R.drawable.button_rounded_rect)
+            gravity = Gravity.CENTER
+            enableAutoFitButtonText(20f)
+        }
         !entry.lockAspect -> RotatableButton(a).apply {
             id = View.generateViewId(); tag = pos.id
             setTextColor(-0x333334); textSize = 12f
@@ -692,6 +813,9 @@ internal fun MainActivity.getBitForEntry(entry: CtrlEntry): Int? {
         "btnDpadDown" -> GamepadState.DPAD_BIT_DOWN
         "btnDpadLeft" -> GamepadState.DPAD_BIT_LEFT
         "btnDpadRight" -> GamepadState.DPAD_BIT_RIGHT
+        "btnMouseLMB" -> GamepadState.MOUSE_LMB
+        "btnMouseRMB" -> GamepadState.MOUSE_RMB
+        "btnMouseMMB" -> GamepadState.MOUSE_MMB
         else -> if (entry.bit != 0) entry.bit else null
     }
 }
@@ -701,123 +825,193 @@ internal fun MainActivity.showOutputValuePicker(currentBits: List<Int>, onResult
     a.outputPickerDialog?.dismiss()
     val density = a.resources.displayMetrics.density
     val cols = 6
-    val cellW = (400f * density).toInt()
     val iconSize = (48f * density).toInt()
     val mode = a.viewModel.settings.value.displayMode
+    val cellW = (400f * density).toInt()
 
-    val content = NestedScrollView(a)
-    val grid = LinearLayout(a).apply {
-        orientation = LinearLayout.VERTICAL
-        setPadding((12f * density).toInt(), (12f * density).toInt(), (12f * density).toInt(), (12f * density).toInt())
+    val gamepadBits = allControls.filter { it.baseId != "btnCustomCircle" && it.baseId != "btnCustomRect" && it.baseId != "customKeypad" && !it.isJoystick && !it.isTouchpad && !it.isMousepad }
+    val mouseBits = listOf("btnMouseLMB", "btnMouseRMB", "btnMouseMMB")
+    val customBitsControls = allControls.filter { it.baseId == "btnCustomCircle" || it.baseId == "btnCustomRect" }
+
+    fun getBit(entry: CtrlEntry): Int? {
+        return a.getBitForEntry(entry)
     }
 
-    allControls.filter { it.baseId != "btnCustomCircle" && it.baseId != "btnCustomRect" && it.baseId != "customKeypad" && !it.isJoystick && !it.isTouchpad }
-        .chunked(cols).forEach { rowItems ->
-        val row = LinearLayout(a).apply {
-            orientation = LinearLayout.HORIZONTAL
+    fun createBitView(entry: CtrlEntry, alreadySelected: Boolean): View {
+        val bit = getBit(entry) ?: return View(a).apply { layoutParams = LinearLayout.LayoutParams(0, 0) }
+        val wrapper = LinearLayout(a).apply {
+            orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
+            setOnClickListener {
+                a.outputPickerDialog?.dismiss()
+                val newBits = if (alreadySelected) currentBits else currentBits + bit
+                onResult(newBits)
+            }
+            isClickable = true
+            isFocusable = true
+            setPadding((6f * density).toInt(), (6f * density).toInt(), (6f * density).toInt(), (6f * density).toInt())
         }
-        rowItems.forEach { entry ->
-            val bit = a.getBitForEntry(entry) ?: return@forEach
-            val alreadySelected = bit in currentBits
-
-            val wrapper = LinearLayout(a).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER
-                setOnClickListener {
-                    a.outputPickerDialog?.dismiss()
-                    val newBits = if (alreadySelected) currentBits else currentBits + bit
-                    onResult(newBits)
-                }
-                isClickable = true
-                isFocusable = true
-                setPadding((6f * density).toInt(), (6f * density).toInt(), (6f * density).toInt(), (6f * density).toInt())
-            }
-
-            if (alreadySelected) {
-                wrapper.setBackgroundResource(R.drawable.bg_chip_selected)
-            }
-
-            val text = a.getPreviewText(entry, mode)
-            if (text != null) {
-                if (entry.baseId in listOf("btnLS", "btnRS")) {
-                    val fl = FrameLayout(a).apply {
-                        setBackgroundResource(R.drawable.button_circle)
-                        layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
-                    }
-                    val iconId = if (entry.baseId == "btnLS") R.drawable.ic_ls else R.drawable.ic_rs
-                    ImageView(a).apply {
-                        setImageResource(iconId)
-                        layoutParams = FrameLayout.LayoutParams(
-                            ViewGroup.LayoutParams.WRAP_CONTENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT,
-                            Gravity.TOP or Gravity.CENTER_HORIZONTAL
-                        )
-                    }.also { fl.addView(it) }
-                    TextView(a).apply {
-                        this.text = text
-                        setTextColor(-0x333334)
-                        textSize = 12f
-                        setTypeface(null, Typeface.BOLD)
-                        gravity = Gravity.CENTER
-                        layoutParams = FrameLayout.LayoutParams(
-                            ViewGroup.LayoutParams.WRAP_CONTENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT,
-                            Gravity.CENTER
-                        )
-                    }.also { fl.addView(it) }
-                    wrapper.addView(fl)
-                } else {
-                    val btn = Button(a).apply {
-                        this.text = text
-                        setTextColor(-0x333334)
-                        textSize = 12f
-                        setTypeface(null, Typeface.BOLD)
-                        setBackgroundResource(a.getPreviewIcon(entry, mode))
-                        gravity = Gravity.CENTER
-                        layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
-                        isClickable = false
-                    }
-                    wrapper.addView(btn)
-                }
-            } else if (entry.isJoystick) {
-                val jl = if (entry.baseId.startsWith("left")) "L" else "R"
-                val jv = object : View(a) {
-                    private val outerP = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = -0xdddddd; style = Paint.Style.FILL }
-                    private val outerS = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = -0xaaaaab; style = Paint.Style.STROKE; strokeWidth = 2f }
-                    private val innerP = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = -0xaaaaab; style = Paint.Style.FILL }
-                    private val innerS = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = -0x888889; style = Paint.Style.STROKE; strokeWidth = 1.5f }
-                    private val lp = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = -0x555556; textAlign = Paint.Align.CENTER }
-                    override fun onDraw(canvas: Canvas) {
-                        val cx = width / 2f; val cy = height / 2f
-                        val r = minOf(cx, cy)
-                        val kr = r * 0.32f
-                        canvas.drawCircle(cx, cy, r, outerP)
-                        canvas.drawCircle(cx, cy, r, outerS)
-                        canvas.drawCircle(cx, cy, kr, innerP)
-                        canvas.drawCircle(cx, cy, kr, innerS)
-                        lp.textSize = kr * 1.1f
-                        val textY = cy - (lp.ascent() + lp.descent()) / 2f
-                        canvas.drawText(jl, cx, textY, lp)
-                    }
-                }
-                jv.layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
-                wrapper.addView(jv)
-            } else {
-                val iv = ImageView(a).apply {
-                    setImageResource(a.getPreviewIcon(entry, mode))
+        if (alreadySelected) {
+            wrapper.setBackgroundResource(R.drawable.bg_chip_selected)
+        }
+        val text = a.getPreviewText(entry, mode)
+        if (text != null) {
+            if (entry.baseId in listOf("btnLS", "btnRS")) {
+                val fl = FrameLayout(a).apply {
                     setBackgroundResource(R.drawable.button_circle)
                     layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
                 }
-                wrapper.addView(iv)
+                val iconId = if (entry.baseId == "btnLS") R.drawable.ic_ls else R.drawable.ic_rs
+                ImageView(a).apply {
+                    setImageResource(iconId)
+                    layoutParams = FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                    )
+                }.also { fl.addView(it) }
+                TextView(a).apply {
+                    this.text = text
+                    setTextColor(-0x333334)
+                    textSize = 12f
+                    setTypeface(null, Typeface.BOLD)
+                    gravity = Gravity.CENTER
+                    layoutParams = FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        Gravity.CENTER
+                    )
+                }.also { fl.addView(it) }
+                wrapper.addView(fl)
+            } else {
+                val btn = Button(a).apply {
+                    this.text = text
+                    setTextColor(-0x333334)
+                    textSize = 12f
+                    setTypeface(null, Typeface.BOLD)
+                    setBackgroundResource(a.getPreviewIcon(entry, mode))
+                    gravity = Gravity.CENTER
+                    layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+                    isClickable = false
+                }
+                wrapper.addView(btn)
             }
-            row.addView(wrapper, LinearLayout.LayoutParams(cellW / cols, ViewGroup.LayoutParams.WRAP_CONTENT))
+        } else if (entry.baseId.startsWith("btnMouse")) {
+val btn = Button(a).apply {
+                    this.text = text
+                    setTextColor(-0x333334)
+                    textSize = 12f
+                    setTypeface(null, Typeface.BOLD)
+                    setBackgroundResource(if (entry.baseId.startsWith("btnMouse")) R.drawable.button_rounded_rect else a.getPreviewIcon(entry, mode))
+                    gravity = Gravity.CENTER
+                    layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+                    isClickable = false
+                }
+            wrapper.addView(btn)
+        } else {
+            val iv = ImageView(a).apply {
+                setImageResource(a.getPreviewIcon(entry, mode))
+                setBackgroundResource(R.drawable.button_circle)
+                layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+            }
+            wrapper.addView(iv)
         }
-        grid.addView(row)
+        return wrapper
     }
 
-    content.addView(grid)
-    a.outputPickerDialog = CustomDialog.showCustomView(a, "选择传出值", content, negativeText = "取消", scrollable = true)
+    fun buildBitGrid(controls: List<CtrlEntry>, selectedBits: List<Int>): View {
+        val grid = LinearLayout(a).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((12f * density).toInt(), (12f * density).toInt(), (12f * density).toInt(), (12f * density).toInt())
+        }
+        controls.chunked(cols).forEach { rowItems ->
+            val row = LinearLayout(a).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+            }
+            rowItems.forEach { entry ->
+                val bit = getBit(entry) ?: return@forEach
+                val alreadySelected = bit in selectedBits
+                row.addView(createBitView(entry, alreadySelected), LinearLayout.LayoutParams(cellW / cols, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                    if (rowItems.indexOf(entry) < rowItems.lastIndex) rightMargin = (6f * density).toInt()
+                })
+            }
+            grid.addView(row)
+        }
+        return grid
+    }
+
+    val content = NestedScrollView(a)
+    val contentLayout = LinearLayout(a).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding((12f * density).toInt(), 0, (12f * density).toInt(), (12f * density).toInt())
+    }
+
+    val tabRow = LinearLayout(a).apply {
+        orientation = LinearLayout.HORIZONTAL
+        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        gravity = Gravity.CENTER
+    }
+
+    var selectedIndex = 0
+    val tabLabels = arrayOf("手柄", "鼠标", "自定义")
+
+    // Page container - defined before updateTabs so the lambda can reference it
+    val pageContainer = LinearLayout(a).apply {
+        orientation = LinearLayout.VERTICAL
+    }
+
+    // Pre-build pages first
+    val mouseControls = listOfNotNull(
+        allControls.find { it.baseId == "btnMouseLMB" },
+        allControls.find { it.baseId == "btnMouseRMB" },
+        allControls.find { it.baseId == "btnMouseMMB" },
+        allControls.find { it.baseId == "mousepad" }
+    )
+    val actualDatas = arrayOf(gamepadBits, mouseControls, customBitsControls)
+    val pageViews = arrayOfNulls<View>(3)
+    for (i in actualDatas.indices) {
+        pageViews[i] = buildBitGrid(actualDatas[i], currentBits)
+    }
+    pageViews[0]?.let { pageContainer.addView(it) }
+
+    fun updateTabs() {
+        tabRow.removeAllViews()
+        for (i in tabLabels.indices) {
+            val tab = TextView(a).apply {
+                text = tabLabels[i]
+                setTextColor(if (i == selectedIndex) -0x1 else -0x666667)
+                textSize = 14f
+                setTypeface(null, Typeface.BOLD)
+                gravity = Gravity.CENTER
+                setBackgroundResource(if (i == selectedIndex) R.drawable.bg_chip_selected else R.drawable.bg_chip)
+                setPadding((16f * density).toInt(), (6f * density).toInt(), (16f * density).toInt(), (6f * density).toInt())
+                setOnClickListener {
+                    if (it != this) return@setOnClickListener
+                    selectedIndex = i
+                    pageContainer.removeAllViews()
+                    pageViews[i]?.let { pageContainer.addView(it) }
+                    // Re-render tabs to update selected style
+                    updateTabs()
+                }
+            }
+            tabRow.addView(tab, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                if (i < tabLabels.lastIndex) rightMargin = (8f * density).toInt()
+            })
+        }
+    }
+
+    updateTabs()
+    contentLayout.addView(tabRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+        topMargin = (8f * density).toInt()
+        bottomMargin = (8f * density).toInt()
+    })
+
+    contentLayout.addView(pageContainer)
+    content.addView(contentLayout)
+
+    val dialogW = minOf((a.resources.displayMetrics.widthPixels * 0.85f).toInt(), (700f * density).toInt())
+    a.outputPickerDialog = CustomDialog.showCustomView(a, "选择映射键值", content, dialogW, negativeText = "取消", scrollable = true)
 }
 
 internal fun MainActivity.recreateViewForButton(buttonId: String, pos: ButtonPosition) {

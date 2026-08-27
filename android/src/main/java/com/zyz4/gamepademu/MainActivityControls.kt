@@ -48,6 +48,9 @@ internal val ctrlEntryBitMap: Map<String, Int> = listOf(
     "btnSelect" to GamepadState.SELECT, "btnHome" to GamepadState.HOME,
     "btnMenu" to GamepadState.START, "btnTouchpad" to GamepadState.TOUCHPAD_CLICK,
     "btnMic" to GamepadState.MIC_MUTE,
+    "btnMouseLMB" to GamepadState.MOUSE_LMB,
+    "btnMouseRMB" to GamepadState.MOUSE_RMB,
+    "btnMouseMMB" to GamepadState.MOUSE_MMB,
     "btnDpadUp" to GamepadState.DPAD_BIT_UP, "btnDpadDown" to GamepadState.DPAD_BIT_DOWN,
     "btnDpadLeft" to GamepadState.DPAD_BIT_LEFT, "btnDpadRight" to GamepadState.DPAD_BIT_RIGHT,
 ).toMap()
@@ -80,6 +83,9 @@ internal val allControls = listOf(
     CtrlEntry("btnCustomRect", "自定义(方)", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, w = 14, h = 8, lockAspect = false, isCustom = true),
     CtrlEntry("customKeypad", "自定义按键盘", R.drawable.ic_custom_keypad, isKeypad = true, w = 17, h = 17),
     CtrlEntry("btnMic", "麦克风静音", R.drawable.ic_mic, useImageButton = true, bit = GamepadState.MIC_MUTE, w = 9, h = 9),
+    CtrlEntry("btnMouseLMB", "LMB", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, bit = GamepadState.MOUSE_LMB, w = 9, h = 9),
+    CtrlEntry("btnMouseRMB", "RMB", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, bit = GamepadState.MOUSE_RMB, w = 9, h = 9),
+    CtrlEntry("btnMouseMMB", "MMB", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, bit = GamepadState.MOUSE_MMB, w = 9, h = 9),
 )
 
 // Keep custom button text vertically centered even when the button is shrunk:

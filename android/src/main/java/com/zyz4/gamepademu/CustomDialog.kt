@@ -73,6 +73,7 @@ object CustomDialog {
 
     fun showCustomView(
         context: Context, title: String? = null, contentView: View,
+        dialogWidth: Int = -1,
         negativeText: String? = null, positiveText: String? = null,
         onPositive: (() -> Unit)? = null, onNegative: (() -> Unit)? = null,
         cancelable: Boolean = true, scrollable: Boolean = false,
@@ -80,8 +81,9 @@ object CustomDialog {
         val dialog = baseDialog(context).apply { setCancelable(cancelable); setCanceledOnTouchOutside(cancelable) }
         if (scrollable) {
             val dm = context.resources.displayMetrics
+            val w = if (dialogWidth > 0) dialogWidth else (dm.widthPixels * 0.88).toInt()
             dialog.window?.setLayout(
-                (dm.widthPixels * 0.88).toInt(),
+                w,
                 (dm.heightPixels * 0.88).toInt()
             )
         }

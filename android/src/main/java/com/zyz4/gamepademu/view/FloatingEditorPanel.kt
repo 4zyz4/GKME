@@ -121,6 +121,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         "btnLT", "btnLB", "btnRT", "btnRB",
         "btnSelect", "btnHome", "btnMenu",
         "btnTouchpad", "btnLS", "btnRS", "btnMic",
+        "btnMouseLMB", "btnMouseRMB", "btnMouseMMB",
     )
 
     private var currentButton: ButtonPosition? = null
@@ -244,6 +245,9 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             "btnCustomCircle" -> "自定义(圆)"
             "btnCustomRect" -> "自定义(方)"
             "btnMic" -> "麦克风静音"
+            "btnMouseLMB" -> "鼠标左键"
+            "btnMouseRMB" -> "鼠标右键"
+            "btnMouseMMB" -> "鼠标中键"
             "btnSettings" -> "设置按钮"
             "btn" -> "按钮"
             "joystick" -> "摇杆"
@@ -1303,7 +1307,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
             // ── Output values section ──
             val tvOutputLabel = TextView(context).apply {
-                text = "传出值"
+                text = "映射键值"
                 setTextColor(-0x1)
                 textSize = 14f
             }
@@ -1647,6 +1651,9 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             GamepadState.DPAD_BIT_LEFT -> "左"
             GamepadState.DPAD_BIT_RIGHT -> "右"
             GamepadState.MIC_MUTE -> "麦克风静音"
+            GamepadState.MOUSE_LMB -> "LMB"
+            GamepadState.MOUSE_RMB -> "RMB"
+            GamepadState.MOUSE_MMB -> "MMB"
             else -> "位$bit"
         }
     }

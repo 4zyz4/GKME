@@ -54,6 +54,9 @@ data class GamepadState(
         const val HOME = 0x10000        // bit 16
         val TOUCHPAD_CLICK = 0x20000  // bit 17
         const val MIC_MUTE = 0x40000  // bit 18
+        const val MOUSE_LMB = 0x80000  // bit 19
+        const val MOUSE_RMB = 0x100000  // bit 20
+        const val MOUSE_MMB = 0x200000  // bit 21
         const val DPAD_UP = 1
         const val DPAD_DOWN = 2
         const val DPAD_LEFT = 4
