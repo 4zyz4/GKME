@@ -193,8 +193,11 @@ class LinearTriggerView @JvmOverloads constructor(
                     isPressed = false
                     setTranslationX(0f)
                     setTranslationY(0f)
-                    currentValue = 0
                     wasAtMax = false
+                    if (currentValue > 0) {
+                        onButtonUp?.invoke()
+                    }
+                    currentValue = 0
                     invalidate()
                     onValueChange?.invoke(0)
                     onTriggerBottomVibrate()
