@@ -532,13 +532,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
         container.addView(sep)
 
-        // ── Gyro orientation (moved from its previous location) ──
-        val tvOri = TextView(context).apply {
-            text = "体感握持方向"
-            setTextColor(-0x1)
-            textSize = 14f
-        }
-        container.addView(tvOri)
+        // ── Gyro orientation ──
         buildGyroSelector(density, container)
 
         // Store seekbar for visibility toggling
