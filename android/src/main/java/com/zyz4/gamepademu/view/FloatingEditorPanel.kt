@@ -47,6 +47,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         fun onGyroModeChanged(mode: com.zyz4.gamepademu.model.GyroMode)
         fun onGyroModeSensitivityChanged(value: Int)
         fun onGyroActivateModeChanged(mode: com.zyz4.gamepademu.model.GyroActivateMode)
+        fun onEnterGlobalGyroSettings()
+        fun onExitGlobalGyroSettings()
     }
 
     var editorListener: EditorListener? = null
@@ -94,7 +96,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     private var gyroModeSensSeek: SeekBar? = null
     private var gyroActivateSpinnerRef: Spinner? = null
     private var globalSettingsContainer: LinearLayout? = null
-    private var showingGlobalSettings = false
+    var showingGlobalSettings = false
 
     var currentSettings: com.zyz4.gamepademu.model.AppSettings? = null
 
@@ -125,11 +127,18 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     var isAdjustingFollowArea: Boolean = false
         set(value) {
             field = value
+            updateActionButtonsVisibility()
             val vis = if (value) View.GONE else View.VISIBLE
-            actionBtnRow?.visibility = vis
-            gyroSpinnerRow?.visibility = vis
             separatorLine?.visibility = vis
             buttonParamsInner?.visibility = vis
+            if (value) {
+                // When entering follow area adjust, show return button
+                adjustingReturnButtonText = getChineseName(currentButton?.id ?: "") + " 调节"
+                btnGlobalSettings?.text = "返回"
+            } else {
+                adjustingReturnButtonText = null
+                btnGlobalSettings?.text = if (showingGlobalSettings) "返回" else "陀螺仪设置"
+            }
         }
     private var panelX = 0f
     private var panelY = 0f
@@ -140,9 +149,12 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     private lateinit var paramsContainer: LinearLayout
     private lateinit var buttonParamsInner: LinearLayout
     private var actionBtnRow: LinearLayout? = null
-    private var gyroSpinnerRow: View? = null
+    var btnSave: Button? = null
+    var btnDiscard: Button? = null
+    var btnAdd: Button? = null
     private var separatorLine: View? = null
     private var btnGlobalSettings: Button? = null
+    private var adjustingReturnButtonText: String? = null
     private var contentW = 0
     private var panelW = 0
 
@@ -155,6 +167,14 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
     private fun isTouchpadId(id: String): Boolean = id.substringBefore("_") == "touchpad"
     private fun isMousepadId(id: String): Boolean = id.substringBefore("_") == "mousepad"
+
+    private fun updateActionButtonsVisibility() {
+        val hideSaveDiscardAdd = showingGlobalSettings || isAdjustingFollowArea
+        btnSave?.visibility = if (hideSaveDiscardAdd) View.GONE else View.VISIBLE
+        btnDiscard?.visibility = if (hideSaveDiscardAdd) View.GONE else View.VISIBLE
+        btnAdd?.visibility = if (hideSaveDiscardAdd) View.GONE else View.VISIBLE
+        btnGlobalSettings?.visibility = View.VISIBLE
+    }
 
     /** On-screen size of the touchpad in grid units (accounts for 90/270 rotation swap). */
     private fun touchpadScreenSize(pos: ButtonPosition): Pair<Int, Int> {
@@ -340,20 +360,33 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             setBackgroundResource(R.drawable.button_flat)
             setOnClickListener { editorListener?.onAddButton() }
         }
+        this.btnSave = btnSave
+        this.btnDiscard = btnDiscard
+        this.btnAdd = btnAdd
         btnGlobalSettings = Button(context).apply {
-            text = "全局设置"
+            text = "陀螺仪设置"
             setTextColor(-0x1)
             textSize = 13f
             setBackgroundResource(R.drawable.button_flat)
             setOnClickListener {
-                showingGlobalSettings = !showingGlobalSettings
-                if (showingGlobalSettings) {
-                    text = "返回"
-                    setTextColor(-0x1)
-                    buildGlobalSettingsPanel(density)
+                if (isAdjustingFollowArea) {
+                    // Return from follow area adjust
+                    editorListener?.onExitFollowAreaAdjust()
                 } else {
-                    text = "全局设置"
-                    clearGlobalSettingsPanel()
+                    showingGlobalSettings = !showingGlobalSettings
+                    if (showingGlobalSettings) {
+                        text = "返回"
+                        setTextColor(-0x1)
+                        currentButton = null
+                        editorListener?.onEnterGlobalGyroSettings()
+                        updateActionButtonsVisibility()
+                        buildGlobalSettingsPanel(density)
+                    } else {
+                        text = "陀螺仪设置"
+                        clearGlobalSettingsPanel()
+                        editorListener?.onExitGlobalGyroSettings()
+                        updateActionButtonsVisibility()
+                    }
                 }
             }
         }
@@ -635,6 +668,12 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
         buttonParamsInner.removeAllViews()
 
+        // Restore visibility when in follow area adjust mode
+        if (isAdjustingFollowArea) {
+            buttonParamsInner.visibility = View.VISIBLE
+            separatorLine?.visibility = View.VISIBLE
+        }
+
         val tvId = TextView(context).apply {
             text = getChineseName(buttonId)
             setTextColor(-0x1)
@@ -643,7 +682,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         buttonParamsInner.addView(tvId, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
 
         if (isAdjustingFollowArea) {
-            // Only show follow area dimensions + follow area transparency + return button
+            // Only show follow area dimensions + follow area transparency
             val touchpadAdjust = isTouchpadId(buttonId)
             val dpadPadAdjust = buttonId == "dpadPad"
             val keypadAdjust = ButtonPosition.isKeypad(buttonId)
@@ -683,21 +722,6 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 buttonParamsInner.addView(cbFollowOverlap, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
             }
 
-            val returnText = when {
-                touchpadAdjust -> "返回触摸板调节"
-                dpadPadAdjust -> "返回十字键调节"
-                keypadAdjust -> "返回按键盘调节"
-                else -> "返回摇杆调节"
-            }
-            val btnReturn = Button(context).apply {
-                text = returnText
-                setTextColor(-0x1)
-                textSize = 13f
-                setBackgroundResource(R.drawable.button_flat)
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (16f * density).toInt() }
-                setOnClickListener { editorListener?.onExitFollowAreaAdjust() }
-            }
-            buttonParamsInner.addView(btnReturn)
             return
         }
 

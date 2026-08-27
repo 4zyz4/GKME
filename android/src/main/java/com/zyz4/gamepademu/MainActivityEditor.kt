@@ -137,6 +137,15 @@ override fun onGyroModeSensitivityChanged(value: Int) {
                 override fun onGyroActivateModeChanged(mode: com.zyz4.gamepademu.model.GyroActivateMode) {
                         a.viewModel.updateGyroActivateMode(mode)
                     }
+
+            override fun onEnterGlobalGyroSettings() {
+                a.gamepadLayout.deselectButton()
+                a.gamepadLayout.blockSelectionForGlobalSettings = true
+            }
+
+            override fun onExitGlobalGyroSettings() {
+                a.gamepadLayout.blockSelectionForGlobalSettings = false
+            }
         }
     }.also { panel ->
         (a.findViewById<View>(android.R.id.content) as ViewGroup).addView(

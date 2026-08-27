@@ -116,8 +116,9 @@ internal fun MainActivity.setupGamepadLayoutListener() {
     gamepadLayout.listener = object : GamepadLayout.GamepadLayoutListener {
         override fun onButtonSelected(buttonId: String?) {
             a.viewModel.setSelectedButtonId(buttonId)
-            a.floatingEditor.restoreFromSettings(a.viewModel.settings.value)
-            if (buttonId != null) {
+            if (a.floatingEditor.showingGlobalSettings) {
+                a.floatingEditor.clearParameters()
+            } else if (buttonId != null) {
                 val pos = a.gamepadLayout.currentButtons.find { it.id == buttonId }
                 if (pos != null) {
                     a.floatingEditor.showParameters(buttonId, pos)

@@ -126,6 +126,8 @@ class GamepadLayout @JvmOverloads constructor(
     var isAdjustingFollowArea = false
         private set
     var adjustingFollowAreaId: String? = null
+    var blockSelectionForGlobalSettings = false
+        set
 
     private var draggingChild: View? = null
     private var dragOffsetX = 0f
@@ -973,10 +975,23 @@ class GamepadLayout @JvmOverloads constructor(
         if (isAdjustingFollowArea && adjustingFollowAreaId != null) {
             if (id != adjustingFollowAreaId) return
         }
+        // Prevent selection during global gyro settings
+        if (blockSelectionForGlobalSettings) {
+            if (selectedButtonId != null) return
+        }
         if (selectedButtonId != id) {
             selectedButtonId = id
             syncJoystickSelection()
             listener?.onButtonSelected(id)
+            invalidate()
+        }
+    }
+
+    fun deselectButton() {
+        selectedButtonId?.let { _ ->
+            selectedButtonId = null
+            syncJoystickSelection()
+            listener?.onButtonSelected(null)
             invalidate()
         }
     }
