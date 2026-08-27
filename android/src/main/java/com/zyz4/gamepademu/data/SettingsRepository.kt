@@ -14,6 +14,7 @@ import com.zyz4.gamepademu.model.DisplayMode
 import com.zyz4.gamepademu.model.FillType
 import com.zyz4.gamepademu.model.GyroOrientation
 import com.zyz4.gamepademu.model.GyroMode
+import com.zyz4.gamepademu.model.GyroActivateMode
 import com.zyz4.gamepademu.model.HapticEffect
 import com.zyz4.gamepademu.model.TargetPlatform
 import com.zyz4.gamepademu.model.AudioOutput
@@ -57,6 +58,7 @@ class SettingsRepository @Inject constructor(
         val GYRO_MODE = intPreferencesKey("gyro_mode")
         val GYRO_MODE_SENSITIVITY = intPreferencesKey("gyro_mode_sensitivity")
         val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
+        val GYRO_ACTIVATE_MODE = intPreferencesKey("gyro_activate_mode")
         val CONTROLLER_GYRO_ENABLED = booleanPreferencesKey("controller_gyro_enabled")
         val STRONG_VIBRATION_MAPPING = intPreferencesKey("strong_vibration_mapping")
         val WEAK_VIBRATION_MAPPING = intPreferencesKey("weak_vibration_mapping")
@@ -149,6 +151,9 @@ class SettingsRepository @Inject constructor(
             ) { GyroMode.HANDHELD },
             gyroModeSensitivity = prefs[Keys.GYRO_MODE_SENSITIVITY] ?: 20,
             keepScreenOn = prefs[Keys.KEEP_SCREEN_ON] ?: false,
+            gyroActivateMode = GyroActivateMode.entries.getOrElse(
+                prefs[Keys.GYRO_ACTIVATE_MODE] ?: 0
+            ) { GyroActivateMode.ALWAYS },
             controllerGyroEnabled = prefs[Keys.CONTROLLER_GYRO_ENABLED] ?: false,
             strongVibrationMapping = VibrationMotor.entries.getOrElse(
                 prefs[Keys.STRONG_VIBRATION_MAPPING] ?: VibrationMotor.PHONE_MOTOR.ordinal
@@ -233,6 +238,7 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.GYRO_MODE] = settings.gyroMode.ordinal
             prefs[Keys.GYRO_MODE_SENSITIVITY] = settings.gyroModeSensitivity
             prefs[Keys.KEEP_SCREEN_ON] = settings.keepScreenOn
+            prefs[Keys.GYRO_ACTIVATE_MODE] = settings.gyroActivateMode.ordinal
             prefs[Keys.CONTROLLER_GYRO_ENABLED] = settings.controllerGyroEnabled
             prefs[Keys.STRONG_VIBRATION_MAPPING] = settings.strongVibrationMapping.ordinal
             prefs[Keys.WEAK_VIBRATION_MAPPING] = settings.weakVibrationMapping.ordinal

@@ -116,8 +116,7 @@ internal fun MainActivity.setupGamepadLayoutListener() {
     gamepadLayout.listener = object : GamepadLayout.GamepadLayoutListener {
         override fun onButtonSelected(buttonId: String?) {
             a.viewModel.setSelectedButtonId(buttonId)
-            val preset = a.gamepadLayout.getPreset()
-            a.floatingEditor.presetGyroOrientation = preset.gyroOrientation
+            a.floatingEditor.restoreFromSettings(a.viewModel.settings.value)
             if (buttonId != null) {
                 val pos = a.gamepadLayout.currentButtons.find { it.id == buttonId }
                 if (pos != null) {
@@ -130,6 +129,9 @@ internal fun MainActivity.setupGamepadLayoutListener() {
 
         override fun onEditModeChanged(isEditMode: Boolean) {
             a.floatingEditor.visibility = if (isEditMode) View.VISIBLE else View.GONE
+            if (isEditMode) {
+                a.floatingEditor.restoreFromSettings(a.viewModel.settings.value)
+            }
         }
 
         override fun onTouchpadEvent(
@@ -235,6 +237,7 @@ internal fun MainActivity.setupTouchHandler(view: View, bit: Int, isDpad: Boolea
             val id = v.tag as? String
             val curPos = id?.let { id2 -> a.gamepadLayout.currentButtons.find { it.id == id2 } }
             val holdEnabled = curPos?.autoHold == true
+            val gyroActivate = curPos?.gyroActivate == true
             when (e.action) {
                 MotionEvent.ACTION_DOWN -> {
                     v.isPressed = true
@@ -245,20 +248,40 @@ internal fun MainActivity.setupTouchHandler(view: View, bit: Int, isDpad: Boolea
                             if (held) {
                                 a.viewModel.onButtonUp(bit)
                                 setAutoHoldState(id, false)
+                                if (gyroActivate) {
+                                    a.viewModel.onGyroActivateButtonUp()
+                                }
                             } else {
                                 a.viewModel.onButtonDown(bit)
                                 setAutoHoldState(id, true)
+                                if (gyroActivate) {
+                                    a.viewModel.onGyroActivateButtonDown()
+                                }
                             }
                         } else {
+                            if (gyroActivate) {
+                                a.viewModel.onGyroActivateButtonDown()
+                            }
                             a.viewModel.onButtonDown(bit)
                         }
+                    } else if (gyroActivate) {
+                        a.viewModel.onGyroActivateButtonDown()
                     }
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     v.isPressed = false
-                    if (bit != 0 && !(holdEnabled && getAutoHoldState(id))) {
-                        a.viewModel.onButtonUp(bit)
+                    if (bit != 0) {
+                        if (holdEnabled && getAutoHoldState(id)) {
+                            // button is locked in held state, do not release button or gyro
+                        } else {
+                            if (gyroActivate && !holdEnabled) {
+                                a.viewModel.onGyroActivateButtonUp()
+                            }
+                            a.viewModel.onButtonUp(bit)
+                        }
+                    } else if (gyroActivate && !holdEnabled) {
+                        a.viewModel.onGyroActivateButtonUp()
                     }
                     true
                 }

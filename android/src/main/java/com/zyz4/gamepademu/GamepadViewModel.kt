@@ -18,6 +18,7 @@ import com.zyz4.gamepademu.model.FillType
 import com.zyz4.gamepademu.model.GamepadState
 import com.zyz4.gamepademu.model.GyroMode
 import com.zyz4.gamepademu.model.GyroOrientation
+import com.zyz4.gamepademu.model.GyroActivateMode
 import com.zyz4.gamepademu.model.ButtonPosition
 import com.zyz4.gamepademu.model.HapticEffect
 import com.zyz4.gamepademu.model.LayoutPreset
@@ -77,6 +78,13 @@ class GamepadViewModel @Inject constructor(
     private val sensorHandler = SensorHandler(app)
     private var sendJob: Job? = null
     private var sensorDisplayJob: Job? = null
+    private var _gyroActivateCount: Int = 0
+    private val _gyroOverrideEnabled = MutableStateFlow(false)
+    val gyroOverrideEnabled: StateFlow<Boolean> = _gyroOverrideEnabled.asStateFlow()
+
+    private fun updateGyroOverrideFromCount() {
+        _gyroOverrideEnabled.value = _gyroActivateCount > 0
+    }
 
     var currentPresetGyroOrientation: GyroOrientation? = null
         set(value) {
@@ -286,7 +294,13 @@ class GamepadViewModel @Inject constructor(
     fun updateGyroEnabled(enabled: Boolean) {
         val updated = settings.value.copy(gyroEnabled = enabled)
         connectionManager.updateSettings(updated)
-        if (enabled || settings.value.gyroMode != GyroMode.NONE) {
+        val mode = settings.value.gyroActivateMode
+        val canGyro = if (mode == GyroActivateMode.BUTTON) {
+            enabled
+        } else {
+            enabled
+        }
+        if (canGyro || settings.value.gyroMode != GyroMode.NONE) {
             startSensorDisplay()
             if (settings.value.connectionMode == ConnectionMode.WIFI ||
                 settings.value.connectionMode == ConnectionMode.BLUETOOTH
@@ -342,6 +356,25 @@ class GamepadViewModel @Inject constructor(
     fun updateGyroModeSensitivity(value: Int) {
         val updated = settings.value.copy(gyroModeSensitivity = value)
         connectionManager.updateSettings(updated)
+    }
+
+    fun updateGyroActivateMode(mode: com.zyz4.gamepademu.model.GyroActivateMode) {
+        val updated = settings.value.copy(gyroActivateMode = mode)
+        connectionManager.updateSettings(updated)
+        if (mode == com.zyz4.gamepademu.model.GyroActivateMode.ALWAYS) {
+            _gyroActivateCount = 0
+            updateGyroOverrideFromCount()
+        }
+    }
+
+    fun onGyroActivateButtonDown() {
+        _gyroActivateCount = _gyroActivateCount + 1
+        updateGyroOverrideFromCount()
+    }
+
+    fun onGyroActivateButtonUp() {
+        _gyroActivateCount = maxOf(0, _gyroActivateCount - 1)
+        updateGyroOverrideFromCount()
     }
 
     fun updateStrongVibrationMapping(mapping: VibrationMotor) {
@@ -572,7 +605,12 @@ class GamepadViewModel @Inject constructor(
                 val sensor = sensorHandler.sensorData.value
                 _gyroDisplay.value = Triple(sensor.gyroX, sensor.gyroY, sensor.gyroZ)
                 val useControllerGyro = if (_physicalControllerConnected.value) s.controllerGyroEnabledConnected else s.controllerGyroEnabled
-                if (!useControllerGyro) {
+                val actualGyroEnabled = if (s.gyroActivateMode == com.zyz4.gamepademu.model.GyroActivateMode.BUTTON) {
+                    _gyroOverrideEnabled.value
+                } else {
+                    s.gyroEnabled
+                }
+                if (!useControllerGyro && actualGyroEnabled) {
                     _gamepadState.value = _gamepadState.value.copy(
                         gyroX = sensor.gyroX * s.gyroSensitivityX / 100f,
                         gyroY = sensor.gyroY * s.gyroSensitivityY / 100f,
@@ -584,35 +622,37 @@ class GamepadViewModel @Inject constructor(
                 }
 
                 // Apply gyro mapping mode (world coordinate system)
-                val sens = s.gyroModeSensitivity / 100f
-                when (s.gyroMode) {
-                    GyroMode.MOUSE -> {
-                        val gyroMx = (-sensor.gyroY * sens * 50f).toInt().coerceIn(-127, 127)
-                        val gyroMy = (-sensor.gyroX * sens * 50f).toInt().coerceIn(-127, 127)
-                        val totalDx = (gyroMx + _gamepadState.value.mouseDx.toInt()).coerceIn(-127, 127).toShort()
-                        val totalDy = (gyroMy + _gamepadState.value.mouseDy.toInt()).coerceIn(-127, 127).toShort()
-                        _gamepadState.value = _gamepadState.value.copy(
-                            mouseDx = totalDx,
-                            mouseDy = totalDy,
-                        )
+                if (actualGyroEnabled && !useControllerGyro) {
+                    val sens = s.gyroModeSensitivity / 100f
+                    when (s.gyroMode) {
+                        GyroMode.MOUSE -> {
+                            val gyroMx = (-sensor.gyroY * sens * 50f).toInt().coerceIn(-127, 127)
+                            val gyroMy = (-sensor.gyroX * sens * 50f).toInt().coerceIn(-127, 127)
+                            val totalDx = (gyroMx + _gamepadState.value.mouseDx.toInt()).coerceIn(-127, 127).toShort()
+                            val totalDy = (gyroMy + _gamepadState.value.mouseDy.toInt()).coerceIn(-127, 127).toShort()
+                            _gamepadState.value = _gamepadState.value.copy(
+                                mouseDx = totalDx,
+                                mouseDy = totalDy,
+                            )
+                        }
+                        GyroMode.LEFT_STICK -> {
+                            val lx = (-sensor.gyroY * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
+                            val ly = (-sensor.gyroX * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
+                            _gamepadState.value = _gamepadState.value.copy(
+                                leftStickX = lx,
+                                leftStickY = ly,
+                            )
+                        }
+                        GyroMode.RIGHT_STICK -> {
+                            val rx = (-sensor.gyroY * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
+                            val ry = (-sensor.gyroX * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
+                            _gamepadState.value = _gamepadState.value.copy(
+                                rightStickX = rx,
+                                rightStickY = ry,
+                            )
+                        }
+                        else -> {}
                     }
-                    GyroMode.LEFT_STICK -> {
-                        val lx = (-sensor.gyroY * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
-                        val ly = (-sensor.gyroX * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
-                        _gamepadState.value = _gamepadState.value.copy(
-                            leftStickX = lx,
-                            leftStickY = ly,
-                        )
-                    }
-                    GyroMode.RIGHT_STICK -> {
-                        val rx = (-sensor.gyroY * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
-                        val ry = (-sensor.gyroX * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
-                        _gamepadState.value = _gamepadState.value.copy(
-                            rightStickX = rx,
-                            rightStickY = ry,
-                        )
-                    }
-                    else -> {}
                 }
 
                 val input = _gamepadState.value.toProto()
@@ -636,6 +676,12 @@ class GamepadViewModel @Inject constructor(
                     _gamepadState.value = _gamepadState.value.copy(
                         mouseDx = 0, mouseDy = 0,
                         mouseWheel = 0, mousePan = 0,
+                    )
+                }
+                if (!actualGyroEnabled) {
+                    _gamepadState.value = _gamepadState.value.copy(
+                        leftStickX = 0, leftStickY = 0,
+                        rightStickX = 0, rightStickY = 0,
                     )
                 }
                 val intervalMs = kotlin.math.round(1000.0 / settings.value.pollingRate).toLong().coerceAtLeast(1L)

@@ -46,6 +46,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         fun onTransparencyPreviewEnd(buttonId: String)
         fun onGyroModeChanged(mode: com.zyz4.gamepademu.model.GyroMode)
         fun onGyroModeSensitivityChanged(value: Int)
+        fun onGyroActivateModeChanged(mode: com.zyz4.gamepademu.model.GyroActivateMode)
     }
 
     var editorListener: EditorListener? = null
@@ -77,12 +78,33 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
 
     var presetGyroModeSensitivity: Int = 20
+    set(value) {
+        field = value
+        gyroModeSensSeek?.progress = value
+    }
+
+    var presetGyroActivateMode: com.zyz4.gamepademu.model.GyroActivateMode = com.zyz4.gamepademu.model.GyroActivateMode.ALWAYS
+        set(value) {
+            field = value
+            gyroActivateSpinnerRef?.setSelection(value.ordinal)
+        }
 
     private var gyroSpinner: Spinner? = null
     private var gyroModeSpinner: Spinner? = null
     private var gyroModeSensSeek: SeekBar? = null
+    private var gyroActivateSpinnerRef: Spinner? = null
     private var globalSettingsContainer: LinearLayout? = null
     private var showingGlobalSettings = false
+
+    var currentSettings: com.zyz4.gamepademu.model.AppSettings? = null
+
+    fun restoreFromSettings(settings: com.zyz4.gamepademu.model.AppSettings) {
+        currentSettings = settings
+        presetGyroOrientation = settings.gyroOrientation
+        presetGyroMode = settings.gyroMode
+        presetGyroModeSensitivity = settings.gyroModeSensitivity
+        presetGyroActivateMode = settings.gyroActivateMode
+    }
 
     private val mappingModeValues = listOf(
         com.zyz4.gamepademu.model.GyroMode.HANDHELD,
@@ -401,6 +423,36 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
         val container = globalSettingsContainer!!
 
+        // ── Gyro activation mode ──
+        val tvGyroActivate = TextView(context).apply {
+            text = "陀螺仪激活方式"
+            setTextColor(-0x1)
+            textSize = 15f
+            setPadding(0, (8f * density).toInt(), 0, 0)
+        }
+        container.addView(tvGyroActivate)
+
+        val gyroActivateItems = listOf("始终开启", "按下特定按钮开启")
+        val gyroActivateSpinner = Spinner(context).apply {
+            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, gyroActivateItems).also {
+                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+            setSelection(currentSettings?.gyroActivateMode?.ordinal ?: 0)
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                    val mode = when (pos) {
+                        1 -> com.zyz4.gamepademu.model.GyroActivateMode.BUTTON
+                        else -> com.zyz4.gamepademu.model.GyroActivateMode.ALWAYS
+                    }
+                    presetGyroActivateMode = mode
+                    editorListener?.onGyroActivateModeChanged(mode)
+                }
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
+        }
+        gyroActivateSpinnerRef = gyroActivateSpinner
+        container.addView(gyroActivateSpinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt(); bottomMargin = (12f * density).toInt() })
+
         // ── Gyro mapping mode ──
         val tvGyroMode = TextView(context).apply {
             text = "陀螺仪行为"
@@ -415,7 +467,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, gyroModeItems).also {
                 it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
             }
-            setSelection(mappingModeValues.indexOf(presetGyroMode).coerceAtLeast(0))
+            setSelection(mappingModeValues.indexOf(currentSettings?.gyroMode ?: com.zyz4.gamepademu.model.GyroMode.HANDHELD).coerceAtLeast(0))
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
                     val mode = mappingModeValues.getOrNull(pos) ?: GyroMode.HANDHELD
@@ -455,7 +507,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         val sensSeek = SeekBar(context).apply {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2f)
             max = 100
-            progress = presetGyroModeSensitivity
+            progress = currentSettings?.gyroModeSensitivity ?: 20
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(sb: SeekBar, p: Int, fromUser: Boolean) {
                     presetGyroModeSensitivity = p
@@ -718,9 +770,9 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
 
         // ── Gyro activation for all controls ──
-        if (!isSettingsButton(buttonId)) {
+        if (!isSettingsButton(buttonId) && presetGyroActivateMode == com.zyz4.gamepademu.model.GyroActivateMode.BUTTON) {
             val cbGyro = CheckBox(context).apply {
-                text = "陀螺仪激活"
+                text = "用于激活陀螺仪"
                 setTextColor(-0x444445)
                 textSize = 14f
                 isChecked = button.gyroActivate

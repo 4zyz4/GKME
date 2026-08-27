@@ -130,9 +130,13 @@ override fun onTransparencyPreviewEnd(buttonId: String) {
                     a.viewModel.updateGyroMode(mode)
                 }
 
-                override fun onGyroModeSensitivityChanged(value: Int) {
-                    a.viewModel.updateGyroModeSensitivity(value)
-                }
+override fun onGyroModeSensitivityChanged(value: Int) {
+                        a.viewModel.updateGyroModeSensitivity(value)
+                    }
+
+                override fun onGyroActivateModeChanged(mode: com.zyz4.gamepademu.model.GyroActivateMode) {
+                        a.viewModel.updateGyroActivateMode(mode)
+                    }
         }
     }.also { panel ->
         (a.findViewById<View>(android.R.id.content) as ViewGroup).addView(

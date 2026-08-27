@@ -46,6 +46,11 @@ enum class GyroMode(val displayName: String) {
     RIGHT_STICK("陀螺仪转右摇杆"),
 }
 
+enum class GyroActivateMode(val displayName: String) {
+    ALWAYS("始终开启"),
+    BUTTON("按下特定按钮开启"),
+}
+
 enum class HapticEffect(val displayName: String) {
     KEYBOARD_TAP("轻触"),
     KEYBOARD_PRESS("按键按下"),
@@ -97,6 +102,7 @@ data class AppSettings(
     val strongVibrationMapping: VibrationMotor = VibrationMotor.PHONE_MOTOR,
     val weakVibrationMapping: VibrationMotor = VibrationMotor.PHONE_MOTOR,
     // Connected state
+    val gyroActivateMode: GyroActivateMode = GyroActivateMode.ALWAYS,
     val controllerGyroEnabledConnected: Boolean = true,
     val strongVibrationMappingConnected: VibrationMotor = VibrationMotor.CONTROLLER_MOTOR_1,
     val weakVibrationMappingConnected: VibrationMotor = VibrationMotor.CONTROLLER_MOTOR_2,
