@@ -209,6 +209,24 @@ class GamepadViewModel @Inject constructor(
         _currentPreset.value = preset
     }
 
+    fun applyLayoutGyroSettings(preset: LayoutPreset) {
+        preset.gyroOrientation?.let {
+            currentPresetGyroOrientation = it
+        }
+        preset.gyroActivateMode?.let {
+            val updated = settings.value.copy(gyroActivateMode = it)
+            connectionManager.updateSettings(updated)
+        }
+        preset.gyroMode?.let {
+            val updated = settings.value.copy(gyroMode = it)
+            connectionManager.updateSettings(updated)
+        }
+        preset.gyroModeSensitivity?.let {
+            val updated = settings.value.copy(gyroModeSensitivity = it)
+            connectionManager.updateSettings(updated)
+        }
+    }
+
     fun setSelectedButtonId(id: String?) {
         _selectedButtonId.value = id
     }

@@ -32,11 +32,12 @@ internal class ButtonTracker {
                     if (oldHeld) {
                         holdState[viewId] = false
                         handler.onRelease(viewId, bit)
+                        handler.onGyroActivateUp(viewId)
                     } else {
                         holdState[viewId] = true
                         handler.onPress(viewId, bit)
+                        handler.onGyroActivateDown(viewId)
                     }
-                    handler.onGyroActivateDown(viewId)
                 } else {
                     handler.onPress(viewId, bit)
                     handler.onGyroActivateDown(viewId)

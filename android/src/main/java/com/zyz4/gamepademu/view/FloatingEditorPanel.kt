@@ -525,10 +525,12 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         container.addView(tv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (6f * density).toInt() })
 
         val items = listOf("不指定", "横屏", "竖屏", "倒置竖屏")
+        val currentOrientation = presetGyroOrientation
         val spinner = Spinner(context).apply {
             adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, items).also {
                 it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
             }
+            setSelection((currentOrientation?.ordinal?.plus(1)) ?: 0)
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
                     val orientation = when (pos) {

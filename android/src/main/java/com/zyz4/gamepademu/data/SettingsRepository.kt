@@ -147,7 +147,7 @@ class SettingsRepository @Inject constructor(
                 prefs[Keys.GYRO_ORIENTATION] ?: 0
             ) { GyroOrientation.LANDSCAPE },
             gyroMode = GyroMode.entries.getOrElse(
-                prefs[Keys.GYRO_MODE] ?: 0
+                prefs[Keys.GYRO_MODE] ?: GyroMode.HANDHELD.ordinal
             ) { GyroMode.HANDHELD },
             gyroModeSensitivity = prefs[Keys.GYRO_MODE_SENSITIVITY] ?: 20,
             keepScreenOn = prefs[Keys.KEEP_SCREEN_ON] ?: false,

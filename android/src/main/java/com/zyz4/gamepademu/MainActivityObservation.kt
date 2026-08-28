@@ -100,7 +100,7 @@ internal fun MainActivity.observeState() {
             }
             launch {
                 a.viewModel.currentPreset.collect { preset ->
-                    a.viewModel.currentPresetGyroOrientation = preset.gyroOrientation
+                    a.viewModel.applyLayoutGyroSettings(preset)
                     if (!a.gamepadLayout.isEditModeActive()) {
                         a.applyPreset(preset)
                     }

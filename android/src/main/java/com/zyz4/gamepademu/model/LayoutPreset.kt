@@ -37,6 +37,9 @@ data class LayoutPreset(
     val version: Int = 1,
     val buttons: List<ButtonPosition> = emptyList(),
     val gyroOrientation: GyroOrientation? = null,
+    val gyroActivateMode: GyroActivateMode? = null,
+    val gyroMode: GyroMode? = null,
+    val gyroModeSensitivity: Int? = null,
 ) {
     companion object {
         private val gsonInstance = Gson()
@@ -125,10 +128,16 @@ data class LayoutPreset(
                 }
             }
             val gyro = root.get("gyroOrientation")?.asString?.let { GyroOrientation.valueOf(it) }
+            val gyroActivateMode = root.get("gyroActivateMode")?.asString?.let { GyroActivateMode.valueOf(it) }
+            val gyroMode = root.get("gyroMode")?.asString?.let { GyroMode.valueOf(it) }
+            val gyroModeSens = root.get("gyroModeSensitivity")?.asInt
             return LayoutPreset(
                 version = root.get("version")?.asInt ?: 1,
                 buttons = buttons,
                 gyroOrientation = gyro,
+                gyroActivateMode = gyroActivateMode,
+                gyroMode = gyroMode,
+                gyroModeSensitivity = gyroModeSens,
             )
         }
 
@@ -205,6 +214,9 @@ data class LayoutPreset(
         obj["version"] = version
         obj["buttons"] = list
         gyroOrientation?.let { obj["gyroOrientation"] = it.name }
+        gyroActivateMode?.let { obj["gyroActivateMode"] = it.name }
+        gyroMode?.let { obj["gyroMode"] = it.name }
+        gyroModeSensitivity?.let { obj["gyroModeSensitivity"] = it }
         return gson.toJson(obj)
     }
 

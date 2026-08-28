@@ -112,6 +112,14 @@ class GamepadLayout @JvmOverloads constructor(
         private set
     var currentGyroOrientation: GyroOrientation? = null
         private set
+    var currentGyroActivateMode: com.zyz4.gamepademu.model.GyroActivateMode? = null
+        private set
+    var currentGyroMode: com.zyz4.gamepademu.model.GyroMode? = null
+        private set
+    var currentGyroModeSensitivity: Int? = null
+        private set
+    val currentGyroPreset: com.zyz4.gamepademu.model.LayoutPreset
+        get() = LayoutPreset(version = 1, buttons = currentButtons, gyroOrientation = currentGyroOrientation, gyroActivateMode = currentGyroActivateMode, gyroMode = currentGyroMode, gyroModeSensitivity = currentGyroModeSensitivity)
     private var isEditMode = false
     var selectedButtonId: String? = null
         private set
@@ -771,6 +779,9 @@ class GamepadLayout @JvmOverloads constructor(
             if (it.id == SETTINGS_BUTTON_ID) sanitizeSettingsButton(it) else it
         }.map { normalizeTouchpadArea(it) }
         currentGyroOrientation = preset.gyroOrientation
+        currentGyroActivateMode = preset.gyroActivateMode
+        currentGyroMode = preset.gyroMode
+        currentGyroModeSensitivity = preset.gyroModeSensitivity
         hasChanges = false
         refreshSwipeTriggers()
         bringSettingsToFront()
@@ -843,7 +854,7 @@ class GamepadLayout @JvmOverloads constructor(
     }
 
     fun getPreset(): LayoutPreset {
-        return LayoutPreset(version = 1, buttons = currentButtons.toList(), gyroOrientation = currentGyroOrientation)
+        return LayoutPreset(version = 1, buttons = currentButtons.toList(), gyroOrientation = currentGyroOrientation, gyroActivateMode = currentGyroActivateMode, gyroMode = currentGyroMode, gyroModeSensitivity = currentGyroModeSensitivity)
     }
 
     fun enterEditMode() {

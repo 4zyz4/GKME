@@ -331,6 +331,10 @@ internal fun MainActivity.setupGamepadLayoutListener() {
             a.floatingEditor.visibility = if (isEditMode) View.VISIBLE else View.GONE
             if (isEditMode) {
                 a.floatingEditor.restoreFromSettings(a.viewModel.settings.value)
+                val preset = a.gamepadLayout.currentGyroPreset
+                preset.gyroActivateMode?.let { a.floatingEditor.presetGyroActivateMode = it }
+                preset.gyroMode?.let { a.floatingEditor.presetGyroMode = it }
+                preset.gyroModeSensitivity?.let { a.floatingEditor.presetGyroModeSensitivity = it }
             }
         }
 
@@ -1127,24 +1131,30 @@ private fun MainActivity.sendMouseReportDirect(
 internal fun MainActivity.setupCustomTouchHandler(view: View) {
     val a = this
     val id = view.tag as String
-    view.setOnTouchListener { v, e ->
-        when (e.action) {
-            MotionEvent.ACTION_DOWN -> {
-                v.isPressed = true; v.performClick()
-                val pos = a.gamepadLayout.currentButtons.find { it.id == id }
-                val bits = pos?.customBits.orEmpty()
-                a.viewModel.onCustomButtonDown(bits)
-                true
-            }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                v.isPressed = false
-                val pos = a.gamepadLayout.currentButtons.find { it.id == id }
-                val bits = pos?.customBits.orEmpty()
-                a.viewModel.onCustomButtonUp(bits)
-                true
-            }
-            else -> true
+    val curPos = id.let { a.gamepadLayout.currentButtons.find { it.id == id } }
+    val holdEnabled = curPos?.autoHold == true
+    val gyroActivate = curPos?.gyroActivate == true
+    val tracker = ButtonTracker()
+    val customBits = curPos?.customBits.orEmpty()
+    val handler = object : ButtonEventHandler {
+        override fun onPress(viewId: String, bit: Int) {
+            val bits = a.gamepadLayout.currentButtons.find { it.id == viewId }?.customBits.orEmpty()
+            a.viewModel.onCustomButtonDown(bits)
         }
+        override fun onRelease(viewId: String, bit: Int) {
+            val bits = a.gamepadLayout.currentButtons.find { it.id == viewId }?.customBits.orEmpty()
+            a.viewModel.onCustomButtonUp(bits)
+        }
+        override fun onGyroActivateDown(viewId: String) {
+            if (gyroActivate) a.viewModel.onGyroActivateButtonDown()
+        }
+        override fun onGyroActivateUp(viewId: String) {
+            if (gyroActivate) a.viewModel.onGyroActivateButtonUp()
+        }
+    }
+    view.setOnTouchListener { v, e ->
+        val viewId = v.tag as? String ?: ""
+        tracker.feed(e, v, viewId, 0, holdEnabled, gyroActivate, handler)
     }
 }
 

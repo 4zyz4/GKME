@@ -127,20 +127,39 @@ override fun onTransparencyPreviewEnd(buttonId: String) {
                 }
 
                 override fun onGyroModeChanged(mode: com.zyz4.gamepademu.model.GyroMode) {
+                    val preset = a.gamepadLayout.currentGyroPreset.copy(gyroMode = mode)
+                    a.gamepadLayout.loadPreset(preset)
+                    a.viewModel.updatePresetButtons(preset)
                     a.viewModel.updateGyroMode(mode)
                 }
 
 override fun onGyroModeSensitivityChanged(value: Int) {
+                        val preset = a.gamepadLayout.currentGyroPreset.copy(gyroModeSensitivity = value)
+                        a.gamepadLayout.loadPreset(preset)
+                        a.viewModel.updatePresetButtons(preset)
                         a.viewModel.updateGyroModeSensitivity(value)
                     }
 
                 override fun onGyroActivateModeChanged(mode: com.zyz4.gamepademu.model.GyroActivateMode) {
+                        val preset = a.gamepadLayout.currentGyroPreset.copy(gyroActivateMode = mode)
+                        a.gamepadLayout.loadPreset(preset)
+                        a.viewModel.updatePresetButtons(preset)
                         a.viewModel.updateGyroActivateMode(mode)
                     }
 
             override fun onEnterGlobalGyroSettings() {
                 a.gamepadLayout.deselectButton()
                 a.gamepadLayout.blockSelectionForGlobalSettings = true
+                val preset = a.gamepadLayout.currentGyroPreset
+                preset.gyroActivateMode?.let {
+                    a.floatingEditor.presetGyroActivateMode = it
+                }
+                preset.gyroMode?.let {
+                    a.floatingEditor.presetGyroMode = it
+                }
+                preset.gyroModeSensitivity?.let {
+                    a.floatingEditor.presetGyroModeSensitivity = it
+                }
             }
 
             override fun onExitGlobalGyroSettings() {
