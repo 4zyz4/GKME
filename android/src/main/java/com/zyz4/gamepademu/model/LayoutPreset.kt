@@ -30,6 +30,7 @@ private val IS_KEYBOARD_IDS = setOf(
     "kbSemicolon", "kbApostrophe", "kbComma", "kbDot", "kbSlash", "kbGrave",
     "kbF1", "kbF2", "kbF3", "kbF4", "kbF5", "kbF6", "kbF7", "kbF8", "kbF9",
     "kbF10", "kbF11", "kbF12",
+    "kbArrowUp", "kbArrowDown", "kbArrowLeft", "kbArrowRight",
 )
 
 data class LayoutPreset(

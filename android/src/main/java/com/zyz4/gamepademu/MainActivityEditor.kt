@@ -635,23 +635,7 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
                 a.setupTouchHandler(view, entry.bit, entry.isDpad, entry.isTrigger, entry.isJoystick)
             }
         } else if (entry.isKeyboard) {
-            view.setOnTouchListener { v, e ->
-                when (e.action) {
-                    MotionEvent.ACTION_DOWN -> {
-                        v.isPressed = true
-                        a.viewModel.triggerHapticPress()
-                        a.viewModel.onKeyDown(entry.keyboardKeyCode)
-                        true
-                    }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        v.isPressed = false
-                        a.viewModel.triggerHapticRelease()
-                        a.viewModel.onKeyUp(entry.keyboardKeyCode)
-                        true
-                    }
-                    else -> true
-                }
-            }
+            a.setupKeyboardTouchHandler(view, entry.keyboardKeyCode, pos)
         }
 
         a.gamepadLayout.post {
@@ -690,6 +674,93 @@ internal fun MainActivity.createCustomButtonView(pos: ButtonPosition): View {
     a.gamepadLayout.addView(view)
     a.setupCustomTouchHandler(view)
     return view
+}
+
+@SuppressLint("ClickableViewAccessibility")
+internal fun MainActivity.setupKeyboardTouchHandler(view: View, keyCode: Int, pos: com.zyz4.gamepademu.model.ButtonPosition) {
+    val a = this
+    val holdState = mutableMapOf<String, Boolean>()
+    val swipeActive = mutableMapOf<String, Boolean>()
+
+    fun getButtonBounds(): android.graphics.Rect? {
+        return android.graphics.Rect(view.left, view.top, view.right, view.bottom)
+    }
+
+    fun doKeyDown() {
+        a.viewModel.triggerHapticPress()
+        a.viewModel.onKeyDown(keyCode)
+    }
+    fun doKeyUp() {
+        a.viewModel.triggerHapticRelease()
+        a.viewModel.onKeyUp(keyCode)
+    }
+
+    view.setOnTouchListener { v, event ->
+        val masked = event.action and android.view.MotionEvent.ACTION_MASK
+        when (masked) {
+            android.view.MotionEvent.ACTION_DOWN -> {
+                v.isPressed = true
+                if (pos.swipeTrigger) {
+                    swipeActive[pos.id] = true
+                    doKeyDown()
+                } else if (pos.autoHold) {
+                    val oldHeld = holdState[pos.id] == true
+                    if (oldHeld) {
+                        holdState[pos.id] = false
+                        doKeyUp()
+                    } else {
+                        holdState[pos.id] = true
+                        doKeyDown()
+                    }
+                } else {
+                    doKeyDown()
+                }
+                true
+            }
+            android.view.MotionEvent.ACTION_MOVE -> {
+                if (pos.swipeTrigger) {
+                    val bounds = getButtonBounds()
+                    if (bounds != null) {
+                        val x = event.x
+                        val y = event.y
+                        val shouldPress = x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom
+                        val wasActive = swipeActive[pos.id] == true
+                        if (shouldPress && !wasActive) {
+                            swipeActive[pos.id] = true
+                            doKeyDown()
+                            v.isPressed = true
+                        } else if (!shouldPress && wasActive) {
+                            swipeActive[pos.id] = false
+                            doKeyUp()
+                            v.isPressed = false
+                        }
+                    }
+                    true
+                } else {
+                    true
+                }
+            }
+            android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                v.isPressed = false
+                if (pos.swipeTrigger) {
+                    swipeActive.remove(pos.id)?.let { wasActive ->
+                        if (wasActive) doKeyUp()
+                    }
+                } else if (pos.autoHold) {
+                    if (holdState[pos.id] == true) {
+                        v.isPressed = true
+                    } else {
+                        v.isPressed = false
+                        holdState.remove(pos.id)
+                    }
+                } else {
+                    doKeyUp()
+                }
+                true
+            }
+            else -> true
+        }
+    }
 }
 
 internal fun MainActivity.applyPreset(preset: com.zyz4.gamepademu.model.LayoutPreset) {
@@ -894,24 +965,7 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
     } else if (entry.isCustom) {
         a.setupCustomTouchHandler(view)
     } else if (entry.isKeyboard) {
-        val keyCode = entry.keyboardKeyCode
-        view.setOnTouchListener { v, e ->
-            when (e.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    v.isPressed = true
-                    a.viewModel.triggerHapticPress()
-                    a.viewModel.onKeyDown(keyCode)
-                    true
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    v.isPressed = false
-                    a.viewModel.triggerHapticRelease()
-                    a.viewModel.onKeyUp(keyCode)
-                    true
-                }
-                else -> true
-            }
-        }
+        a.setupKeyboardTouchHandler(view, entry.keyboardKeyCode, pos)
     } else if (pos.linearTriggerEnabled && baseId in triggerBaseIds) {
         // LinearTriggerView handles its own touch events
     }

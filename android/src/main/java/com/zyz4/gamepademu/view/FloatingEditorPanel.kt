@@ -122,6 +122,22 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         "btnMouseLMB", "btnMouseRMB", "btnMouseMMB",
     )
 
+    private val KEYBOARD_IDS = setOf(
+        "kbLCtrl", "kbLShift", "kbLAlt", "kbLWin",
+        "kbRCtrl", "kbRShift", "kbRAlt", "kbRGui",
+        "kbQ", "kbW", "kbE", "kbR", "kbT", "kbY", "kbU", "kbI", "kbO", "kbP",
+        "kbA", "kbS", "kbD", "kbF", "kbG", "kbH", "kbJ", "kbK", "kbL",
+        "kbZ", "kbX", "kbC", "kbV", "kbB", "kbN", "kbM",
+        "kb1", "kb2", "kb3", "kb4", "kb5", "kb6", "kb7", "kb8", "kb9", "kb0",
+        "kbSpace", "kbEnter", "kbBackspace", "kbTab", "kbCaps",
+        "kbEsc", "kbDelete", "kbMenu",
+        "kbMinus", "kbEqual", "kbLBracket", "kbRBracket", "kbBackslash",
+        "kbSemicolon", "kbApostrophe", "kbComma", "kbDot", "kbSlash", "kbGrave",
+        "kbF1", "kbF2", "kbF3", "kbF4", "kbF5", "kbF6", "kbF7", "kbF8", "kbF9",
+        "kbF10", "kbF11", "kbF12",
+        "kbArrowUp", "kbArrowDown", "kbArrowLeft", "kbArrowRight",
+    )
+
     private var currentButton: ButtonPosition? = null
     var isAdjustingFollowArea: Boolean = false
         set(value) {
@@ -166,6 +182,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
     private fun isTouchpadId(id: String): Boolean = id.substringBefore("_") == "touchpad"
     private fun isMousepadId(id: String): Boolean = id.substringBefore("_") == "mousepad"
+    private fun isKeyboardId(id: String): Boolean = id.substringBefore("_") in KEYBOARD_IDS
 
     private fun updateActionButtonsVisibility() {
         val hideSaveDiscardAdd = showingGlobalSettings || isAdjustingFollowArea
@@ -249,6 +266,85 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             "btnSettings" -> "设置按钮"
             "btn" -> "按钮"
             "joystick" -> "摇杆"
+            "kbArrowUp" -> "↑"
+            "kbArrowDown" -> "↓"
+            "kbArrowLeft" -> "←"
+            "kbArrowRight" -> "→"
+            "kbLCtrl" -> "LCtrl"
+            "kbLShift" -> "LShift"
+            "kbLAlt" -> "LAlt"
+            "kbLWin" -> "Win"
+            "kbRCtrl" -> "RCtrl"
+            "kbRShift" -> "RShift"
+            "kbRAlt" -> "AltGr"
+            "kbRGui" -> "RWin"
+            "kbQ" -> "Q"
+            "kbW" -> "W"
+            "kbE" -> "E"
+            "kbR" -> "R"
+            "kbT" -> "T"
+            "kbY" -> "Y"
+            "kbU" -> "U"
+            "kbI" -> "I"
+            "kbO" -> "O"
+            "kbP" -> "P"
+            "kbA" -> "A"
+            "kbS" -> "S"
+            "kbD" -> "D"
+            "kbF" -> "F"
+            "kbG" -> "G"
+            "kbH" -> "H"
+            "kbJ" -> "J"
+            "kbK" -> "K"
+            "kbL" -> "L"
+            "kbZ" -> "Z"
+            "kbX" -> "X"
+            "kbC" -> "C"
+            "kbV" -> "V"
+            "kbB" -> "B"
+            "kbN" -> "N"
+            "kbM" -> "M"
+            "kb1" -> "1"
+            "kb2" -> "2"
+            "kb3" -> "3"
+            "kb4" -> "4"
+            "kb5" -> "5"
+            "kb6" -> "6"
+            "kb7" -> "7"
+            "kb8" -> "8"
+            "kb9" -> "9"
+            "kb0" -> "0"
+            "kbSpace" -> "Space"
+            "kbEnter" -> "Enter"
+            "kbBackspace" -> "Bksp"
+            "kbTab" -> "Tab"
+            "kbCaps" -> "Caps"
+            "kbEsc" -> "Esc"
+            "kbDelete" -> "Del"
+            "kbMenu" -> "Menu"
+            "kbMinus" -> "-"
+            "kbEqual" -> "="
+            "kbLBracket" -> "["
+            "kbRBracket" -> "]"
+            "kbBackslash" -> "\\"
+            "kbSemicolon" -> ";"
+            "kbApostrophe" -> "'"
+            "kbComma" -> ","
+            "kbDot" -> "."
+            "kbSlash" -> "/"
+            "kbGrave" -> "`"
+            "kbF1" -> "F1"
+            "kbF2" -> "F2"
+            "kbF3" -> "F3"
+            "kbF4" -> "F4"
+            "kbF5" -> "F5"
+            "kbF6" -> "F6"
+            "kbF7" -> "F7"
+            "kbF8" -> "F8"
+            "kbF9" -> "F9"
+            "kbF10" -> "F10"
+            "kbF11" -> "F11"
+            "kbF12" -> "F12"
             else -> buttonId
         }
     }
@@ -781,7 +877,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
 
         // ── Auto hold for buttons ──
-        if (isButton(buttonId) && !isSettingsButton(buttonId)) {
+        if ((isButton(buttonId) || isKeyboardId(buttonId)) && !isSettingsButton(buttonId)) {
             val cbAutoHold = CheckBox(context).apply {
                 text = "自动保持"
                 setTextColor(-0x444445)
@@ -1109,7 +1205,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
 
         val triggerIds = setOf("btnLT", "btnRT")
-        if (isButton(buttonId)) {
+        if (isButton(buttonId) || isKeyboardId(buttonId)) {
             val isTrigger = buttonId in triggerIds
             val cbSwipe = CheckBox(context).apply {
                 text = "滑动触发"
@@ -1123,6 +1219,12 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                             linearTriggerEnabled = false,
                             slideDirection = button.slideDirection,
                             travelDistance = button.travelDistance
+                        )
+                        currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                        showParameters(buttonId, currentButton!!)
+                    } else if (isChecked && !isTrigger) {
+                        currentButton = currentButton?.copy(
+                            swipeTrigger = true
                         )
                         currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
                         showParameters(buttonId, currentButton!!)

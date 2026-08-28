@@ -112,6 +112,11 @@ internal object Kb {
     const val PageUp = 0x6B
     const val PageDown = 0x6E
     const val Menu = 0x65
+    // Arrow keys (HID Keyboard Page 0x07)
+    const val ArrowLeft = 0x50
+    const val ArrowDown = 0x51
+    const val ArrowUp = 0x52
+    const val ArrowRight = 0x53
 }
 
 internal data class CtrlEntry(
@@ -268,6 +273,11 @@ internal val allControls = listOf(
     CtrlEntry("kbF10", "F10", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.F10),
     CtrlEntry("kbF11", "F11", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.F11),
     CtrlEntry("kbF12", "F12", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.F12),
+    // Arrow keys
+    CtrlEntry("kbArrowUp", "↑", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.ArrowUp),
+    CtrlEntry("kbArrowDown", "↓", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.ArrowDown),
+    CtrlEntry("kbArrowLeft", "←", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.ArrowLeft),
+    CtrlEntry("kbArrowRight", "→", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.ArrowRight),
 )
 
 // Keep custom button text vertically centered even when the button is shrunk:
