@@ -483,10 +483,25 @@ internal fun MainActivity.createDpadPadView(id: String): DpadPadView {
 @SuppressLint("ClickableViewAccessibility")
 internal fun MainActivity.setupDpadPadTouch(view: DpadPadView) {
     val a = this
+    val id = view.tag as String
     view.onDpadChange = { released, pressed ->
         a.viewModel.updateDpad(pressed, released)
     }
-    view.onLift = { a.viewModel.updateDpadRelease() }
+    view.onLift = {
+        a.viewModel.updateDpadRelease()
+    }
+    view.onGyroActivateDown = {
+        val curPos = a.gamepadLayout.currentButtons.find { it.id == id }
+        if (curPos?.gyroActivate == true) {
+            a.viewModel.onGyroActivateButtonDown()
+        }
+    }
+    view.onGyroActivateUp = {
+        val curPos = a.gamepadLayout.currentButtons.find { it.id == id }
+        if (curPos?.gyroActivate == true) {
+            a.viewModel.onGyroActivateButtonUp()
+        }
+    }
 }
 @SuppressLint("ClickableViewAccessibility")
 internal fun MainActivity.createCustomKeypadView(id: String): CustomKeypadView {
@@ -601,12 +616,19 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
     val touchpadListener = View.OnTouchListener touchpadListenerLabel@ { v, event ->
         val btnId = v.tag as? String
         val doubleClickEnable = btnId?.let { a.gamepadLayout.currentButtons.find { p -> p.id == it }?.doubleClickEnable } ?: true
+        val curPos = btnId?.let { a.gamepadLayout.currentButtons.find { p -> p.id == it } }
+        val touchpadGyroActivate = curPos?.gyroActivate == true
+        var touchpadGyroHeld = false
         val masked = event.action and MotionEvent.ACTION_MASK
 
         if (masked == MotionEvent.ACTION_UP) {
             val (sx, sy) = mapPoint(event.getX(0), event.getY(0))
             val slot = nearestSlot(sx, sy)
             if (slot >= 0) slots[slot] = null
+            if (touchpadGyroActivate && touchpadGyroHeld) {
+                touchpadGyroHeld = false
+                a.viewModel.onGyroActivateButtonUp()
+            }
             if (slots.all { it == null }) {
                 if (isDoubleClick) {
                     v.isPressed = false
@@ -623,6 +645,10 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
 
         if (masked == MotionEvent.ACTION_CANCEL) {
             slots.fill(null)
+            if (touchpadGyroActivate && touchpadGyroHeld) {
+                touchpadGyroHeld = false
+                a.viewModel.onGyroActivateButtonUp()
+            }
             if (isDoubleClick) {
                 v.isPressed = false
                 wasDoubleClickUp = true
@@ -644,6 +670,10 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
             if (wasDoubleClickUp) {
                 a.viewModel.triggerHapticPress()
                 wasDoubleClickUp = false
+            }
+            if (touchpadGyroActivate && !touchpadGyroHeld) {
+                touchpadGyroHeld = true
+                a.viewModel.onGyroActivateButtonDown()
             }
             slots[slot] = TouchPoint(id = slot, x = sx, y = sy, active = true)
             touchpadAlpha(true)

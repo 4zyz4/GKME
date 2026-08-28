@@ -657,19 +657,19 @@ class GamepadViewModel @Inject constructor(
                             )
                         }
                         GyroMode.LEFT_STICK -> {
-                            val lx = (-sensor.gyroY * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
-                            val ly = (-sensor.gyroX * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
+                            val gyroLx = (-sensor.gyroY * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
+                            val gyroLy = (-sensor.gyroX * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
                             _gamepadState.value = _gamepadState.value.copy(
-                                leftStickX = lx,
-                                leftStickY = ly,
+                                leftStickX = (phoneStickX.toInt() + gyroLx.toInt()).coerceIn(-32768, 32767).toShort(),
+                                leftStickY = (phoneStickY.toInt() + gyroLy.toInt()).coerceIn(-32768, 32767).toShort(),
                             )
                         }
                         GyroMode.RIGHT_STICK -> {
-                            val rx = (-sensor.gyroY * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
-                            val ry = (-sensor.gyroX * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
+                            val gyroRx = (-sensor.gyroY * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
+                            val gyroRy = (-sensor.gyroX * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
                             _gamepadState.value = _gamepadState.value.copy(
-                                rightStickX = rx,
-                                rightStickY = ry,
+                                rightStickX = (phoneRStickX.toInt() + gyroRx.toInt()).coerceIn(-32768, 32767).toShort(),
+                                rightStickY = (phoneRStickY.toInt() + gyroRy.toInt()).coerceIn(-32768, 32767).toShort(),
                             )
                         }
                         else -> {}
@@ -701,8 +701,8 @@ class GamepadViewModel @Inject constructor(
                 }
                 if (!actualGyroEnabled) {
                     _gamepadState.value = _gamepadState.value.copy(
-                        leftStickX = 0, leftStickY = 0,
-                        rightStickX = 0, rightStickY = 0,
+                        leftStickX = phoneStickX, leftStickY = phoneStickY,
+                        rightStickX = phoneRStickX, rightStickY = phoneRStickY,
                     )
                 }
                 val intervalMs = kotlin.math.round(1000.0 / settings.value.pollingRate).toLong().coerceAtLeast(1L)

@@ -231,28 +231,54 @@
                     android:fontFamily="sans-serif-medium"
                     android:layout_marginBottom="12dp" />
 
-                <!-- Edit Mode Toggle -->
+                <!-- Action buttons -->
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:gravity="center_vertical"
+                    android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:background="@color/bg_surface"
-                    android:paddingHorizontal="12dp"
+                    android:gravity="center"
                     android:layout_marginBottom="8dp">
 
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="编辑布局"
-                        android:textColor="@color/text_primary"
-                        android:textSize="14sp" />
+<Button
+                        android:id="@+id/btnPresetNew"
+                        style="@style/GamepadChip"
+                        android:text="新建"
+                        android:layout_marginEnd="6dp" />
 
-                    <Switch
+                    <Button
                         android:id="@+id/switchEditMode"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
+                        style="@style/GamepadChip"
+                        android:text="编辑"
+                        android:layout_marginEnd="6dp" />
+
+                    <Button
+                        android:id="@+id/btnPresetCopy"
+                        style="@style/GamepadChip"
+                        android:text="复制"
+                        android:layout_marginEnd="6dp" />
+
+                    <Button
+                        android:id="@+id/btnPresetExport"
+                        style="@style/GamepadChip"
+                        android:text="导出"
+                        android:layout_marginEnd="6dp" />
+
+                    <Button
+                        android:id="@+id/btnPresetImport"
+                        style="@style/GamepadChip"
+                        android:text="导入"
+                        android:layout_marginEnd="6dp" />
+
+                    <Button
+                        android:id="@+id/btnPresetRename"
+                        style="@style/GamepadChip"
+                        android:text="重命名"
+                        android:layout_marginEnd="6dp" />
+
+                    <Button
+                        android:id="@+id/btnPresetDelete"
+                        style="@style/GamepadChip"
+                        android:text="删除" />
                 </LinearLayout>
 
                 <TextView
@@ -275,51 +301,6 @@
                     android:verticalSpacing="6dp"
                     android:stretchMode="columnWidth"
                     android:layout_marginBottom="8dp" />
-
-                <!-- Action buttons -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center"
-                    android:layout_marginBottom="4dp">
-
-                    <Button
-                        android:id="@+id/btnPresetNew"
-                        style="@style/GamepadChip"
-                        android:text="新建布局"
-                        android:layout_marginEnd="6dp" />
-
-                    <Button
-                        android:id="@+id/btnPresetImport"
-                        style="@style/GamepadChip"
-                        android:text="导入布局"
-                        android:layout_marginEnd="6dp" />
-
-                    <Button
-                        android:id="@+id/btnPresetExport"
-                        style="@style/GamepadChip"
-                        android:text="导出布局" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center"
-                    android:layout_marginBottom="8dp">
-
-                    <Button
-                        android:id="@+id/btnPresetRename"
-                        style="@style/GamepadChip"
-                        android:text="重命名"
-                        android:layout_marginEnd="6dp" />
-
-                    <Button
-                        android:id="@+id/btnPresetDelete"
-                        style="@style/GamepadChip"
-                        android:text="删除" />
-                </LinearLayout>
             </LinearLayout>
         </ScrollView>
 

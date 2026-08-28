@@ -35,6 +35,9 @@ class DpadPadView @JvmOverloads constructor(
     /** Called when the touch lifts while a direction was active (a "key release" gesture). */
     var onLift: (() -> Unit)? = null
 
+    var onGyroActivateDown: (() -> Unit)? = null
+    var onGyroActivateUp: (() -> Unit)? = null
+
     // ── Appearance (per-control, from ButtonPosition) ──
     var appearanceFillType: FillType = FillType.SOLID_COLOR
     var appearanceColor: Int = 0xFF1A1A1A.toInt()
@@ -263,6 +266,7 @@ class DpadPadView @JvmOverloads constructor(
                 updateRegion(event.x, event.y)
                 invalidate()
                 performClick()
+                onGyroActivateDown?.invoke()
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
@@ -278,6 +282,7 @@ class DpadPadView @JvmOverloads constructor(
                 }
                 releaseAll()
                 performClick()
+                onGyroActivateUp?.invoke()
                 return true
             }
         }

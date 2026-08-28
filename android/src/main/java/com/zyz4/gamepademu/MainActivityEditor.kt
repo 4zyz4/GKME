@@ -879,6 +879,11 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
             onStickClickDown = { a.viewModel.onButtonDown(clickBit); a.viewModel.triggerHapticPress() }
             onStickClickUp = { a.viewModel.onButtonUp(clickBit); a.viewModel.triggerHapticRelease() }
             onStickMoved = { sx, sy -> if (isLeft) a.viewModel.onLeftStick(sx, sy) else a.viewModel.onRightStick(sx, sy) }
+            val joystickGyroActivate = pos.gyroActivate
+            if (joystickGyroActivate) {
+                onGyroActivateDown = { a.viewModel.onGyroActivateButtonDown() }
+                onGyroActivateUp = { a.viewModel.onGyroActivateButtonUp() }
+            }
         }
         entry.isTouchpad -> {
             val tp = FrameLayout(a).apply {

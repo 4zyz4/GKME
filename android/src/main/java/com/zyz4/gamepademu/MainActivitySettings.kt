@@ -146,20 +146,17 @@ internal fun MainActivity.setupSettings() {
     }
 
     // ── Presets page ──
-    a.findViewById<Switch>(R.id.switchEditMode).setOnCheckedChangeListener { _, isChecked ->
-        if (isChecked) {
-            val currentName = a.viewModel.settings.value.currentPresetName
-            if (a.viewModel.isBuiltInPreset(currentName)) {
-                a.showToast("内置布局禁止编辑")
-                a.findViewById<Switch>(R.id.switchEditMode).isChecked = false
-                return@setOnCheckedChangeListener
-            }
-            a.viewModel.updateEditMode(true)
-            a.hideSettings()
-            a.applyPreset(a.viewModel.currentPreset.value)
-            a.gamepadLayout.enterEditMode()
-            a.floatingEditor.presetGyroOrientation = a.gamepadLayout.currentGyroOrientation
+    a.findViewById<Button>(R.id.switchEditMode).setOnClickListener {
+        val currentName = a.viewModel.settings.value.currentPresetName
+        if (a.viewModel.isBuiltInPreset(currentName)) {
+            a.showToast("内置布局禁止编辑")
+            return@setOnClickListener
         }
+        a.viewModel.updateEditMode(true)
+        a.hideSettings()
+        a.applyPreset(a.viewModel.currentPreset.value)
+        a.gamepadLayout.enterEditMode()
+        a.floatingEditor.presetGyroOrientation = a.gamepadLayout.currentGyroOrientation
     }
 
     val gridView = a.findViewById<WrapContentGridView>(R.id.gridPresets)
@@ -176,6 +173,10 @@ internal fun MainActivity.setupSettings() {
     a.findViewById<Button>(R.id.btnPresetExport).setOnClickListener {
         val name = a.viewModel.settings.value.currentPresetName
         a.exportPresetLauncher.launch("$name.json")
+    }
+    a.findViewById<Button>(R.id.btnPresetCopy).setOnClickListener {
+        val current = a.viewModel.settings.value.currentPresetName
+        a.showCopyPresetDialog(current)
     }
     a.findViewById<Button>(R.id.btnPresetRename).setOnClickListener {
         val infos = a.viewModel.presetInfos.value
@@ -880,13 +881,32 @@ internal fun MainActivity.showRenameDialog(oldName: String) {
         })
 }
 
+internal fun MainActivity.showCopyPresetDialog(sourceName: String) {
+    val candidate = sourceName.replace(Regex("^复制_"), "")
+    CustomDialog.showInput(this, "复制布局", hint = "输入新预设名称", prefill = "复制_$candidate",
+        positiveText = "创建", onPositive = { name ->
+            if (name.isNotEmpty()) {
+                val preset = viewModel.currentPreset.value.copy()
+                viewModel.savePreset(name, preset)
+                applyPreset(preset)
+                refreshPresetList()
+                showToast("已复制为「$name」")
+            }
+        })
+}
+
 @SuppressLint("SetTextI18n")
 internal fun MainActivity.refreshPresetList() {
     val a = this
     val gridView = a.findViewById<WrapContentGridView>(R.id.gridPresets) ?: return
     val infos = a.viewModel.presetInfos.value
     val current = a.viewModel.settings.value.currentPresetName
+    val isBuiltIn = a.viewModel.isBuiltInPreset(current)
     a.findViewById<TextView>(R.id.tvCurrentPreset).text = "当前预设: $current"
+    a.findViewById<Button>(R.id.btnPresetCopy).visibility = View.VISIBLE
+    a.findViewById<Button>(R.id.btnPresetRename).visibility = if (isBuiltIn) View.GONE else View.VISIBLE
+    a.findViewById<Button>(R.id.btnPresetDelete).visibility = if (isBuiltIn) View.GONE else View.VISIBLE
+    a.findViewById<Button>(R.id.switchEditMode).visibility = if (isBuiltIn) View.GONE else View.VISIBLE
     // Skip rebuilding the grid (inflating cards) when nothing changed, so opening
     // settings repeatedly doesn't re-inflate all preset preview cards.
     if (a.lastPresetInfos == infos && a.lastPresetCurrentName == current &&
@@ -965,7 +985,7 @@ internal fun MainActivity.updateGyroLandscapeInvertedNote(inverted: Boolean) {
 internal fun MainActivity.syncSettingsUI() {
     val a = this
     val s = a.viewModel.settings.value
-    a.findViewById<Switch>(R.id.switchEditMode).isChecked = false
+    a.findViewById<Button>(R.id.switchEditMode).text = "编辑"
 
     // Re-sync connection status here too: observers may have dropped emissions
     // while the settings panel was not yet inflated.

@@ -29,6 +29,8 @@ class JoystickView @JvmOverloads constructor(
     var onStickClickDown: (() -> Unit)? = null
     var onStickClickUp: (() -> Unit)? = null
     var onStickReleased: (() -> Unit)? = null
+    var onGyroActivateDown: (() -> Unit)? = null
+    var onGyroActivateUp: (() -> Unit)? = null
     var doubleClickEnable: Boolean = true
     var forceFollowFinger: Boolean = false
     var idleTransparency: Int = 0
@@ -193,6 +195,7 @@ class JoystickView @JvmOverloads constructor(
                     effectiveCenterY = event.y
                 }
                 moveKnob(event.x, event.y)
+                onGyroActivateDown?.invoke()
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
@@ -227,6 +230,7 @@ class JoystickView @JvmOverloads constructor(
                 onStickMoved?.invoke(0, 0)
                 isDoubleClick = false
                 performClick()
+                onGyroActivateUp?.invoke()
                 return true
             }
         }
