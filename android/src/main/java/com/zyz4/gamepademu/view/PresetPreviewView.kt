@@ -46,8 +46,9 @@ class PresetPreviewView @JvmOverloads constructor(
             if (!btn.visible) continue
             val bx = offsetX + btn.x * scale
             val by = offsetY + btn.y * scale
-            val bw = btn.width * scale
-            val bh = btn.height * scale
+            val isSwapped = !btn.lockAspect && (btn.rotation == 90 || btn.rotation == 270)
+            val bw = (if (isSwapped) btn.height else btn.width) * scale
+            val bh = (if (isSwapped) btn.width else btn.height) * scale
             if (btn.id.substringBefore("_") == "dpadPad" || btn.id.substringBefore("_") == "customKeypad") {
                 val s = minOf(bw, bh)
                 val cx = bx + (bw - s) / 2f + s / 2f

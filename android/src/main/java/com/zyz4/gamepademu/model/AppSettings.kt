@@ -75,7 +75,7 @@ data class AppSettings(
     val pollingRate: Int = 120,
     val wifiServerIp: String = "",
     val deviceName: String = "Gamepad Emu",
-    val currentPresetName: String = "完整布局",
+    val currentPresetName: String = "完整控制器",
     val isEditMode: Boolean = false,
     val vibrationEnabled: Boolean = true,
     val gameVibrationEnabled: Boolean = true,

@@ -2,7 +2,6 @@ package com.zyz4.gamepademu.data
 
 import android.content.Context
 import com.zyz4.gamepademu.R
-import com.zyz4.gamepademu.model.ButtonPosition
 import com.zyz4.gamepademu.model.LayoutPreset
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -15,10 +14,11 @@ class LayoutRepository @Inject constructor(
 ) {
     companion object {
         val BUILT_IN_PRESETS = mapOf(
-            "完整布局" to R.raw.full,
-            "左控制器" to R.raw.left,
-            "右控制器" to R.raw.right,
-            "单触摸板" to R.raw.tp_only,
+            "完整控制器" to R.raw.full_con,
+            "左控制器" to R.raw.left_con,
+            "右控制器" to R.raw.right_con,
+            "鼠标" to R.raw.mouse,
+            "键盘" to R.raw.keyboard
         )
     }
 
@@ -30,9 +30,10 @@ class LayoutRepository @Inject constructor(
         }
 
     fun listPresets(): List<String> {
-        val files = layoutsDir.listFiles { f -> f.extension == "json" } ?: return emptyList()
+        val diskFiles = layoutsDir.listFiles { f -> f.extension == "json" }?.map { it.nameWithoutExtension }?.toSet() ?: emptySet()
         val builtInOrder = BUILT_IN_PRESETS.keys.toList()
-        return files.map { it.nameWithoutExtension }.sortedBy { name ->
+        val allNames = builtInOrder + diskFiles.filter { name -> name !in builtInOrder }
+        return allNames.sortedBy { name ->
             val idx = builtInOrder.indexOf(name)
             if (idx >= 0) idx else Int.MAX_VALUE
         }
@@ -40,12 +41,16 @@ class LayoutRepository @Inject constructor(
 
     fun loadPreset(name: String): LayoutPreset? {
         val file = File(layoutsDir, "$name.json")
-        if (!file.exists()) return null
-        return try {
-            LayoutPreset.fromJson(file.readText())
-        } catch (e: Exception) {
-            null
+        if (file.exists()) {
+            return try {
+                LayoutPreset.fromJson(file.readText())
+            } catch (e: Exception) {
+                null
+            }
         }
+
+        val rawId = BUILT_IN_PRESETS[name] ?: return null
+        return getPresetFromRaw(rawId)
     }
 
     fun savePreset(name: String, preset: LayoutPreset) {
@@ -65,30 +70,19 @@ class LayoutRepository @Inject constructor(
     }
 
     fun hasAnyPreset(): Boolean {
-        val files = layoutsDir.listFiles { f -> f.extension == "json" } ?: return false
-        return files.isNotEmpty()
+        val files = layoutsDir.listFiles { f -> f.extension == "json" }
+        return (files?.isNotEmpty() ?: false) || BUILT_IN_PRESETS.isNotEmpty()
     }
 
     fun isBuiltInPreset(name: String): Boolean = name in BUILT_IN_PRESETS
 
     fun getDefaultPreset(): LayoutPreset {
-        val json = context.resources.openRawResource(R.raw.full).bufferedReader().use { it.readText() }
+        val json = context.resources.openRawResource(R.raw.full_con).bufferedReader().use { it.readText() }
         return LayoutPreset.fromJson(json) ?: LayoutPreset()
     }
 
     fun createAllBuiltInPresets() {
-        val legacyFile = File(layoutsDir, "Default.json")
-        val fullFile = File(layoutsDir, "完整布局.json")
-        if (legacyFile.exists() && !fullFile.exists()) {
-            legacyFile.renameTo(fullFile)
-        }
-        for ((name, rawId) in BUILT_IN_PRESETS) {
-            val file = File(layoutsDir, "$name.json")
-            if (!file.exists()) {
-                val preset = getPresetFromRaw(rawId)
-                savePreset(name, preset)
-            }
-        }
+        // No-op: built-in presets are loaded directly from raw resources.
     }
 
     private fun getPresetFromRaw(rawId: Int): LayoutPreset {

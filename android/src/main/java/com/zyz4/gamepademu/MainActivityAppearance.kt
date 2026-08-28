@@ -324,7 +324,7 @@ internal fun MainActivity.setupAppearancePage() {
         object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar, p: Int, fromUser: Boolean) {
                 if (!fromUser) return
-                a.findViewById<TextView>(R.id.tvPadBorderWidth).text = "控件本身轮廓粗细: $p"
+                a.findViewById<TextView>(R.id.tvPadBorderWidth).text = "控件轮廓粗细: $p"
                 a.onAppearanceChange { it.copy(dpadPadOutlineWidth = p) }
             }
             override fun onStartTrackingTouch(sb: SeekBar?) {}
@@ -586,7 +586,7 @@ internal fun MainActivity.syncAppearanceUI() {
     a.findViewById<View>(R.id.btnPadPickImage).visibility = if (dpadPadAppearance.dpadPadFillType == FillType.IMAGE) View.VISIBLE else View.GONE
     a.findViewById<Button>(R.id.btnPadBorderColor).background = colorBg(dpadPadAppearance.dpadPadOutlineColor)
     a.findViewById<SeekBar>(R.id.seekPadBorderWidth).progress = dpadPadAppearance.dpadPadOutlineWidth
-    a.findViewById<TextView>(R.id.tvPadBorderWidth).text = "控件本身轮廓粗细: ${dpadPadAppearance.dpadPadOutlineWidth}"
+    a.findViewById<TextView>(R.id.tvPadBorderWidth).text = "控件轮廓粗细: ${dpadPadAppearance.dpadPadOutlineWidth}"
 
     // 触发区域（一体十字键/自定义按键盘）
     a.findViewById<Button>(R.id.btnPadTriggerOutlineColor).background = colorBg(dpadPadAppearance.dpadPadTriggerOutlineColor)

@@ -119,7 +119,7 @@ class SettingsRepository @Inject constructor(
             ) { TargetPlatform.WINDOWS },
             pollingRate = prefs[Keys.POLLING_RATE] ?: 120,
             deviceName = prefs[Keys.DEVICE_NAME] ?: "Gamepad Emu",
-            currentPresetName = prefs[Keys.CURRENT_PRESET_NAME] ?: "完整布局",
+            currentPresetName = prefs[Keys.CURRENT_PRESET_NAME] ?: "完整控制器",
             vibrationEnabled = prefs[Keys.VIBRATION_ENABLED] ?: true,
             gameVibrationEnabled = prefs[Keys.GAME_VIBRATION_ENABLED] ?: true,
             vibrationPressType = VibrationType.entries.getOrElse(

@@ -257,7 +257,7 @@ class GamepadViewModel @Inject constructor(
     }
 
     fun createDefaultLayout(): LayoutPreset {
-        return layoutRepository.getDefaultPreset()
+        return LayoutPreset()
     }
 
     fun getServerIp(): String = connectionManager.getAllLocalIpAddresses().joinToString(", ")
