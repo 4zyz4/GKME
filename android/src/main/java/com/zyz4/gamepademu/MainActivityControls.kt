@@ -24,6 +24,96 @@ import com.zyz4.gamepademu.view.ButtonTracker
 
 private val _mainHandler = Handler(Looper.getMainLooper())
 
+// ── HID keyboard scan codes ──
+internal object Kb {
+    // Modifiers
+    const val LCtrl = 0x01
+    const val LShift = 0x02
+    const val LAlt = 0x04
+    const val LWin = 0x08
+    const val RCtrl = 0x11
+    const val RShift = 0x12
+    const val RAlt = 0x14
+    const val RGui = 0x15
+    // Function keys
+    const val Esc = 0x29
+    const val F1 = 0x3A
+    const val F2 = 0x3B
+    const val F3 = 0x3C
+    const val F4 = 0x3D
+    const val F5 = 0x3E
+    const val F6 = 0x3F
+    const val F7 = 0x40
+    const val F8 = 0x41
+    const val F9 = 0x42
+    const val F10 = 0x43
+    const val F11 = 0x44
+    const val F12 = 0x45
+    // Numbers & symbols row
+    const val Grave = 0x35
+    const val Key1 = 0x0E
+    const val Key2 = 0x0F
+    const val Key3 = 0x10
+    const val Key4 = 0x11
+    const val Key5 = 0x12
+    const val Key6 = 0x13
+    const val Key7 = 0x14
+    const val Key8 = 0x15
+    const val Key9 = 0x16
+    const val Key0 = 0x17
+    const val Minus = 0x1E
+    const val Equal = 0x1F
+    const val Backspace = 0x2A
+    // Navigation
+    const val Tab = 0x2B
+    const val CapsLock = 0x39
+    const val Enter = 0x28
+    const val LBracket = 0x2F
+    const val RBracket = 0x30
+    const val Backslash = 0x2C
+    // Letters
+    const val KeyQ = 0x14
+    const val KeyW = 0x16
+    const val KeyE = 0x12
+    const val KeyR = 0x13
+    const val KeyT = 0x15
+    const val KeyY = 0x1A
+    const val KeyU = 0x17
+    const val KeyI = 0x18
+    const val KeyO = 0x19
+    const val KeyP = 0x1B
+    const val KeyA = 0x04
+    const val KeyS = 0x05
+    const val KeyD = 0x06
+    const val KeyF = 0x07
+    const val KeyG = 0x08
+    const val KeyH = 0x09
+    const val KeyJ = 0x0A
+    const val KeyK = 0x0B
+    const val KeyL = 0x0C
+    const val Semicolon = 0x33
+    const val Apostrophe = 0x34
+    const val KeyZ = 0x1D
+    const val KeyX = 0x1E
+    const val KeyC = 0x1F
+    const val KeyV = 0x20
+    const val KeyB = 0x21
+    const val KeyN = 0x22
+    const val KeyM = 0x23
+    const val Comma = 0x36
+    const val Dot = 0x37
+    const val Slash = 0x38
+    // Bottom row
+    const val Space = 0x2C
+    const val Delete = 0x4C
+    const val Insert = 0x52
+    const val Home = 0x6A
+    const val End = 0x69
+    const val PageUp = 0x6B
+    const val PageDown = 0x6E
+    const val Menu = 0x65
+}
+
 internal data class CtrlEntry(
     val baseId: String, val name: String, val icon: Int,
     val bgRes: Int = R.drawable.button_circle,
@@ -34,11 +124,13 @@ internal data class CtrlEntry(
     val isTrigger: Boolean = false,
     val isDpadPad: Boolean = false,
     val isKeypad: Boolean = false,
+    val isKeyboard: Boolean = false,
+    val keyboardKeyCode: Int = 0,
     val useImageButton: Boolean = false,
     val isCustom: Boolean = false,
     val bit: Int = 0,
     val w: Int = 10, val h: Int = 10,
-    val lockAspect: Boolean = true,
+    val lockAspect: Boolean = false,
 )
 
 internal val ctrlEntryBitMap: Map<String, Int> = listOf(
@@ -58,36 +150,124 @@ internal val ctrlEntryBitMap: Map<String, Int> = listOf(
 ).toMap()
 
 internal val allControls = listOf(
-    CtrlEntry("btnDpadUp", "上方向", R.drawable.ic_arrow_up, isDpad = true, useImageButton = true, bit = GamepadState.DPAD_UP),
-    CtrlEntry("btnDpadDown", "下方向", R.drawable.ic_arrow_down, isDpad = true, useImageButton = true, bit = GamepadState.DPAD_DOWN),
-    CtrlEntry("btnDpadLeft", "左方向", R.drawable.ic_arrow_left, isDpad = true, useImageButton = true, bit = GamepadState.DPAD_LEFT),
-    CtrlEntry("btnDpadRight", "右方向", R.drawable.ic_arrow_right, isDpad = true, useImageButton = true, bit = GamepadState.DPAD_RIGHT),
-    CtrlEntry("dpadPad", "一体十字键", R.drawable.ic_dpad_pad, isDpadPad = true, w = 17, h = 17),
-    CtrlEntry("btnA", "A", R.drawable.btn_ps_cross, bit = GamepadState.A),
-    CtrlEntry("btnB", "B", R.drawable.btn_ps_circle, bit = GamepadState.B),
-    CtrlEntry("btnX", "X", R.drawable.btn_ps_square, bit = GamepadState.X),
-    CtrlEntry("btnY", "Y", R.drawable.btn_ps_triangle, bit = GamepadState.Y),
+    CtrlEntry("btnDpadUp", "上方向", R.drawable.ic_arrow_up, isDpad = true, useImageButton = true, bit = GamepadState.DPAD_UP, lockAspect = true),
+    CtrlEntry("btnDpadDown", "下方向", R.drawable.ic_arrow_down, isDpad = true, useImageButton = true, bit = GamepadState.DPAD_DOWN, lockAspect = true),
+    CtrlEntry("btnDpadLeft", "左方向", R.drawable.ic_arrow_left, isDpad = true, useImageButton = true, bit = GamepadState.DPAD_LEFT, lockAspect = true),
+    CtrlEntry("btnDpadRight", "右方向", R.drawable.ic_arrow_right, isDpad = true, useImageButton = true, bit = GamepadState.DPAD_RIGHT, lockAspect = true),
+    CtrlEntry("dpadPad", "一体十字键", R.drawable.ic_dpad_pad, isDpadPad = true, w = 17, h = 17, lockAspect = true),
+    CtrlEntry("btnA", "A", R.drawable.btn_ps_cross, bit = GamepadState.A, lockAspect = true),
+    CtrlEntry("btnB", "B", R.drawable.btn_ps_circle, bit = GamepadState.B, lockAspect = true),
+    CtrlEntry("btnX", "X", R.drawable.btn_ps_square, bit = GamepadState.X, lockAspect = true),
+    CtrlEntry("btnY", "Y", R.drawable.btn_ps_triangle, bit = GamepadState.Y, lockAspect = true),
     CtrlEntry("btnLB", "LB", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, bit = GamepadState.LB, w = 14, h = 8, lockAspect = false),
     CtrlEntry("btnRB", "RB", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, bit = GamepadState.RB, w = 14, h = 8, lockAspect = false),
     CtrlEntry("btnLT", "LT", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, isTrigger = true, bit = GamepadState.LT, w = 14, h = 8, lockAspect = false),
     CtrlEntry("btnRT", "RT", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, isTrigger = true, bit = GamepadState.RT, w = 14, h = 8, lockAspect = false),
-    CtrlEntry("leftJoystick", "左摇杆", R.drawable.joystick_outer, isJoystick = true, w = 17, h = 17),
-    CtrlEntry("rightJoystick", "右摇杆", R.drawable.joystick_outer, isJoystick = true, w = 17, h = 17),
+    CtrlEntry("leftJoystick", "左摇杆", R.drawable.joystick_outer, isJoystick = true, w = 17, h = 17, lockAspect = true),
+    CtrlEntry("rightJoystick", "右摇杆", R.drawable.joystick_outer, isJoystick = true, w = 17, h = 17, lockAspect = true),
     CtrlEntry("touchpad", "触摸板（手柄）", R.drawable.center_rect, isTouchpad = true, w = 34, h = 22, lockAspect = false),
     CtrlEntry("mousepad", "触摸板（鼠标）", R.drawable.center_rect, isMousepad = true, w = 34, h = 22, lockAspect = false),
-    CtrlEntry("btnTouchpad", "触摸板按下", R.drawable.btn_touchpad, R.drawable.btn_touchpad, bit = GamepadState.TOUCHPAD_CLICK, w = 9, h = 9),
-    CtrlEntry("btnLS", "左摇杆按下", R.drawable.btn_ls, R.drawable.btn_ls, bit = GamepadState.L3, w = 9, h = 9),
-    CtrlEntry("btnRS", "右摇杆按下", R.drawable.btn_rs, R.drawable.btn_rs, bit = GamepadState.R3, w = 9, h = 9),
-    CtrlEntry("btnSelect", "选择", R.drawable.btn_select_xbox, bit = GamepadState.SELECT, w = 9, h = 9),
-    CtrlEntry("btnHome", "主页", R.drawable.ic_home, useImageButton = true, bit = GamepadState.HOME, w = 9, h = 9),
-    CtrlEntry("btnMenu", "菜单", R.drawable.btn_menu_xbox, bit = GamepadState.START, w = 9, h = 9),
-    CtrlEntry("btnCustomCircle", "自定义(圆)", R.drawable.button_circle, isCustom = true),
+    CtrlEntry("btnTouchpad", "触摸板按下", R.drawable.btn_touchpad, R.drawable.btn_touchpad, bit = GamepadState.TOUCHPAD_CLICK, w = 9, h = 9, lockAspect = true),
+    CtrlEntry("btnLS", "左摇杆按下", R.drawable.btn_ls, R.drawable.btn_ls, bit = GamepadState.L3, w = 9, h = 9, lockAspect = true),
+    CtrlEntry("btnRS", "右摇杆按下", R.drawable.btn_rs, R.drawable.btn_rs, bit = GamepadState.R3, w = 9, h = 9, lockAspect = true),
+    CtrlEntry("btnSelect", "选择", R.drawable.btn_select_xbox, bit = GamepadState.SELECT, w = 9, h = 9, lockAspect = true),
+    CtrlEntry("btnHome", "主页", R.drawable.ic_home, useImageButton = true, bit = GamepadState.HOME, w = 9, h = 9, lockAspect = true),
+    CtrlEntry("btnMenu", "菜单", R.drawable.btn_menu_xbox, bit = GamepadState.START, w = 9, h = 9, lockAspect = true),
+    CtrlEntry("btnCustomCircle", "自定义(圆)", R.drawable.button_circle, isCustom = true, lockAspect = true),
     CtrlEntry("btnCustomRect", "自定义(方)", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, w = 14, h = 8, lockAspect = false, isCustom = true),
-    CtrlEntry("customKeypad", "自定义按键盘", R.drawable.ic_custom_keypad, isKeypad = true, w = 17, h = 17),
-    CtrlEntry("btnMic", "麦克风静音", R.drawable.ic_mic, useImageButton = true, bit = GamepadState.MIC_MUTE, w = 9, h = 9),
-    CtrlEntry("btnMouseLMB", "LMB", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, bit = GamepadState.MOUSE_LMB, w = 9, h = 9),
-    CtrlEntry("btnMouseRMB", "RMB", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, bit = GamepadState.MOUSE_RMB, w = 9, h = 9),
-    CtrlEntry("btnMouseMMB", "MMB", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, bit = GamepadState.MOUSE_MMB, w = 9, h = 9),
+    CtrlEntry("customKeypad", "自定义按键盘", R.drawable.ic_custom_keypad, isKeypad = true, w = 17, h = 17, lockAspect = true),
+    CtrlEntry("btnMic", "麦克风静音", R.drawable.ic_mic, useImageButton = true, bit = GamepadState.MIC_MUTE, w = 9, h = 9, lockAspect = true),
+
+    // ── Mouse keys ──
+    CtrlEntry("mousepad", "触摸板（鼠标）", R.drawable.center_rect, isMousepad = true, w = 34, h = 22, lockAspect = false),
+    CtrlEntry("btnMouseLMB", "LMB", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, bit = GamepadState.MOUSE_LMB, w = 9, h = 9, lockAspect = false),
+    CtrlEntry("btnMouseRMB", "RMB", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, bit = GamepadState.MOUSE_RMB, w = 9, h = 9, lockAspect = false),
+    CtrlEntry("btnMouseMMB", "MMB", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, bit = GamepadState.MOUSE_MMB, w = 9, h = 9, lockAspect = false),
+    
+    // ── Keyboard keys ──
+    // Modifiers
+    CtrlEntry("kbLCtrl", "LCtrl", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.LCtrl),
+    CtrlEntry("kbLShift", "LShift", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.LShift),
+    CtrlEntry("kbLAlt", "LAlt", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.LAlt),
+    CtrlEntry("kbLWin", "Win", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.LWin),
+    CtrlEntry("kbRCtrl", "RCtrl", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.RCtrl),
+    CtrlEntry("kbRShift", "RShift", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.RShift),
+    CtrlEntry("kbRAlt", "AltGr", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.RAlt),
+    CtrlEntry("kbRGui", "RWin", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.RGui),
+    // Letters row 1
+    CtrlEntry("kbQ", "Q", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyQ),
+    CtrlEntry("kbW", "W", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyW),
+    CtrlEntry("kbE", "E", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyE),
+    CtrlEntry("kbR", "R", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyR),
+    CtrlEntry("kbT", "T", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyT),
+    CtrlEntry("kbY", "Y", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyY),
+    CtrlEntry("kbU", "U", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyU),
+    CtrlEntry("kbI", "I", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyI),
+    CtrlEntry("kbO", "O", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyO),
+    CtrlEntry("kbP", "P", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyP),
+    // Letters row 2
+    CtrlEntry("kbA", "A", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyA),
+    CtrlEntry("kbS", "S", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyS),
+    CtrlEntry("kbD", "D", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyD),
+    CtrlEntry("kbF", "F", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyF),
+    CtrlEntry("kbG", "G", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyG),
+    CtrlEntry("kbH", "H", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyH),
+    CtrlEntry("kbJ", "J", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyJ),
+    CtrlEntry("kbK", "K", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyK),
+    CtrlEntry("kbL", "L", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyL),
+    // Letters row 3
+    CtrlEntry("kbZ", "Z", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyZ),
+    CtrlEntry("kbX", "X", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyX),
+    CtrlEntry("kbC", "C", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyC),
+    CtrlEntry("kbV", "V", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyV),
+    CtrlEntry("kbB", "B", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyB),
+    CtrlEntry("kbN", "N", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyN),
+    CtrlEntry("kbM", "M", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.KeyM),
+    // Numbers
+    CtrlEntry("kb1", "1", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Key1),
+    CtrlEntry("kb2", "2", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Key2),
+    CtrlEntry("kb3", "3", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Key3),
+    CtrlEntry("kb4", "4", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Key4),
+    CtrlEntry("kb5", "5", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Key5),
+    CtrlEntry("kb6", "6", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Key6),
+    CtrlEntry("kb7", "7", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Key7),
+    CtrlEntry("kb8", "8", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Key8),
+    CtrlEntry("kb9", "9", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Key9),
+    CtrlEntry("kb0", "0", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Key0),
+    // Navigation
+    CtrlEntry("kbSpace", "Space", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Space, w = 14, h = 8),
+    CtrlEntry("kbEnter", "Enter", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Enter, w = 9, h = 8),
+    CtrlEntry("kbBackspace", "Bksp", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Backspace, w = 9, h = 8),
+    CtrlEntry("kbTab", "Tab", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Tab, w = 8, h = 8),
+    CtrlEntry("kbCaps", "Caps", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.CapsLock, w = 9, h = 8),
+    CtrlEntry("kbEsc", "Esc", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Esc),
+    CtrlEntry("kbDelete", "Del", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Delete),
+    CtrlEntry("kbMenu", "Menu", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Menu),
+    // Symbols
+    CtrlEntry("kbMinus", "-", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Minus),
+    CtrlEntry("kbEqual", "=", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Equal),
+    CtrlEntry("kbLBracket", "[", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.LBracket),
+    CtrlEntry("kbRBracket", "]", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.RBracket),
+    CtrlEntry("kbBackslash", "\\", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Backslash),
+    CtrlEntry("kbSemicolon", ";", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Semicolon),
+    CtrlEntry("kbApostrophe", "'", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Apostrophe),
+    CtrlEntry("kbComma", ",", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Comma),
+    CtrlEntry("kbDot", ".", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Dot),
+    CtrlEntry("kbSlash", "/", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Slash),
+    CtrlEntry("kbGrave", "`", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.Grave),
+    // Function keys
+    CtrlEntry("kbF1", "F1", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.F1),
+    CtrlEntry("kbF2", "F2", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.F2),
+    CtrlEntry("kbF3", "F3", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.F3),
+    CtrlEntry("kbF4", "F4", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.F4),
+    CtrlEntry("kbF5", "F5", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.F5),
+    CtrlEntry("kbF6", "F6", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.F6),
+    CtrlEntry("kbF7", "F7", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.F7),
+    CtrlEntry("kbF8", "F8", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.F8),
+    CtrlEntry("kbF9", "F9", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.F9),
+    CtrlEntry("kbF10", "F10", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.F10),
+    CtrlEntry("kbF11", "F11", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.F11),
+    CtrlEntry("kbF12", "F12", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.F12),
 )
 
 // Keep custom button text vertically centered even when the button is shrunk:
@@ -230,8 +410,8 @@ internal fun MainActivity.setupTouchHandler(
     when {
         isDpad -> view.setOnTouchListener { v, e ->
             when (e.action) {
-                MotionEvent.ACTION_DOWN -> { v.isPressed = true; v.performClick(); a.viewModel.onDpad(bit, true); true }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.isPressed = false; a.viewModel.onDpad(bit, false); true }
+                MotionEvent.ACTION_DOWN -> { v.isPressed = true; v.performClick(); a.viewModel.triggerHapticPress(); a.viewModel.onDpad(bit, true); true }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.isPressed = false; a.viewModel.triggerHapticRelease(); a.viewModel.onDpad(bit, false); true }
                 else -> true
             }
         }

@@ -41,6 +41,7 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.milliseconds
 
+@OptIn(ExperimentalUnsignedTypes::class)
 @HiltViewModel
 class GamepadViewModel @Inject constructor(
     val connectionManager: ConnectionManager,
@@ -110,6 +111,8 @@ class GamepadViewModel @Inject constructor(
     private var phoneRStickY: Short = 0
     private var phoneLT: Short = 0
     private var phoneRT: Short = 0
+    private var _keyboardModifier = 0u
+    private var _keyboardKeys = UShortArray(6)
 
     var onHapticFeedbackPress: (() -> Unit)? = null
     var onHapticFeedbackRelease: (() -> Unit)? = null
@@ -887,6 +890,82 @@ class GamepadViewModel @Inject constructor(
     fun onRightTrigger(value: Int) {
         phoneRT = value.toShort()
         _gamepadState.value = _gamepadState.value.copy(rightTrigger = value)
+    }
+
+    fun onKeyDown(code: Int) {
+        when (code) {
+            in 0xE0..0xE7 -> {
+                _keyboardModifier = _keyboardModifier or (1u shl (code - 0xE0))
+            }
+            0xE8 -> {
+                _keyboardModifier = _keyboardModifier or 0x10u
+            }
+            0xE9 -> {
+                _keyboardModifier = _keyboardModifier or 0x20u
+            }
+            0xEA -> {
+                _keyboardModifier = _keyboardModifier or 0x40u
+            }
+            0xEB -> {
+                _keyboardModifier = _keyboardModifier or 0x80u
+            }
+            else -> {
+                for (i in _keyboardKeys.indices) {
+                    if (_keyboardKeys[i].toInt() == 0) {
+                        _keyboardKeys[i] = code.toUShort()
+                        break
+                    }
+                }
+            }
+        }
+        sendKeyboardReport()
+    }
+
+    fun onKeyUp(code: Int) {
+        when (code) {
+            in 0xE0..0xE7 -> {
+                _keyboardModifier = _keyboardModifier and (1u shl (code - 0xE0)).inv()
+            }
+            0xE8 -> {
+                _keyboardModifier = _keyboardModifier and 0x10u.inv()
+            }
+            0xE9 -> {
+                _keyboardModifier = _keyboardModifier and 0x20u.inv()
+            }
+            0xEA -> {
+                _keyboardModifier = _keyboardModifier and 0x40u.inv()
+            }
+            0xEB -> {
+                _keyboardModifier = _keyboardModifier and 0x80u.inv()
+            }
+            else -> {
+                for (i in _keyboardKeys.indices) {
+                    if (_keyboardKeys[i] == code.toUShort()) {
+                        _keyboardKeys[i] = 0u
+                        break
+                    }
+                }
+            }
+        }
+        sendKeyboardReport()
+    }
+
+    fun clearAllKeyboardKeys() {
+        _keyboardModifier = 0u
+        _keyboardKeys = UShortArray(6)
+        sendKeyboardReport()
+    }
+
+    private fun sendKeyboardReport() {
+        if (settings.value.connectionMode != com.zyz4.gamepademu.model.ConnectionMode.BLUETOOTH) return
+        val modifier = _keyboardModifier.toByte()
+        val keys = ByteArray(6)
+        for (i in _keyboardKeys.indices) {
+            keys[i] = _keyboardKeys[i].toByte()
+        }
+        viewModelScope.launch {
+            connectionManager.sendKeyboardReport(modifier, keys)
+        }
     }
 
     fun onTouchpadTouches(touches: List<TouchPoint>) {

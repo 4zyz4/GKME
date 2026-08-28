@@ -43,6 +43,8 @@ data class ButtonPosition(
     val gyroActivate: Boolean = false,
     // ── Auto hold: one tap holds, second tap releases ──
     val autoHold: Boolean = false,
+    // ── Keyboard control ──
+    val isKeyboard: Boolean = false,
 ) {
     companion object {
         const val KEYPAD_BASE_ID = "customKeypad"

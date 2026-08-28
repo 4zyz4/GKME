@@ -213,13 +213,14 @@ internal fun MainActivity.showAddButtonDialog() {
     val mode = a.viewModel.settings.value.displayMode
     val cellW = (400f * density).toInt()
 
-    // Categorize controls
+// Categorize controls
     val gamepadControls = allControls.filter {
         val base = it.baseId
-        !base.startsWith("btnMouse") && base != "mousepad" && base != "btnCustomCircle" && base != "btnCustomRect" && base != "customKeypad"
+        !base.startsWith("btnMouse") && base != "mousepad" && base != "btnCustomCircle" && base != "btnCustomRect" && base != "customKeypad" && !it.isKeyboard
     }
     val mouseControls = allControls.filter { it.baseId.startsWith("btnMouse") || it.baseId == "mousepad" }
     val customControls = allControls.filter { it.baseId in listOf("btnCustomCircle", "btnCustomRect", "customKeypad") }
+    val keyboardControls = allControls.filter { it.isKeyboard }
 
     fun createPreviewView(entry: CtrlEntry): View {
         val wrapper = LinearLayout(a).apply {
@@ -319,6 +320,18 @@ internal fun MainActivity.showAddButtonDialog() {
                 layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
             }
             wrapper.addView(iv)
+        } else if (entry.isKeyboard) {
+            val btn = Button(a).apply {
+                this.text = entry.name
+                setTextColor(-0x333334)
+                textSize = 12f
+                setTypeface(null, Typeface.BOLD)
+                setBackgroundResource(R.drawable.button_circle)
+                gravity = Gravity.CENTER
+                layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+                isClickable = false
+            }
+            wrapper.addView(btn)
         } else {
             val iv = ImageView(a).apply {
                 setImageResource(a.getPreviewIcon(entry, mode))
@@ -370,9 +383,9 @@ internal fun MainActivity.showAddButtonDialog() {
     }
 
     var selectedIndex = 0
-    val tabLabels = arrayOf("手柄", "鼠标", "自定义")
-    val tabViews = arrayOfNulls<TextView>(3)
-    val tabDatas = arrayOf(gamepadControls, mouseControls, customControls)
+    val tabLabels = arrayOf("手柄", "鼠标", "键盘", "自定义")
+    val tabViews = arrayOfNulls<TextView>(4)
+    val tabDatas = arrayOf(gamepadControls, mouseControls, keyboardControls, customControls)
 
     // Page container - defined before updateTabs so the lambda can reference it
     val pageContainer = LinearLayout(a).apply {
@@ -380,7 +393,7 @@ internal fun MainActivity.showAddButtonDialog() {
     }
 
     // Pre-build pages first so pageViews is available in updateTabs lambda
-    val pageViews = arrayOfNulls<View>(3)
+    val pageViews = arrayOfNulls<View>(4)
     for (i in tabDatas.indices) {
         pageViews[i] = buildGrid(tabDatas[i])
     }
@@ -489,6 +502,20 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
         }
         entry.isDpadPad -> a.createDpadPadView(id)
         entry.isKeypad -> a.createCustomKeypadView(id)
+        entry.isKeyboard -> {
+            val btn = if (!entry.lockAspect) RotatableButton(a) else Button(a)
+            btn.apply {
+                this.id = View.generateViewId(); tag = id
+                text = entry.name
+                setAllCaps(false)
+                setTextColor(-0x333334); textSize = 12f
+                setTypeface(null, Typeface.BOLD)
+                setBackgroundResource(R.drawable.button_rounded_rect)
+                gravity = Gravity.CENTER
+                enableAutoFitButtonText(20f)
+            }
+            btn
+        }
         entry.isCustom -> {
             val btn = if (!entry.lockAspect) RotatableButton(a) else Button(a)
             btn.apply {
@@ -550,9 +577,44 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
             keypadCenterDoubleClick = true,
             roundShape = false,
         )
-    } else {
+    } else if (entry.isKeyboard) {
+        val existingKeyboardPositions = a.gamepadLayout.currentButtons.filter { it.isKeyboard }
+        var newX = 50
+        var newY = 20
+        for (kp in existingKeyboardPositions) {
+            if (kp.x + kp.width > newX && kp.x < newX + entry.w && kp.y + kp.height > newY && kp.y < newY + entry.h) {
+                newX += entry.w + 1
+                if (newX + entry.w > 120) {
+                    newX = 50
+                    newY += entry.h + 1
+                }
+            }
+        }
         ButtonPosition(
-            id = id, x = 50, y = 20,
+            id = id, x = newX, y = newY.coerceIn(0, 120 - entry.h),
+            width = entry.w, height = entry.h,
+            lockAspect = entry.lockAspect,
+            isCustom = entry.isCustom,
+            isKeyboard = entry.isKeyboard,
+            customText = "键盘",
+            customBits = emptyList(),
+            roundShape = false,
+        )
+    } else {
+        val existingSameBase = a.gamepadLayout.currentButtons.filter { it.id.substringBefore("_") == entry.baseId }
+        var newX = 50
+        var newY = 20
+        for (bp in existingSameBase) {
+            if (bp.x + bp.width > newX && bp.x < newX + entry.w && bp.y + bp.height > newY && bp.y < newY + entry.h) {
+                newX += entry.w + 1
+                if (newX + entry.w > 120) {
+                    newX = 50
+                    newY += entry.h + 1
+                }
+            }
+        }
+        ButtonPosition(
+            id = id, x = newX, y = newY.coerceIn(0, 120 - entry.h),
             width = entry.w, height = entry.h,
             lockAspect = entry.lockAspect,
             isCustom = entry.isCustom,
@@ -566,11 +628,29 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
         a.gamepadLayout.addView(view)
         a.gamepadLayout.addButtonPosition(pos)
 
-        if (!entry.isTouchpad && !entry.isMousepad && !entry.isDpadPad) {
+        if (!entry.isTouchpad && !entry.isMousepad && !entry.isDpadPad && !entry.isKeyboard) {
             if (entry.isCustom) {
                 a.setupCustomTouchHandler(view)
             } else if (!entry.isKeypad) {
                 a.setupTouchHandler(view, entry.bit, entry.isDpad, entry.isTrigger, entry.isJoystick)
+            }
+        } else if (entry.isKeyboard) {
+            view.setOnTouchListener { v, e ->
+                when (e.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        v.isPressed = true
+                        a.viewModel.triggerHapticPress()
+                        a.viewModel.onKeyDown(entry.keyboardKeyCode)
+                        true
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        v.isPressed = false
+                        a.viewModel.triggerHapticRelease()
+                        a.viewModel.onKeyUp(entry.keyboardKeyCode)
+                        true
+                    }
+                    else -> true
+                }
             }
         }
 
@@ -748,6 +828,20 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
         }
         entry.isDpadPad -> a.createDpadPadView(pos.id)
         entry.isKeypad -> a.createCustomKeypadView(pos.id)
+        entry.isKeyboard -> {
+            val btn = if (!entry.lockAspect) RotatableButton(a) else Button(a)
+            btn.apply {
+                id = View.generateViewId(); tag = pos.id
+                text = entry.name
+                setAllCaps(false)
+                setTextColor(-0x333334); textSize = 12f
+                setTypeface(null, Typeface.BOLD)
+                setBackgroundResource(R.drawable.button_rounded_rect)
+                gravity = Gravity.CENTER
+                enableAutoFitButtonText(20f)
+            }
+            btn
+        }
         entry.isCustom -> {
             val btn = if (!entry.lockAspect) RotatableButton(a) else Button(a)
             btn.apply {
@@ -789,7 +883,7 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
         }
     }
 
-    if (!entry.isTouchpad && !entry.isMousepad && !entry.isCustom && !entry.isDpadPad && !entry.isKeypad) {
+    if (!entry.isTouchpad && !entry.isMousepad && !entry.isCustom && !entry.isDpadPad && !entry.isKeypad && !entry.isKeyboard) {
         val bit = a.getBitForEntry(entry) ?: 0
         val isTrigger = baseId in triggerBaseIds
         if (pos.linearTriggerEnabled && isTrigger) {
@@ -799,6 +893,25 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
         }
     } else if (entry.isCustom) {
         a.setupCustomTouchHandler(view)
+    } else if (entry.isKeyboard) {
+        val keyCode = entry.keyboardKeyCode
+        view.setOnTouchListener { v, e ->
+            when (e.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    v.isPressed = true
+                    a.viewModel.triggerHapticPress()
+                    a.viewModel.onKeyDown(keyCode)
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    v.isPressed = false
+                    a.viewModel.triggerHapticRelease()
+                    a.viewModel.onKeyUp(keyCode)
+                    true
+                }
+                else -> true
+            }
+        }
     } else if (pos.linearTriggerEnabled && baseId in triggerBaseIds) {
         // LinearTriggerView handles its own touch events
     }

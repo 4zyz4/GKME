@@ -7,6 +7,31 @@ import java.util.LinkedHashMap
 
 private val gson = Gson()
 
+/**
+ * Hard-coded type info that mirrors MainActivityControls.allControls.
+ * lockAspect and isKeyboard are derived from these sets, never saved.
+ */
+private val LOCK_ASPECT_FALSE_IDS = setOf(
+    "btnLB", "btnRB", "btnLT", "btnRT",
+    "touchpad", "mousepad", "btnCustomRect",
+    "btnMouseLMB", "btnMouseRMB", "btnMouseMMB",
+)
+
+private val IS_KEYBOARD_IDS = setOf(
+    "kbLCtrl", "kbLShift", "kbLAlt", "kbLWin",
+    "kbRCtrl", "kbRShift", "kbRAlt", "kbRGui",
+    "kbQ", "kbW", "kbE", "kbR", "kbT", "kbY", "kbU", "kbI", "kbO", "kbP",
+    "kbA", "kbS", "kbD", "kbF", "kbG", "kbH", "kbJ", "kbK", "kbL",
+    "kbZ", "kbX", "kbC", "kbV", "kbB", "kbN", "kbM",
+    "kb1", "kb2", "kb3", "kb4", "kb5", "kb6", "kb7", "kb8", "kb9", "kb0",
+    "kbSpace", "kbEnter", "kbBackspace", "kbTab", "kbCaps",
+    "kbEsc", "kbDelete", "kbMenu",
+    "kbMinus", "kbEqual", "kbLBracket", "kbRBracket", "kbBackslash",
+    "kbSemicolon", "kbApostrophe", "kbComma", "kbDot", "kbSlash", "kbGrave",
+    "kbF1", "kbF2", "kbF3", "kbF4", "kbF5", "kbF6", "kbF7", "kbF8", "kbF9",
+    "kbF10", "kbF11", "kbF12",
+)
+
 data class LayoutPreset(
     val version: Int = 1,
     val buttons: List<ButtonPosition> = emptyList(),
@@ -20,13 +45,21 @@ data class LayoutPreset(
         private val KEYPAD_IDS = setOf("customKeypad")
         private val MOUSEPAD_IDS = setOf("mousepad")
 
+        private fun isLockAspectFalse(baseId: String): Boolean = baseId in LOCK_ASPECT_FALSE_IDS
+        private fun isKeyboard(baseId: String): Boolean = baseId in IS_KEYBOARD_IDS
+
         fun fromJson(json: String): LayoutPreset {
             val root = gsonInstance.fromJson(json, JsonObject::class.java)
             val rawArray = root.getAsJsonArray("buttons")
+            val buttons = mutableListOf<com.zyz4.gamepademu.model.ButtonPosition>()
             if (rawArray != null) {
                 val size = java.lang.Integer.valueOf(rawArray.size())
                 for (i in 0 until size) {
                     val btnObj = rawArray[i].asJsonObject
+                    // Remove lockAspect and isKeyboard so they are not deserialized;
+                    // they will be re-constructed from baseId when accessed.
+                    btnObj.remove("lockAspect")
+                    btnObj.remove("isKeyboard")
                     if (!btnObj.has("overlapTrigger")) btnObj.addProperty("overlapTrigger", true)
                     if (!btnObj.has("followAreaOverlapTrigger")) btnObj.addProperty("followAreaOverlapTrigger", false)
                     if (!btnObj.has("linearTriggerEnabled")) btnObj.addProperty("linearTriggerEnabled", false)
@@ -35,7 +68,6 @@ data class LayoutPreset(
                     if (!btnObj.has("doubleClickEnable")) btnObj.addProperty("doubleClickEnable", true)
                     if (!btnObj.has("isCustom")) btnObj.addProperty("isCustom", false)
                     if (!btnObj.has("followAreaEnabled")) btnObj.addProperty("followAreaEnabled", false)
-                    if (!btnObj.has("lockAspect")) btnObj.addProperty("lockAspect", false)
                     if (!btnObj.has("swipeTrigger")) btnObj.addProperty("swipeTrigger", false)
                     if (!btnObj.has("roundShape")) btnObj.addProperty("roundShape", true)
                     if (!btnObj.has("idleTransparency")) btnObj.addProperty("idleTransparency", 0)
@@ -80,11 +112,23 @@ data class LayoutPreset(
                         btnObj.remove("slideDirection")
                         btnObj.addProperty("slideDirection", normalized)
                     }
+
+                    val bp = gsonInstance.fromJson(btnObj, com.zyz4.gamepademu.model.ButtonPosition::class.java)
+                    val baseId = bp.id.substringBefore("_")
+                    // Override lockAspect and isKeyboard from hard-coded tables
+                    val lockAspect = if (isKeyboard(baseId)) false else !isLockAspectFalse(baseId)
+                    buttons.add(bp.copy(
+                        lockAspect = lockAspect,
+                        isKeyboard = isKeyboard(baseId),
+                    ))
                 }
             }
-            val fixedJson = root.toString()
-            val type = object : TypeToken<LayoutPreset>() {}.type
-            return gsonInstance.fromJson(fixedJson, type)
+            val gyro = root.get("gyroOrientation")?.asString?.let { GyroOrientation.valueOf(it) }
+            return LayoutPreset(
+                version = root.get("version")?.asInt ?: 1,
+                buttons = buttons,
+                gyroOrientation = gyro,
+            )
         }
 
         fun toJson(preset: LayoutPreset): String = preset.toJson()
@@ -103,7 +147,6 @@ data class LayoutPreset(
             m["height"] = b.height
             // conditional write (only when not default)
             if (b.visible) m["visible"] = b.visible
-            if (b.lockAspect) m["lockAspect"] = b.lockAspect
             if (b.swipeTrigger) m["swipeTrigger"] = b.swipeTrigger
             m["rotation"] = b.rotation
             if (b.isCustom) {

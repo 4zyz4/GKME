@@ -528,6 +528,17 @@ class ConnectionManager @Inject constructor(
         }
     }
 
+    fun sendKeyboardReport(modifier: Byte, keys: ByteArray) {
+        when (_settings.value.connectionMode) {
+            ConnectionMode.BLUETOOTH -> {
+                val phase = _connectionState.value.phase
+                if (phase != ConnectionPhase.CONNECTED) return
+                bluetoothService?.sendKeyboardReport(modifier, keys)
+            }
+            ConnectionMode.WIFI -> {}
+        }
+    }
+
     private fun getRealDeviceName(): String {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
             Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME)

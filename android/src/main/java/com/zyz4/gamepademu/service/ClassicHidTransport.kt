@@ -236,7 +236,8 @@ class ClassicHidTransport(
 
     private val mouseSendFailedCounter = AtomicInteger(0)
 
-    override fun sendMouseReport(button: Byte, dx: Byte, dy: Byte, wheel: Byte, hWheel: Byte) {        val device = connectedDevice ?: return
+    override fun sendMouseReport(button: Byte, dx: Byte, dy: Byte, wheel: Byte, hWheel: Byte) {
+        val device = connectedDevice ?: return
         val hid = hidDevice ?: return
 
         if (mouseSendFailedCounter.get() > 50) {
@@ -260,6 +261,36 @@ class ClassicHidTransport(
         } catch (e: Exception) {
             Log.e("ClassicHidMouse", "sendMouseReport exception", e)
             mouseSendFailedCounter.incrementAndGet()
+        }
+    }
+
+    private val keyboardSendFailedCounter = AtomicInteger(0)
+
+    override fun sendKeyboardReport(modifier: Byte, keys: ByteArray) {
+        val device = connectedDevice ?: return
+        val hid = hidDevice ?: return
+
+        if (keyboardSendFailedCounter.get() > 50) {
+            Log.w("ClassicHidKeyboard", "sendKeyboardReport dropped - too many consecutive failures")
+            return
+        }
+
+        try {
+            val report = ByteArray(7)
+            report[0] = modifier
+            keys.copyInto(report, 1, 0, minOf(keys.size, 6))
+            val ok = hid.sendReport(device, 17, report)
+            if (!ok) {
+                val count = keyboardSendFailedCounter.incrementAndGet()
+                if (count % 10 == 0) {
+                    Log.w("ClassicHidKeyboard", "sendKeyboardReport returned false, count=$count")
+                }
+            } else {
+                keyboardSendFailedCounter.set(0)
+            }
+        } catch (e: Exception) {
+            Log.e("ClassicHidKeyboard", "sendKeyboardReport exception", e)
+            keyboardSendFailedCounter.incrementAndGet()
         }
     }
 
