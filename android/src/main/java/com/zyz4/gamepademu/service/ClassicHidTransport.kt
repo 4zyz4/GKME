@@ -247,7 +247,7 @@ class ClassicHidTransport(
 
         try {
             val ok = hid.sendReport(device, 18, byteArrayOf(
-                (button.toInt() and 0x03).toByte(),
+                (button.toInt() and 0x07).toByte(),
                 dx, dy, wheel, hWheel,
             ))
             if (!ok) {

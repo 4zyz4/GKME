@@ -786,7 +786,28 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
         heldButtons = heldButtons and bit.inv()
         a.sendMouseReportDirect(buttonDown = heldButtons, buttonUp = 0, dx = 0, dy = 0)
     }
-    fun moveRaw(dx: Float, dy: Float) {
+    fun moveRaw(rawDx: Float, rawDy: Float) {
+        var dx = rawDx
+        var dy = rawDy
+        if (useConfig) {
+            val id = mp.tag as? String ?: return
+            val pos = a.gamepadLayout.currentButtons.find { it.id == id }
+            if (pos != null) {
+                val rot = pos.rotation % 360
+                if (rot == 90) {
+                    val tmp = dy
+                    dy = (-dx).toFloat()
+                    dx = tmp.toFloat()
+                } else if (rot == 180) {
+                    dx = (-dx).toFloat()
+                    dy = (-dy).toFloat()
+                } else if (rot == 270) {
+                    val tmp = dy
+                    dy = dx.toFloat()
+                    dx = (-tmp).toFloat()
+                }
+            }
+        }
         cursorAccumX += dx * mouseSens
         cursorAccumY += dy * mouseSens
         val ix = cursorAccumX.toInt()
@@ -913,8 +934,29 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                     if ((Math.abs(totalDx) + Math.abs(totalDy)) > MOVE_SLOP) {
                         twoFingerMoved = true
                     }
-                    val sDy = if (invertScrollV) -totalDy else totalDy
-                    val sDx = if (invertScrollH) totalDx else -totalDx
+                    var scrollDx = totalDx
+                    var scrollDy = totalDy
+                    if (useConfig) {
+                        val id = mp.tag as? String ?: ""
+                        val pos = a.gamepadLayout.currentButtons.find { it.id == id }
+                        if (pos != null) {
+                            val rot = pos.rotation % 360
+                            if (rot == 90) {
+                                val tmp = scrollDy
+                                scrollDy = (-scrollDx)
+                                scrollDx = tmp
+                            } else if (rot == 180) {
+                                scrollDx = -scrollDx
+                                scrollDy = -scrollDy
+                            } else if (rot == 270) {
+                                val tmp = scrollDy
+                                scrollDy = scrollDx
+                                scrollDx = -tmp
+                            }
+                        }
+                    }
+                    val sDy = if (invertScrollV) -scrollDy else scrollDy
+                    val sDx = if (invertScrollH) scrollDx else -scrollDx
                     val wifiScrollFactor = if (a.viewModel.settings.value.connectionMode == ConnectionMode.WIFI) 33f else 1f
                     wheelAccumY += sDy * scrollSens * wifiScrollFactor
                     wheelAccumX += sDx * scrollSens * wifiScrollFactor
@@ -952,10 +994,6 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                     // 双指手势：第一指抬起且未滚动 -> 右键；第二指抬起仅清理
                     if (tracked >= 2 && !twoFingerMoved) {
                         a.sendMouseTap(button = 2)
-                    }
-                    if (heldButtons != 0) {
-                        heldButtons = 0
-                        a.sendMouseReportDirect(buttonDown = 0, buttonUp = 0, dx = 0, dy = 0)
                     }
                     tracked -= 1
                     if (tracked <= 0) {

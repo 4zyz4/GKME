@@ -702,17 +702,51 @@ class GamepadViewModel @Inject constructor(
     fun onButtonDown(bit: Int) {
         val wasDown = (_gamepadState.value.buttons and bit.toUInt()) != 0u
         phoneButtons = phoneButtons or bit.toUInt()
+        val newButtons = _gamepadState.value.buttons or bit.toUInt()
+        val newMouseButtons = when (bit) {
+            GamepadState.MOUSE_LMB -> _gamepadState.value.mouseButtons or 1
+            GamepadState.MOUSE_RMB -> _gamepadState.value.mouseButtons or 2
+            GamepadState.MOUSE_MMB -> _gamepadState.value.mouseButtons or 4
+            else -> _gamepadState.value.mouseButtons
+        }
         _gamepadState.value = _gamepadState.value.copy(
-            buttons = _gamepadState.value.buttons or bit.toUInt()
+            buttons = newButtons,
+            mouseButtons = newMouseButtons,
         )
+        val isMouseButton = (bit == GamepadState.MOUSE_LMB || bit == GamepadState.MOUSE_RMB || bit == GamepadState.MOUSE_MMB)
+        if (settings.value.connectionMode == ConnectionMode.BLUETOOTH && isMouseButton) {
+            viewModelScope.launch {
+                connectionManager.sendMouseReport(
+                    button = newMouseButtons.toByte(),
+                    dx = 0, dy = 0, wheel = 0, hWheel = 0,
+                )
+            }
+        }
     }
 
     fun onButtonUp(bit: Int) {
         val wasUp = (_gamepadState.value.buttons and bit.toUInt()) == 0u
         phoneButtons = phoneButtons and (bit.toUInt().inv())
+        val newButtons = _gamepadState.value.buttons and (bit.toUInt().inv())
+        val newMouseButtons = when (bit) {
+            GamepadState.MOUSE_LMB -> _gamepadState.value.mouseButtons and 1.inv()
+            GamepadState.MOUSE_RMB -> _gamepadState.value.mouseButtons and 2.inv()
+            GamepadState.MOUSE_MMB -> _gamepadState.value.mouseButtons and 4.inv()
+            else -> _gamepadState.value.mouseButtons
+        }
         _gamepadState.value = _gamepadState.value.copy(
-            buttons = _gamepadState.value.buttons and (bit.toUInt().inv())
+            buttons = newButtons,
+            mouseButtons = newMouseButtons,
         )
+        val isMouseButton = (bit == GamepadState.MOUSE_LMB || bit == GamepadState.MOUSE_RMB || bit == GamepadState.MOUSE_MMB)
+        if (settings.value.connectionMode == ConnectionMode.BLUETOOTH && isMouseButton) {
+            viewModelScope.launch {
+                connectionManager.sendMouseReport(
+                    button = newMouseButtons.toByte(),
+                    dx = 0, dy = 0, wheel = 0, hWheel = 0,
+                )
+            }
+        }
     }
 
     fun triggerHapticPress() {

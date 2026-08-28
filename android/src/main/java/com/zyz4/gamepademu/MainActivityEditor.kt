@@ -530,7 +530,7 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
             }
             btn
         }
-        entry.baseId.startsWith("btnMouse") -> Button(a).apply {
+        entry.baseId.startsWith("btnMouse") -> com.zyz4.gamepademu.view.RotatableButton(a).apply {
             this.id = View.generateViewId(); tag = id
             text = entry.name
             setAllCaps(false)
@@ -926,7 +926,7 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
                 enableAutoFitButtonText(20f)
             }
         }
-        baseId.startsWith("btnMouse") -> Button(a).apply {
+        baseId.startsWith("btnMouse") -> com.zyz4.gamepademu.view.RotatableButton(a).apply {
             id = View.generateViewId(); tag = pos.id
             text = pos.customText ?: entry.name
             setAllCaps(false)
