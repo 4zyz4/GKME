@@ -26,17 +26,16 @@ private val _mainHandler = Handler(Looper.getMainLooper())
 
 // ── HID keyboard scan codes ──
 internal object Kb {
-    // Modifiers
-    const val LCtrl = 0x01
-    const val LShift = 0x02
-    const val LAlt = 0x04
-    const val LWin = 0x08
-    const val RCtrl = 0x11
-    const val RShift = 0x12
-    const val RAlt = 0x14
-    const val RGui = 0x15
+    // Modifiers (mapped to modifier bits 0-7 in report byte 0)
+    const val LCtrl = 0xE0
+    const val LShift = 0xE1
+    const val LAlt = 0xE2
+    const val LGui = 0xE3
+    const val RCtrl = 0xE4
+    const val RShift = 0xE5
+    const val RAlt = 0xE6
+    const val RGui = 0xE7
     // Function keys
-    const val Esc = 0x29
     const val F1 = 0x3A
     const val F2 = 0x3B
     const val F3 = 0x3C
@@ -49,74 +48,76 @@ internal object Kb {
     const val F10 = 0x43
     const val F11 = 0x44
     const val F12 = 0x45
-    // Numbers & symbols row
-    const val Grave = 0x35
-    const val Key1 = 0x0E
-    const val Key2 = 0x0F
-    const val Key3 = 0x10
-    const val Key4 = 0x11
-    const val Key5 = 0x12
-    const val Key6 = 0x13
-    const val Key7 = 0x14
-    const val Key8 = 0x15
-    const val Key9 = 0x16
-    const val Key0 = 0x17
-    const val Minus = 0x1E
-    const val Equal = 0x1F
-    const val Backspace = 0x2A
-    // Navigation
-    const val Tab = 0x2B
-    const val CapsLock = 0x39
+    // Letters (a-z) in alphabetical order
+    const val KeyA = 0x04
+    const val KeyB = 0x05
+    const val KeyC = 0x06
+    const val KeyD = 0x07
+    const val KeyE = 0x08
+    const val KeyF = 0x09
+    const val KeyG = 0x0A
+    const val KeyH = 0x0B
+    const val KeyI = 0x0C
+    const val KeyJ = 0x0D
+    const val KeyK = 0x0E
+    const val KeyL = 0x0F
+    const val KeyM = 0x10
+    const val KeyN = 0x11
+    const val KeyO = 0x12
+    const val KeyP = 0x13
+    const val KeyQ = 0x14
+    const val KeyR = 0x15
+    const val KeyS = 0x16
+    const val KeyT = 0x17
+    const val KeyU = 0x18
+    const val KeyV = 0x19
+    const val KeyW = 0x1A
+    const val KeyX = 0x1B
+    const val KeyY = 0x1C
+    const val KeyZ = 0x1D
+    // Numbers (1-0)
+    const val Key1 = 0x1E
+    const val Key2 = 0x1F
+    const val Key3 = 0x20
+    const val Key4 = 0x21
+    const val Key5 = 0x22
+    const val Key6 = 0x23
+    const val Key7 = 0x24
+    const val Key8 = 0x25
+    const val Key9 = 0x26
+    const val Key0 = 0x27
+    // Row below numbers
     const val Enter = 0x28
+    const val Esc = 0x29
+    const val Backspace = 0x2A
+    const val Tab = 0x2B
+    const val Space = 0x2C
+    const val Minus = 0x2D
+    const val Equal = 0x2E
     const val LBracket = 0x2F
     const val RBracket = 0x30
-    const val Backslash = 0x2C
-    // Letters
-    const val KeyQ = 0x14
-    const val KeyW = 0x16
-    const val KeyE = 0x12
-    const val KeyR = 0x13
-    const val KeyT = 0x15
-    const val KeyY = 0x1A
-    const val KeyU = 0x17
-    const val KeyI = 0x18
-    const val KeyO = 0x19
-    const val KeyP = 0x1B
-    const val KeyA = 0x04
-    const val KeyS = 0x05
-    const val KeyD = 0x06
-    const val KeyF = 0x07
-    const val KeyG = 0x08
-    const val KeyH = 0x09
-    const val KeyJ = 0x0A
-    const val KeyK = 0x0B
-    const val KeyL = 0x0C
+    const val Backslash = 0x31
     const val Semicolon = 0x33
     const val Apostrophe = 0x34
-    const val KeyZ = 0x1D
-    const val KeyX = 0x1E
-    const val KeyC = 0x1F
-    const val KeyV = 0x20
-    const val KeyB = 0x21
-    const val KeyN = 0x22
-    const val KeyM = 0x23
+    const val Grave = 0x35
     const val Comma = 0x36
     const val Dot = 0x37
     const val Slash = 0x38
-    // Bottom row
-    const val Space = 0x2C
+    const val CapsLock = 0x39
+    // Navigation
     const val Delete = 0x4C
-    const val Insert = 0x52
-    const val Home = 0x6A
-    const val End = 0x69
-    const val PageUp = 0x6B
-    const val PageDown = 0x6E
-    const val Menu = 0x65
-    // Arrow keys (HID Keyboard Page 0x07)
+    const val Insert = 0x49
+    const val Home = 0x4A
+    const val End = 0x4D
+    const val PageUp = 0x4B
+    const val PageDown = 0x4E
+    // Arrows
+    const val ArrowRight = 0x4F
     const val ArrowLeft = 0x50
     const val ArrowDown = 0x51
     const val ArrowUp = 0x52
-    const val ArrowRight = 0x53
+    // Menu
+    const val Menu = 0x65
 }
 
 internal data class CtrlEntry(
@@ -194,7 +195,7 @@ internal val allControls = listOf(
     CtrlEntry("kbLCtrl", "LCtrl", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.LCtrl),
     CtrlEntry("kbLShift", "LShift", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.LShift),
     CtrlEntry("kbLAlt", "LAlt", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.LAlt),
-    CtrlEntry("kbLWin", "Win", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.LWin),
+    CtrlEntry("kbLWin", "Win", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.LGui),
     CtrlEntry("kbRCtrl", "RCtrl", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.RCtrl),
     CtrlEntry("kbRShift", "RShift", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.RShift),
     CtrlEntry("kbRAlt", "AltGr", R.drawable.button_rounded_rect, isKeyboard = true, keyboardKeyCode = Kb.RAlt),
