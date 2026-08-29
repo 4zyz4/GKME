@@ -90,7 +90,7 @@
                     android:layout_height="48dp"
                     android:gravity="center"
                     android:paddingHorizontal="8dp"
-                    android:text="物理手柄"
+                    android:text="实体手柄"
                     android:textColor="@color/text_primary"
                     android:textSize="13sp"
                     android:stateListAnimator="@null"
@@ -2131,7 +2131,7 @@
             </LinearLayout>
         </ScrollView>
 
-        <!-- Page 4: 物理手柄 -->
+        <!-- Page 4: 实体手柄 -->
         <ScrollView
             android:id="@+id/pagePhysicalController"
             android:layout_width="match_parent"
@@ -2146,7 +2146,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="物理手柄"
+                    android:text="实体手柄"
                     android:textColor="@color/text_primary"
                     android:textSize="18sp"
                     android:fontFamily="sans-serif-medium"
