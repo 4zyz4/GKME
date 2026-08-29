@@ -59,6 +59,11 @@ message GamepadInput {
   sint32 mouse_wheel = 25;
   sint32 mouse_pan = 26;
   uint32 mouse_buttons = 27;
+
+  // Keyboard fields — scan codes in Microsoft Standard Scan Code (UTF)
+  repeated uint32 pressed_scan_codes = 28;
+  repeated uint32 released_scan_codes = 29;
+  uint32 keyboard_modifiers = 30;
 }
 
 message TouchPoint {

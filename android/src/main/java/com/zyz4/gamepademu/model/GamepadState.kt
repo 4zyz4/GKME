@@ -28,6 +28,9 @@ data class GamepadState(
     val mouseDy: Short = 0,
     val mouseWheel: Short = 0,
     val mousePan: Short = 0,
+    // Keyboard fields for WiFi/UDP mode
+    val keyboardModifier: UInt = 0u,
+    val keyboardKeys: List<UInt> = emptyList(),
 ) {
     companion object {
         // Bits 0-5 = A/B/X/Y/LB/RB

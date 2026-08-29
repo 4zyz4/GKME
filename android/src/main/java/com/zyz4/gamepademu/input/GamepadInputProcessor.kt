@@ -3,7 +3,10 @@
 import com.zyz4.gamepademu.model.GamepadState
 import com.zyz4.gamepademu.proto.GamepadInput
 
-fun GamepadState.toProto(): GamepadInput {
+fun GamepadState.toProto(
+    keyboardModifier: UInt = 0u,
+    keyboardKeys: List<UInt> = emptyList(),
+): GamepadInput {
     val builder = GamepadInput.newBuilder()
         .setButtons(buttons.toInt())
         .setLeftStickX(leftStickX.toInt())
@@ -40,6 +43,10 @@ fun GamepadState.toProto(): GamepadInput {
     if (accelX != 0f || accelY != 0f || accelZ != 0f) {
         builder.setAccelX(accelX).setAccelY(accelY).setAccelZ(accelZ)
     }
+    for (key in keyboardKeys) {
+        builder.addPressedScanCodes(key.toInt())
+    }
+    builder.setKeyboardModifiers(keyboardModifier.toInt())
     return builder.build()
 }
 

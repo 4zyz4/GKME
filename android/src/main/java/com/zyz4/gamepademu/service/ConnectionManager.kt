@@ -487,6 +487,9 @@ class ConnectionManager @Inject constructor(
                     else -> {
                         if (activeProtocol != ActiveProtocol.WIFI) return
                         if (udpService.pcAddress == null) return
+                        if (state.pressedScanCodesCount > 0 || state.keyboardModifiers != 0) {
+                            android.util.Log.d("ConnectionManager", "sendGamepadState: keyboard pressed=${state.pressedScanCodesList}, mod=${state.keyboardModifiers}")
+                        }
                         udpService.sendGamepadInput(state)
                     }
                 }
@@ -535,7 +538,11 @@ class ConnectionManager @Inject constructor(
                 if (phase != ConnectionPhase.CONNECTED) return
                 bluetoothService?.sendKeyboardReport(modifier, keys)
             }
-            ConnectionMode.WIFI -> {}
+            ConnectionMode.WIFI -> {
+                scope.launch {
+                    udpService.sendKeyboardReport(modifier, keys)
+                }
+            }
         }
     }
 

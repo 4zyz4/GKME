@@ -2,6 +2,7 @@ package com.zyz4.gamepademu.service
 
 import com.zyz4.gamepademu.proto.ClientToServer
 import com.zyz4.gamepademu.proto.GamepadInput
+import com.zyz4.gamepademu.proto.Hello
 import com.zyz4.gamepademu.proto.ServerToClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -149,6 +150,53 @@ class UdpService {
                     } catch (_: Exception) {}
                 }
             } catch (_: Exception) {}
+        }
+    }
+
+    suspend fun sendKeyboardReport(
+        modifier: Byte,
+        keys: ByteArray,
+    ) {
+        if (pcAddress == null) {
+            android.util.Log.d("UdpService", "sendKeyboardReport: pcAddress is null, skipping")
+            return
+        }
+        withContext(Dispatchers.IO) {
+            try {
+                val pressedList = mutableListOf<Int>()
+                for (i in keys.indices) {
+                    if (keys[i].toInt() != 0) {
+                        pressedList.add(keys[i].toInt() and 0xFF)
+                    }
+                }
+                if (pressedList.isEmpty() && modifier.toInt() == 0) {
+                    android.util.Log.d("UdpService", "sendKeyboardReport: empty report, skipping")
+                    return@withContext
+                }
+                android.util.Log.d("UdpService", "sendKeyboardReport: pressed=${pressedList.joinToString()}, mod=${modifier.toInt() and 0xFF}")
+                val builder = GamepadInput.newBuilder()
+                for (sc in pressedList) {
+                    builder.addPressedScanCodes(sc)
+                }
+                builder.setKeyboardModifiers(modifier.toInt() and 0xFF)
+                val gamepadInput = builder.build()
+                val payload = gamepadInput.toByteArray()
+                val data = ByteArray(1 + payload.size).also {
+                    it[0] = TYPE_GAMEPAD_INPUT
+                    payload.copyInto(it, 1)
+                }
+                for (socket in sockets) {
+                    try {
+                        val dp = DatagramPacket(data, data.size, pcAddress)
+                        socket.send(dp)
+                        android.util.Log.d("UdpService", "sendKeyboardReport: sent ${data.size} bytes to ${pcAddress}")
+                    } catch (e: Exception) {
+                        android.util.Log.e("UdpService", "sendKeyboardReport: send error", e)
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("UdpService", "sendKeyboardReport: error", e)
+            }
         }
     }
 

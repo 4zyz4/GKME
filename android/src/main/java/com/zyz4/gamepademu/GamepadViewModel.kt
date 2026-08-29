@@ -553,7 +553,10 @@ class GamepadViewModel @Inject constructor(
                     readBattery()
                     lastBatteryRead = System.currentTimeMillis()
                 }
-                val input = _gamepadState.value.toProto()
+                val input = _gamepadState.value.toProto(
+                    keyboardModifier = _keyboardModifier,
+                    keyboardKeys = _keyboardKeys.filter { it != 0u.toUShort() }.map { it.toUInt() }
+                )
                 connectionManager.sendGamepadState(input)
                 val pMx = _gamepadState.value.mouseDx
                 val pMy = _gamepadState.value.mouseDy
@@ -676,7 +679,10 @@ class GamepadViewModel @Inject constructor(
                     }
                 }
 
-                val input = _gamepadState.value.toProto()
+                val input = _gamepadState.value.toProto(
+                    keyboardModifier = _keyboardModifier,
+                    keyboardKeys = _keyboardKeys.filter { it != 0u.toUShort() }.map { it.toUInt() }
+                )
                 connectionManager.sendGamepadState(input)
                 val mDx = _gamepadState.value.mouseDx
                 val mDy = _gamepadState.value.mouseDy
