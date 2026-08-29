@@ -33,6 +33,7 @@ data class ButtonPosition(
     val overlapTrigger: Boolean = true,
     val followAreaOverlapTrigger: Boolean = false,
     val mouseSensitivity: Float = 1f,
+    val mouseAcceleration: List<Float>? = null,
     val scrollSensitivity: Float = 0.1f,
     val invertScrollV: Boolean = false,
     val invertScrollH: Boolean = false,

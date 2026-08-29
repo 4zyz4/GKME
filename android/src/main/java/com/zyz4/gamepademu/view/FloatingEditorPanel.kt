@@ -967,6 +967,10 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 currentButton = currentButton?.copy(scrollSensitivity = v)
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             }
+            addSeekbarFloat(buttonParamsInner, "指针加速度", button.mouseAcceleration?.get(1) ?: 0f, 0f, 0.5f, 0.01f) { v ->
+                currentButton = currentButton?.copy(mouseAcceleration = listOf(1f, v))
+                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+            }
             val cbInvert = CheckBox(context).apply {
                 text = "反转纵向滚动"
                 setTextColor(-0x444445)

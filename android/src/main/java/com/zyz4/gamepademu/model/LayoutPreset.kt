@@ -191,6 +191,8 @@ data class LayoutPreset(
             }
             if (baseId in MOUSEPAD_IDS) {
                 if (b.mouseSensitivity != 1f) m["mouseSensitivity"] = b.mouseSensitivity
+                if (b.mouseAcceleration != null && b.mouseAcceleration.isNotEmpty()) m["mouseAcceleration"] = b.mouseAcceleration
+                else if (b.mouseAcceleration != null && b.mouseAcceleration.isEmpty()) m.remove("mouseAcceleration")
                 if (b.scrollSensitivity != 0.1f) m["scrollSensitivity"] = b.scrollSensitivity
                 if (b.invertScrollV) m["invertScrollV"] = b.invertScrollV
                 if (b.invertScrollH) m["invertScrollH"] = b.invertScrollH

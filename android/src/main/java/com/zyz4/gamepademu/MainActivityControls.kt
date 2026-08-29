@@ -788,6 +788,7 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
     var cursorAccumX = 0f          // 移动光标的累积量（鼠标灵敏度 <1 时保留小数位移）
     var cursorAccumY = 0f
     var mouseSens = 1f             // 鼠标灵敏度（来自布局配置）
+    var mouseAccel = 0f            // 鼠标加速度（来自布局配置，0=无加速度）
     var scrollSens = SCROLL_SENSITIVITY // 滚动灵敏度（来自布局配置）
     var invertScrollV = false      // 反转纵向滚动方向（来自布局配置）
     var invertScrollH = false      // 反转横向滚动方向（来自布局配置）
@@ -807,6 +808,9 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
         val id = mp.tag as? String ?: return
         val pos = a.gamepadLayout.currentButtons.find { it.id == id } ?: return
         mouseSens = pos.mouseSensitivity
+        mouseAccel = pos.mouseAcceleration?.let {
+            if (it.isEmpty() || it.size < 2) 0f else it[1]
+        } ?: 0f
         scrollSens = pos.scrollSensitivity
         invertScrollV = pos.invertScrollV
         invertScrollH = pos.invertScrollH
@@ -823,10 +827,14 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
     fun moveRaw(rawDx: Float, rawDy: Float) {
         var dx = rawDx
         var dy = rawDy
+        var accel = 0f
         if (useConfig) {
             val id = mp.tag as? String ?: return
             val pos = a.gamepadLayout.currentButtons.find { it.id == id }
             if (pos != null) {
+                accel = pos.mouseAcceleration?.let {
+                    if (it.isEmpty() || it.size < 2) 0f else it[1]
+                } ?: 0f
                 val rot = pos.rotation % 360
                 if (rot == 90) {
                     val tmp = dy
@@ -842,6 +850,10 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                 }
             }
         }
+        val rawSpeed = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+        val finalSpeedMultiplier = if (rawSpeed > 0) 1f + accel * rawSpeed else 1f
+        dx *= finalSpeedMultiplier
+        dy *= finalSpeedMultiplier
         cursorAccumX += dx * mouseSens
         cursorAccumY += dy * mouseSens
         val ix = cursorAccumX.toInt()
