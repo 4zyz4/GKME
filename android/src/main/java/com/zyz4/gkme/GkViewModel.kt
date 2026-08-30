@@ -232,8 +232,8 @@ class GkViewModel @Inject constructor(
     }
 
     fun updateDisplayMode(mode: DisplayMode) {
-        _displayMode.value = mode
         connectionManager.updateSettings(settings.value.copy(displayMode = mode))
+        _displayMode.value = mode
     }
 
     fun updateConnectionMode(mode: ConnectionMode) {

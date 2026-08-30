@@ -1376,7 +1376,7 @@ internal fun MainActivity.updateButtonLabels(mode: DisplayMode) {
                             foreground = context.getDrawable(intArrayOf(
                                 R.drawable.ic_ps_cross, R.drawable.ic_ps_circle,
                                 R.drawable.ic_ps_square, R.drawable.ic_ps_triangle
-                            )[idx])
+                            )[idx])?.mutate()
                             foregroundGravity = android.view.Gravity.CENTER
                         }
                         DisplayMode.SWITCH -> {
@@ -1428,7 +1428,11 @@ internal fun MainActivity.updateButtonLabels(mode: DisplayMode) {
                     // background is the neutral circle. PS: text.
                     when (mode) {
                         DisplayMode.XBOX -> { text = ""; setBackgroundResource(R.drawable.button_circle) }
-                        DisplayMode.PLAYSTATION -> { text = "SHARE"; setBackgroundResource(R.drawable.button_circle) }
+                        DisplayMode.PLAYSTATION -> {
+                            text = "SHARE"
+                            setBackgroundResource(R.drawable.button_circle)
+                            foreground = null
+                        }
                         DisplayMode.SWITCH -> { text = ""; setBackgroundResource(R.drawable.button_circle) }
                     }
                 }
@@ -1450,14 +1454,20 @@ internal fun MainActivity.updateButtonLabels(mode: DisplayMode) {
                 (child as? Button)?.apply {
                     when (mode) {
                         DisplayMode.XBOX -> { text = ""; setBackgroundResource(R.drawable.button_circle) }
-                        DisplayMode.PLAYSTATION -> { text = "OPTION"; setBackgroundResource(R.drawable.button_circle) }
+                        DisplayMode.PLAYSTATION -> {
+                            text = "OPTION"
+                            setBackgroundResource(R.drawable.button_circle)
+                            foreground = null
+                        }
                         DisplayMode.SWITCH -> { text = ""; setBackgroundResource(R.drawable.button_circle) }
                     }
                 }
             }
             baseId == "btnTouchpad" -> {
                 (child as? Button)?.apply {
-                    text = ""; setBackgroundResource(R.drawable.btn_touchpad)
+                    text = ""
+                    setBackgroundResource(R.drawable.btn_touchpad)
+                    foreground = null
                 }
             }
             baseId == "btnLS" -> {
@@ -1466,12 +1476,14 @@ internal fun MainActivity.updateButtonLabels(mode: DisplayMode) {
                     // (see AppearanceApplier.letterIconDrawable), so no text is needed here.
                     text = ""
                     setBackgroundResource(R.drawable.button_circle)
+                    foreground = null
                 }
             }
             baseId == "btnRS" -> {
                 (child as? Button)?.apply {
                     text = ""
                     setBackgroundResource(R.drawable.button_circle)
+                    foreground = null
                 }
             }
             baseId in listOf("btnMouseLMB", "btnMouseRMB", "btnMouseMMB") -> {
@@ -1490,4 +1502,9 @@ internal fun MainActivity.updateButtonLabels(mode: DisplayMode) {
 
     // Re-apply custom appearance after label updates
     a.gamepadLayout.applyAppearance(a.viewModel.settings.value)
+    if (a.inSettings && a.currentSettingsCategory == 2) {
+        a.findViewById<View>(R.id.previewContainer)?.post {
+            a.updateAppearancePreview()
+        }
+    }
 }
