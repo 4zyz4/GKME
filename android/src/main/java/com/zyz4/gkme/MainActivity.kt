@@ -425,19 +425,7 @@ class MainActivity : ComponentActivity() {
 
     // ── Volume mapping helpers ─────────────────────────────
 
-    private fun bitToName(bit: Int): String {
-        return when (bit) {
-            GamepadState.A -> "A"; GamepadState.B -> "B"; GamepadState.X -> "X"; GamepadState.Y -> "Y"
-            GamepadState.LB -> "LB"; GamepadState.RB -> "RB"; GamepadState.LT -> "LT"; GamepadState.RT -> "RT"
-            GamepadState.SELECT -> "SELECT"; GamepadState.START -> "START"
-            GamepadState.L3 -> "L3"; GamepadState.R3 -> "R3"
-            GamepadState.DPAD_BIT_UP -> "上方向"; GamepadState.DPAD_BIT_DOWN -> "下方向"
-            GamepadState.DPAD_BIT_LEFT -> "左方向"; GamepadState.DPAD_BIT_RIGHT -> "右方向"
-            GamepadState.HOME -> "HOME"; GamepadState.TOUCHPAD_CLICK -> "触摸板"
-            GamepadState.MIC_MUTE -> "麦克风静音"
-            else -> "位$bit"
-        }
-    }
+    
 
     private fun rebuildVolumeChips(containerId: Int, bits: List<Int>, onRemove: (Int) -> Unit) {
         val container = findViewById<LinearLayout>(containerId)
@@ -461,7 +449,7 @@ class MainActivity : ComponentActivity() {
             }
             rowBits.forEach { bit ->
                 val chip = TextView(this).apply {
-                    text = bitToName(bit)
+                    text = BitNameMapper.getBitName(bit)
                     setTextColor(-0x1)
                     textSize = 11f
                     gravity = android.view.Gravity.CENTER

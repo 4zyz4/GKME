@@ -199,31 +199,6 @@ internal fun MainActivity.getPreviewText(entry: CtrlEntry, mode: DisplayMode): S
     }
 }
 
-internal fun MainActivity.getKeyboardPreviewText(kbKeyCode: Int): String {
-    return when (kbKeyCode) {
-        Kb.LCtrl -> "LCtrl"; Kb.LShift -> "LShift"; Kb.LAlt -> "LAlt"; Kb.LGui -> "Win"
-        Kb.RCtrl -> "RCtrl"; Kb.RShift -> "RShift"; Kb.RAlt -> "AltGr"; Kb.RGui -> "RWin"
-        Kb.KeyQ -> "Q"; Kb.KeyW -> "W"; Kb.KeyE -> "E"; Kb.KeyR -> "R"; Kb.KeyT -> "T"
-        Kb.KeyY -> "Y"; Kb.KeyU -> "U"; Kb.KeyI -> "I"; Kb.KeyO -> "O"; Kb.KeyP -> "P"
-        Kb.KeyA -> "A"; Kb.KeyS -> "S"; Kb.KeyD -> "D"; Kb.KeyF -> "F"; Kb.KeyG -> "G"
-        Kb.KeyH -> "H"; Kb.KeyJ -> "J"; Kb.KeyK -> "K"; Kb.KeyL -> "L"
-        Kb.KeyZ -> "Z"; Kb.KeyX -> "X"; Kb.KeyC -> "C"; Kb.KeyV -> "V"; Kb.KeyB -> "B"
-        Kb.KeyN -> "N"; Kb.KeyM -> "M"
-        Kb.Key1 -> "1"; Kb.Key2 -> "2"; Kb.Key3 -> "3"; Kb.Key4 -> "4"; Kb.Key5 -> "5"
-        Kb.Key6 -> "6"; Kb.Key7 -> "7"; Kb.Key8 -> "8"; Kb.Key9 -> "9"; Kb.Key0 -> "0"
-        Kb.Space -> "Space"; Kb.Enter -> "Enter"; Kb.Backspace -> "Bksp"; Kb.Tab -> "Tab"
-        Kb.CapsLock -> "Caps"; Kb.Esc -> "Esc"; Kb.Delete -> "Del"; Kb.Menu -> "Menu"
-        Kb.Minus -> "-"; Kb.Equal -> "="; Kb.LBracket -> "["; Kb.RBracket -> "]"
-        Kb.Backslash -> "\\"; Kb.Semicolon -> ";"; Kb.Apostrophe -> "'"; Kb.Comma -> ","
-        Kb.Dot -> "."; Kb.Slash -> "/"; Kb.Grave -> "`"
-        Kb.F1 -> "F1"; Kb.F2 -> "F2"; Kb.F3 -> "F3"; Kb.F4 -> "F4"; Kb.F5 -> "F5"
-        Kb.F6 -> "F6"; Kb.F7 -> "F7"; Kb.F8 -> "F8"; Kb.F9 -> "F9"; Kb.F10 -> "F10"
-        Kb.F11 -> "F11"; Kb.F12 -> "F12"
-        Kb.ArrowUp -> "↑"; Kb.ArrowDown -> "↓"; Kb.ArrowLeft -> "←"; Kb.ArrowRight -> "→"
-        else -> "Key"
-    }
-}
-
 internal fun MainActivity.getPreviewIcon(entry: CtrlEntry, mode: DisplayMode): Int {
     val text = getPreviewText(entry, mode)
     if (text != null) {
@@ -276,12 +251,7 @@ internal fun MainActivity.showAddButtonDialog() {
             setPadding((6f * density).toInt(), (6f * density).toInt(), (6f * density).toInt(), (6f * density).toInt())
         }
         val text = a.getPreviewText(entry, mode)
-        val labelText = when (entry.baseId) {
-            "btnMouseLMB" -> "鼠标左键"
-            "btnMouseRMB" -> "鼠标右键"
-            "btnMouseMMB" -> "鼠标中键"
-            else -> entry.name
-        }
+        val labelText = entry.name
         if (text != null) {
             if (entry.baseId in listOf("btnLS", "btnRS")) {
                 val fl = FrameLayout(a).apply {
@@ -366,7 +336,7 @@ internal fun MainActivity.showAddButtonDialog() {
             wrapper.addView(iv)
         } else if (entry.isKeyboard) {
             val btn = Button(a).apply {
-                this.text = a.getKeyboardPreviewText(entry.keyboardKeyCode)
+                this.text = BitNameMapper.getKeyboardPreviewText(entry.keyboardKeyCode)
                 setTextColor(-0x333334)
                 textSize = 12f
                 setTypeface(null, Typeface.BOLD)
@@ -550,7 +520,7 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
             val btn = if (!entry.lockAspect) RotatableButton(a) else Button(a)
             btn.apply {
                 this.id = View.generateViewId(); tag = id
-                text = a.getKeyboardPreviewText(entry.keyboardKeyCode)
+                text = BitNameMapper.getKeyboardPreviewText(entry.keyboardKeyCode)
                 setAllCaps(false)
                 setTextColor(-0x333334); textSize = 12f
                 setTypeface(null, Typeface.BOLD)
@@ -962,7 +932,7 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
             val btn = if (!entry.lockAspect) RotatableButton(a) else Button(a)
             btn.apply {
                 id = View.generateViewId(); tag = pos.id
-                text = a.getKeyboardPreviewText(entry.keyboardKeyCode)
+                text = BitNameMapper.getKeyboardPreviewText(entry.keyboardKeyCode)
                 setAllCaps(false)
                 setTextColor(-0x333334); textSize = 12f
                 setTypeface(null, Typeface.BOLD)
@@ -1096,14 +1066,9 @@ internal fun MainActivity.showOutputValuePicker(currentBits: List<Int>, onResult
         if (alreadySelected) {
             wrapper.setBackgroundResource(R.drawable.bg_chip_selected)
         }
-val labelText = when (entry.baseId) {
-            "btnMouseLMB" -> "鼠标左键"
-            "btnMouseRMB" -> "鼠标右键"
-            "btnMouseMMB" -> "鼠标中键"
-            else -> entry.name
-        }
+val labelText = entry.name
         val displayText = if (entry.isKeyboard && kbCode != null) {
-            a.getKeyboardPreviewText(kbCode)
+            BitNameMapper.getKeyboardPreviewText(kbCode)
         } else {
             a.getPreviewText(entry, mode)
         }
@@ -1325,7 +1290,7 @@ internal fun MainActivity.recreateViewForButton(buttonId: String, pos: ButtonPos
         val lockAspect = entry?.lockAspect ?: true
         val customText = pos.customText
         val buttonText = if (entry?.isKeyboard == true) {
-            a.getKeyboardPreviewText(entry.keyboardKeyCode)
+            BitNameMapper.getKeyboardPreviewText(entry.keyboardKeyCode)
         } else if (entry?.baseId?.startsWith("btnMouse") == true) {
             when (entry.baseId) {
                 "btnMouseLMB" -> "LMB"

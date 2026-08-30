@@ -30,6 +30,7 @@ import com.zyz4.gkme.model.GyroOrientation
 import com.zyz4.gkme.model.GyroMode
 import com.zyz4.gkme.model.SlideDirection
 import com.zyz4.gkme.Kb
+import com.zyz4.gkme.BitNameMapper
 
 class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
@@ -1410,7 +1411,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                     }
                     rowBits.forEach { bit ->
                         val chip = TextView(context).apply {
-                            text = getBitName(bit)
+                            text = BitNameMapper.getBitName(bit)
                             setTextColor(-0x1)
                             textSize = 11f
                             gravity = Gravity.CENTER
@@ -1586,7 +1587,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                     }
                     rowBits.forEach { bit ->
                         val chip = TextView(context).apply {
-                            text = getBitName(bit)
+                            text = BitNameMapper.getBitName(bit)
                             setTextColor(-0x1)
                             textSize = 11f
                             gravity = Gravity.CENTER
@@ -1714,118 +1715,6 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         container.addView(row)
     }
 
-    private fun getBitName(bit: Int): String {
-        if (bit < 0) {
-            val kbCode = -bit
-            return when (kbCode) {
-                Kb.LCtrl -> "LCtrl"
-                Kb.LShift -> "LShift"
-                Kb.LAlt -> "LAlt"
-                Kb.LGui -> "Win"
-                Kb.RCtrl -> "RCtrl"
-                Kb.RShift -> "RShift"
-                Kb.RAlt -> "AltGr"
-                Kb.RGui -> "RWin"
-                Kb.KeyQ -> "Q"
-                Kb.KeyW -> "W"
-                Kb.KeyE -> "E"
-                Kb.KeyR -> "R"
-                Kb.KeyT -> "T"
-                Kb.KeyY -> "Y"
-                Kb.KeyU -> "U"
-                Kb.KeyI -> "I"
-                Kb.KeyO -> "O"
-                Kb.KeyP -> "P"
-                Kb.KeyA -> "A"
-                Kb.KeyS -> "S"
-                Kb.KeyD -> "D"
-                Kb.KeyF -> "F"
-                Kb.KeyG -> "G"
-                Kb.KeyH -> "H"
-                Kb.KeyJ -> "J"
-                Kb.KeyK -> "K"
-                Kb.KeyL -> "L"
-                Kb.KeyZ -> "Z"
-                Kb.KeyX -> "X"
-                Kb.KeyC -> "C"
-                Kb.KeyV -> "V"
-                Kb.KeyB -> "B"
-                Kb.KeyN -> "N"
-                Kb.KeyM -> "M"
-                Kb.Key1 -> "1"
-                Kb.Key2 -> "2"
-                Kb.Key3 -> "3"
-                Kb.Key4 -> "4"
-                Kb.Key5 -> "5"
-                Kb.Key6 -> "6"
-                Kb.Key7 -> "7"
-                Kb.Key8 -> "8"
-                Kb.Key9 -> "9"
-                Kb.Key0 -> "0"
-                Kb.Space -> "Space"
-                Kb.Enter -> "Enter"
-                Kb.Backspace -> "Bksp"
-                Kb.Tab -> "Tab"
-                Kb.CapsLock -> "Caps"
-                Kb.Esc -> "Esc"
-                Kb.Delete -> "Del"
-                Kb.Menu -> "Menu"
-                Kb.Minus -> "-"
-                Kb.Equal -> "="
-                Kb.LBracket -> "["
-                Kb.RBracket -> "]"
-                Kb.Backslash -> "\\"
-                Kb.Semicolon -> ";"
-                Kb.Apostrophe -> "'"
-                Kb.Comma -> ","
-                Kb.Dot -> "."
-                Kb.Slash -> "/"
-                Kb.Grave -> "`"
-                Kb.F1 -> "F1"
-                Kb.F2 -> "F2"
-                Kb.F3 -> "F3"
-                Kb.F4 -> "F4"
-                Kb.F5 -> "F5"
-                Kb.F6 -> "F6"
-                Kb.F7 -> "F7"
-                Kb.F8 -> "F8"
-                Kb.F9 -> "F9"
-                Kb.F10 -> "F10"
-                Kb.F11 -> "F11"
-                Kb.F12 -> "F12"
-                Kb.ArrowUp -> "↑"
-                Kb.ArrowDown -> "↓"
-                Kb.ArrowLeft -> "←"
-                Kb.ArrowRight -> "→"
-                else -> "Key$kbCode"
-            }
-        }
-        return when (bit) {
-            GamepadState.A -> "A"
-            GamepadState.B -> "B"
-            GamepadState.X -> "X"
-            GamepadState.Y -> "Y"
-            GamepadState.LB -> "LB"
-            GamepadState.RB -> "RB"
-            GamepadState.LT -> "LT"
-            GamepadState.RT -> "RT"
-            GamepadState.SELECT -> "选择"
-            GamepadState.START -> "菜单"
-            GamepadState.L3 -> "左摇杆"
-            GamepadState.R3 -> "右摇杆"
-            GamepadState.HOME -> "主页"
-            GamepadState.TOUCHPAD_CLICK -> "触摸板"
-            GamepadState.DPAD_BIT_UP -> "上"
-            GamepadState.DPAD_BIT_DOWN -> "下"
-            GamepadState.DPAD_BIT_LEFT -> "左"
-            GamepadState.DPAD_BIT_RIGHT -> "右"
-            GamepadState.MIC_MUTE -> "麦克风静音"
-            GamepadState.MOUSE_LMB -> "LMB"
-            GamepadState.MOUSE_RMB -> "RMB"
-            GamepadState.MOUSE_MMB -> "MMB"
-            else -> "位$bit"
-        }
-    }
 
     private fun addSeekbar(container: LinearLayout, label: String, value: Int, min: Int, max: Int, onChange: (Int) -> Unit, onStartTracking: (() -> Unit)? = null, onStopTracking: (() -> Unit)? = null) {
         val density = context.resources.displayMetrics.density
