@@ -1057,7 +1057,8 @@ internal fun MainActivity.showOutputValuePicker(currentBits: List<Int>, onResult
     val mode = a.viewModel.settings.value.displayMode
     val cellW = (400f * density).toInt()
 
-    val gamepadBits = allControls.filter { !it.baseId.startsWith("btnMouse") && it.baseId != "mousepad" && it.baseId != "btnCustomCircle" && it.baseId != "btnCustomRect" && it.baseId != "customKeypad" && !it.isJoystick && !it.isTouchpad && !it.isMousepad }
+    val gamepadBits = allControls.filter { !it.baseId.startsWith("btnMouse") && it.baseId != "mousepad" && it.baseId != "btnCustomCircle" && it.baseId != "btnCustomRect" && it.baseId != "customKeypad" && !it.isJoystick && !it.isTouchpad && !it.isMousepad && !it.isKeyboard }
+    val keyboardBits = allControls.filter { it.isKeyboard }
     val mouseBits = listOf("btnMouseLMB", "btnMouseRMB", "btnMouseMMB")
     val customBitsControls = allControls.filter { it.baseId == "btnCustomCircle" || it.baseId == "btnCustomRect" }
 
@@ -1065,14 +1066,27 @@ internal fun MainActivity.showOutputValuePicker(currentBits: List<Int>, onResult
         return a.getBitForEntry(entry)
     }
 
+    fun getKeyboardKeyCode(entry: CtrlEntry): Int? {
+        return if (entry.isKeyboard && entry.keyboardKeyCode != 0) entry.keyboardKeyCode else null
+    }
+
+    fun isKeyboardBit(bit: Int): Boolean = bit < 0
+
+    fun keyboardKeyCodeOfBit(bit: Int): Int? {
+        return if (bit < 0) -bit else null
+    }
+
     fun createBitView(entry: CtrlEntry, alreadySelected: Boolean): View {
-        val bit = getBit(entry) ?: return View(a).apply { layoutParams = LinearLayout.LayoutParams(0, 0) }
+        val bit = getBit(entry) ?: 0
+        val kbCode = getKeyboardKeyCode(entry)
+        if (bit == 0 && kbCode == null) return View(a).apply { layoutParams = LinearLayout.LayoutParams(0, 0) }
+        val effectiveBit = if (kbCode != null) -kbCode else bit
         val wrapper = LinearLayout(a).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             setOnClickListener {
                 a.outputPickerDialog?.dismiss()
-                val newBits = if (alreadySelected) currentBits else currentBits + bit
+                val newBits = if (alreadySelected) currentBits else currentBits + effectiveBit
                 onResult(newBits)
             }
             isClickable = true
@@ -1082,14 +1096,18 @@ internal fun MainActivity.showOutputValuePicker(currentBits: List<Int>, onResult
         if (alreadySelected) {
             wrapper.setBackgroundResource(R.drawable.bg_chip_selected)
         }
-        val labelText = when (entry.baseId) {
+val labelText = when (entry.baseId) {
             "btnMouseLMB" -> "鼠标左键"
             "btnMouseRMB" -> "鼠标右键"
             "btnMouseMMB" -> "鼠标中键"
             else -> entry.name
         }
-        val text = a.getPreviewText(entry, mode)
-        if (text != null) {
+        val displayText = if (entry.isKeyboard && kbCode != null) {
+            a.getKeyboardPreviewText(kbCode)
+        } else {
+            a.getPreviewText(entry, mode)
+        }
+        if (displayText != null) {
             if (entry.baseId in listOf("btnLS", "btnRS")) {
                 val fl = FrameLayout(a).apply {
                     setBackgroundResource(R.drawable.button_circle)
@@ -1105,7 +1123,7 @@ internal fun MainActivity.showOutputValuePicker(currentBits: List<Int>, onResult
                     )
                 }.also { fl.addView(it) }
                 TextView(a).apply {
-                    this.text = text
+                    this.text = displayText
                     setTextColor(-0x333334)
                     textSize = 12f
                     setTypeface(null, Typeface.BOLD)
@@ -1119,11 +1137,11 @@ internal fun MainActivity.showOutputValuePicker(currentBits: List<Int>, onResult
                 wrapper.addView(fl)
             } else {
                 val btn = Button(a).apply {
-                    this.text = text
+                    this.text = displayText
                     setTextColor(-0x333334)
                     textSize = 12f
                     setTypeface(null, Typeface.BOLD)
-                    setBackgroundResource(a.getPreviewIcon(entry, mode))
+                    setBackgroundResource(R.drawable.button_rounded_rect)
                     gravity = Gravity.CENTER
                     layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
                     isClickable = false
@@ -1131,12 +1149,12 @@ internal fun MainActivity.showOutputValuePicker(currentBits: List<Int>, onResult
                 wrapper.addView(btn)
             }
         } else if (entry.baseId.startsWith("btnMouse")) {
-val btn = Button(a).apply {
-                    this.text = text
+ val btn = Button(a).apply {
+                    this.text = ""
                     setTextColor(-0x333334)
                     textSize = 12f
                     setTypeface(null, Typeface.BOLD)
-                    setBackgroundResource(if (entry.baseId.startsWith("btnMouse")) R.drawable.button_rounded_rect else a.getPreviewIcon(entry, mode))
+                    setBackgroundResource(R.drawable.button_rounded_rect)
                     gravity = Gravity.CENTER
                     layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
                     isClickable = false
@@ -1170,8 +1188,11 @@ val btn = Button(a).apply {
                 gravity = Gravity.CENTER
             }
             rowItems.forEach { entry ->
-                val bit = getBit(entry) ?: return@forEach
-                val alreadySelected = bit in selectedBits
+                val bit = getBit(entry)
+                val kbCode = getKeyboardKeyCode(entry)
+                if (bit == null && kbCode == null) return@forEach
+                val effectiveBit = if (kbCode != null) -kbCode else bit!!
+                val alreadySelected = effectiveBit in selectedBits
                 row.addView(createBitView(entry, alreadySelected), LinearLayout.LayoutParams(cellW / cols, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                     if (rowItems.indexOf(entry) < rowItems.lastIndex) rightMargin = (6f * density).toInt()
                 })
@@ -1194,7 +1215,7 @@ val btn = Button(a).apply {
     }
 
     var selectedIndex = 0
-    val tabLabels = arrayOf("手柄", "鼠标", "自定义")
+    val tabLabels = arrayOf("手柄", "键盘", "鼠标", "自定义")
 
     // Page container - defined before updateTabs so the lambda can reference it
     val pageContainer = LinearLayout(a).apply {
@@ -1208,8 +1229,8 @@ val btn = Button(a).apply {
         allControls.find { it.baseId == "btnMouseMMB" },
         allControls.find { it.baseId == "mousepad" }
     )
-    val actualDatas = arrayOf(gamepadBits, mouseControls, customBitsControls)
-    val pageViews = arrayOfNulls<View>(3)
+    val actualDatas = arrayOf(gamepadBits, keyboardBits, mouseControls, customBitsControls)
+    val pageViews = arrayOfNulls<View>(4)
     for (i in actualDatas.indices) {
         pageViews[i] = buildBitGrid(actualDatas[i], currentBits)
     }

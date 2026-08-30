@@ -782,41 +782,73 @@ class GamepadViewModel @Inject constructor(
     }
 
     fun onCustomButtonDown(bits: List<Int>) {
-        var pb = phoneButtons
-        for (bit in bits) { pb = pb or bit.toUInt() }
-        phoneButtons = pb
-        var prevButtons = _gamepadState.value.buttons
-        var b = prevButtons
-        for (bit in bits) { b = b or bit.toUInt() }
-        _gamepadState.value = _gamepadState.value.copy(buttons = b)
-        if (bits.any { dpadDirOf(it) != null }) syncDpadFromButtons()
+        val kbCodes = mutableListOf<Int>()
+        val normalBits = mutableListOf<Int>()
         for (bit in bits) {
-            val wasDown = (prevButtons and bit.toUInt()) != 0u
-            if (!wasDown) {
-                onHapticFeedbackPress?.invoke()
-                break
+            if (bit < 0) {
+                kbCodes.add(-bit)
+            } else {
+                normalBits.add(bit)
+            }
+        }
+        if (kbCodes.isNotEmpty()) {
+            for (code in kbCodes) {
+                onKeyDown(code)
+            }
+        }
+        if (normalBits.isNotEmpty()) {
+            var pb = phoneButtons
+            for (bit in normalBits) { pb = pb or bit.toUInt() }
+            phoneButtons = pb
+            var prevButtons = _gamepadState.value.buttons
+            var b = prevButtons
+            for (bit in normalBits) { b = b or bit.toUInt() }
+            _gamepadState.value = _gamepadState.value.copy(buttons = b)
+            if (normalBits.any { dpadDirOf(it) != null }) syncDpadFromButtons()
+            for (bit in normalBits) {
+                val wasDown = (prevButtons and bit.toUInt()) != 0u
+                if (!wasDown) {
+                    onHapticFeedbackPress?.invoke()
+                    break
+                }
             }
         }
     }
 
     fun onCustomButtonUp(bits: List<Int>) {
-        var prevButtons = _gamepadState.value.buttons
-        var pb = phoneButtons
-        for (bit in bits) { pb = pb and (bit.toUInt().inv()) }
-        phoneButtons = pb
-        var b = _gamepadState.value.buttons
-        for (bit in bits) { b = b and (bit.toUInt().inv()) }
-        _gamepadState.value = _gamepadState.value.copy(buttons = b)
-        if (bits.any { dpadDirOf(it) != null }) syncDpadFromButtons()
-        var anyReleased = false
+        val kbCodes = mutableListOf<Int>()
+        val normalBits = mutableListOf<Int>()
         for (bit in bits) {
-            if (((prevButtons and bit.toUInt()) != 0u) && ((b and bit.toUInt()) == 0u)) {
-                anyReleased = true
-                break
+            if (bit < 0) {
+                kbCodes.add(-bit)
+            } else {
+                normalBits.add(bit)
             }
         }
-        if (anyReleased) {
-            onHapticFeedbackRelease?.invoke()
+        if (kbCodes.isNotEmpty()) {
+            for (code in kbCodes) {
+                onKeyUp(code)
+            }
+        }
+        if (normalBits.isNotEmpty()) {
+            var prevButtons = _gamepadState.value.buttons
+            var pb = phoneButtons
+            for (bit in normalBits) { pb = pb and (bit.toUInt().inv()) }
+            phoneButtons = pb
+            var b = _gamepadState.value.buttons
+            for (bit in normalBits) { b = b and (bit.toUInt().inv()) }
+            _gamepadState.value = _gamepadState.value.copy(buttons = b)
+            if (normalBits.any { dpadDirOf(it) != null }) syncDpadFromButtons()
+            var anyReleased = false
+            for (bit in normalBits) {
+                if (((prevButtons and bit.toUInt()) != 0u) && ((b and bit.toUInt()) == 0u)) {
+                    anyReleased = true
+                    break
+                }
+            }
+            if (anyReleased) {
+                onHapticFeedbackRelease?.invoke()
+            }
         }
     }
 
