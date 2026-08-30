@@ -73,6 +73,8 @@ class UdpService {
         rebind(broadcastName, onMessage, keepPcAddress = true)
     }
 
+    @Volatile var portInUse: Boolean = false
+
     private fun rebind(deviceName: String?, onMessage: ((ServerToClient) -> Unit)?, keepPcAddress: Boolean) {
         val savedPc = pcAddress
         stop()
@@ -86,6 +88,9 @@ class UdpService {
                 sockets.add(socket)
                 startBroadcastForSocket(socket, deviceName ?: return)
                 startReceiveLoopForSocket(socket)
+            } catch (e: java.net.BindException) {
+                portInUse = true
+                android.util.Log.e("UdpService", "Port $PORT is already in use, another instance may be running")
             } catch (_: Exception) {}
         }
         if (sockets.isEmpty()) {
@@ -94,6 +99,9 @@ class UdpService {
                 sockets.add(socket)
                 startBroadcastForSocket(socket, deviceName ?: return)
                 startReceiveLoopForSocket(socket)
+            } catch (e: java.net.BindException) {
+                portInUse = true
+                android.util.Log.e("UdpService", "Port $PORT is already in use, another instance may be running")
             } catch (_: Exception) {}
         }
         if (keepPcAddress) pcAddress = savedPc

@@ -236,6 +236,13 @@ class ConnectionManager @Inject constructor(
             udpService.start(getRealDeviceName()) { msg ->
                 handleServerToClient(msg)
             }
+            if (udpService.portInUse) {
+                _connectionState.value = _connectionState.value.copy(
+                    phase = ConnectionPhase.ERROR,
+                    statusText = "端口 ${UdpService.PORT} 被占用，可能另一个实例已在运行"
+                )
+                return
+            }
             if (activeProtocol == ActiveProtocol.NONE) {
                 _connectionState.value = _connectionState.value.copy(
                     phase = ConnectionPhase.LISTENING,
