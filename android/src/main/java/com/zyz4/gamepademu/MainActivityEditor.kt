@@ -199,6 +199,31 @@ internal fun MainActivity.getPreviewText(entry: CtrlEntry, mode: DisplayMode): S
     }
 }
 
+internal fun MainActivity.getKeyboardPreviewText(kbKeyCode: Int): String {
+    return when (kbKeyCode) {
+        Kb.LCtrl -> "LCtrl"; Kb.LShift -> "LShift"; Kb.LAlt -> "LAlt"; Kb.LGui -> "Win"
+        Kb.RCtrl -> "RCtrl"; Kb.RShift -> "RShift"; Kb.RAlt -> "AltGr"; Kb.RGui -> "RWin"
+        Kb.KeyQ -> "Q"; Kb.KeyW -> "W"; Kb.KeyE -> "E"; Kb.KeyR -> "R"; Kb.KeyT -> "T"
+        Kb.KeyY -> "Y"; Kb.KeyU -> "U"; Kb.KeyI -> "I"; Kb.KeyO -> "O"; Kb.KeyP -> "P"
+        Kb.KeyA -> "A"; Kb.KeyS -> "S"; Kb.KeyD -> "D"; Kb.KeyF -> "F"; Kb.KeyG -> "G"
+        Kb.KeyH -> "H"; Kb.KeyJ -> "J"; Kb.KeyK -> "K"; Kb.KeyL -> "L"
+        Kb.KeyZ -> "Z"; Kb.KeyX -> "X"; Kb.KeyC -> "C"; Kb.KeyV -> "V"; Kb.KeyB -> "B"
+        Kb.KeyN -> "N"; Kb.KeyM -> "M"
+        Kb.Key1 -> "1"; Kb.Key2 -> "2"; Kb.Key3 -> "3"; Kb.Key4 -> "4"; Kb.Key5 -> "5"
+        Kb.Key6 -> "6"; Kb.Key7 -> "7"; Kb.Key8 -> "8"; Kb.Key9 -> "9"; Kb.Key0 -> "0"
+        Kb.Space -> "Space"; Kb.Enter -> "Enter"; Kb.Backspace -> "Bksp"; Kb.Tab -> "Tab"
+        Kb.CapsLock -> "Caps"; Kb.Esc -> "Esc"; Kb.Delete -> "Del"; Kb.Menu -> "Menu"
+        Kb.Minus -> "-"; Kb.Equal -> "="; Kb.LBracket -> "["; Kb.RBracket -> "]"
+        Kb.Backslash -> "\\"; Kb.Semicolon -> ";"; Kb.Apostrophe -> "'"; Kb.Comma -> ","
+        Kb.Dot -> "."; Kb.Slash -> "/"; Kb.Grave -> "`"
+        Kb.F1 -> "F1"; Kb.F2 -> "F2"; Kb.F3 -> "F3"; Kb.F4 -> "F4"; Kb.F5 -> "F5"
+        Kb.F6 -> "F6"; Kb.F7 -> "F7"; Kb.F8 -> "F8"; Kb.F9 -> "F9"; Kb.F10 -> "F10"
+        Kb.F11 -> "F11"; Kb.F12 -> "F12"
+        Kb.ArrowUp -> "↑"; Kb.ArrowDown -> "↓"; Kb.ArrowLeft -> "←"; Kb.ArrowRight -> "→"
+        else -> "Key"
+    }
+}
+
 internal fun MainActivity.getPreviewIcon(entry: CtrlEntry, mode: DisplayMode): Int {
     val text = getPreviewText(entry, mode)
     if (text != null) {
@@ -341,7 +366,7 @@ internal fun MainActivity.showAddButtonDialog() {
             wrapper.addView(iv)
         } else if (entry.isKeyboard) {
             val btn = Button(a).apply {
-                this.text = entry.name
+                this.text = a.getKeyboardPreviewText(entry.keyboardKeyCode)
                 setTextColor(-0x333334)
                 textSize = 12f
                 setTypeface(null, Typeface.BOLD)
@@ -525,7 +550,7 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
             val btn = if (!entry.lockAspect) RotatableButton(a) else Button(a)
             btn.apply {
                 this.id = View.generateViewId(); tag = id
-                text = entry.name
+                text = a.getKeyboardPreviewText(entry.keyboardKeyCode)
                 setAllCaps(false)
                 setTextColor(-0x333334); textSize = 12f
                 setTypeface(null, Typeface.BOLD)
@@ -551,7 +576,12 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
         }
         entry.baseId.startsWith("btnMouse") -> com.zyz4.gamepademu.view.RotatableButton(a).apply {
             this.id = View.generateViewId(); tag = id
-            text = entry.name
+            text = when (entry.baseId) {
+                "btnMouseLMB" -> "LMB"
+                "btnMouseRMB" -> "RMB"
+                "btnMouseMMB" -> "MMB"
+                else -> entry.name
+            }
             setAllCaps(false)
             setTextColor(-0x333334); textSize = 12f
             setTypeface(null, Typeface.BOLD)
@@ -828,13 +858,18 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
     val a = this
     val baseId = pos.id.substringBefore("_")
     val entry = allControls.find { it.baseId == baseId } ?: return
+    val mode = a.viewModel.settings.value.displayMode
 
     val triggerBaseIds = setOf("btnLT", "btnRT")
     val view: View = when {
         pos.linearTriggerEnabled && baseId in triggerBaseIds -> {
             com.zyz4.gamepademu.view.LinearTriggerView(a).apply {
                 id = View.generateViewId(); tag = pos.id
-                text = "LT"
+                text = when (mode) {
+                    DisplayMode.XBOX -> "LT"
+                    DisplayMode.PLAYSTATION -> "L2"
+                    DisplayMode.SWITCH -> "ZL"
+                }
                 this.slideDirection = pos.slideDirection
                 this.travelDistance = pos.travelDistance
                 this.idleTransparency = pos.idleTransparency
@@ -927,7 +962,7 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
             val btn = if (!entry.lockAspect) RotatableButton(a) else Button(a)
             btn.apply {
                 id = View.generateViewId(); tag = pos.id
-                text = entry.name
+                text = a.getKeyboardPreviewText(entry.keyboardKeyCode)
                 setAllCaps(false)
                 setTextColor(-0x333334); textSize = 12f
                 setTypeface(null, Typeface.BOLD)
@@ -1234,13 +1269,18 @@ internal fun MainActivity.recreateViewForButton(buttonId: String, pos: ButtonPos
     if (existingView == null) return
     a.gamepadLayout.removeViewAt(viewIndex)
 
+    val mode = a.viewModel.settings.value.displayMode
     val entry = allControls.find { it.baseId == pos.id.substringBefore("_") }
     val isTriggerBase = setOf("btnLT", "btnRT").contains(pos.id.substringBefore("_"))
     val newView: View = if (pos.linearTriggerEnabled && isTriggerBase) {
         com.zyz4.gamepademu.view.LinearTriggerView(a).apply {
             id = View.generateViewId()
             tag = buttonId
-            text = entry?.name ?: "LT"
+            text = when (mode) {
+                DisplayMode.XBOX -> "LT"
+                DisplayMode.PLAYSTATION -> "L2"
+                DisplayMode.SWITCH -> "ZL"
+            }
             setTextColor(-0x333334)
             textSize = 12f
             setTypeface(null, Typeface.BOLD)
@@ -1263,6 +1303,18 @@ internal fun MainActivity.recreateViewForButton(buttonId: String, pos: ButtonPos
     } else {
         val lockAspect = entry?.lockAspect ?: true
         val customText = pos.customText
+        val buttonText = if (entry?.isKeyboard == true) {
+            a.getKeyboardPreviewText(entry.keyboardKeyCode)
+        } else if (entry?.baseId?.startsWith("btnMouse") == true) {
+            when (entry.baseId) {
+                "btnMouseLMB" -> "LMB"
+                "btnMouseRMB" -> "RMB"
+                "btnMouseMMB" -> "MMB"
+                else -> customText ?: "按钮"
+            }
+        } else {
+            customText ?: entry?.name ?: "按钮"
+        }
         val buttonView = if (!lockAspect) RotatableButton(a) else Button(a)
         buttonView.apply {
             id = View.generateViewId()
@@ -1273,7 +1325,7 @@ internal fun MainActivity.recreateViewForButton(buttonId: String, pos: ButtonPos
             setBackgroundResource(entry?.bgRes ?: R.drawable.button_circle)
             gravity = Gravity.CENTER
             enableAutoFitButtonText(20f)
-            text = customText ?: entry?.name ?: "按钮"
+            text = buttonText
         }
         val bit = entry?.bit ?: 0
         val isDpad = entry?.isDpad ?: false
