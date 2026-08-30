@@ -225,27 +225,60 @@ override fun dispatchEdit(
             }
         }
 
-        val hitIds = hitResolver.resolve(x, y, buttons, bounds)
-        val hitId = if (selectedButtonId != null && selectedButtonId in hitIds) {
-            selectedButtonId
-        } else {
-            hitIds.firstOrNull()
+        // 1) Try to select the currently selected button (it may have been moved externally)
+        val allHitIds = hitResolver.resolve(x, y, buttons, bounds)
+        
+        var hitId: String? = null
+        
+        if (selectedButtonId != null && selectedButtonId in allHitIds) {
+            // Selected button is under finger — drag it
+            hitId = selectedButtonId
+        } else if (selectedButtonId != null && allHitIds.isEmpty()) {
+            // Selected button is NOT under finger (e.g. moved externally, or user tapped empty space)
+            // Still drag the selected button — find its pixel bounds for offset calculation
+            val selPos = buttons.find { it.id == selectedButtonId }
+            if (selPos != null) {
+                hitId = selectedButtonId
+            }
+        } else if (hitId == null) {
+            // No relevant selection — pick topmost hit button
+            hitId = allHitIds.firstOrNull()
         }
+        
         if (hitId != null) {
-            val rect = bounds[hitId] ?: return EditDispatchResult(commands, state)
+            val rect = bounds[hitId]
             val pos = buttons.find { it.id == hitId }
-            commands += MoveButton(hitId, pos?.x ?: 0, pos?.y ?: 0)
-            val isUnselectedDrag = selectedButtonId == null || selectedButtonId != hitId
-            return EditDispatchResult(commands, if (isUnselectedDrag) {
-                state.copy(
-                    childDragStart = ChildDragStart(hitId, x - rect.left.toFloat(), y - rect.top.toFloat()),
-                    unselectedDragDownGrid = Pair((x / cellW).toInt(), (y / cellH).toInt()),
-                )
-            } else {
-                state.copy(
-                    childDragStart = ChildDragStart(hitId, x - rect.left.toFloat(), y - rect.top.toFloat()),
-                )
-            })
+            
+            if (rect != null && pos != null) {
+                // Normal case: button has valid bounds
+                commands += MoveButton(hitId, pos.x, pos.y)
+                val isUnselectedDrag = selectedButtonId == null || selectedButtonId != hitId
+                return EditDispatchResult(commands, if (isUnselectedDrag) {
+                    state.copy(
+                        childDragStart = ChildDragStart(hitId, x - rect.left.toFloat(), y - rect.top.toFloat()),
+                        unselectedDragDownGrid = Pair((x / cellW).toInt(), (y / cellH).toInt()),
+                    )
+                } else {
+                    state.copy(
+                        childDragStart = ChildDragStart(hitId, x - rect.left.toFloat(), y - rect.top.toFloat()),
+                    )
+                })
+            } else if (hitId == selectedButtonId && pos != null) {
+                // Selected button has no pixel bounds (possibly not yet laid out)
+                // Create bounds from grid coordinates so drag can still work
+                val gridLeft = pos.x * cellW
+                val gridTop = pos.y * cellH
+                val gridRight = (pos.x + pos.width) * cellW
+                val gridBottom = (pos.y + pos.height) * cellH
+                val fakeRect = android.graphics.Rect(gridLeft.toInt(), gridTop.toInt(), gridRight.toInt(), gridBottom.toInt())
+                
+                commands += MoveButton(hitId, pos.x, pos.y)
+                // At this point hitId == selectedButtonId is always true (guaranteed by outer condition)
+                // Selected button has no pixel bounds — use grid-based rect for drag offset
+                return EditDispatchResult(commands, state.copy(
+                    childDragStart = ChildDragStart(hitId, x - fakeRect.left.toFloat(), y - fakeRect.top.toFloat()),
+                ))
+            }
         }
 
         return EditDispatchResult(commands, state)

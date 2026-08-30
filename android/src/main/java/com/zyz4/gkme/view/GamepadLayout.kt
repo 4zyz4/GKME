@@ -1075,6 +1075,24 @@ class GamepadLayout @JvmOverloads constructor(
         return GamepadLayoutGeometry.findChildAt(x, y, (0 until childCount).asSequence().map { getChildAt(it) }.toList())
     }
 
+    /** Find a child View by button ID using tag or resource name. */
+    private fun findChildViewById(buttons: List<ButtonPosition>, buttonId: String?): View? {
+        if (buttonId == null) return null
+        for (i in 0 until childCount) {
+            val child = getChildAt(i)
+            val tag = child.tag as? String
+            val name = try {
+                context.resources.getResourceEntryName(child.id)
+            } catch (_: Exception) {
+                null
+            }
+            if (tag == buttonId || name == buttonId) {
+                return child
+            }
+        }
+        return null
+    }
+
     private fun resetForceFollowFinger() {
         GamepadTouchDispatchUtils.resetForceFollowFinger((0 until childCount).asSequence().map { getChildAt(it) }.toList())
     }
@@ -1194,12 +1212,24 @@ class GamepadLayout @JvmOverloads constructor(
         if (!isEditMode) return false
 
         val raw = event.toRawEvent()
+        // Use grid-coordinate based bounds (like findAllChildrenAt) instead of
+        // child.left/top which may be stale at dispatch time on some Android devices.
         val bounds = mutableMapOf<String, android.graphics.Rect>()
         for (i in 0 until childCount) {
             val child = getChildAt(i)
             val id = getButtonId(child)
             if (id != null) {
-                bounds[id] = android.graphics.Rect(child.left, child.top, child.right, child.bottom)
+                val pos = currentButtons.find { it.id == id }
+                if (pos != null) {
+                    val vb = visualBounds(pos)
+                    val gx = vb[0] * cellW
+                    val gy = vb[1] * cellH
+                    val gw = vb[2] * cellW
+                    val gh = vb[3] * cellH
+                    bounds[id] = android.graphics.Rect(gx.toInt(), gy.toInt(), (gx + gw).toInt(), (gy + gh).toInt())
+                } else {
+                    bounds[id] = android.graphics.Rect(child.left, child.top, child.right, child.bottom)
+                }
             }
         }
         val allChildren = (0 until childCount).map { i -> getChildAt(i) }
@@ -1261,8 +1291,10 @@ class GamepadLayout @JvmOverloads constructor(
             applyEditCommandsNoMove(output.commandsNoMove)
 
             // Wire drag/resize start state to local fields
+            // Use the button IDs provided by GamepadEditGesture (which synced from dispatcher),
+            // then look up the actual View to compute drag offset.
             if (output.selectDraggingChild != null) {
-                draggingChild = findChildAt(event.x, event.y)
+                draggingChild = findChildViewById(currentButtons, output.selectDraggingChild)
                 if (draggingChild != null) {
                     dragOffsetX = event.x - draggingChild!!.left
                     dragOffsetY = event.y - draggingChild!!.top
@@ -1270,7 +1302,7 @@ class GamepadLayout @JvmOverloads constructor(
                 }
             }
             if (output.selectResizingChild != null) {
-                resizingChild = findChildAt(event.x, event.y)
+                resizingChild = findChildViewById(currentButtons, output.selectResizingChild)
                 if (resizingChild != null) {
                     val pos = currentButtons.find { it.id == output.selectResizingChild }
                     if (pos != null) {
@@ -1285,6 +1317,21 @@ class GamepadLayout @JvmOverloads constructor(
         // Apply all commands on move
         if (event.actionMasked == MotionEvent.ACTION_MOVE) {
             applyEditCommands(output.commands)
+            // Ensure draggingChild stays consistent with the dispatcher's state.
+            // If the dispatcher started dragging a different button (e.g. the selected one
+            // was moved externally), update draggingChild accordingly.
+            val currentDragButtonId = _editState.childDragStart?.buttonId
+            if (currentDragButtonId != null && draggingChild != null) {
+                val currentDragViewId = getButtonId(draggingChild!!)
+                if (currentDragViewId != currentDragButtonId) {
+                    // The drag target changed — update draggingChild
+                    draggingChild = findChildViewById(currentButtons, currentDragButtonId)
+                    if (draggingChild != null) {
+                        dragOffsetX = event.x - draggingChild!!.left
+                        dragOffsetY = event.y - draggingChild!!.top
+                    }
+                }
+            }
             if (draggingChild != null) {
                 val id = getButtonId(draggingChild!!)
                 if (id != null) {

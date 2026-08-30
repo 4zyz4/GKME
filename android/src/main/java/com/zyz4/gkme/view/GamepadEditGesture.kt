@@ -184,20 +184,28 @@ class GamepadEditGesture {
         var selectResizing: String? = null
 
         if (_editState.childDragStart != null) {
-            draggingChild = findChildAt(event.x, event.y)
-            if (draggingChild != null && draggingChild?.tag != null) {
-                selectDragging = draggingChild?.tag as? String
-            } else if (draggingChild != null) {
-                // Try to get button id from the child
-                try {
-                    selectDragging = draggingChild?.context?.resources?.getResourceEntryName(draggingChild!!.id)
-                } catch (_: Exception) {
-                    // no-op
+            val dragButtonId = _editState.childDragStart?.buttonId
+            // Use the button ID from dispatcher result instead of hit-testing at pointer coords,
+            // because the dispatcher uses grid-coordinates which are more reliable than pixel bounds
+            // at dispatch time on some Android devices.
+            if (dragButtonId != null) {
+                draggingChild = findChildViewById(allChildren, dragButtonId, event)
+                if (draggingChild != null && draggingChild?.tag != null) {
+                    selectDragging = draggingChild?.tag as? String
+                } else if (draggingChild != null) {
+                    try {
+                        selectDragging = draggingChild?.context?.resources?.getResourceEntryName(draggingChild!!.id)
+                    } catch (_: Exception) {
+                        // no-op
+                    }
                 }
             }
         }
         if (_editState.childResizeStart != null) {
-            resizingChild = findChildAt(event.x, event.y)
+            val resizeButtonId = _editState.childResizeStart?.buttonId
+            if (resizeButtonId != null) {
+                resizingChild = findChildViewById(allChildren, resizeButtonId, event)
+            }
             if (resizingChild != null) {
                 selectResizing = _editState.childResizeStart?.buttonId
             }
@@ -314,6 +322,31 @@ class GamepadEditGesture {
     private fun syncFromEditState() {
         isAdjustingFollowArea = _editState.isAdjustingFollowArea
         adjustingFollowAreaId = _editState.adjustingFollowAreaId
+    }
+
+    /** Find a child View by button ID using tag or resource name. */
+    private fun findChildViewById(
+        children: List<android.view.View>,
+        buttonId: String,
+        event: MotionEvent,
+    ): android.view.View? {
+        // First try: use tag (fastest and most reliable)
+        for (child in children) {
+            if (child.tag as? String == buttonId) {
+                return child
+            }
+        }
+        // Fallback: use findChildrenAt (hit test) — prefer the child at event coordinates
+        // since it matches the z-order used by the dispatcher's findAllChildrenAt
+        return findChildrenAt(event.x, event.y, children).firstOrNull { child ->
+            val tag = child.tag as? String
+            val name = try {
+                child.context.resources.getResourceEntryName(child.id)
+            } catch (_: Exception) {
+                null
+            }
+            tag == buttonId || name == buttonId
+        }
     }
 
     private fun findButtonId(child: android.view.View?): String? {

@@ -787,6 +787,16 @@ internal fun MainActivity.applyPreset(preset: com.zyz4.gkme.model.LayoutPreset) 
     ensureViewsForAllPresetButtons()
 }
 
+fun parseSuffix(id: String): Int? {
+    val lastUnderscore = id.lastIndexOf('_')
+    if (lastUnderscore < 0) return null
+    return try {
+        id.substring(lastUnderscore + 1).toInt()
+    } catch (e: Exception) {
+        null
+    }
+}
+
 internal fun MainActivity.ensureViewsForAllPresetButtons() {
     val a = this
     val buttons = a.gamepadLayout.currentButtons
@@ -813,16 +823,12 @@ internal fun MainActivity.ensureViewsForAllPresetButtons() {
     }
  a.gamepadLayout.bringSettingsToFront()
     a.updateButtonLabels(a.viewModel.settings.value.displayMode)
-    val maxSuffix = a.gamepadLayout.currentButtons
-        .filter { it.id.startsWith("customKeypad_") }
-        .mapNotNull { pos -> parseKeypadSuffix(pos.id) }
+    // Compute addCounter from ALL button IDs that have numeric suffixes (not just customKeypad)
+    val allSuffixes = a.gamepadLayout.currentButtons
+        .mapNotNull { parseSuffix(it.id) }
         .maxOrNull()
-    a.addCounter = maxOf(0, (maxSuffix ?: 0) + 1)
+    a.addCounter = maxOf(0, (allSuffixes ?: 0) + 1)
 }
-
-private fun parseKeypadSuffix(id: String): Int? = try {
-    id.substring(id.lastIndexOf('_') + 1).toInt()
-} catch (e: Exception) { null }
 
 internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
     val a = this
