@@ -7,7 +7,7 @@
     android:background="@drawable/bg_chip"
     android:padding="7dp">
 
-    <com.zyz4.gamepademu.view.PresetPreviewView
+    <com.zyz4.gkme.view.PresetPreviewView
         android:id="@+id/presetPreview"
         android:layout_width="match_parent"
         android:layout_height="90dp"

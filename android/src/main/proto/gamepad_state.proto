@@ -1,10 +1,10 @@
 syntax = "proto3";
 
-package gamepademu;
+package gkme;
 
-option java_package = "com.zyz4.gamepademu.proto";
+option java_package = "com.zyz4.gkme.proto";
 option java_multiple_files = true;
-option csharp_namespace = "GamepadEmu.Protocol";
+option csharp_namespace = "GKME.Protocol";
 
 enum Button {
   A = 0; B = 1; X = 2; Y = 3;

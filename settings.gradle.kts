@@ -21,5 +21,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "gamepad-emu"
+rootProject.name = "gkme"
 include(":android")

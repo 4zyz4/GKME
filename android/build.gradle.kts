@@ -12,12 +12,12 @@ kotlin {
 }
 
 android {
-    namespace = "com.zyz4.gamepademu"
+    namespace = "com.zyz4.gkme"
     //noinspection GradleDependency
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.zyz4.gamepademu"
+        applicationId = "com.zyz4.gkme"
         minSdk = 26
         //noinspection OldTargetApi
         targetSdk = 36

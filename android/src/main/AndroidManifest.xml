@@ -13,11 +13,11 @@
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
 
     <application
-        android:name=".GamepadEmuApp"
+        android:name=".GkmeApp"
         android:allowBackup="true"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.GamepadEmu"
+        android:theme="@style/Theme.GKME"
         android:icon="@mipmap/icon">
 
         <activity
