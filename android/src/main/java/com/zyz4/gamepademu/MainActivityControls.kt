@@ -1334,6 +1334,17 @@ internal fun MainActivity.updateButtonLabels(mode: DisplayMode) {
                     setBackgroundResource(R.drawable.button_circle)
                 }
             }
+            baseId in listOf("btnMouseLMB", "btnMouseRMB", "btnMouseMMB") -> {
+                (child as? Button)?.apply {
+                    text = when (baseId) {
+                        "btnMouseLMB" -> "LMB"
+                        "btnMouseRMB" -> "RMB"
+                        "btnMouseMMB" -> "MMB"
+                        else -> "MOUSE"
+                    }
+                    textSize = 12f
+                }
+            }
         }
     }
 
