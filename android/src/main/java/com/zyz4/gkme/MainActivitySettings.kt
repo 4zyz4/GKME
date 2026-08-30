@@ -15,6 +15,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewStub
+import android.view.ViewTreeObserver
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import androidx.lifecycle.lifecycleScope
@@ -63,7 +64,7 @@ internal fun MainActivity.showSettings() {
     if (a.gamepadLayout.isEditModeActive()) return
     a.ensureSettingsInflated()
     a.inSettings = true
-    a.findViewById<View>(R.id.gamepadPanel).visibility = View.GONE
+    a.findViewById<View>(R.id.gamepadPanel).visibility = View.INVISIBLE
     a.findViewById<View>(R.id.settingsPanel).visibility = View.VISIBLE
     a.selectSettingsCategory(0)
     a.syncSettingsUI()
@@ -75,6 +76,18 @@ internal fun MainActivity.hideSettings() {
     a.vibrationPollingJob?.cancel()
     a.findViewById<View>(R.id.gamepadPanel).visibility = View.VISIBLE
     a.findViewById<View>(R.id.settingsPanel).visibility = View.GONE
+    if (a.currentSettingsCategory == 2) {
+        val gl = a.gamepadLayout
+        val vto = gl.viewTreeObserver
+        if (vto.isAlive) {
+            vto.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
+                override fun onGlobalLayout() {
+                    gl.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                    if (gl.width > 0 && gl.height > 0) a.renderAppearancePreview()
+                }
+            })
+        }
+    }
 }
 
 internal fun MainActivity.selectSettingsCategory(index: Int) {

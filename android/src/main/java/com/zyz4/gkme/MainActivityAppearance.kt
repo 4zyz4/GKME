@@ -8,6 +8,7 @@ import android.graphics.Color
 import android.net.Uri
 import android.view.Gravity
 import android.view.View
+import android.view.ViewTreeObserver
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.FrameLayout
@@ -602,7 +603,7 @@ internal var MainActivity.previewZoomVisible: Boolean
     get() = findViewById<View>(R.id.previewZoomOverlay)?.visibility == View.VISIBLE
     set(v) { findViewById<View>(R.id.previewZoomOverlay)?.visibility = if (v) View.VISIBLE else View.GONE }
 
-private fun MainActivity.renderAppearancePreview() {
+internal fun MainActivity.renderAppearancePreview() {
     val a = this
     val gl = a.gamepadLayout
     if (gl.width <= 0 || gl.height <= 0) return
@@ -638,19 +639,28 @@ private fun MainActivity.renderAppearancePreview() {
 internal fun MainActivity.updateAppearancePreview() {
     val a = this
     val gl = a.gamepadLayout
-    if (gl.width <= 0 || gl.height <= 0) return
+    if (gl.width <= 0 || gl.height <= 0) {
+        val vto = gl.viewTreeObserver
+        if (vto.isAlive) {
+            vto.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
+                override fun onGlobalLayout() {
+                    gl.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                    if (gl.width > 0 && gl.height > 0) a.renderAppearancePreview()
+                }
+            })
+        }
+        return
+    }
     a.renderAppearancePreview()
     // Re-capture once the next layout pass finishes so that text auto-size
-    // and adaptive padding (applied asynchronously) are reflected. Only when the
-    // appearance page is actually visible, so leaving settings never re-renders.
+    // and adaptive padding (applied asynchronously) are reflected.
     gl.addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
         override fun onLayoutChange(
             v: View, left: Int, top: Int, right: Int, bottom: Int,
             oldLeft: Int, oldTop: Int, oldRight: Int, oldBottom: Int
         ) {
             gl.removeOnLayoutChangeListener(this)
-            if (!a.inSettings || a.currentSettingsCategory != 2) return
-            a.renderAppearancePreview()
+            if (gl.width > 0 && gl.height > 0) a.renderAppearancePreview()
         }
     })
 }
