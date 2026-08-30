@@ -168,7 +168,7 @@
         android:layout_weight="1"
         android:padding="16dp">
 
-        <!-- Page 1: 布局预设 + 手柄设置 (merged) -->
+        <!-- Page 1: 布局预设 -->
         <ScrollView
             android:id="@+id/pagePresets"
             android:layout_width="match_parent"
@@ -179,47 +179,6 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
-
-                <!-- Display Mode (from pageController) -->
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="手柄显示"
-                    android:textColor="@color/text_primary"
-                    android:textSize="18sp"
-                    android:fontFamily="sans-serif-medium"
-                    android:layout_marginBottom="8dp" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center"
-                    android:layout_marginBottom="16dp">
-
-                    <Button
-                        android:id="@+id/btnDisplayXbox"
-                        style="@style/GamepadChip"
-                        android:layout_marginEnd="6dp"
-                        android:text="XBOX" />
-
-                    <Button
-                        android:id="@+id/btnDisplayPlaystation"
-                        style="@style/GamepadChip"
-                        android:layout_marginEnd="6dp"
-                        android:text="PLAYSTATION" />
-
-                    <Button
-                        android:id="@+id/btnDisplaySwitch"
-                        style="@style/GamepadChip"
-                        android:text="SWITCH" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="@color/bg_surface_light"
-                    android:layout_marginBottom="12dp" />
 
                 <!-- Presets -->
                 <TextView
@@ -305,7 +264,7 @@
         </ScrollView>
 
 
-        <!-- Page 7: 外观 -->
+        <!-- Page 2: 外观 -->
         <LinearLayout
             android:id="@+id/pageAppearance"
             android:layout_width="match_parent"
@@ -328,6 +287,7 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical">
 
+
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -336,6 +296,41 @@
                         android:textSize="18sp"
                         android:fontFamily="sans-serif-medium"
                         android:layout_marginBottom="12dp" />
+
+                    <!-- Display Mode -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="手柄显示"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:layout_marginBottom="8dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center"
+                        android:layout_marginBottom="16dp">
+
+                        <Button
+                            android:id="@+id/btnDisplayXbox"
+                            style="@style/GamepadChip"
+                            android:layout_marginEnd="6dp"
+                            android:text="XBOX" />
+
+                        <Button
+                            android:id="@+id/btnDisplayPlaystation"
+                            style="@style/GamepadChip"
+                            android:layout_marginEnd="6dp"
+                            android:text="PLAYSTATION" />
+
+                        <Button
+                            android:id="@+id/btnDisplaySwitch"
+                            style="@style/GamepadChip"
+                            android:text="SWITCH" />
+                    </LinearLayout>
 
                     <!-- ── Icon/text max size ── -->
                     <LinearLayout
@@ -364,6 +359,11 @@
                             android:progress="28" />
                     </LinearLayout>
 
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/bg_surface_light"
+                        android:layout_marginBottom="12dp" />
                     <!-- ── Background ── -->
                     <TextView
                         android:layout_width="wrap_content"
