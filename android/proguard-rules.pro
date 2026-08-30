@@ -1,6 +1,6 @@
--keepclassmembers class com.zyz4.gamepademu.proto.** { *; }
+-keepclassmembers class com.zyz4.gkme.proto.** { *; }
 
-# Gson
+# Gson - 完整保留所有 Gson 类和成员
 -keep class com.google.gson.** { *; }
 -keep class * implements com.google.gson.TypeAdapterFactory
 -keep class * implements com.google.gson.JsonSerializer
@@ -11,6 +11,12 @@
 
 # Gson TypeToken - 保留匿名子类
 -keep class com.google.gson.reflect.TypeToken { *; }
+-keep class * extends com.google.gson.reflect.TypeToken { *; }
+
+# Gson - 保留所有类的字段用于反射序列化/反序列化
+-keepclassmembers class * {
+    @com.google.gson.annotations.* <fields>;
+}
 
 # Hilt - Dagger
 -keep class dagger.hilt.** { *; }
@@ -37,13 +43,13 @@
 }
 
 # Repository - 保留所有 @Singleton 注入的 Repository
--keep class com.zyz4.gamepademu.data.** { *; }
+-keep class com.zyz4.gkme.data.** { *; }
 
 # Application 类 - 保留 @HiltAndroidApp 标记的 Application
--keep class com.zyz4.gamepademu.GamepadEmuApp { *; }
+-keep class com.zyz4.gkme.GamepadEmuApp { *; }
 
 # Module - 保留 Hilt @Module, @Provides
--keep class com.zyz4.gamepademu.di.** { *; }
+-keep class com.zyz4.gkme.di.** { *; }
 -keepclassmembers,allowobfuscation class * {
     @dagger.Provides <methods>;
 }
@@ -57,16 +63,21 @@
 -keep class androidx.datastore.** { *; }
 
 # Model 类 - 所有 data class 和 enum（Gson 序列化/反序列化）
--keep class com.zyz4.gamepademu.model.** { *; }
+-keep class com.zyz4.gkme.model.** { *; }
+
+# Kotlin - 保留数据类的所有合成方法和构造函数
+-keepclassmembers class com.zyz4.gkme.model.** {
+    <init>(...);
+}
 
 # Service 类 - 所有服务类（Hilt 注入 + 反射调用）
--keep class com.zyz4.gamepademu.service.** { *; }
+-keep class com.zyz4.gkme.service.** { *; }
 
 # Input 类 - 传感器和输入处理
--keep class com.zyz4.gamepademu.input.** { *; }
+-keep class com.zyz4.gkme.input.** { *; }
 
 # MainActivity - Activity 必须保留
--keep class com.zyz4.gamepademu.MainActivity { *; }
+-keep class com.zyz4.gkme.MainActivity { *; }
 
 # 保留 Proto 相关的嵌套类和 Builder
 -keep class * extends com.google.protobuf.Message { *; }
@@ -74,4 +85,4 @@
 -keep class com.google.protobuf.** { *; }
 
 # View 相关 - 如果有自定义 View
--keep class com.zyz4.gamepademu.view.** { *; }
+-keep class com.zyz4.gkme.view.** { *; }
