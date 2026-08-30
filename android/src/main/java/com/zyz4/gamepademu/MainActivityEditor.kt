@@ -1215,7 +1215,7 @@ val labelText = when (entry.baseId) {
     }
 
     var selectedIndex = 0
-    val tabLabels = arrayOf("手柄", "键盘", "鼠标", "自定义")
+    val tabLabels = arrayOf("手柄", "鼠标", "键盘")
 
     // Page container - defined before updateTabs so the lambda can reference it
     val pageContainer = LinearLayout(a).apply {
@@ -1229,8 +1229,8 @@ val labelText = when (entry.baseId) {
         allControls.find { it.baseId == "btnMouseMMB" },
         allControls.find { it.baseId == "mousepad" }
     )
-    val actualDatas = arrayOf(gamepadBits, keyboardBits, mouseControls, customBitsControls)
-    val pageViews = arrayOfNulls<View>(4)
+    val actualDatas = arrayOf(gamepadBits, mouseControls, keyboardBits)
+    val pageViews = arrayOfNulls<View>(3)
     for (i in actualDatas.indices) {
         pageViews[i] = buildBitGrid(actualDatas[i], currentBits)
     }
