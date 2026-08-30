@@ -108,6 +108,18 @@ class MainActivity : ComponentActivity() {
         uri?.let { exportPresetToUri(it) }
     }
 
+    internal val exportAppearanceLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri ->
+        uri?.let { exportAppearanceToUri(it) }
+    }
+
+    internal val importAppearanceLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let { importAppearanceFromUri(it) }
+    }
+
     private val displayManager by lazy { getSystemService(DISPLAY_SERVICE) as DisplayManager }
 
     internal lateinit var physicalControllerHandler: PhysicalControllerHandler

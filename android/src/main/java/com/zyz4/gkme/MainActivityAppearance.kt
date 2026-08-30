@@ -19,6 +19,7 @@ import android.widget.SeekBar
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.graphics.scale
+import com.zyz4.gkme.model.AppearanceProfile
 import com.zyz4.gkme.model.AppSettings
 import com.zyz4.gkme.model.FillType
 import java.io.File
@@ -52,31 +53,31 @@ internal fun MainActivity.setupAppearanceImageLaunchers() {
 }
 
 internal fun MainActivity.savePickedImage(uri: Uri, prefix: String, onSaved: (String) -> Unit) {
-    val dir = File(filesDir, "appearance_images")
+    val a = this
+    val dir = File(a.filesDir, "appearance_images")
     dir.mkdirs()
     val filename = "${prefix}_${System.currentTimeMillis()}.jpg"
     val file = File(dir, filename)
     try {
-        val inputStream = contentResolver.openInputStream(uri) ?: return
+        val inputStream = a.contentResolver.openInputStream(uri) ?: return
         val bitmap = BitmapFactory.decodeStream(inputStream)
         inputStream.close()
         if (bitmap != null) {
-            // Scale down if too large, keeping aspect ratio
-            val maxDim = 1920f
-            val scale = minOf(1f, maxDim / maxOf(bitmap.width, bitmap.height))
+            val maxDim = maxOf(a.resources.displayMetrics.widthPixels, a.resources.displayMetrics.heightPixels).toFloat()
+            val scale = minOf(1f, maxDim / maxOf(bitmap.width.toFloat(), bitmap.height.toFloat()))
             val w = (bitmap.width * scale).toInt().coerceAtLeast(1)
             val h = (bitmap.height * scale).toInt().coerceAtLeast(1)
             val resized = if (scale < 1f) bitmap.scale(w, h, true) else bitmap
             FileOutputStream(file).use { out ->
-                resized.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                resized.compress(Bitmap.CompressFormat.JPEG, 95, out)
             }
             onSaved(file.absolutePath)
-            syncAppearanceUI()
-            updateAppearancePreview()
-            showToast("图片已设置")
+            a.syncAppearanceUI()
+            a.updateAppearancePreview()
+            a.showToast("图片已设置")
         }
     } catch (e: Exception) {
-        showToast("图片加载失败: ${e.message}")
+        a.showToast("图片加载失败: ${e.message}")
     }
 }
 
@@ -413,6 +414,14 @@ internal fun MainActivity.setupAppearancePage() {
     a.findViewById<Button>(R.id.btnResetPadTriggerOutlineColor).setOnClickListener {
         a.onAppearanceChange { it.copy(dpadPadTriggerOutlineColor = -0x666667) }
     }
+
+    // ── Export / Import Appearance ──
+    a.findViewById<Button>(R.id.btnExportAppearance).setOnClickListener {
+        a.exportAppearanceLauncher.launch("appearance_profile.json")
+    }
+    a.findViewById<Button>(R.id.btnImportAppearance).setOnClickListener {
+        a.importAppearanceLauncher.launch(arrayOf("application/json", "*/*"))
+    }
 }
 
 // ── Color Picker Dialog ──
@@ -679,4 +688,163 @@ internal fun MainActivity.hidePreviewZoom() {
     val a = this
     val overlay = a.findViewById<FrameLayout>(R.id.previewZoomOverlay)
     overlay?.visibility = View.GONE
+}
+
+// ── Export / Import Appearance Settings ──
+
+internal fun MainActivity.exportAppearanceToUri(uri: Uri) {
+    val a = this
+    try {
+        val settings = a.viewModel.settings.value
+        val imageDir = File(a.filesDir, "appearance_images")
+
+        // Collect existing image files and build path -> relative name mapping
+        val imageNames = mutableMapOf<String, String>()
+        if (imageDir.exists()) {
+            imageDir.listFiles()?.forEach { file ->
+                imageNames[file.absolutePath] = file.name
+            }
+        }
+
+        val profile = AppearanceProfile.fromAppSettingsWithImageNames(settings, imageNames)
+        val json = AppearanceProfile.toJson(profile)
+
+        // Always export as zip
+        val tempZip = File(a.cacheDir, "appearance_export_${System.currentTimeMillis()}.zip").also { it.delete() }
+
+        java.util.zip.ZipOutputStream(FileOutputStream(tempZip)).use { zos ->
+            // Add JSON file
+            val jsonEntry = java.util.zip.ZipEntry("appearance_profile.json")
+            zos.putNextEntry(jsonEntry)
+            zos.write(json.toByteArray())
+            zos.closeEntry()
+
+            // Add all image files from appearance_images directory
+            if (imageDir.exists()) {
+                imageDir.listFiles()?.forEach { imageFile ->
+                    val imageEntry = java.util.zip.ZipEntry("images/${imageFile.name}")
+                    zos.putNextEntry(imageEntry)
+                    imageFile.inputStream().use { it.copyTo(zos) }
+                    zos.closeEntry()
+                }
+            }
+        }
+
+        a.contentResolver.openOutputStream(uri)?.use { out ->
+            tempZip.inputStream().use { it.copyTo(out) }
+        }
+        tempZip.delete()
+
+        a.showToast("外观设置导出成功")
+    } catch (e: Exception) {
+        a.showToast("导出失败: ${e.message}")
+    }
+}
+
+internal fun MainActivity.importAppearanceFromUri(uri: Uri) {
+    val a = this
+    try {
+        val contentResolver = a.contentResolver
+        val tempFile = File(a.cacheDir, "appearance_import_${System.currentTimeMillis()}.tmp")
+
+        // Copy URI content to temp file so we can read it multiple times
+        contentResolver.openInputStream(uri)?.use { input ->
+            tempFile.outputStream().use { out ->
+                input.copyTo(out)
+            }
+        }
+
+        // Extract JSON from zip
+        var jsonText: String? = null
+        java.util.zip.ZipInputStream(tempFile.inputStream()).use { zis ->
+            var entry = zis.nextEntry
+            while (entry != null) {
+                if (entry.name.endsWith(".json")) {
+                    jsonText = zis.use { it.readBytes().toString(Charsets.UTF_8) }
+                }
+                entry = zis.nextEntry
+            }
+        }
+
+        if (jsonText == null) {
+            a.showToast("无法读取外观配置文件")
+            return
+        }
+
+        val profile = AppearanceProfile.fromJson(jsonText!!)
+
+        // Extract images from zip
+        val imageDir = File(a.filesDir, "appearance_images")
+        imageDir.mkdirs()
+
+        java.util.zip.ZipInputStream(tempFile.inputStream()).use { zis ->
+            var entry = zis.nextEntry
+            while (entry != null) {
+                if (entry.name.startsWith("images/")) {
+                    val fileName = entry.name.substringAfterLast("/")
+                    val outFile = File(imageDir, fileName).also { it.delete() }
+                    FileOutputStream(outFile).use { out ->
+                        zis.copyTo(out)
+                    }
+                }
+                entry = zis.nextEntry
+            }
+        }
+
+        // Convert ordinal back to FillType
+        fun fillTypeFromOrdinal(ord: Int) = FillType.entries.getOrElse(ord) { FillType.SOLID_COLOR }
+
+        // Build transform function to update only appearance settings
+        val settings = a.viewModel.settings.value
+        val newSettings = settings.copy(
+            bgFillType = fillTypeFromOrdinal(profile.bgFillType),
+            bgColor = profile.bgColor,
+            bgImagePath = profile.bgImagePath?.let { File(a.filesDir, "appearance_images").resolve(it).absolutePath },
+            btnFillType = fillTypeFromOrdinal(profile.btnFillType),
+            btnColor = profile.btnColor,
+            btnImagePath = profile.btnImagePath?.let { File(a.filesDir, "appearance_images").resolve(it).absolutePath },
+            btnOutlineColor = profile.btnOutlineColor,
+            btnOutlineWidth = profile.btnOutlineWidth,
+            joyBaseFillType = fillTypeFromOrdinal(profile.joyBaseFillType),
+            joyBaseColor = profile.joyBaseColor,
+            joyBaseImagePath = profile.joyBaseImagePath?.let { File(a.filesDir, "appearance_images").resolve(it).absolutePath },
+            joyBaseOutlineColor = profile.joyBaseOutlineColor,
+            joyBaseOutlineWidth = profile.joyBaseOutlineWidth,
+            joyCapFillType = fillTypeFromOrdinal(profile.joyCapFillType),
+            joyCapColor = profile.joyCapColor,
+            joyCapImagePath = profile.joyCapImagePath?.let { File(a.filesDir, "appearance_images").resolve(it).absolutePath },
+            joyCapOutlineColor = profile.joyCapOutlineColor,
+            joyCapOutlineWidth = profile.joyCapOutlineWidth,
+            joyTriggerOutlineColor = profile.joyTriggerOutlineColor,
+            joyTriggerOutlineWidth = profile.joyTriggerOutlineWidth,
+            tpTriggerOutlineColor = profile.tpTriggerOutlineColor,
+            tpTriggerOutlineWidth = profile.tpTriggerOutlineWidth,
+            linearTriggerBoxOutlineColor = profile.linearTriggerBoxOutlineColor,
+            linearTriggerBoxOutlineWidth = profile.linearTriggerBoxOutlineWidth,
+            tpFillType = fillTypeFromOrdinal(profile.tpFillType),
+            tpColor = profile.tpColor,
+            tpImagePath = profile.tpImagePath?.let { File(a.filesDir, "appearance_images").resolve(it).absolutePath },
+            tpOutlineColor = profile.tpOutlineColor,
+            tpOutlineWidth = profile.tpOutlineWidth,
+            dpadPadFillType = fillTypeFromOrdinal(profile.dpadPadFillType),
+            dpadPadColor = profile.dpadPadColor,
+            dpadPadImagePath = profile.dpadPadImagePath?.let { File(a.filesDir, "appearance_images").resolve(it).absolutePath },
+            dpadPadOutlineColor = profile.dpadPadOutlineColor,
+            dpadPadOutlineWidth = profile.dpadPadOutlineWidth,
+            dpadPadTriggerOutlineColor = profile.dpadPadTriggerOutlineColor,
+            dpadPadTriggerOutlineWidth = profile.dpadPadTriggerOutlineWidth,
+            iconMaxSize = profile.iconMaxSize,
+        )
+
+        // Save settings
+        a.viewModel.updateAppearance { newSettings }
+
+        // Apply appearance
+        a.applyAppearanceIfChanged(newSettings)
+        a.syncAppearanceUI()
+        a.updateAppearancePreview()
+        a.showToast("外观设置导入成功")
+    } catch (e: Exception) {
+        a.showToast("导入失败: ${e.message}")
+    }
 }
