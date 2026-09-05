@@ -17,6 +17,7 @@ import com.zyz4.gkme.model.DisplayMode
 import com.zyz4.gkme.model.FillType
 import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.model.GyroMode
+import com.zyz4.gkme.model.GyroCoordinateSystem
 import com.zyz4.gkme.model.GyroOrientation
 import com.zyz4.gkme.model.GyroActivateMode
 import com.zyz4.gkme.model.ButtonPosition
@@ -39,6 +40,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
+import kotlin.math.round
+import kotlin.math.sqrt
 import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalUnsignedTypes::class)
@@ -374,15 +377,20 @@ class GkViewModel @Inject constructor(
         }
     }
 
+    fun updateGyroCoordinateSystem(coordinateSystem: GyroCoordinateSystem) {
+        val updated = settings.value.copy(gyroCoordinateSystem = coordinateSystem)
+        connectionManager.updateSettings(updated)
+    }
+
     fun updateGyroModeSensitivity(value: Int) {
         val updated = settings.value.copy(gyroModeSensitivity = value)
         connectionManager.updateSettings(updated)
     }
 
-    fun updateGyroActivateMode(mode: com.zyz4.gkme.model.GyroActivateMode) {
+    fun updateGyroActivateMode(mode: GyroActivateMode) {
         val updated = settings.value.copy(gyroActivateMode = mode)
         connectionManager.updateSettings(updated)
-        if (mode == com.zyz4.gkme.model.GyroActivateMode.ALWAYS) {
+        if (mode == GyroActivateMode.ALWAYS) {
             _gyroActivateCount = 0
             updateGyroOverrideFromCount()
         }
@@ -579,7 +587,7 @@ class GkViewModel @Inject constructor(
                         mouseWheel = 0, mousePan = 0,
                     )
                 }
-                val intervalMs = kotlin.math.round(1000.0 / settings.value.pollingRate).toLong().coerceAtLeast(1L)
+                val intervalMs = round(1000.0 / settings.value.pollingRate).toLong().coerceAtLeast(1L)
                 nextSendTime += intervalMs
                 val waitTime = nextSendTime - System.currentTimeMillis()
                 if (waitTime > 0) {
@@ -629,7 +637,7 @@ class GkViewModel @Inject constructor(
                 val sensor = sensorHandler.sensorData.value
                 _gyroDisplay.value = Triple(sensor.gyroX, sensor.gyroY, sensor.gyroZ)
                 val useControllerGyro = if (_physicalControllerConnected.value) s.controllerGyroEnabledConnected else s.controllerGyroEnabled
-                val actualGyroEnabled = if (s.gyroActivateMode == com.zyz4.gkme.model.GyroActivateMode.BUTTON) {
+                val actualGyroEnabled = if (s.gyroActivateMode == GyroActivateMode.BUTTON) {
                     _gyroOverrideEnabled.value
                 } else {
                     s.gyroEnabled
@@ -645,13 +653,46 @@ class GkViewModel @Inject constructor(
                     )
                 }
 
+                // Apply gyro coordinate system transformation
+                // sensor.gyroX = 俯仰(Pitch), sensor.gyroY = 偏航(Yaw), sensor.gyroZ = 滚转(Roll)
+                // Original mapping: mouseX = -gyroY(Yaw→水平), mouseY = -gyroX(Pitch→垂直)
+                // mappedX = 最终输出到水平轴的值, mappedY = 最终输出到垂直轴的值
+                val coordinateSystem = s.gyroCoordinateSystem
+                val gx = if (actualGyroEnabled && !useControllerGyro) sensor.gyroX * s.gyroSensitivityX / 100f else 0f
+                val gy = if (actualGyroEnabled && !useControllerGyro) sensor.gyroY * s.gyroSensitivityY / 100f else 0f
+                val gz = if (actualGyroEnabled && !useControllerGyro) sensor.gyroZ * s.gyroSensitivityZ / 100f else 0f
+
+                var mappedX: Float    // 水平 = 偏航yaw (原始默认行为: gyroMx = -gy = -mappedX)
+                var mappedY: Float    // 垂直 = 俯仰pitch (原始默认行为: gyroMy = -gx = -mappedY)
+
+                when (coordinateSystem) {
+                    GyroCoordinateSystem.YAW -> {
+                        mappedX = gy
+                        mappedY = gx
+                    }
+                    GyroCoordinateSystem.ROLL -> {
+                        mappedX = -gz
+                        mappedY = gx
+                    }
+                    GyroCoordinateSystem.YAW_ROLL -> {
+                        val yawComponent = gy
+                        val rollComponent = -gz
+                        mappedX = yawComponent + rollComponent
+                        mappedY = gx
+                    }
+                    GyroCoordinateSystem.WORLD -> {
+                        mappedX = sensor.worldDx * s.gyroSensitivityX / 100f
+                        mappedY = sensor.worldDy * s.gyroSensitivityY / 100f
+                    }
+                }
+
                 // Apply gyro mapping mode (world coordinate system)
                 if (actualGyroEnabled && !useControllerGyro) {
                     val sens = s.gyroModeSensitivity / 100f
                     when (s.gyroMode) {
                         GyroMode.MOUSE -> {
-                            val gyroMx = (-sensor.gyroY * sens * 50f).toInt().coerceIn(-127, 127)
-                            val gyroMy = (-sensor.gyroX * sens * 50f).toInt().coerceIn(-127, 127)
+                            val gyroMx = (-mappedX * sens * 50f).toInt().coerceIn(-127, 127)
+                            val gyroMy = (-mappedY * sens * 50f).toInt().coerceIn(-127, 127)
                             val totalDx = (gyroMx + _gamepadState.value.mouseDx.toInt()).coerceIn(-127, 127).toShort()
                             val totalDy = (gyroMy + _gamepadState.value.mouseDy.toInt()).coerceIn(-127, 127).toShort()
                             _gamepadState.value = _gamepadState.value.copy(
@@ -660,16 +701,16 @@ class GkViewModel @Inject constructor(
                             )
                         }
                         GyroMode.LEFT_STICK -> {
-                            val gyroLx = (-sensor.gyroY * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
-                            val gyroLy = (-sensor.gyroX * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
+                            val gyroLx = (-mappedX * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
+                            val gyroLy = (-mappedY * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
                             _gamepadState.value = _gamepadState.value.copy(
                                 leftStickX = (phoneStickX.toInt() + gyroLx.toInt()).coerceIn(-32768, 32767).toShort(),
                                 leftStickY = (phoneStickY.toInt() + gyroLy.toInt()).coerceIn(-32768, 32767).toShort(),
                             )
                         }
                         GyroMode.RIGHT_STICK -> {
-                            val gyroRx = (-sensor.gyroY * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
-                            val gyroRy = (-sensor.gyroX * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
+                            val gyroRx = (-mappedX * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
+                            val gyroRy = (-mappedY * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
                             _gamepadState.value = _gamepadState.value.copy(
                                 rightStickX = (phoneRStickX.toInt() + gyroRx.toInt()).coerceIn(-32768, 32767).toShort(),
                                 rightStickY = (phoneRStickY.toInt() + gyroRy.toInt()).coerceIn(-32768, 32767).toShort(),
@@ -711,7 +752,7 @@ class GkViewModel @Inject constructor(
                         rightStickX = phoneRStickX, rightStickY = phoneRStickY,
                     )
                 }
-                val intervalMs = kotlin.math.round(1000.0 / settings.value.pollingRate).toLong().coerceAtLeast(1L)
+                val intervalMs = round(1000.0 / settings.value.pollingRate).toLong().coerceAtLeast(1L)
                 nextSendTime += intervalMs
                 val waitTime = nextSendTime - System.currentTimeMillis()
                 if (waitTime > 0) {
@@ -1047,7 +1088,7 @@ class GkViewModel @Inject constructor(
     }
 
     private fun sendKeyboardReport() {
-        if (settings.value.connectionMode != com.zyz4.gkme.model.ConnectionMode.BLUETOOTH) return
+        if (settings.value.connectionMode != ConnectionMode.BLUETOOTH) return
         val modifier = _keyboardModifier.toByte()
         val keys = ByteArray(6)
         for (i in _keyboardKeys.indices) {
