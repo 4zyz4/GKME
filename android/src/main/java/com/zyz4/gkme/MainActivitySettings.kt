@@ -220,10 +220,14 @@ internal fun MainActivity.setupSettings() {
         }
 
     // ── Audio page ──
-    val audioOutputEntries = listOf(AudioOutput.NONE, AudioOutput.PHONE_MOTOR, AudioOutput.LEFT_SPEAKER, AudioOutput.RIGHT_SPEAKER, AudioOutput.ALL_SPEAKERS).plus(
+    val audioOutputEntries = listOf(AudioOutput.NONE, AudioOutput.PHONE_MOTOR_1, AudioOutput.PHONE_MOTOR_2, AudioOutput.LEFT_SPEAKER, AudioOutput.RIGHT_SPEAKER, AudioOutput.ALL_SPEAKERS).plus(
         if (a.physicalControllerHandler.controllerMotorCount >= 1) listOf(AudioOutput.CONTROLLER_MOTOR_1) else emptyList()
     ).plus(
         if (a.physicalControllerHandler.controllerMotorCount >= 2) listOf(AudioOutput.CONTROLLER_MOTOR_2) else emptyList()
+    ).plus(
+        if (a.physicalControllerHandler.controllerMotorCount >= 3) listOf(AudioOutput.CONTROLLER_MOTOR_3) else emptyList()
+    ).plus(
+        if (a.physicalControllerHandler.controllerMotorCount >= 4) listOf(AudioOutput.CONTROLLER_MOTOR_4) else emptyList()
     )
     a.audioMappingEntries = audioOutputEntries
     a.audioControllerOutputEntries = audioOutputEntries
@@ -1065,9 +1069,36 @@ internal fun MainActivity.syncSettingsUI() {
     a.findViewById<SeekBar>(R.id.seekControllerGyroZ).progress = 0
 
     val motorCount = a.physicalControllerHandler.controllerMotorCount
-    a.vibrationMappingEntries = if (physicalConnected) VibrationMotor.entries.take(motorCount) + VibrationMotor.PHONE_MOTOR + VibrationMotor.NONE
-        else listOf(VibrationMotor.PHONE_MOTOR, VibrationMotor.NONE)
-    fun sel(m: VibrationMotor) = a.vibrationMappingEntries.indexOf(m).let { if (it >= 0) it else a.vibrationMappingEntries.indexOf(VibrationMotor.PHONE_MOTOR) }
+    val phoneMotorCount = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        try {
+            val vm = a.getSystemService(android.content.Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager
+            vm?.vibratorIds?.size ?: 0
+        } catch (_: Exception) { 0 }
+    } else { 0 }
+
+    a.vibrationMappingEntries = if (physicalConnected) {
+        val entries = mutableListOf<VibrationMotor>()
+        for (i in 0 until motorCount) {
+            entries += when (i) {
+                0 -> VibrationMotor.CONTROLLER_MOTOR_1
+                1 -> VibrationMotor.CONTROLLER_MOTOR_2
+                2 -> VibrationMotor.CONTROLLER_MOTOR_3
+                3 -> VibrationMotor.CONTROLLER_MOTOR_4
+                else -> break
+            }
+        }
+        if (phoneMotorCount >= 1) entries.add(VibrationMotor.PHONE_MOTOR_1)
+        if (phoneMotorCount >= 2) entries.add(VibrationMotor.PHONE_MOTOR_2)
+        entries.add(VibrationMotor.NONE)
+        entries
+    } else if (phoneMotorCount >= 2) {
+        listOf(VibrationMotor.PHONE_MOTOR_1, VibrationMotor.PHONE_MOTOR_2, VibrationMotor.NONE)
+    } else if (phoneMotorCount >= 1) {
+        listOf(VibrationMotor.PHONE_MOTOR_1, VibrationMotor.NONE)
+    } else {
+        listOf(VibrationMotor.NONE)
+    }
+    fun sel(m: VibrationMotor) = a.vibrationMappingEntries.indexOf(m).let { if (it >= 0) it else a.vibrationMappingEntries.indexOf(VibrationMotor.PHONE_MOTOR_1) }
     a.updateMappingAdapter(a.findViewById(R.id.spinnerStrongVibration))
     a.findViewById<Spinner>(R.id.spinnerStrongVibration).setSelection(sel(strongMapping))
     a.updateMappingAdapter(a.findViewById(R.id.spinnerWeakVibration))
@@ -1087,11 +1118,25 @@ internal fun MainActivity.syncAudioUI() {
     val s = a.viewModel.settings.value
 
     val mc = a.physicalControllerHandler.controllerMotorCount
-    val audioEntries = listOf(AudioOutput.NONE, AudioOutput.PHONE_MOTOR, AudioOutput.LEFT_SPEAKER, AudioOutput.RIGHT_SPEAKER, AudioOutput.ALL_SPEAKERS).plus(
-        if (mc >= 1) listOf(AudioOutput.CONTROLLER_MOTOR_1) else emptyList()
-    ).plus(
-        if (mc >= 2) listOf(AudioOutput.CONTROLLER_MOTOR_2) else emptyList()
-    )
+    val audioEntries = mutableListOf<AudioOutput>()
+    audioEntries.add(AudioOutput.NONE)
+    audioEntries.add(AudioOutput.PHONE_MOTOR_1)
+    audioEntries.add(AudioOutput.PHONE_MOTOR_2)
+    audioEntries.add(AudioOutput.LEFT_SPEAKER)
+    audioEntries.add(AudioOutput.RIGHT_SPEAKER)
+    audioEntries.add(AudioOutput.ALL_SPEAKERS)
+    for (i in 0 until mc) {
+        val output = when (i) {
+            0 -> AudioOutput.CONTROLLER_MOTOR_1
+            1 -> AudioOutput.CONTROLLER_MOTOR_2
+            2 -> AudioOutput.CONTROLLER_MOTOR_3
+            3 -> AudioOutput.CONTROLLER_MOTOR_4
+            else -> null
+        }
+        if (output != null) {
+            audioEntries.add(output)
+        }
+    }
 
     a.audioOutputEntries = audioEntries
     a.audioControllerOutputEntries = audioEntries

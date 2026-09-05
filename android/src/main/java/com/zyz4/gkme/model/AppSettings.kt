@@ -11,18 +11,24 @@ enum class VibrationType { NONE, VIEW, VIBRATION_EFFECT }
 enum class VibrationMotor(val displayName: String) {
     CONTROLLER_MOTOR_1("手柄马达1"),
     CONTROLLER_MOTOR_2("手柄马达2"),
-    PHONE_MOTOR("手机马达"),
+    CONTROLLER_MOTOR_3("手柄马达3"),
+    CONTROLLER_MOTOR_4("手柄马达4"),
+    PHONE_MOTOR_1("手机马达1"),
+    PHONE_MOTOR_2("手机马达2"),
     NONE("无"),
 }
 
 enum class AudioOutput(val displayName: String, val isLeft: Boolean) {
     NONE("无", false),
-    PHONE_MOTOR("手机马达", false),
+    PHONE_MOTOR_1("手机马达1", false),
+    PHONE_MOTOR_2("手机马达2", false),
     LEFT_SPEAKER("左扬声器", true),
     RIGHT_SPEAKER("右扬声器", false),
     ALL_SPEAKERS("全部扬声器", false),
     CONTROLLER_MOTOR_1("手柄马达1", false),
     CONTROLLER_MOTOR_2("手柄马达2", false),
+    CONTROLLER_MOTOR_3("手柄马达3", false),
+    CONTROLLER_MOTOR_4("手柄马达4", false),
     ;
 
     companion object {
@@ -107,8 +113,8 @@ data class AppSettings(
     val keepScreenOn: Boolean = false,
     // Disconnected state
     val controllerGyroEnabled: Boolean = false,
-    val strongVibrationMapping: VibrationMotor = VibrationMotor.PHONE_MOTOR,
-    val weakVibrationMapping: VibrationMotor = VibrationMotor.PHONE_MOTOR,
+    val strongVibrationMapping: VibrationMotor = VibrationMotor.PHONE_MOTOR_1,
+    val weakVibrationMapping: VibrationMotor = VibrationMotor.PHONE_MOTOR_1,
     // Connected state
     val gyroActivateMode: GyroActivateMode = GyroActivateMode.ALWAYS,
     val controllerGyroEnabledConnected: Boolean = true,

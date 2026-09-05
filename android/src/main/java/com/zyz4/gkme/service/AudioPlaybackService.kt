@@ -101,18 +101,27 @@ class AudioPlaybackService {
     var onVibroOutput: ((strong: Int, weak: Int) -> Unit)? = null
 
     private fun hasPhoneMotorOutput(): Boolean {
-        return leftOutput == AudioOutput.PHONE_MOTOR ||
-               rightOutput == AudioOutput.PHONE_MOTOR ||
-               controllerAudio == AudioOutput.PHONE_MOTOR
+        return leftOutput == AudioOutput.PHONE_MOTOR_1 ||
+               leftOutput == AudioOutput.PHONE_MOTOR_2 ||
+               rightOutput == AudioOutput.PHONE_MOTOR_1 ||
+               rightOutput == AudioOutput.PHONE_MOTOR_2 ||
+               controllerAudio == AudioOutput.PHONE_MOTOR_1 ||
+               controllerAudio == AudioOutput.PHONE_MOTOR_2
     }
 
     private fun hasControllerMotorOutput(): Boolean {
         return leftOutput == AudioOutput.CONTROLLER_MOTOR_1 ||
                leftOutput == AudioOutput.CONTROLLER_MOTOR_2 ||
+               leftOutput == AudioOutput.CONTROLLER_MOTOR_3 ||
+               leftOutput == AudioOutput.CONTROLLER_MOTOR_4 ||
                rightOutput == AudioOutput.CONTROLLER_MOTOR_1 ||
                rightOutput == AudioOutput.CONTROLLER_MOTOR_2 ||
+               rightOutput == AudioOutput.CONTROLLER_MOTOR_3 ||
+               rightOutput == AudioOutput.CONTROLLER_MOTOR_4 ||
                controllerAudio == AudioOutput.CONTROLLER_MOTOR_1 ||
-               controllerAudio == AudioOutput.CONTROLLER_MOTOR_2
+               controllerAudio == AudioOutput.CONTROLLER_MOTOR_2 ||
+               controllerAudio == AudioOutput.CONTROLLER_MOTOR_3 ||
+               controllerAudio == AudioOutput.CONTROLLER_MOTOR_4
     }
 
     private fun applyControllerMotorOutput(leftAmp: Int, rightAmp: Int, totalAmp: Int) {
@@ -124,6 +133,8 @@ class AudioPlaybackService {
         fun addMotor(target: AudioOutput, current: Int) {
             if (target == AudioOutput.CONTROLLER_MOTOR_1) strongMotor = maxOf(strongMotor, current)
             else if (target == AudioOutput.CONTROLLER_MOTOR_2) weakMotor = maxOf(weakMotor, current)
+            else if (target == AudioOutput.CONTROLLER_MOTOR_3) strongMotor = maxOf(strongMotor, current)
+            else if (target == AudioOutput.CONTROLLER_MOTOR_4) weakMotor = maxOf(weakMotor, current)
         }
 
         addMotor(leftOutput, leftAmp)
@@ -221,15 +232,24 @@ class AudioPlaybackService {
         val rightAmp = rightVoiceCoilAmplitude
         val totalAmp = instantTotal.toInt().coerceIn(0, 255)
 
-        // Phone motor output (before play check, independent of speaker output)
+// Phone motor output (before play check, independent of speaker output)
         var phoneMotorIntensity = 0
-        if (leftOutput == AudioOutput.PHONE_MOTOR) {
+        if (leftOutput == AudioOutput.PHONE_MOTOR_1) {
             phoneMotorIntensity = maxOf(phoneMotorIntensity, leftAmp)
         }
-        if (rightOutput == AudioOutput.PHONE_MOTOR) {
+        if (leftOutput == AudioOutput.PHONE_MOTOR_2) {
+            phoneMotorIntensity = maxOf(phoneMotorIntensity, leftAmp)
+        }
+        if (rightOutput == AudioOutput.PHONE_MOTOR_1) {
             phoneMotorIntensity = maxOf(phoneMotorIntensity, rightAmp)
         }
-        if (controllerAudio == AudioOutput.PHONE_MOTOR && gameVibrationEnabled) {
+        if (rightOutput == AudioOutput.PHONE_MOTOR_2) {
+            phoneMotorIntensity = maxOf(phoneMotorIntensity, rightAmp)
+        }
+        if (controllerAudio == AudioOutput.PHONE_MOTOR_1 && gameVibrationEnabled) {
+            phoneMotorIntensity = maxOf(phoneMotorIntensity, totalAmp)
+        }
+        if (controllerAudio == AudioOutput.PHONE_MOTOR_2 && gameVibrationEnabled) {
             phoneMotorIntensity = maxOf(phoneMotorIntensity, totalAmp)
         }
         if (phoneMotorIntensity > 0) {
@@ -239,9 +259,9 @@ class AudioPlaybackService {
         // Controller motor output
         applyControllerMotorOutput(leftAmp, rightAmp, totalAmp)
 
-        val play = (leftOutput != AudioOutput.NONE && leftOutput != AudioOutput.PHONE_MOTOR) ||
-                   (rightOutput != AudioOutput.NONE && rightOutput != AudioOutput.PHONE_MOTOR) ||
-                   (gameVibrationEnabled && controllerAudio != AudioOutput.NONE && controllerAudio != AudioOutput.PHONE_MOTOR)
+        val play = (leftOutput != AudioOutput.NONE && leftOutput != AudioOutput.PHONE_MOTOR_1 && leftOutput != AudioOutput.PHONE_MOTOR_2) ||
+                    (rightOutput != AudioOutput.NONE && rightOutput != AudioOutput.PHONE_MOTOR_1 && rightOutput != AudioOutput.PHONE_MOTOR_2) ||
+                    (gameVibrationEnabled && controllerAudio != AudioOutput.NONE && controllerAudio != AudioOutput.PHONE_MOTOR_1 && controllerAudio != AudioOutput.PHONE_MOTOR_2)
         if (!play) return
 
         // Allocate output: numSamples stereo = numSamples * 2 channels * 2 bytes
@@ -249,7 +269,7 @@ class AudioPlaybackService {
         val stereoBuf = IntArray(stereoSize / 2)
 
         // Determine which audio sources to play and where
-        val playCtrlAudio = gameVibrationEnabled && controllerAudio != AudioOutput.NONE && controllerAudio != AudioOutput.PHONE_MOTOR
+        val playCtrlAudio = gameVibrationEnabled && controllerAudio != AudioOutput.NONE && controllerAudio != AudioOutput.PHONE_MOTOR_1 && controllerAudio != AudioOutput.PHONE_MOTOR_2
         val playLeftCh2 = leftOutput == AudioOutput.LEFT_SPEAKER || leftOutput == AudioOutput.ALL_SPEAKERS
         val playRightCh3 = rightOutput == AudioOutput.RIGHT_SPEAKER || rightOutput == AudioOutput.ALL_SPEAKERS
 

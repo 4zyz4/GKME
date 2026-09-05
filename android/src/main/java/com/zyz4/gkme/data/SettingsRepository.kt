@@ -161,11 +161,11 @@ class SettingsRepository @Inject constructor(
             ) { GyroActivateMode.ALWAYS },
             controllerGyroEnabled = prefs[Keys.CONTROLLER_GYRO_ENABLED] ?: false,
             strongVibrationMapping = VibrationMotor.entries.getOrElse(
-                prefs[Keys.STRONG_VIBRATION_MAPPING] ?: VibrationMotor.PHONE_MOTOR.ordinal
-            ) { VibrationMotor.PHONE_MOTOR },
+                prefs[Keys.STRONG_VIBRATION_MAPPING] ?: VibrationMotor.PHONE_MOTOR_1.ordinal
+            ) { VibrationMotor.PHONE_MOTOR_1 },
             weakVibrationMapping = VibrationMotor.entries.getOrElse(
-                prefs[Keys.WEAK_VIBRATION_MAPPING] ?: VibrationMotor.PHONE_MOTOR.ordinal
-            ) { VibrationMotor.PHONE_MOTOR },
+                prefs[Keys.WEAK_VIBRATION_MAPPING] ?: VibrationMotor.PHONE_MOTOR_1.ordinal
+            ) { VibrationMotor.PHONE_MOTOR_1 },
             controllerGyroEnabledConnected = prefs[Keys.CONTROLLER_GYRO_ENABLED_CONNECTED] ?: true,
             strongVibrationMappingConnected = VibrationMotor.entries.getOrElse(
                 prefs[Keys.STRONG_VIBRATION_MAPPING_CONNECTED] ?: VibrationMotor.CONTROLLER_MOTOR_1.ordinal

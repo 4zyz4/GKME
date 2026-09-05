@@ -664,18 +664,27 @@ class PhysicalControllerHandler(private val context: Context) {
         val lowNorm = lowFreqMotor.coerceIn(0, 255)
         val highNorm = highFreqMotor.coerceIn(0, 255)
 
+        fun isPhoneMotor(m: VibrationMotor): Boolean {
+            return m == VibrationMotor.PHONE_MOTOR_1 ||
+                   m == VibrationMotor.PHONE_MOTOR_2
+        }
+
         fun resolveMotor(m: VibrationMotor): VibrationMotor {
             if (m == VibrationMotor.NONE) return m
-            if (m == VibrationMotor.PHONE_MOTOR) return m
-            return if (m.ordinal < controllerMotorCount) m else VibrationMotor.PHONE_MOTOR
+            if (isPhoneMotor(m)) return m
+            // 手柄马达序号超出实际数量则回退到 PHONE_MOTOR_1
+            return if ((m.ordinal - VibrationMotor.CONTROLLER_MOTOR_1.ordinal) < controllerMotorCount) m
+                   else VibrationMotor.PHONE_MOTOR_1
         }
 
         val strongEff = resolveMotor(strongVibrationMapping)
         val weakEff = resolveMotor(weakVibrationMapping)
 
         var phoneAmp = 0
-        if (strongEff == VibrationMotor.PHONE_MOTOR && lowNorm > 1) phoneAmp = maxOf(phoneAmp, lowNorm.coerceIn(2, 255))
-        if (weakEff == VibrationMotor.PHONE_MOTOR && highNorm > 1) phoneAmp = maxOf(phoneAmp, highNorm.coerceIn(2, 255))
+        if (strongEff == VibrationMotor.PHONE_MOTOR_1 && lowNorm > 1) phoneAmp = maxOf(phoneAmp, lowNorm.coerceIn(2, 255))
+        if (strongEff == VibrationMotor.PHONE_MOTOR_2 && lowNorm > 1) phoneAmp = maxOf(phoneAmp, lowNorm.coerceIn(2, 255))
+        if (weakEff == VibrationMotor.PHONE_MOTOR_1 && highNorm > 1) phoneAmp = maxOf(phoneAmp, highNorm.coerceIn(2, 255))
+        if (weakEff == VibrationMotor.PHONE_MOTOR_2 && highNorm > 1) phoneAmp = maxOf(phoneAmp, highNorm.coerceIn(2, 255))
         if (phoneAmp > 0) {
             vibratePhone(phoneAmp)
         } else if (lastPhoneAmp >= 0) {
@@ -683,11 +692,27 @@ class PhysicalControllerHandler(private val context: Context) {
         }
 
         if (!_isConnected.value) return
+
+        // Build controller motor intensity map: motorIndex -> intensity
         val ctrlVib = mutableMapOf<Int, Int>()
-        if (strongEff == VibrationMotor.CONTROLLER_MOTOR_1 && lowNorm > 1) ctrlVib.merge(0, lowNorm.coerceIn(2, 255), Int::plus)
-        if (strongEff == VibrationMotor.CONTROLLER_MOTOR_2 && lowNorm > 1) ctrlVib.merge(1, lowNorm.coerceIn(2, 255), Int::plus)
-        if (weakEff == VibrationMotor.CONTROLLER_MOTOR_1 && highNorm > 1) ctrlVib.merge(0, highNorm.coerceIn(2, 255), Int::plus)
-        if (weakEff == VibrationMotor.CONTROLLER_MOTOR_2 && highNorm > 1) ctrlVib.merge(1, highNorm.coerceIn(2, 255), Int::plus)
+
+        fun addCtrlMotor(motor: VibrationMotor, intensity: Int) {
+            if (motor == VibrationMotor.NONE) return
+            if (isPhoneMotor(motor)) {
+                val phoneIdx = if (motor == VibrationMotor.PHONE_MOTOR_1) 0 else 1
+                if (intensity > 1) {
+                    ctrlVib.merge(phoneIdx, intensity.coerceIn(2, 255), Int::plus)
+                }
+                return
+            }
+            val idx = motor.ordinal - VibrationMotor.CONTROLLER_MOTOR_1.ordinal
+            if (idx >= 0 && idx < controllerMotorCount && intensity > 1) {
+                ctrlVib.merge(idx, intensity.coerceIn(2, 255), Int::plus)
+            }
+        }
+
+        addCtrlMotor(strongEff, lowNorm)
+        addCtrlMotor(weakEff, highNorm)
 
         if (ctrlVib.isEmpty()) {
             controllerVibratorManager?.cancel()
