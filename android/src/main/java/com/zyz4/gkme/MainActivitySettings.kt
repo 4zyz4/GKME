@@ -1118,10 +1118,16 @@ internal fun MainActivity.syncAudioUI() {
     val s = a.viewModel.settings.value
 
     val mc = a.physicalControllerHandler.controllerMotorCount
+    val phoneMotorCount = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        try {
+            val vm = a.getSystemService(android.content.Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager
+            vm?.vibratorIds?.size ?: 0
+        } catch (_: Exception) { 0 }
+    } else { 0 }
     val audioEntries = mutableListOf<AudioOutput>()
     audioEntries.add(AudioOutput.NONE)
-    audioEntries.add(AudioOutput.PHONE_MOTOR_1)
-    audioEntries.add(AudioOutput.PHONE_MOTOR_2)
+    if (phoneMotorCount >= 1) audioEntries.add(AudioOutput.PHONE_MOTOR_1)
+    if (phoneMotorCount >= 2) audioEntries.add(AudioOutput.PHONE_MOTOR_2)
     audioEntries.add(AudioOutput.LEFT_SPEAKER)
     audioEntries.add(AudioOutput.RIGHT_SPEAKER)
     audioEntries.add(AudioOutput.ALL_SPEAKERS)

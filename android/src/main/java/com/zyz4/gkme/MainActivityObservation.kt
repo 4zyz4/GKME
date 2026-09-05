@@ -198,8 +198,8 @@ internal fun MainActivity.observeState() {
                     val mc = a.physicalControllerHandler.controllerMotorCount
                     val audioEntries = mutableListOf<AudioOutput>()
                     audioEntries.add(AudioOutput.NONE)
-                    audioEntries.add(AudioOutput.PHONE_MOTOR_1)
-                    audioEntries.add(AudioOutput.PHONE_MOTOR_2)
+                    if (phoneMotorCount >= 1) audioEntries.add(AudioOutput.PHONE_MOTOR_1)
+                    if (phoneMotorCount >= 2) audioEntries.add(AudioOutput.PHONE_MOTOR_2)
                     audioEntries.add(AudioOutput.LEFT_SPEAKER)
                     audioEntries.add(AudioOutput.RIGHT_SPEAKER)
                     audioEntries.add(AudioOutput.ALL_SPEAKERS)
