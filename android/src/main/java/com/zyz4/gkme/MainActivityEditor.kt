@@ -344,7 +344,7 @@ internal fun MainActivity.showAddButtonDialog() {
                 setTextColor(-0x333334)
                 textSize = 12f
                 setTypeface(null, Typeface.BOLD)
-                setBackgroundResource(R.drawable.button_circle)
+                setBackgroundResource(R.drawable.button_rounded_rect)
                 gravity = Gravity.CENTER
                 layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
                 isClickable = false
