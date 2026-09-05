@@ -38,6 +38,13 @@ enum class GyroOrientation(val displayName: String) {
     PORTRAIT_INVERTED("倒置竖屏"),
 }
 
+enum class GyroCoordinateSystem(val displayName: String) {
+    YAW("偏航"),
+    ROLL("滚转"),
+    YAW_ROLL("偏航+滚转"),
+    WORLD("世界空间"),
+}
+
 enum class GyroMode(val displayName: String) {
     NONE("关闭"),
     HANDHELD("手柄陀螺仪"),
@@ -94,6 +101,7 @@ data class AppSettings(
     val gyroSensitivityZ: Int = 100,
     val gyroOrientation: GyroOrientation = GyroOrientation.LANDSCAPE,
     // ── Gyro mapping mode ──
+    val gyroCoordinateSystem: GyroCoordinateSystem = GyroCoordinateSystem.YAW_ROLL,
     val gyroMode: GyroMode = GyroMode.HANDHELD,
     val gyroModeSensitivity: Int = 20,
     val keepScreenOn: Boolean = false,

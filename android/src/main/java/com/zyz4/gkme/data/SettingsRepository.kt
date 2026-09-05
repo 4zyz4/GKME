@@ -14,6 +14,7 @@ import com.zyz4.gkme.model.DisplayMode
 import com.zyz4.gkme.model.FillType
 import com.zyz4.gkme.model.GyroOrientation
 import com.zyz4.gkme.model.GyroMode
+import com.zyz4.gkme.model.GyroCoordinateSystem
 import com.zyz4.gkme.model.GyroActivateMode
 import com.zyz4.gkme.model.HapticEffect
 import com.zyz4.gkme.model.TargetPlatform
@@ -57,6 +58,7 @@ class SettingsRepository @Inject constructor(
         val GYRO_ORIENTATION = intPreferencesKey("gyro_orientation")
         val GYRO_MODE = intPreferencesKey("gyro_mode")
         val GYRO_MODE_SENSITIVITY = intPreferencesKey("gyro_mode_sensitivity")
+        val GYRO_COORDINATE_SYSTEM = intPreferencesKey("gyro_coordinate_system")
         val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val GYRO_ACTIVATE_MODE = intPreferencesKey("gyro_activate_mode")
         val CONTROLLER_GYRO_ENABLED = booleanPreferencesKey("controller_gyro_enabled")
@@ -150,6 +152,9 @@ class SettingsRepository @Inject constructor(
                 prefs[Keys.GYRO_MODE] ?: GyroMode.HANDHELD.ordinal
             ) { GyroMode.HANDHELD },
             gyroModeSensitivity = prefs[Keys.GYRO_MODE_SENSITIVITY] ?: 20,
+            gyroCoordinateSystem = GyroCoordinateSystem.entries.getOrElse(
+                prefs[Keys.GYRO_COORDINATE_SYSTEM] ?: GyroCoordinateSystem.YAW_ROLL.ordinal
+            ) { GyroCoordinateSystem.YAW_ROLL },
             keepScreenOn = prefs[Keys.KEEP_SCREEN_ON] ?: false,
             gyroActivateMode = GyroActivateMode.entries.getOrElse(
                 prefs[Keys.GYRO_ACTIVATE_MODE] ?: 0
@@ -237,6 +242,7 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.GYRO_ORIENTATION] = settings.gyroOrientation.ordinal
             prefs[Keys.GYRO_MODE] = settings.gyroMode.ordinal
             prefs[Keys.GYRO_MODE_SENSITIVITY] = settings.gyroModeSensitivity
+            prefs[Keys.GYRO_COORDINATE_SYSTEM] = settings.gyroCoordinateSystem.ordinal
             prefs[Keys.KEEP_SCREEN_ON] = settings.keepScreenOn
             prefs[Keys.GYRO_ACTIVATE_MODE] = settings.gyroActivateMode.ordinal
             prefs[Keys.CONTROLLER_GYRO_ENABLED] = settings.controllerGyroEnabled

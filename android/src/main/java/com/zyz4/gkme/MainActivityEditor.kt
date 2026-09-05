@@ -126,6 +126,10 @@ override fun onTransparencyPreviewEnd(buttonId: String) {
                     a.gamepadLayout.setTransparencyPreview(buttonId, true, false)
                 }
 
+                override fun onGyroCoordinateSystemChanged(coordinateSystem: com.zyz4.gkme.model.GyroCoordinateSystem) {
+                    a.viewModel.updateGyroCoordinateSystem(coordinateSystem)
+                }
+
                 override fun onGyroModeChanged(mode: com.zyz4.gkme.model.GyroMode) {
                     val preset = a.gamepadLayout.currentGyroPreset.copy(gyroMode = mode)
                     a.gamepadLayout.loadPreset(preset)

@@ -28,6 +28,7 @@ import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.model.GyroOrientation
 import com.zyz4.gkme.model.GyroMode
+import com.zyz4.gkme.model.GyroCoordinateSystem
 import com.zyz4.gkme.model.SlideDirection
 import com.zyz4.gkme.Kb
 import com.zyz4.gkme.BitNameMapper
@@ -46,6 +47,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         fun onExitFollowAreaAdjust()
         fun onTransparencyPreviewStart(buttonId: String, isIdle: Boolean)
         fun onTransparencyPreviewEnd(buttonId: String)
+        fun onGyroCoordinateSystemChanged(coordinateSystem: com.zyz4.gkme.model.GyroCoordinateSystem)
         fun onGyroModeChanged(mode: com.zyz4.gkme.model.GyroMode)
         fun onGyroModeSensitivityChanged(value: Int)
         fun onGyroActivateModeChanged(mode: com.zyz4.gkme.model.GyroActivateMode)
@@ -72,6 +74,15 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             }
         }
 
+    var presetGyroCoordinateSystem: com.zyz4.gkme.model.GyroCoordinateSystem = com.zyz4.gkme.model.GyroCoordinateSystem.YAW_ROLL
+        set(value) {
+            field = value
+            if (!showingGlobalSettings) {
+                val idx = coordinateSystemValues.indexOf(value)
+                if (idx >= 0) gyroCoordinateSystemSpinner?.setSelection(idx)
+            }
+        }
+
     var presetGyroMode: com.zyz4.gkme.model.GyroMode = com.zyz4.gkme.model.GyroMode.HANDHELD
         set(value) {
             field = value
@@ -93,6 +104,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
 
     private var gyroSpinner: Spinner? = null
+    private var gyroCoordinateSystemSpinner: Spinner? = null
     private var gyroModeSpinner: Spinner? = null
     private var gyroActivateSpinnerRef: Spinner? = null
     private var globalSettingsContainer: LinearLayout? = null
@@ -103,10 +115,18 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     fun restoreFromSettings(settings: com.zyz4.gkme.model.AppSettings) {
         currentSettings = settings
         presetGyroOrientation = settings.gyroOrientation
+        presetGyroCoordinateSystem = settings.gyroCoordinateSystem
         presetGyroMode = settings.gyroMode
         presetGyroModeSensitivity = settings.gyroModeSensitivity
         presetGyroActivateMode = settings.gyroActivateMode
     }
+
+    private val coordinateSystemValues = listOf(
+        com.zyz4.gkme.model.GyroCoordinateSystem.YAW,
+        com.zyz4.gkme.model.GyroCoordinateSystem.ROLL,
+        com.zyz4.gkme.model.GyroCoordinateSystem.YAW_ROLL,
+        com.zyz4.gkme.model.GyroCoordinateSystem.WORLD,
+    )
 
     private val mappingModeValues = listOf(
         com.zyz4.gkme.model.GyroMode.HANDHELD,
@@ -587,6 +607,33 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
         gyroActivateSpinnerRef = gyroActivateSpinner
         container.addView(gyroActivateSpinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt(); bottomMargin = (12f * density).toInt() })
+
+        // ── Gyro coordinate system ──
+        val tvGyroCoordinateSystem = TextView(context).apply {
+            text = "坐标系"
+            setTextColor(-0x1)
+            textSize = 15f
+            setPadding(0, (8f * density).toInt(), 0, 0)
+        }
+        container.addView(tvGyroCoordinateSystem)
+
+        val gyroCoordinateSystemItems = listOf("偏航", "滚转", "偏航+滚转", "世界空间")
+        val coordinateSystemSpinner = Spinner(context).apply {
+            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, gyroCoordinateSystemItems).also {
+                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+            setSelection(coordinateSystemValues.indexOf(presetGyroCoordinateSystem).coerceAtLeast(0))
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                    val coordinateSystem = coordinateSystemValues.getOrNull(pos) ?: GyroCoordinateSystem.YAW_ROLL
+                    presetGyroCoordinateSystem = coordinateSystem
+                    editorListener?.onGyroCoordinateSystemChanged(coordinateSystem)
+                }
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
+        }
+        gyroCoordinateSystemSpinner = coordinateSystemSpinner
+        container.addView(coordinateSystemSpinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt(); bottomMargin = (12f * density).toInt() })
 
         // ── Gyro mapping mode ──
         val tvGyroMode = TextView(context).apply {

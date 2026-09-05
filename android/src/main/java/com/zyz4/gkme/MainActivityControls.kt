@@ -752,12 +752,12 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
         tp.alpha = 1f - ((if (active) pos.activeTransparency else pos.idleTransparency).coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
     }
 
+    var touchpadGyroHeld = false
     val touchpadListener = View.OnTouchListener touchpadListenerLabel@ { v, event ->
         val btnId = v.tag as? String
         val doubleClickEnable = btnId?.let { a.gamepadLayout.currentButtons.find { p -> p.id == it }?.doubleClickEnable } ?: true
         val curPos = btnId?.let { a.gamepadLayout.currentButtons.find { p -> p.id == it } }
         val touchpadGyroActivate = curPos?.gyroActivate == true
-        var touchpadGyroHeld = false
         val masked = event.action and MotionEvent.ACTION_MASK
 
         if (masked == MotionEvent.ACTION_UP) {
