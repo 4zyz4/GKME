@@ -806,10 +806,6 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
             var slot = emptySlot()
             if (slot < 0) slot = nearestSlot(sx, sy)
             if (slot < 0) slot = if (masked == MotionEvent.ACTION_DOWN) 0 else 1
-            if (wasDoubleClickUp) {
-                a.viewModel.triggerHapticPress()
-                wasDoubleClickUp = false
-            }
             if (touchpadGyroActivate && !touchpadGyroHeld) {
                 touchpadGyroHeld = true
                 a.viewModel.onGyroActivateButtonDown()
@@ -818,6 +814,9 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
             touchpadAlpha(true)
             if (masked == MotionEvent.ACTION_DOWN) {
                 v.performClick()
+                if (wasDoubleClickUp) {
+                    wasDoubleClickUp = false
+                }
                 if (isDoubleClick) {
                 } else if (doubleClickEnable) {
                     val now = System.currentTimeMillis()
