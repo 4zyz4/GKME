@@ -918,6 +918,7 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
     var longPressFired = false      // 长按计时器是否已触发（开始按住拖拽）
     var longPressRunnable: Runnable? = null  // 长按计时器
     var multiTouch = false          // 本次手势是否涉及多指（双指滚动/右键）
+    var threeFingerGesture = false  // 是否处于三指手势状态（中键按下）
     var twoFingerMoved = false      // 双指手势是否产生明显位移（滚动而非轻触）
     var tracked = 0                 // 当前按在 mousepad 上的手指数（自有计数）
     val SCROLL_SENSITIVITY = 0.3f  // 滚动灵敏度默认值（像素 -> 滚轮单位，越小越慢）
@@ -1059,7 +1060,7 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                 twoFingerMoved = false
                 multiTouch = true
                 gestureMoved = false
-                tracked = 2
+                tracked = pointerCount
                 wheelAccumX = 0f
                 wheelAccumY = 0f
                 // 第二指落下 -> 不再是单指长按拖拽
@@ -1077,6 +1078,10 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                     mousepadHighlight(mp, false, a)
                     a.performHaptic(isPress = false)
                 }
+                // 三指同时按下 -> 按下中键
+                if (tracked == 3 && !twoFingerMoved) {
+                    threeFingerGesture = true
+                }
             }
             MotionEvent.ACTION_POINTER_UP -> {
                 // 经 touchpad 派发后，抬指通常以 ACTION_UP（单指）送达，
@@ -1086,7 +1091,9 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                 pointerDownTimes.remove(liftedPid)
                 prevX.remove(liftedPid)
                 prevY.remove(liftedPid)
-                if (tracked > 0) tracked -= 1
+                // 三指抬起 -> 不做操作，中键点击由ACTION_UP处理
+                val newTracked = tracked - 1
+                if (tracked > 0) tracked = newTracked
             }
             MotionEvent.ACTION_MOVE -> {
                 var totalDx = 0f
@@ -1116,9 +1123,12 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                     longPressRunnable = null
                 }
 
-                if (count == 2) {
+                if (count == 2 || count == 3) {
                     multiTouch = true
-                    tracked = 2
+                    tracked = pointerCount
+                    if (count == 3) {
+                        threeFingerGesture = true
+                    }
                     if ((Math.abs(totalDx) + Math.abs(totalDy)) > MOVE_SLOP) {
                         twoFingerMoved = true
                     }
@@ -1180,13 +1190,19 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                 prevY.remove(pid)
 
                 if (multiTouch) {
-                    // 双指手势：第一指抬起且未滚动 -> 右键；第二指抬起仅清理
-                    if (tracked >= 2 && !twoFingerMoved) {
+                    if (threeFingerGesture) {
+                        // 三指手势：最后一指抬起 -> 中键点击
+                        if (!twoFingerMoved) {
+                            a.sendMouseTap(button = 2, currentHeldButtons = heldButtons)
+                        }
+                    } else if (tracked >= 2 && !twoFingerMoved) {
+                        // 双指手势：第一指抬起且未滚动 -> 右键
                         a.sendMouseTap(button = 1, currentHeldButtons = heldButtons)
                     }
                     tracked -= 1
                     if (tracked <= 0) {
                         multiTouch = false
+                        threeFingerGesture = false
                         twoFingerMoved = false
                         gestureMoved = false
                         tracked = 0
