@@ -114,6 +114,10 @@ class GkViewModel @Inject constructor(
     private var phoneRStickY: Short = 0
     private var phoneLT: Short = 0
     private var phoneRT: Short = 0
+    private var physicalStickX: Short = 0
+    private var physicalStickY: Short = 0
+    private var physicalRStickX: Short = 0
+    private var physicalRStickY: Short = 0
     private var _keyboardModifier = 0u
     private var _keyboardKeys = UShortArray(6)
 
@@ -498,6 +502,10 @@ class GkViewModel @Inject constructor(
             touchpadClick = touchpadClick || hasPhoneTouch,
             touches = if (hasPhoneTouch) phoneTouches else touches,
         )
+        physicalStickX = leftStickX
+        physicalStickY = leftStickY
+        physicalRStickX = rightStickX
+        physicalRStickY = rightStickY
     }
 
     fun onPhysicalControllerGyro(gyroX: Float, gyroY: Float, gyroZ: Float, accelX: Float, accelY: Float, accelZ: Float) {
@@ -561,7 +569,17 @@ class GkViewModel @Inject constructor(
                     readBattery()
                     lastBatteryRead = System.currentTimeMillis()
                 }
-                val input = _gamepadState.value.toProto(
+                val combinedLx = (phoneStickX.toInt() + physicalStickX.toInt()).coerceIn(-32768, 32767).toShort()
+                val combinedLy = (phoneStickY.toInt() + physicalStickY.toInt()).coerceIn(-32768, 32767).toShort()
+                val combinedRx = (phoneRStickX.toInt() + physicalRStickX.toInt()).coerceIn(-32768, 32767).toShort()
+                val combinedRy = (phoneRStickY.toInt() + physicalRStickY.toInt()).coerceIn(-32768, 32767).toShort()
+                val currentState = _gamepadState.value
+                val input = currentState.copy(
+                    leftStickX = combinedLx,
+                    leftStickY = combinedLy,
+                    rightStickX = combinedRx,
+                    rightStickY = combinedRy,
+                ).toProto(
                     keyboardModifier = _keyboardModifier,
                     keyboardKeys = _keyboardKeys.filter { it != 0u.toUShort() }.map { it.toUInt() }
                 )
@@ -687,8 +705,8 @@ class GkViewModel @Inject constructor(
                 }
 
                 // Apply gyro mapping mode (world coordinate system)
+                val sens = s.gyroModeSensitivity / 100f
                 if (actualGyroEnabled && !useControllerGyro) {
-                    val sens = s.gyroModeSensitivity / 100f
                     when (s.gyroMode) {
                         GyroMode.MOUSE -> {
                             val gyroMx = (-mappedX * sens * 50f).toInt().coerceIn(-127, 127)
@@ -700,27 +718,50 @@ class GkViewModel @Inject constructor(
                                 mouseDy = totalDy,
                             )
                         }
-                        GyroMode.LEFT_STICK -> {
-                            val gyroLx = (-mappedX * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
-                            val gyroLy = (-mappedY * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
-                            _gamepadState.value = _gamepadState.value.copy(
-                                leftStickX = (phoneStickX.toInt() + gyroLx.toInt()).coerceIn(-32768, 32767).toShort(),
-                                leftStickY = (phoneStickY.toInt() + gyroLy.toInt()).coerceIn(-32768, 32767).toShort(),
-                            )
-                        }
-                        GyroMode.RIGHT_STICK -> {
-                            val gyroRx = (-mappedX * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
-                            val gyroRy = (-mappedY * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
-                            _gamepadState.value = _gamepadState.value.copy(
-                                rightStickX = (phoneRStickX.toInt() + gyroRx.toInt()).coerceIn(-32768, 32767).toShort(),
-                                rightStickY = (phoneRStickY.toInt() + gyroRy.toInt()).coerceIn(-32768, 32767).toShort(),
-                            )
-                        }
                         else -> {}
                     }
                 }
 
-                val input = _gamepadState.value.toProto(
+                val gyroMode = s.gyroMode
+                val combinedLx = when (gyroMode) {
+                    GyroMode.LEFT_STICK -> {
+                        val gyroLx = (-mappedX * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
+                        val gyroLy = (-mappedY * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
+                        (phoneStickX.toInt() + physicalStickX.toInt() + gyroLx.toInt()).coerceIn(-32768, 32767).toShort()
+                    }
+                    else -> (phoneStickX.toInt() + physicalStickX.toInt()).coerceIn(-32768, 32767).toShort()
+                }
+                val combinedLy = when (gyroMode) {
+                    GyroMode.LEFT_STICK -> {
+                        val gyroLx = (-mappedX * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
+                        val gyroLy = (-mappedY * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
+                        (phoneStickY.toInt() + physicalStickY.toInt() + gyroLy.toInt()).coerceIn(-32768, 32767).toShort()
+                    }
+                    else -> (phoneStickY.toInt() + physicalStickY.toInt()).coerceIn(-32768, 32767).toShort()
+                }
+                val combinedRx = when (gyroMode) {
+                    GyroMode.RIGHT_STICK -> {
+                        val gyroRx = (-mappedX * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
+                        val gyroRy = (-mappedY * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
+                        (phoneRStickX.toInt() + physicalRStickX.toInt() + gyroRx.toInt()).coerceIn(-32768, 32767).toShort()
+                    }
+                    else -> (phoneRStickX.toInt() + physicalRStickX.toInt()).coerceIn(-32768, 32767).toShort()
+                }
+                val combinedRy = when (gyroMode) {
+                    GyroMode.RIGHT_STICK -> {
+                        val gyroRx = (-mappedX * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
+                        val gyroRy = (-mappedY * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
+                        (phoneRStickY.toInt() + physicalRStickY.toInt() + gyroRy.toInt()).coerceIn(-32768, 32767).toShort()
+                    }
+                    else -> (phoneRStickY.toInt() + physicalRStickY.toInt()).coerceIn(-32768, 32767).toShort()
+                }
+                val currentState = _gamepadState.value
+                val input = currentState.copy(
+                    leftStickX = combinedLx,
+                    leftStickY = combinedLy,
+                    rightStickX = combinedRx,
+                    rightStickY = combinedRy,
+                ).toProto(
                     keyboardModifier = _keyboardModifier,
                     keyboardKeys = _keyboardKeys.filter { it != 0u.toUShort() }.map { it.toUInt() }
                 )
@@ -744,12 +785,6 @@ class GkViewModel @Inject constructor(
                     _gamepadState.value = _gamepadState.value.copy(
                         mouseDx = 0, mouseDy = 0,
                         mouseWheel = 0, mousePan = 0,
-                    )
-                }
-                if (!actualGyroEnabled) {
-                    _gamepadState.value = _gamepadState.value.copy(
-                        leftStickX = phoneStickX, leftStickY = phoneStickY,
-                        rightStickX = phoneRStickX, rightStickY = phoneRStickY,
                     )
                 }
                 val intervalMs = round(1000.0 / settings.value.pollingRate).toLong().coerceAtLeast(1L)
@@ -953,13 +988,11 @@ class GkViewModel @Inject constructor(
     fun onLeftStick(x: Short, y: Short) {
         phoneStickX = x
         phoneStickY = y
-        _gamepadState.value = _gamepadState.value.copy(leftStickX = x, leftStickY = y)
     }
 
     fun onRightStick(x: Short, y: Short) {
         phoneRStickX = x
         phoneRStickY = y
-        _gamepadState.value = _gamepadState.value.copy(rightStickX = x, rightStickY = y)
     }
 
     fun onDpad(dir: Int, pressed: Boolean) {
