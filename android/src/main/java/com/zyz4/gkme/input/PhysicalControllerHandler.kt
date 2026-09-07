@@ -308,7 +308,7 @@ if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
     fun handleMotionEvent(event: MotionEvent): Boolean {
         val device = inputManager.getInputDevice(event.deviceId) ?: return false
 
-        if (isTouchpadDevice(device)) {
+        if (event.source and android.view.InputDevice.SOURCE_TOUCHPAD == android.view.InputDevice.SOURCE_TOUCHPAD) {
             return handleTouchpadMotion(event)
         }
 

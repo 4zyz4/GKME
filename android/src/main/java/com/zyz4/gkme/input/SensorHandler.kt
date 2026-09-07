@@ -90,6 +90,43 @@ class SensorHandler(private val context: Context) : SensorEventListener {
         }
     }
 
+    companion object {
+        fun computeWorldDelta(
+            gx: Float, gy: Float, gz: Float,
+            ax: Float, ay: Float, az: Float,
+        ): Pair<Float, Float> {
+            val mag = sqrt(ax * ax + ay * ay + az * az)
+            if (mag < 0.1f) {
+                return 0f to 0f
+            }
+
+            val gravX = ax / mag
+            val gravY = ay / mag
+            val gravZ = az / mag
+
+            val posY = max(0f, gravY)
+            val negY = max(0f, -gravY)
+            val posX = max(0f, gravX)
+            val negX = max(0f, -gravX)
+            val negZ = max(0f, -gravZ)
+
+            val total = (posY + negY + posX + negX + negZ).coerceAtLeast(0.001f)
+
+            val yawDx = gy
+            val yawDy = gx
+            val rollDx = -gz
+            val rollDy = gx
+            val swapNegYDx = gx
+            val swapNegYDy = -gy
+            val swapNegXDx = -gx
+            val swapNegXDy = gy
+
+            val worldDx = (posY * yawDx + negZ * rollDx + posX * swapNegYDx + negX * swapNegXDx) / total
+            val worldDy = (posY * yawDy + negZ * rollDy + posX * swapNegYDy + negX * swapNegXDy) / total
+            return worldDx to worldDy
+        }
+    }
+
     override fun onSensorChanged(event: SensorEvent) {
         when (event.sensor.type) {
             Sensor.TYPE_GYROSCOPE -> {
@@ -108,7 +145,9 @@ class SensorHandler(private val context: Context) : SensorEventListener {
                 _accelY = ay
                 _accelZ = az
 
-                computeWorldDelta(_gyroX, _gyroY, _gyroZ, _accelX, _accelY, _accelZ)
+                val (wdx, wdy) = computeWorldDelta(_gyroX, _gyroY, _gyroZ, _accelX, _accelY, _accelZ)
+                _worldDx = wdx
+                _worldDy = wdy
             }
             Sensor.TYPE_GAME_ROTATION_VECTOR -> {
                 val rotationMatrix = FloatArray(9)
@@ -149,42 +188,6 @@ class SensorHandler(private val context: Context) : SensorEventListener {
             _rotVecX, _rotVecY, _rotVecZ, _rotVecW,
             _worldDx, _worldDy,
         )
-    }
-
-    private fun computeWorldDelta(
-        gx: Float, gy: Float, gz: Float,
-        ax: Float, ay: Float, az: Float,
-    ) {
-        val mag = sqrt(ax * ax + ay * ay + az * az)
-        if (mag < 0.1f) {
-            _worldDx = 0f
-            _worldDy = 0f
-            return
-        }
-
-        val gravX = ax / mag
-        val gravY = ay / mag
-        val gravZ = az / mag
-
-        val posY = max(0f, gravY)
-        val negY = max(0f, -gravY)
-        val posX = max(0f, gravX)
-        val negX = max(0f, -gravX)
-        val negZ = max(0f, -gravZ)
-
-        val total = (posY + negY + posX + negX + negZ).coerceAtLeast(0.001f)
-
-        val yawDx = gy
-        val yawDy = gx
-        val rollDx = -gz
-        val rollDy = gx
-        val swapNegYDx = gx
-        val swapNegYDy = -gy
-        val swapNegXDx = -gx
-        val swapNegXDy = gy
-
-        _worldDx = (posY * yawDx + negZ * rollDx + posX * swapNegYDx + negX * swapNegXDx) / total
-        _worldDy = (posY * yawDy + negZ * rollDy + posX * swapNegYDy + negX * swapNegXDy) / total
     }
 
     private fun orientationToQuat(yaw: Float, pitch: Float, roll: Float): FloatArray {

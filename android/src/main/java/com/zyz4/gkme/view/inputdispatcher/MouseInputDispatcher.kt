@@ -118,9 +118,10 @@ object MouseInputDispatcher {
             MotionEvent.ACTION_MOVE -> {
                 when (pointerCount) {
                     1 -> {
+                        val hasHistory = event.historySize > 0
                         if (newS.dragging) {
-                            val hx = event.getHistoricalX(0, 0)
-                            val hy = event.getHistoricalY(0, 0)
+                            val hx = if (hasHistory) event.getHistoricalX(0, 0) else event.getX(0)
+                            val hy = if (hasHistory) event.getHistoricalY(0, 0) else event.getY(0)
                             val cx = event.getX(0)
                             val cy = event.getY(0)
                             dx = ((cx - hx) * sensitivity).toInt().toShort()
@@ -130,8 +131,8 @@ object MouseInputDispatcher {
                                 buttonDown = 1
                             }
                         } else {
-                            val hx = event.getHistoricalX(0, 0)
-                            val hy = event.getHistoricalY(0, 0)
+                            val hx = if (hasHistory) event.getHistoricalX(0, 0) else event.getX(0)
+                            val hy = if (hasHistory) event.getHistoricalY(0, 0) else event.getY(0)
                             dx = ((event.getX(0) - hx) * sensitivity).toInt().toShort()
                             dy = ((event.getY(0) - hy) * sensitivity).toInt().toShort()
                         }
@@ -241,10 +242,16 @@ object MouseInputDispatcher {
     ): Pair<Float, Float> {
         if (event.pointerCount != 2) return 0f to 0f
 
+        val hasHistory = event.historySize > 0
+        val hx0 = if (hasHistory) event.getHistoricalX(0, 0) else event.getX(0)
+        val hx1 = if (hasHistory) event.getHistoricalX(1, 0) else event.getX(1)
+        val hy0 = if (hasHistory) event.getHistoricalY(0, 0) else event.getY(0)
+        val hy1 = if (hasHistory) event.getHistoricalY(1, 0) else event.getY(1)
+
         val cx = (event.getX(0) + event.getX(1)) / 2f
         val cy = (event.getY(0) + event.getY(1)) / 2f
-        val hx = (event.getHistoricalX(0, 0) + event.getHistoricalX(1, 0)) / 2f
-        val hy = (event.getHistoricalY(0, 0) + event.getHistoricalY(1, 0)) / 2f
+        val hx = (hx0 + hx1) / 2f
+        val hy = (hy0 + hy1) / 2f
 
         val dX = (hx - cx) * sensitivity
         val dY = (hy - cy) * sensitivity
