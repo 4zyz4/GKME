@@ -479,6 +479,9 @@ internal fun MainActivity.setupSettings() {
     a.viewModel.connectionManager.onRumbleRequest = { large, small ->
         a.physicalControllerHandler.rumble(large, small)
     }
+    a.viewModel.connectionManager.onControllerVibrationRequest = { motorIndex, intensity ->
+        a.physicalControllerHandler.setControllerMotorVibration(motorIndex, intensity)
+    }
 }
 
 internal fun MainActivity.setupEffectSpinner(spinnerId: Int, isPress: Boolean) {

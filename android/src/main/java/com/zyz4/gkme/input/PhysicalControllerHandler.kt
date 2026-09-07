@@ -660,6 +660,31 @@ class PhysicalControllerHandler(private val context: Context) {
         )
     }
 
+    fun setControllerMotorVibration(motorIndex: Int, intensity: Int) {
+        if (!_isConnected.value || controllerMotorCount == 0) return
+        val clamped = intensity.coerceIn(0, 255)
+        if (clamped < 1) {
+            try {
+                controllerVibratorManager?.cancel()
+            } catch (_: Exception) {}
+            return
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vm = controllerVibratorManager
+            if (vm != null) {
+                val ids = vm.vibratorIds
+                if (motorIndex < ids.size) {
+                    try {
+                        vm.cancel()
+                        val combo = CombinedVibration.startParallel()
+                        combo.addVibrator(ids[motorIndex], VibrationEffect.createOneShot(60000, clamped))
+                        vm.vibrate(combo.combine())
+                    } catch (_: Exception) {}
+                }
+            }
+        }
+    }
+
     fun rumble(lowFreqMotor: Int, highFreqMotor: Int) {
         val lowNorm = lowFreqMotor.coerceIn(0, 255)
         val highNorm = highFreqMotor.coerceIn(0, 255)
