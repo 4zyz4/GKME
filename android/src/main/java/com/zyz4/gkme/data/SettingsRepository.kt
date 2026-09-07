@@ -31,7 +31,7 @@ private val Context.settingsDataStore by preferencesDataStore(name = "app_settin
 
 @Singleton
 class SettingsRepository @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) {
     private object Keys {
         val DISPLAY_MODE = intPreferencesKey("display_mode")

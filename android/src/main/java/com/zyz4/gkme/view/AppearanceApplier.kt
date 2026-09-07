@@ -416,7 +416,7 @@ object AppearanceApplier {
     fun contentCapPx(view: View, settings: AppSettings?): Int? {
         val sp = settings?.iconMaxSize ?: return null
         if (sp >= 100) return null
-        val scaled = view.resources.displayMetrics.scaledDensity
+        val scaled = view.context.resources.displayMetrics.density
         return (sp.coerceIn(0, 99) * scaled).toInt().coerceAtLeast(1)
     }
 
@@ -583,6 +583,6 @@ private class CappedContentDrawable(
     override fun getIntrinsicHeight(): Int = inner.intrinsicHeight
     override fun setAlpha(alpha: Int) { inner.alpha = alpha }
     override fun setColorFilter(cf: ColorFilter?) { inner.colorFilter = cf }
-    @Suppress("OVERRIDE_DEPRECATION")
-    override fun getOpacity(): Int = inner.opacity
+    @Suppress("OVERRIDE_DEPRECATION", "DEPRECATION")
+    override fun getOpacity(): Int = android.graphics.PixelFormat.TRANSPARENT
 }

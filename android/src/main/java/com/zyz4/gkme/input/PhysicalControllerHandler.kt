@@ -182,35 +182,35 @@ class PhysicalControllerHandler(private val context: Context) {
             if (controllerTypeValue == ControllerType.PS) {
                 onPointerCaptureNeeded?.invoke(true)
             }
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val vm = device.vibratorManager
-                if (vm != null) {
+if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    val vm = device.vibratorManager
+                    controllerVibratorManager = vm
                     val ids = vm.vibratorIds
                     if (ids.size >= 2) {
-                        controllerVibratorManager = vm
                         controllerMotorCount = ids.size
                     }
                 }
-            }
-            if (controllerVibratorManager == null && device.vibrator.hasVibrator()) {
-                controllerVibrator = device.vibrator
-                controllerMotorCount = 1
-            }
+                if (controllerVibratorManager == null) {
+                    @Suppress("DEPRECATION")
+                    if (device.vibrator.hasVibrator()) {
+                        @Suppress("DEPRECATION")
+                        controllerVibrator = device.vibrator
+                        controllerMotorCount = 1
+                    }
+                }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                controllerSensorManager = device.sensorManager
                 val sm = device.sensorManager
-                if (sm != null) {
-                    val gyro = sm.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
-                    if (gyro != null) {
-                        controllerSensorManager = sm
-                        gyroSensor = gyro
-                        accelSensor = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-                        controllerHasGyro = true
-                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                            registerGyro()
-                        }, 150)
-                    }
+                val gyro = sm.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+                if (gyro != null) {
+                    controllerSensorManager = sm
+                    gyroSensor = gyro
+                    accelSensor = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+                    controllerHasGyro = true
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        registerGyro()
+                    }, 150)
                 }
             }
         }

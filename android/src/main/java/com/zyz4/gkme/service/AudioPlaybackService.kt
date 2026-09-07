@@ -393,7 +393,7 @@ class AudioPlaybackService {
             val attr = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_GAME)
                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                .setFlags(AudioAttributes.FLAG_LOW_LATENCY)
+                .setFlags(0x2000000)
                 .build()
 
             val format = AudioFormat.Builder()

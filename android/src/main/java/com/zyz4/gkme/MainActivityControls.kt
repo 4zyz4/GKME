@@ -428,7 +428,7 @@ internal fun TextView.enableAutoFitButtonText(maxSizeSp: Float, minSizeSp: Float
     minWidth = 0
     minHeight = 0
     maxLines = 1
-    val scaled = resources.displayMetrics.scaledDensity
+    val scaled = resources.displayMetrics.density
     val maxPx = (maxSizeSp * scaled).toInt().coerceAtLeast(2)
     val minPx = (minSizeSp * scaled).toInt().coerceAtLeast(1)
     setAutoSizeTextTypeUniformWithConfiguration(minPx, maxPx, 1, TypedValue.COMPLEX_UNIT_PX)
@@ -441,7 +441,7 @@ internal fun TextView.applyContentSizeCap(maxSizePx: Int, minSizeSp: Float = 4f)
     minWidth = 0
     minHeight = 0
     maxLines = 1
-    val scaled = resources.displayMetrics.scaledDensity
+    val scaled = resources.displayMetrics.density
     val maxPx = maxSizePx.coerceAtLeast(3)
     val minPx = (minSizeSp * scaled).toInt().coerceIn(1, maxPx - 1)
     setAutoSizeTextTypeUniformWithConfiguration(minPx, maxPx, 1, TypedValue.COMPLEX_UNIT_PX)
