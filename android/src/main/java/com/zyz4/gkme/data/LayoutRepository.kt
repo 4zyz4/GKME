@@ -10,7 +10,7 @@ import javax.inject.Singleton
 
 @Singleton
 class LayoutRepository @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) {
     companion object {
         val BUILT_IN_PRESETS = mapOf(

@@ -560,10 +560,10 @@ class ConnectionManager @Inject constructor(
     private fun getRealDeviceName(): String {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
             Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME)
-                ?: BluetoothAdapter.getDefaultAdapter()?.name
                 ?: Build.MODEL
         } else {
-            BluetoothAdapter.getDefaultAdapter()?.name ?: Build.MODEL
+            @Suppress("DEPRECATION")
+            android.bluetooth.BluetoothAdapter.getDefaultAdapter()?.name ?: Build.MODEL
         }
     }
 

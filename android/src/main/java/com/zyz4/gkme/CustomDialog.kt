@@ -122,12 +122,12 @@ object CustomDialog {
                 setPadding(dp(context, 16f), dp(context, 10f), dp(context, 16f), dp(context, 10f))
                 background = bg(0xFF333333.toInt(), 0f)
             }
-            Toast(context).apply {
-                duration = Toast.LENGTH_SHORT
-                view = tv
-                setGravity(Gravity.BOTTOM, 0, dp(context, 64f))
-                show()
-            }
+            val toast = Toast(context)
+            toast.duration = Toast.LENGTH_SHORT
+            @Suppress("DEPRECATION")
+            toast.setView(tv)
+            toast.setGravity(Gravity.BOTTOM, 0, dp(context, 64f))
+            toast.show()
         } catch (_: Exception) {
             android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
         }

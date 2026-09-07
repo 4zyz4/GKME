@@ -1043,7 +1043,8 @@ internal fun MainActivity.syncSettingsUI() {
 
     a.updateGyroChipsLockState(a.viewModel.currentPreset.value.gyroOrientation)
 
-    val inverted = a.windowManager.defaultDisplay.rotation == android.view.Surface.ROTATION_270
+    @Suppress("DEPRECATION")
+    val inverted = a.windowManager.defaultDisplay.getRotation() == android.view.Surface.ROTATION_270
     a.updateGyroLandscapeInvertedNote(inverted)
 
     a.findViewById<Switch>(R.id.switchKeepScreenOn).isChecked = s.keepScreenOn

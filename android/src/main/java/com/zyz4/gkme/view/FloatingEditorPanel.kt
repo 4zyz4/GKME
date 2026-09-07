@@ -1335,14 +1335,12 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                         it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
                     }
                     val defDir = currentButton?.slideDirection ?: SlideDirection.DOWN
-                    val initialPos = when (defDir) {
+                    setSelection(when (defDir) {
                         SlideDirection.DOWN -> 0
                         SlideDirection.UP -> 1
                         SlideDirection.LEFT -> 2
                         SlideDirection.RIGHT -> 3
-                        else -> 0
-                    }
-                    setSelection(initialPos)
+                    })
                     onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                         override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
                             val dir = when (pos) {

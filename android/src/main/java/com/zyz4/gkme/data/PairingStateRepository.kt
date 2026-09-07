@@ -16,7 +16,7 @@ private val Context.pairingDataStore by preferencesDataStore(name = "pairing_sta
 
 @Singleton
 class PairingStateRepository @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) {
     private object Keys {
         val PAIRED_DEVICE_ADDRESS = stringPreferencesKey("paired_device_address")
