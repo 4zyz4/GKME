@@ -19,6 +19,7 @@ import com.zyz4.gkme.model.AudioOutput
 import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.model.ConnectionMode
 import com.zyz4.gkme.model.GamepadState
+import com.zyz4.gkme.model.GyroActivateMode
 import com.zyz4.gkme.model.VibrationMotor
 import com.zyz4.gkme.service.BluetoothTransportType
 import com.zyz4.gkme.service.ConnectionPhase
@@ -242,7 +243,13 @@ internal fun MainActivity.observeState() {
                     }
                     val s = a.viewModel.settings.value
                     val gyroEnabled = if (a.physicalControllerHandler.isConnected.value) s.controllerGyroEnabledConnected else s.controllerGyroEnabled
-                    if (gyroEnabled && a.physicalControllerHandler.controllerHasGyro) {
+                    val activateMode = s.gyroActivateMode
+                    val actualGyroEnabled = if (activateMode == GyroActivateMode.BUTTON) {
+                        a.viewModel.gyroOverrideEnabled.value
+                    } else {
+                        gyroEnabled
+                    }
+                    if (actualGyroEnabled && a.physicalControllerHandler.controllerHasGyro) {
                         val accel = a.physicalControllerHandler.accelData.value
                         a.viewModel.onPhysicalControllerGyro(x, y, z, accel[0], accel[1], accel[2])
                     }

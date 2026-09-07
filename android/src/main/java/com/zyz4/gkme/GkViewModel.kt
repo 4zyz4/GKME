@@ -510,6 +510,7 @@ class GkViewModel @Inject constructor(
 
     fun onPhysicalControllerGyro(gyroX: Float, gyroY: Float, gyroZ: Float, accelX: Float, accelY: Float, accelZ: Float) {
         val s = settings.value
+        val (worldDx, worldDy) = SensorHandler.computeWorldDelta(gyroX, gyroY, gyroZ, accelX, accelY, accelZ)
         _gamepadState.value = _gamepadState.value.copy(
             gyroX = gyroX * s.gyroSensitivityX / 100f,
             gyroY = gyroY * s.gyroSensitivityY / 100f,
@@ -517,8 +518,15 @@ class GkViewModel @Inject constructor(
             accelX = accelX,
             accelY = accelY,
             accelZ = accelZ,
+            mouseDx = 0,
+            mouseDy = 0,
         )
+        _controllerWorldDx = worldDx
+        _controllerWorldDy = worldDy
     }
+
+    private var _controllerWorldDx = 0f
+    private var _controllerWorldDy = 0f
 
     fun startServer() {
         connectionManager.startServer(viewModelScope)
@@ -676,9 +684,23 @@ class GkViewModel @Inject constructor(
                 // Original mapping: mouseX = -gyroY(Yaw→水平), mouseY = -gyroX(Pitch→垂直)
                 // mappedX = 最终输出到水平轴的值, mappedY = 最终输出到垂直轴的值
                 val coordinateSystem = s.gyroCoordinateSystem
-                val gx = if (actualGyroEnabled && !useControllerGyro) sensor.gyroX * s.gyroSensitivityX / 100f else 0f
-                val gy = if (actualGyroEnabled && !useControllerGyro) sensor.gyroY * s.gyroSensitivityY / 100f else 0f
-                val gz = if (actualGyroEnabled && !useControllerGyro) sensor.gyroZ * s.gyroSensitivityZ / 100f else 0f
+                val (gx, gy, gz) = if (actualGyroEnabled) {
+                    if (!useControllerGyro) {
+                        Triple(
+                            sensor.gyroX * s.gyroSensitivityX / 100f,
+                            sensor.gyroY * s.gyroSensitivityY / 100f,
+                            sensor.gyroZ * s.gyroSensitivityZ / 100f
+                        )
+                    } else {
+                        Triple(
+                            _gamepadState.value.gyroX,
+                            _gamepadState.value.gyroY,
+                            _gamepadState.value.gyroZ
+                        )
+                    }
+                } else {
+                    Triple(0f, 0f, 0f)
+                }
 
                 var mappedX: Float    // 水平 = 偏航yaw (原始默认行为: gyroMx = -gy = -mappedX)
                 var mappedY: Float    // 垂直 = 俯仰pitch (原始默认行为: gyroMy = -gx = -mappedY)
@@ -699,14 +721,16 @@ class GkViewModel @Inject constructor(
                         mappedY = gx
                     }
                     GyroCoordinateSystem.WORLD -> {
-                        mappedX = sensor.worldDx * s.gyroSensitivityX / 100f
-                        mappedY = sensor.worldDy * s.gyroSensitivityY / 100f
+                        mappedX = if (!useControllerGyro) sensor.worldDx * s.gyroSensitivityX / 100f
+                        else _controllerWorldDx * s.gyroSensitivityX / 100f
+                        mappedY = if (!useControllerGyro) sensor.worldDy * s.gyroSensitivityY / 100f
+        else _controllerWorldDy * s.gyroSensitivityY / 100f
                     }
                 }
 
                 // Apply gyro mapping mode (world coordinate system)
                 val sens = s.gyroModeSensitivity / 100f
-                if (actualGyroEnabled && !useControllerGyro) {
+                if (actualGyroEnabled) {
                     when (s.gyroMode) {
                         GyroMode.MOUSE -> {
                             val gyroMx = (-mappedX * sens * 50f).toInt().coerceIn(-127, 127)
