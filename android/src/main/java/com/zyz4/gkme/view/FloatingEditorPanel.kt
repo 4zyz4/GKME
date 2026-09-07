@@ -1008,6 +1008,16 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             }
         }
         if (isMousepadId(buttonId)) {
+            val cbDoubleClick = CheckBox(context).apply {
+                text = "双击按下"
+                setTextColor(-0x444445)
+                textSize = 14f
+                isChecked = button.doubleClickEnable
+                setOnCheckedChangeListener { _, isChecked ->
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(doubleClickEnable = isChecked)) }
+                }
+            }
+            buttonParamsInner.addView(cbDoubleClick, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
             addSeekbarFloat(buttonParamsInner, "鼠标灵敏度", button.mouseSensitivity, 0.1f, 3f, 0.05f) { v ->
                 currentButton = currentButton?.copy(mouseSensitivity = v)
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
