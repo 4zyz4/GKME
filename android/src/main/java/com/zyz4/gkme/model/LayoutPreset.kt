@@ -196,6 +196,7 @@ data class LayoutPreset(
                 if (b.scrollSensitivity != 0.1f) m["scrollSensitivity"] = b.scrollSensitivity
                 if (b.invertScrollV) m["invertScrollV"] = b.invertScrollV
                 if (b.invertScrollH) m["invertScrollH"] = b.invertScrollH
+                if (!b.doubleClickEnable) m["doubleClickEnable"] = b.doubleClickEnable
             }
             // linear trigger fields
             if (b.linearTriggerEnabled) {

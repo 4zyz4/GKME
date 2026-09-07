@@ -930,6 +930,9 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
     var scrollSens = SCROLL_SENSITIVITY // 滚动灵敏度（来自布局配置）
     var invertScrollV = false      // 反转纵向滚动方向（来自布局配置）
     var invertScrollH = false      // 反转横向滚动方向（来自布局配置）
+    var doubleTapEnabled = true    // 双击按下功能开关（来自布局配置）
+    val tapThreshold = 200L        // 单击判定阈值：手指按住小于此值算单击
+    var clickHoldTime = 200L       // 模拟点击的按住时长（按下→释放的间隔）
 
     // per-pointer down times for right-click detection
     val pointerDownTimes = mutableMapOf<Int, Long>()
@@ -938,7 +941,6 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
     val prevY = mutableMapOf<Int, Float>()
 
     val DOUBLE_TAP_WINDOW = 200L   // 第一击按下后一定时间的再次轻点 -> 潜在双击/按住拖动
-    val TAP_TIMEOUT = 200L         // 轻触时长上限 / 单击按住时长
     val MOVE_SLOP = 8f             // 区分点击与拖动的最小位移
 
     fun readConfig() {
@@ -952,6 +954,8 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
         scrollSens = pos.scrollSensitivity
         invertScrollV = pos.invertScrollV
         invertScrollH = pos.invertScrollH
+        doubleTapEnabled = pos.doubleClickEnable
+        clickHoldTime = if (doubleTapEnabled) 200L else 60L
     }
 
     fun press(bit: Int) {
@@ -1030,7 +1034,7 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                 longPressFired = false
                 readConfig()
 
-                val isPotentialDouble = lastTapDownTime > 0 &&
+                val isPotentialDouble = doubleTapEnabled && lastTapDownTime > 0 &&
                         (event.eventTime - lastTapDownTime) < DOUBLE_TAP_WINDOW
                 lastTapDownTime = event.eventTime
 
@@ -1163,9 +1167,10 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
             }
             MotionEvent.ACTION_UP -> {
                 cancelSingleClick()
+                // 强制释放所有按钮，防止状态残留
                 if (heldButtons != 0) {
                     heldButtons = 0
-                    a.sendMouseReportDirect(buttonDown = 0, buttonUp = 0, dx = 0, dy = 0)
+                    a.sendMouseReportAbsolute(0)
                 }
                 val pid = event.getPointerId(event.actionIndex)
                 val downTime = pointerDownTimes[pid] ?: event.downTime
@@ -1177,7 +1182,7 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                 if (multiTouch) {
                     // 双指手势：第一指抬起且未滚动 -> 右键；第二指抬起仅清理
                     if (tracked >= 2 && !twoFingerMoved) {
-                        a.sendMouseTap(button = 2)
+                        a.sendMouseTap(button = 1, currentHeldButtons = heldButtons)
                     }
                     tracked -= 1
                     if (tracked <= 0) {
@@ -1197,7 +1202,7 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                     mousepadHighlight(mp, false, a)
                     a.performHaptic(isPress = false)
                     // 第二次轻点很快抬起且无大范围滑动 -> 追加一次点击，模拟双击
-                    if (!gestureMoved && dur < TAP_TIMEOUT) {
+                    if (!gestureMoved && dur < tapThreshold) {
                         press(1)
                         release(1)
                     }
@@ -1213,7 +1218,7 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                         // 长按计时器未触发：确保已取消
                         longPressRunnable?.let { _mainHandler.removeCallbacks(it) }
                         longPressRunnable = null
-                        if (!gestureMoved && dur < TAP_TIMEOUT) {
+                        if (!gestureMoved && dur < tapThreshold) {
                             // 轻点 -> 点击（按下后短暂保持再释放，支持双击）
                             press(1)
                             lastTapDownTime = downTime
@@ -1224,7 +1229,7 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                                 }
                             }
                             singleClickUp = r
-                            _mainHandler.postDelayed(r, TAP_TIMEOUT)
+                            _mainHandler.postDelayed(r, clickHoldTime)
                         }
                     }
                 }
@@ -1273,15 +1278,14 @@ private fun mousepadHighlight(mp: FrameLayout, active: Boolean, a: MainActivity)
 }
 
 /** Send a mouse button tap (down then up). Works in both WiFi and Bluetooth. */
-private fun MainActivity.sendMouseTap(button: Int) {
-    val b = button.toByte() // button bitmask: bit0=left, bit1=right, bit2=middle
+private fun MainActivity.sendMouseTap(button: Int, currentHeldButtons: Int) {
+    val fullDown = currentHeldButtons or (1 shl button)
     this.viewModel.connectionManager.sendMouseReport(
-        button = b, dx = 0, dy = 0, wheel = 0
+        button = fullDown.toByte(), dx = 0, dy = 0, wheel = 0
     )
     _mainHandler.postDelayed(Runnable {
         this.viewModel.connectionManager.sendMouseReport(
-            button = 0, // release all buttons
-            dx = 0, dy = 0, wheel = 0
+            button = currentHeldButtons.toByte(), dx = 0, dy = 0, wheel = 0
         )
     }, 150)
 }
@@ -1304,6 +1308,13 @@ private fun MainActivity.sendMouseReportDirect(
         dy = dy,
         wheel = wheel,
         hWheel = hWheel
+)
+}
+
+/** Send a mouse report with absolute button state. */
+private fun MainActivity.sendMouseReportAbsolute(button: Int) {
+    this.viewModel.connectionManager.sendMouseReport(
+        button = button.toByte(), dx = 0, dy = 0, wheel = 0
     )
 }
 
