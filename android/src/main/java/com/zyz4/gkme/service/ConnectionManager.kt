@@ -98,6 +98,9 @@ class ConnectionManager @Inject constructor(
         audioPlaybackService.onVibroOutput = { strong, weak ->
             onRumbleRequest?.invoke(strong, weak)
         }
+        audioPlaybackService.onControllerMotorOutput = { motorIndex, intensity ->
+            onControllerVibrationRequest?.invoke(motorIndex, intensity)
+        }
     }
 
     private val vibrator: Vibrator by lazy {
@@ -456,6 +459,7 @@ class ConnectionManager @Inject constructor(
     }
 
     var onRumbleRequest: ((largeMotor: Int, smallMotor: Int) -> Unit)? = null
+    var onControllerVibrationRequest: ((motorIndex: Int, intensity: Int) -> Unit)? = null
 
     suspend fun sendGamepadState(state: GamepadInput) {
         when (_settings.value.connectionMode) {

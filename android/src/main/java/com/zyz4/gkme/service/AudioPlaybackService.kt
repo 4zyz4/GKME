@@ -99,6 +99,7 @@ class AudioPlaybackService {
     fun resumeIfStopped() {}
 
     var onVibroOutput: ((strong: Int, weak: Int) -> Unit)? = null
+    var onControllerMotorOutput: ((motorIndex: Int, intensity: Int) -> Unit)? = null
 
     private fun hasPhoneMotorOutput(): Boolean {
         return leftOutput == AudioOutput.PHONE_MOTOR_1 ||
@@ -107,6 +108,15 @@ class AudioPlaybackService {
                rightOutput == AudioOutput.PHONE_MOTOR_2 ||
                controllerAudio == AudioOutput.PHONE_MOTOR_1 ||
                controllerAudio == AudioOutput.PHONE_MOTOR_2
+    }
+
+    private fun isMotorOutput(output: AudioOutput): Boolean {
+        return output == AudioOutput.PHONE_MOTOR_1 ||
+               output == AudioOutput.PHONE_MOTOR_2 ||
+               output == AudioOutput.CONTROLLER_MOTOR_1 ||
+               output == AudioOutput.CONTROLLER_MOTOR_2 ||
+               output == AudioOutput.CONTROLLER_MOTOR_3 ||
+               output == AudioOutput.CONTROLLER_MOTOR_4
     }
 
     private fun hasControllerMotorOutput(): Boolean {
@@ -142,6 +152,12 @@ class AudioPlaybackService {
         addMotor(controllerAudio, totalAmp)
 
         onVibroOutput?.invoke(strongMotor, weakMotor)
+
+        for ((motorIdx, intensity) in mapOf(0 to strongMotor, 1 to weakMotor)) {
+            if (intensity > 1) {
+                onControllerMotorOutput?.invoke(motorIdx, intensity.coerceIn(2, 255))
+            }
+        }
     }
 
     fun submitAudio(pcm: ByteArray, sampleRate: Int, channels: Int, bitsPerSample: Int) {
@@ -259,9 +275,9 @@ class AudioPlaybackService {
         // Controller motor output
         applyControllerMotorOutput(leftAmp, rightAmp, totalAmp)
 
-        val play = (leftOutput != AudioOutput.NONE && leftOutput != AudioOutput.PHONE_MOTOR_1 && leftOutput != AudioOutput.PHONE_MOTOR_2) ||
-                    (rightOutput != AudioOutput.NONE && rightOutput != AudioOutput.PHONE_MOTOR_1 && rightOutput != AudioOutput.PHONE_MOTOR_2) ||
-                    (gameVibrationEnabled && controllerAudio != AudioOutput.NONE && controllerAudio != AudioOutput.PHONE_MOTOR_1 && controllerAudio != AudioOutput.PHONE_MOTOR_2)
+        val play = (leftOutput != AudioOutput.NONE && !isMotorOutput(leftOutput)) ||
+                    (rightOutput != AudioOutput.NONE && !isMotorOutput(rightOutput)) ||
+                    (gameVibrationEnabled && controllerAudio != AudioOutput.NONE && !isMotorOutput(controllerAudio))
         if (!play) return
 
         // Allocate output: numSamples stereo = numSamples * 2 channels * 2 bytes
@@ -269,9 +285,14 @@ class AudioPlaybackService {
         val stereoBuf = IntArray(stereoSize / 2)
 
         // Determine which audio sources to play and where
-        val playCtrlAudio = gameVibrationEnabled && controllerAudio != AudioOutput.NONE && controllerAudio != AudioOutput.PHONE_MOTOR_1 && controllerAudio != AudioOutput.PHONE_MOTOR_2
-        val playLeftCh2 = leftOutput == AudioOutput.LEFT_SPEAKER || leftOutput == AudioOutput.ALL_SPEAKERS
-        val playRightCh3 = rightOutput == AudioOutput.RIGHT_SPEAKER || rightOutput == AudioOutput.ALL_SPEAKERS
+        val playCtrlAudio = gameVibrationEnabled && controllerAudio != AudioOutput.NONE && !isMotorOutput(controllerAudio)
+        val playLeftCh2Left = leftOutput == AudioOutput.LEFT_SPEAKER
+        val playLeftCh2Right = leftOutput == AudioOutput.RIGHT_SPEAKER
+        val playRightCh3Left = rightOutput == AudioOutput.LEFT_SPEAKER
+        val playRightCh3Right = rightOutput == AudioOutput.RIGHT_SPEAKER
+        val playAllSpeakers = leftOutput == AudioOutput.ALL_SPEAKERS || rightOutput == AudioOutput.ALL_SPEAKERS
+        val playCtrlLeft = controllerAudio == AudioOutput.LEFT_SPEAKER || controllerAudio == AudioOutput.ALL_SPEAKERS
+        val playCtrlRight = controllerAudio == AudioOutput.RIGHT_SPEAKER || controllerAudio == AudioOutput.ALL_SPEAKERS
 
         for (s in 0 until numSamples) {
             val outOff = s * 2
@@ -280,25 +301,43 @@ class AudioPlaybackService {
                 val ch1Off = s * bytesPerFrame + controllerCh * 2
                 if (ch1Off + 1 < pcm.size) {
                     val s1 = leBytesToShort(pcm, ch1Off)
-                    stereoBuf[outOff] += s1.toInt()
-                    stereoBuf[outOff + 1] += s1.toInt()
+                    if (playCtrlLeft) {
+                        stereoBuf[outOff] += s1.toInt()
+                    }
+                    if (playCtrlRight) {
+                        stereoBuf[outOff + 1] += s1.toInt()
+                    }
                 }
             }
 
-            if (playLeftCh2) {
+            if (playAllSpeakers || playLeftCh2Left || playRightCh3Left) {
                 val ch2Off = s * bytesPerFrame + leftVcmCh * 2
-                if (ch2Off + 1 < pcm.size) {
-                    val s2 = leBytesToShort(pcm, ch2Off)
+                val s2 = if (ch2Off + 1 < pcm.size) leBytesToShort(pcm, ch2Off) else 0.toShort()
+                val ch3Off = s * bytesPerFrame + rightVcmCh * 2
+                val s3 = if (ch3Off + 1 < pcm.size) leBytesToShort(pcm, ch3Off) else 0.toShort()
+                if (playLeftCh2Left) {
                     stereoBuf[outOff] += s2.toInt()
-                    stereoBuf[outOff + 1] += s2.toInt()
+                } else if (playRightCh3Left) {
+                    stereoBuf[outOff] += s3.toInt()
+                }
+                if (playAllSpeakers) {
+                    stereoBuf[outOff] += s2.toInt()
+                    stereoBuf[outOff + 1] += s3.toInt()
                 }
             }
 
-            if (playRightCh3) {
+            if (playAllSpeakers || playLeftCh2Right || playRightCh3Right) {
+                val ch2Off = s * bytesPerFrame + leftVcmCh * 2
+                val s2 = if (ch2Off + 1 < pcm.size) leBytesToShort(pcm, ch2Off) else 0.toShort()
                 val ch3Off = s * bytesPerFrame + rightVcmCh * 2
-                if (ch3Off + 1 < pcm.size) {
-                    val s3 = leBytesToShort(pcm, ch3Off)
-                    stereoBuf[outOff] += s3.toInt()
+                val s3 = if (ch3Off + 1 < pcm.size) leBytesToShort(pcm, ch3Off) else 0.toShort()
+                if (playLeftCh2Right) {
+                    stereoBuf[outOff + 1] += s2.toInt()
+                } else if (playRightCh3Right) {
+                    stereoBuf[outOff + 1] += s3.toInt()
+                }
+                if (playAllSpeakers) {
+                    stereoBuf[outOff] += s2.toInt()
                     stereoBuf[outOff + 1] += s3.toInt()
                 }
             }
