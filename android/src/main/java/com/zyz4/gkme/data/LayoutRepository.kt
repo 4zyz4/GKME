@@ -1,10 +1,13 @@
 package com.zyz4.gkme.data
 
 import android.content.Context
+import com.google.gson.Gson
+import com.google.gson.JsonObject
 import com.zyz4.gkme.R
 import com.zyz4.gkme.model.LayoutPreset
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -20,14 +23,19 @@ class LayoutRepository @Inject constructor(
         )
 
         private const val CACHE_DIR_NAME = "preset_cache"
-        private const val CACHE_TIMESTAMP_FILE = "cache_timestamps.json"
+        private const val CACHE_INDEX_FILE = "cache_index.json"
+
+        fun computeSha256(content: String): String {
+            val bytes = MessageDigest.getInstance("SHA-256").digest(content.toByteArray(Charsets.UTF_8))
+            return bytes.joinToString("") { "%02x".format(it) }
+        }
     }
 
     // Memory cache: name -> LayoutPreset
     private val memoryCache = mutableMapOf<String, LayoutPreset>()
 
-    // Disk cache timestamp: name -> last cached timestamp
-    private var diskCacheTimestamps: Map<String, Long> = emptyMap()
+    // Disk cache index: name -> cached SHA-256
+    private var diskCacheIndex: Map<String, String> = emptyMap()
 
     private val layoutsDir: File
         get() {
@@ -43,91 +51,104 @@ class LayoutRepository @Inject constructor(
             return dir
         }
 
-    private val cacheTimestampsFile: File
-        get() = File(cacheDir, CACHE_TIMESTAMP_FILE)
+    private val cacheIndexFile: File
+        get() = File(cacheDir, CACHE_INDEX_FILE)
+
+    private fun computeRawSha256(rawId: Int): String {
+            val content = context.resources.openRawResource(rawId).bufferedReader().use { it.readText() }
+            return computeSha256(content)
+        }
 
     init {
-        loadCacheTimestamps()
+        loadCacheIndex()
     }
 
-    private fun loadCacheTimestamps() {
+    private fun loadCacheIndex() {
         try {
-            if (cacheTimestampsFile.exists()) {
-                val json = cacheTimestampsFile.readText()
-                diskCacheTimestamps = parseTimestamps(json)
+            if (cacheIndexFile.exists()) {
+                val json = cacheIndexFile.readText()
+                diskCacheIndex = parseIndex(json)
             }
         } catch (_: Exception) {
-            diskCacheTimestamps = emptyMap()
+            diskCacheIndex = emptyMap()
         }
     }
 
-    private fun parseTimestamps(json: String): Map<String, Long> {
+    private fun parseIndex(json: String): Map<String, String> {
         try {
-            val gson = com.google.gson.Gson()
-            val type = object : com.google.gson.reflect.TypeToken<Map<String, Long>>() {}.type
+            val gson = Gson()
+            val type = object : com.google.gson.reflect.TypeToken<Map<String, String>>() {}.type
             return gson.fromJson(json, type) ?: emptyMap()
         } catch (_: Exception) {
             return emptyMap()
         }
     }
 
-    private fun saveCacheTimestamps() {
+    private fun saveCacheIndex() {
         try {
-            val gson = com.google.gson.Gson()
-            cacheTimestampsFile.writeText(gson.toJson(diskCacheTimestamps))
+            val gson = Gson()
+            cacheIndexFile.writeText(gson.toJson(diskCacheIndex))
         } catch (_: Exception) {
         }
     }
 
+    private fun getDiskCacheFile(name: String): File = File(cacheDir, "$name.cache")
+
     private fun getDiskCachePreset(name: String): LayoutPreset? {
-        val cacheFile = File(cacheDir, "$name.cache")
-        if (!cacheFile.exists()) return null
-
-        val fileTimestamp = cacheFile.lastModified()
-        val cachedTimestamp = diskCacheTimestamps[name] ?: return null
-
-        // Check if the source file is newer than the cache
-        val sourceFile = File(layoutsDir, "$name.json")
-        if (sourceFile.exists() && sourceFile.lastModified() > cachedTimestamp) {
-            // Source changed, invalidate cache
-            invalidateCache(name)
+        val cachedHash = diskCacheIndex[name] ?: return null
+        val cacheFile = getDiskCacheFile(name)
+        if (!cacheFile.exists()) {
+            diskCacheIndex = diskCacheIndex - name
+            saveCacheIndex()
             return null
         }
 
-        // Check if raw resource changed (we use resource ID as a proxy)
+        // For built-in presets, compute current SHA-256 and compare
         val rawId = BUILT_IN_PRESETS[name]
         if (rawId != null) {
-            // For built-in presets, check if the cache timestamp matches
-            // If app was updated, timestamps would be different
-            if (fileTimestamp > cachedTimestamp) {
-                // Cache is newer than timestamp file, something changed
-                // but since built-in presets come from APK, we trust the source
+            val currentHash = computeRawSha256(rawId)
+            if (currentHash != cachedHash) {
+                // Resource changed (e.g. app upgrade), invalidate cache
+                invalidateCache(name)
+                return null
+            }
+        }
+
+        // For user presets on disk, verify the source file hasn't changed
+        val sourceFile = File(layoutsDir, "$name.json")
+        if (sourceFile.exists() && rawId == null) {
+            val sourceContent = sourceFile.readText()
+            val currentHash = computeSha256(sourceContent)
+            if (currentHash != cachedHash) {
+                invalidateCache(name)
+                return null
             }
         }
 
         try {
             return LayoutPreset.fromJson(cacheFile.readText())
         } catch (_: Exception) {
+            invalidateCache(name)
             return null
         }
     }
 
-    private fun saveToDiskCache(name: String, preset: LayoutPreset, jsonText: String) {
+    private fun saveToDiskCache(name: String, preset: LayoutPreset, jsonText: String, hash: String) {
         try {
-            val cacheFile = File(cacheDir, "$name.cache")
+            val cacheFile = getDiskCacheFile(name)
             cacheFile.writeText(jsonText)
-            diskCacheTimestamps = diskCacheTimestamps + (name to System.currentTimeMillis())
-            saveCacheTimestamps()
+            diskCacheIndex = diskCacheIndex + (name to hash)
+            saveCacheIndex()
         } catch (_: Exception) {
         }
     }
 
     private fun invalidateCache(name: String) {
         try {
-            val cacheFile = File(cacheDir, "$name.cache")
+            val cacheFile = getDiskCacheFile(name)
             if (cacheFile.exists()) cacheFile.delete()
-            diskCacheTimestamps = diskCacheTimestamps - name
-            saveCacheTimestamps()
+            diskCacheIndex = diskCacheIndex - name
+            saveCacheIndex()
         } catch (_: Exception) {
         }
     }
@@ -167,7 +188,8 @@ class LayoutRepository @Inject constructor(
             return try {
                 val json = file.readText()
                 val preset = LayoutPreset.fromJson(json)
-                saveToDiskCache(name, preset, json)
+                val hash = computeSha256(json)
+                saveToDiskCache(name, preset, json, hash)
                 preset
             } catch (e: Exception) {
                 null
@@ -231,8 +253,9 @@ class LayoutRepository @Inject constructor(
 
         try {
             val json = context.resources.openRawResource(rawId).bufferedReader().use { it.readText() }
+            val hash = computeSha256(json)
             val preset = LayoutPreset.fromJson(json)
-            saveToDiskCache(name, preset, json)
+            saveToDiskCache(name, preset, json, hash)
             memoryCache[name] = preset
             return preset
         } catch (_: Exception) {
@@ -249,7 +272,7 @@ class LayoutRepository @Inject constructor(
     fun clearCache() {
         memoryCache.clear()
         cacheDir.listFiles()?.forEach { it.delete() }
-        diskCacheTimestamps = emptyMap()
-        saveCacheTimestamps()
+        diskCacheIndex = emptyMap()
+        saveCacheIndex()
     }
 }
