@@ -27,8 +27,9 @@ import com.zyz4.gkme.R
 import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.model.GyroOrientation
-import com.zyz4.gkme.model.GyroMode
+import com.zyz4.gkme.model.GyroBaseDirection
 import com.zyz4.gkme.model.GyroCoordinateSystem
+import com.zyz4.gkme.model.GyroMode
 import com.zyz4.gkme.model.SlideDirection
 import com.zyz4.gkme.Kb
 import com.zyz4.gkme.BitNameMapper
@@ -47,6 +48,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         fun onExitFollowAreaAdjust()
         fun onTransparencyPreviewStart(buttonId: String, isIdle: Boolean)
         fun onTransparencyPreviewEnd(buttonId: String)
+        fun onGyroBaseDirectionChanged(direction: com.zyz4.gkme.model.GyroBaseDirection)
         fun onGyroCoordinateSystemChanged(coordinateSystem: com.zyz4.gkme.model.GyroCoordinateSystem)
         fun onGyroModeChanged(mode: com.zyz4.gkme.model.GyroMode)
         fun onGyroModeSensitivityChanged(value: Int)
@@ -73,6 +75,15 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             field = value
             if (!showingGlobalSettings) {
                 gyroSpinner?.setSelection((value?.ordinal?.plus(1)) ?: 0)
+            }
+        }
+
+    var presetGyroBaseDirection: com.zyz4.gkme.model.GyroBaseDirection = com.zyz4.gkme.model.GyroBaseDirection.VERTICAL
+        set(value) {
+            field = value
+            if (!showingGlobalSettings) {
+                val idx = baseDirectionValues.indexOf(value)
+                if (idx >= 0) gyroBaseDirectionSpinner?.setSelection(idx)
             }
         }
 
@@ -116,6 +127,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
 
     private var gyroSpinner: Spinner? = null
+    private var gyroBaseDirectionSpinner: Spinner? = null
+    private var gyroBaseDirectionLabel: TextView? = null
     private var gyroCoordinateSystemSpinner: Spinner? = null
     private var gyroModeSpinner: Spinner? = null
     private var gyroActivateSpinnerRef: Spinner? = null
@@ -128,6 +141,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     fun restoreFromSettings(settings: com.zyz4.gkme.model.AppSettings) {
         currentSettings = settings
         presetGyroOrientation = settings.gyroOrientation
+        presetGyroBaseDirection = settings.gyroBaseDirection
         presetGyroCoordinateSystem = settings.gyroCoordinateSystem
         presetGyroMode = settings.gyroMode
         presetGyroModeSensitivity = settings.gyroModeSensitivity
@@ -135,6 +149,11 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         presetGyroReverseDeadZone = settings.gyroReverseDeadZone
         presetGyroActivateMode = settings.gyroActivateMode
     }
+
+    private val baseDirectionValues = listOf(
+        com.zyz4.gkme.model.GyroBaseDirection.VERTICAL,
+        com.zyz4.gkme.model.GyroBaseDirection.HORIZONTAL,
+    )
 
     private val coordinateSystemValues = listOf(
         com.zyz4.gkme.model.GyroCoordinateSystem.YAW,
@@ -148,6 +167,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         com.zyz4.gkme.model.GyroMode.MOUSE,
         com.zyz4.gkme.model.GyroMode.LEFT_STICK,
         com.zyz4.gkme.model.GyroMode.RIGHT_STICK,
+        com.zyz4.gkme.model.GyroMode.ACCELEROMETER_LEFT_STICK,
+        com.zyz4.gkme.model.GyroMode.ACCELEROMETER_RIGHT_STICK,
     )
 
     private val BUTTON_IDS = setOf(
@@ -587,6 +608,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
     private fun buildGlobalSettingsPanel(density: Float) {
         buttonParamsInner.removeAllViews()
+        gyroAdvancedContainer?.removeAllViews()
         globalSettingsContainer = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding((8f * density).toInt(), (8f * density).toInt(), (8f * density).toInt(), (8f * density).toInt())
@@ -645,7 +667,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
         container.addView(tvGyroMode)
 
-        val gyroModeItems = listOf("手柄陀螺仪", "陀螺仪转鼠标", "陀螺仪转左摇杆", "陀螺仪转右摇杆")
+        val gyroModeItems = listOf("手柄陀螺仪", "陀螺仪转鼠标", "陀螺仪转左摇杆", "陀螺仪转右摇杆", "加速度计转左摇杆", "加速度计转右摇杆")
         val modeSpinner = Spinner(context).apply {
             adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, gyroModeItems).also {
                 it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -670,6 +692,34 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             orientation = LinearLayout.VERTICAL
         }
         val advanced = gyroAdvancedContainer!!
+
+        // ── Gyro base direction ──
+        val tvGyroBaseDirection = TextView(context).apply {
+            text = "基准方向"
+            setTextColor(-0x1)
+            textSize = 15f
+            setPadding(0, (8f * density).toInt(), 0, 0)
+        }
+
+        val baseDirectionItems = listOf("竖放", "平放")
+        val baseDirectionSpinner = Spinner(context).apply {
+            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, baseDirectionItems).also {
+                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+            setSelection(baseDirectionValues.indexOf(presetGyroBaseDirection).coerceAtLeast(0))
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                    val direction = baseDirectionValues.getOrNull(pos) ?: GyroBaseDirection.VERTICAL
+                    presetGyroBaseDirection = direction
+                    editorListener?.onGyroBaseDirectionChanged(direction)
+                }
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
+        }
+        gyroBaseDirectionSpinner = baseDirectionSpinner
+        gyroBaseDirectionLabel = tvGyroBaseDirection
+        advanced.addView(tvGyroBaseDirection, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt(); bottomMargin = (2f * density).toInt() })
+        advanced.addView(baseDirectionSpinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt(); bottomMargin = (12f * density).toInt() })
 
         // ── Gyro coordinate system ──
         val tvGyroCoordinateSystem = TextView(context).apply {
@@ -730,8 +780,21 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     }
 
     private fun updateGyroModeVisibility() {
-        val vis = if (presetGyroMode != com.zyz4.gkme.model.GyroMode.HANDHELD) View.VISIBLE else View.GONE
+        val needAdvanced = presetGyroMode != com.zyz4.gkme.model.GyroMode.HANDHELD
+        val vis = if (needAdvanced) View.VISIBLE else View.GONE
         gyroAdvancedContainer?.visibility = vis
+
+        // Coordinate system only visible for gyro mouse/stick modes (not accelerometer)
+        val needCoordSystem = presetGyroMode == com.zyz4.gkme.model.GyroMode.MOUSE ||
+                presetGyroMode == com.zyz4.gkme.model.GyroMode.LEFT_STICK ||
+                presetGyroMode == com.zyz4.gkme.model.GyroMode.RIGHT_STICK
+        gyroCoordinateSystemSpinner?.visibility = if (needCoordSystem) View.VISIBLE else View.GONE
+
+        // Base direction only visible for accelerometer stick modes
+        val needBaseDirection = presetGyroMode == com.zyz4.gkme.model.GyroMode.ACCELEROMETER_LEFT_STICK ||
+                presetGyroMode == com.zyz4.gkme.model.GyroMode.ACCELEROMETER_RIGHT_STICK
+        gyroBaseDirectionSpinner?.visibility = if (needBaseDirection) View.VISIBLE else View.GONE
+        gyroBaseDirectionLabel?.visibility = if (needBaseDirection) View.VISIBLE else View.GONE
     }
 
     private fun buildGripBar(density: Float): View {
