@@ -441,9 +441,7 @@ public abstract class AbstractDualSenseController extends AbstractController {
                     initReport, REPORT_LEFT_TRIGGER_DATA_IDX, TRIGGER_DATA_LEN);
         }
 
-        Log.i("DualSenseController", "Sending haptic prime report: " + initReport.length + " bytes to ep=0x" + Integer.toHexString(outEndpt.getAddress() & 0xFF));
         int res = connection.bulkTransfer(outEndpt, initReport, initReport.length, HAPTIC_INIT_TIMEOUT_MS);
-        Log.i("DualSenseController", "Haptic prime report result: sent=" + res + " expected=" + initReport.length);
         if (res == initReport.length) {
             advancedAudioHapticsPrimed = true;
             return true;

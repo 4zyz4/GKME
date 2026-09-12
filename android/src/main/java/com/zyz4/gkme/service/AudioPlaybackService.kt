@@ -45,9 +45,21 @@ class AudioPlaybackService {
         private const val USB_PCM_RATE = 48000
         // DS4 uses 32 kHz USB audio endpoint (handled separately).
         private const val DS4_USB_PCM_RATE = 32000
+        // Locally synthesised 1 kHz test tone (dualsense-tester WAVEOUT_CTRL).
+        private const val TEST_TONE_FREQ = 1000.0
+        private const val TEST_TONE_AMPLITUDE = 0.25
+        private const val TEST_TONE_RATE = 48000
+        private const val TEST_TONE_CHANNELS = 4
+        private const val TEST_TONE_FRAME_SAMPLES = 480 // 10 ms
     }
 
     private var audioTrack: AudioTrack? = null
+
+    // Local 1 kHz test-tone generator state (see setTestTone).
+    private var testToneThread: Thread? = null
+
+    @Volatile
+    private var testToneRunning = false
 
     private val _trackInfo = MutableStateFlow(AudioTrackInfo())
     val trackInfo: StateFlow<AudioTrackInfo> = _trackInfo.asStateFlow()
@@ -103,12 +115,87 @@ class AudioPlaybackService {
     }
 
     fun stop() {
+        setTestTone(false)
         try {
             audioTrack?.stop()
             audioTrack?.release()
         } catch (_: Exception) {}
         _vibrator.cancel()
         audioTrack = null
+    }
+
+    /**
+     * Starts or stops the locally synthesised 1 kHz test tone. The PC only sends
+     * the on/off state (dualsense-tester WAVEOUT_CTRL); the tone is generated and
+     * routed here through the same path as regular controller audio.
+     */
+    fun setTestTone(enabled: Boolean) {
+        synchronized(this) {
+            if (enabled) {
+                if (testToneThread?.isAlive == true) return
+                testToneRunning = true
+                testToneThread = Thread { runTestTone() }.apply {
+                    name = "GkmeTestTone"
+                    isDaemon = true
+                    start()
+                }
+            } else {
+                testToneRunning = false
+                testToneThread = null
+                // The generator stops emitting frames, so clear the last
+                // amplitude reading — otherwise the UI keeps showing the
+                // previous volume after the test tone ends.
+                resetTrackInfo()
+            }
+        }
+    }
+
+    private fun resetTrackInfo() {
+        leftVoiceCoilAmplitude = 0
+        rightVoiceCoilAmplitude = 0
+        coilSmoothLeft = 0f
+        coilSmoothRight = 0f
+        _trackInfo.value = AudioTrackInfo()
+    }
+
+    private fun runTestTone() {
+        val bytesPerFrame = TEST_TONE_CHANNELS * 2
+        val frameBytes = TEST_TONE_FRAME_SAMPLES * bytesPerFrame
+        val step = 2.0 * Math.PI * TEST_TONE_FREQ / TEST_TONE_RATE
+        val framePeriodNs = TEST_TONE_FRAME_SAMPLES.toLong() * 1_000_000_000L / TEST_TONE_RATE
+        var phase = 0.0
+        var nextNs = System.nanoTime()
+        while (testToneRunning) {
+            val frame = ByteArray(frameBytes)
+            for (s in 0 until TEST_TONE_FRAME_SAMPLES) {
+                val v = (Math.sin(phase) * Short.MAX_VALUE * TEST_TONE_AMPLITUDE).toInt()
+                phase += step
+                if (phase >= 2.0 * Math.PI) phase -= 2.0 * Math.PI
+                val off = s * bytesPerFrame
+                // ch1 = controller speaker only; voice-coil channels stay silent
+                // so the test tone does not drive the left/right motors.
+                writeShortLe(frame, off + 2, v)
+            }
+            submitAudio(frame, TEST_TONE_RATE, TEST_TONE_CHANNELS, 16)
+
+            nextNs += framePeriodNs
+            val sleepMs = (nextNs - System.nanoTime()) / 1_000_000L
+            if (sleepMs > 0) {
+                try {
+                    Thread.sleep(sleepMs)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    break
+                }
+            } else {
+                nextNs = System.nanoTime()
+            }
+        }
+        // Safety net for the race where a frame is submitted after the stop
+        // reset: if we were stopped (not restarted) clear the reading again.
+        synchronized(this) {
+            if (!testToneRunning) resetTrackInfo()
+        }
     }
 
     fun resumeIfStopped() {}
@@ -130,6 +217,7 @@ class AudioPlaybackService {
     /** Sends a 4-channel, 48 kHz, S16LE frame to the controller speaker. */
     var onControllerAudioPcm: ((controllerIndex: Int, frame: ByteArray) -> Boolean)? = null
 
+    @Synchronized
     fun submitAudio(pcm: ByteArray, sampleRate: Int, channels: Int, bitsPerSample: Int) {
         val oldRate = this.sampleRate
         val oldCh = this.channels
@@ -281,7 +369,13 @@ class AudioPlaybackService {
             if (caPcmIndex >= 0) targets.add(caPcmIndex)
             for (idx in targets) {
                 val isVoiceCoil = idx == vcPcmIndex
-                val targetRate = if (isVoiceCoil) USB_PCM_RATE else DS4_USB_PCM_RATE
+                // Both the voice-coil and controller-audio lanes go to the same
+                // DualSense USB audio endpoint, which runs at 48 kHz. Only a
+                // DualSense exposes this path (supportsControllerAudio ==
+                // hasAdvancedAudioHapticsSupport), so the controller-audio lane
+                // must NOT be resampled to the DS4's 32 kHz — doing so makes it
+                // play 1.5x too fast (shrill).
+                val targetRate = USB_PCM_RATE
                 val resampledPcm = if (sampleRate != targetRate && pcm.size > 0) {
                     resamplePcm(pcm, sampleRate, targetRate, channels)
                 } else {
