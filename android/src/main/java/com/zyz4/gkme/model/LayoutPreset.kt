@@ -40,6 +40,8 @@ data class LayoutPreset(
     val gyroActivateMode: GyroActivateMode? = null,
     val gyroMode: GyroMode? = null,
     val gyroModeSensitivity: Int? = null,
+    val gyroDeadZone: Int? = null,
+    val gyroReverseDeadZone: Int? = null,
 ) {
     companion object {
         private val gsonInstance = Gson()
@@ -131,6 +133,8 @@ data class LayoutPreset(
             val gyroActivateMode = root.get("gyroActivateMode")?.asString?.let { GyroActivateMode.valueOf(it) }
             val gyroMode = root.get("gyroMode")?.asString?.let { GyroMode.valueOf(it) }
             val gyroModeSens = root.get("gyroModeSensitivity")?.asInt
+            val gyroDeadZone = root.get("gyroDeadZone")?.asInt
+            val gyroReverseDeadZone = root.get("gyroReverseDeadZone")?.asInt
             return LayoutPreset(
                 version = root.get("version")?.asInt ?: 1,
                 buttons = buttons,
@@ -138,6 +142,8 @@ data class LayoutPreset(
                 gyroActivateMode = gyroActivateMode,
                 gyroMode = gyroMode,
                 gyroModeSensitivity = gyroModeSens,
+                gyroDeadZone = gyroDeadZone,
+                gyroReverseDeadZone = gyroReverseDeadZone,
             )
         }
 
@@ -220,6 +226,8 @@ data class LayoutPreset(
         gyroActivateMode?.let { obj["gyroActivateMode"] = it.name }
         gyroMode?.let { obj["gyroMode"] = it.name }
         gyroModeSensitivity?.let { obj["gyroModeSensitivity"] = it }
+        gyroDeadZone?.let { obj["gyroDeadZone"] = it }
+        gyroReverseDeadZone?.let { obj["gyroReverseDeadZone"] = it }
         return gson.toJson(obj)
     }
 

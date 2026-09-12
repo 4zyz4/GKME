@@ -65,6 +65,8 @@ class SettingsRepository @Inject constructor(
         val GYRO_MODE = intPreferencesKey("gyro_mode")
         val GYRO_MODE_SENSITIVITY = intPreferencesKey("gyro_mode_sensitivity")
         val GYRO_COORDINATE_SYSTEM = intPreferencesKey("gyro_coordinate_system")
+        val GYRO_DEAD_ZONE = intPreferencesKey("gyro_dead_zone")
+        val GYRO_REVERSE_DEAD_ZONE = intPreferencesKey("gyro_reverse_dead_zone")
         val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val GYRO_ACTIVATE_MODE = intPreferencesKey("gyro_activate_mode")
         val CONTROLLER_GYRO_ENABLED = booleanPreferencesKey("controller_gyro_enabled")
@@ -166,6 +168,8 @@ class SettingsRepository @Inject constructor(
                 prefs[Keys.GYRO_MODE] ?: GyroMode.HANDHELD.ordinal
             ) { GyroMode.HANDHELD },
             gyroModeSensitivity = prefs[Keys.GYRO_MODE_SENSITIVITY] ?: 20,
+            gyroDeadZone = prefs[Keys.GYRO_DEAD_ZONE] ?: 0,
+            gyroReverseDeadZone = prefs[Keys.GYRO_REVERSE_DEAD_ZONE] ?: 0,
             gyroCoordinateSystem = GyroCoordinateSystem.entries.getOrElse(
                 prefs[Keys.GYRO_COORDINATE_SYSTEM] ?: GyroCoordinateSystem.YAW_ROLL.ordinal
             ) { GyroCoordinateSystem.YAW_ROLL },
@@ -253,6 +257,8 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.GYRO_ORIENTATION] = settings.gyroOrientation.ordinal
             prefs[Keys.GYRO_MODE] = settings.gyroMode.ordinal
             prefs[Keys.GYRO_MODE_SENSITIVITY] = settings.gyroModeSensitivity
+            prefs[Keys.GYRO_DEAD_ZONE] = settings.gyroDeadZone
+            prefs[Keys.GYRO_REVERSE_DEAD_ZONE] = settings.gyroReverseDeadZone
             prefs[Keys.GYRO_COORDINATE_SYSTEM] = settings.gyroCoordinateSystem.ordinal
             prefs[Keys.KEEP_SCREEN_ON] = settings.keepScreenOn
             prefs[Keys.GYRO_ACTIVATE_MODE] = settings.gyroActivateMode.ordinal
