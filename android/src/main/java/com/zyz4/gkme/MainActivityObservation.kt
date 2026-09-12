@@ -172,6 +172,11 @@ internal fun MainActivity.observeState() {
                 }
             }
             launch {
+                a.physicalControllerHandler.controllerState.collect {
+                    a.syncPhysicalControllerState()
+                }
+            }
+            launch {
                 a.physicalControllerHandler.gyroData.collect { gyro ->
                     val x = gyro[0]; val y = gyro[1]; val z = gyro[2]
                     if (a.settingsInflated) {
