@@ -291,10 +291,6 @@ class GkViewModel @Inject constructor(
         connectionManager.updateSettings(settings.value.copy(isEditMode = enabled))
     }
 
-    fun updateVibrationEnabled(enabled: Boolean) {
-        connectionManager.updateSettings(settings.value.copy(vibrationEnabled = enabled))
-    }
-
     fun updateVibrationPressType(type: VibrationType) {
         connectionManager.updateSettings(settings.value.copy(vibrationPressType = type))
     }

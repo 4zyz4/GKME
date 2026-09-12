@@ -50,7 +50,6 @@ class MainActivity : ComponentActivity() {
     internal var discoverableRequested = false
     internal var vibrationPollingJob: kotlinx.coroutines.Job? = null
     internal var audioPollingJob: kotlinx.coroutines.Job? = null
-    internal var vibrationRedirectStatus: String? = null
     internal var lastAppliedSettings: AppSettings? = null
     internal var lastPresetInfos: Any? = null
     internal var lastPresetCurrentName: String? = null
@@ -389,9 +388,8 @@ class MainActivity : ComponentActivity() {
     }
 
     // ── Haptic ─────────────────────────────────────────────
-
-    internal fun performHaptic(isPress: Boolean) {        val s = viewModel.settings.value
-        if (!s.vibrationEnabled) return
+internal fun performHaptic(isPress: Boolean) {
+        val s = viewModel.settings.value
         val type = if (isPress) s.vibrationPressType else s.vibrationReleaseType
         when (type) {
             VibrationType.NONE -> return
