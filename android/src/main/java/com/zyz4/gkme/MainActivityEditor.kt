@@ -126,6 +126,10 @@ override fun onTransparencyPreviewEnd(buttonId: String) {
                     a.gamepadLayout.setTransparencyPreview(buttonId, true, false)
                 }
 
+                override fun onGyroBaseDirectionChanged(direction: com.zyz4.gkme.model.GyroBaseDirection) {
+                    a.viewModel.updateGyroBaseDirection(direction)
+                }
+
                 override fun onGyroCoordinateSystemChanged(coordinateSystem: com.zyz4.gkme.model.GyroCoordinateSystem) {
                     a.viewModel.updateGyroCoordinateSystem(coordinateSystem)
                 }

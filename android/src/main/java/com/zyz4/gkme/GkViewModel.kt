@@ -19,6 +19,7 @@ import com.zyz4.gkme.model.DisplayMode
 import com.zyz4.gkme.model.FillType
 import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.model.GyroMode
+import com.zyz4.gkme.model.GyroBaseDirection
 import com.zyz4.gkme.model.GyroCoordinateSystem
 import com.zyz4.gkme.model.GyroOrientation
 import com.zyz4.gkme.model.GyroActivateMode
@@ -436,6 +437,11 @@ class GkViewModel @Inject constructor(
         }
     }
 
+    fun updateGyroBaseDirection(direction: GyroBaseDirection) {
+        val updated = settings.value.copy(gyroBaseDirection = direction)
+        connectionManager.updateSettings(updated)
+    }
+
     fun updateGyroCoordinateSystem(coordinateSystem: GyroCoordinateSystem) {
         val updated = settings.value.copy(gyroCoordinateSystem = coordinateSystem)
         connectionManager.updateSettings(updated)
@@ -751,6 +757,7 @@ class GkViewModel @Inject constructor(
                 // sensor.gyroX = 俯仰(Pitch), sensor.gyroY = 偏航(Yaw), sensor.gyroZ = 滚转(Roll)
                 // Original mapping: mouseX = -gyroY(Yaw→水平), mouseY = -gyroX(Pitch→垂直)
                 // mappedX = 最终输出到水平轴的值, mappedY = 最终输出到垂直轴的值
+                val baseDirection = s.gyroBaseDirection
                 val coordinateSystem = s.gyroCoordinateSystem
                 val (gx, gy, gz) = if (actualGyroEnabled) {
                     if (!useControllerGyro) {
@@ -789,10 +796,12 @@ class GkViewModel @Inject constructor(
                         mappedY = gx
                     }
                     GyroCoordinateSystem.WORLD -> {
-                        mappedX = if (!useControllerGyro) sensor.worldDx * s.gyroSensitivityX / 100f
+                        val worldDx = if (!useControllerGyro) sensor.worldDx * s.gyroSensitivityX / 100f
                         else _controllerWorldDx * s.gyroSensitivityX / 100f
-                        mappedY = if (!useControllerGyro) sensor.worldDy * s.gyroSensitivityY / 100f
-        else _controllerWorldDy * s.gyroSensitivityY / 100f
+                        val worldDy = if (!useControllerGyro) sensor.worldDy * s.gyroSensitivityY / 100f
+                        else _controllerWorldDy * s.gyroSensitivityY / 100f
+                        mappedX = worldDx
+                        mappedY = worldDy
                     }
                 }
 
@@ -832,11 +841,40 @@ class GkViewModel @Inject constructor(
                 }
 
                 val gyroMode = s.gyroMode
+
+                var accelLx = 0f
+                var accelLy = 0f
+                var accelRx = 0f
+                var accelRy = 0f
+                if (actualGyroEnabled) {
+                    val accelSens = s.gyroModeSensitivity / 100f
+                    val gravMag = sqrt(sensor.accelX * sensor.accelX + sensor.accelY * sensor.accelY + sensor.accelZ * sensor.accelZ)
+                    val baseDirection = s.gyroBaseDirection
+                    if (gravMag > 0.1f) {
+                        if (baseDirection == GyroBaseDirection.VERTICAL) {
+                            accelLx = -(sensor.accelX / gravMag) * accelSens * 32767f
+                            accelLy = -(sensor.accelY / gravMag) * accelSens * 32767f
+                            accelRx = -(sensor.accelX / gravMag) * accelSens * 32767f
+                            accelRy = -(sensor.accelY / gravMag) * accelSens * 32767f
+                        } else {
+                            val axisX = sensor.accelX
+                            val axisY = sensor.accelZ
+                            accelLx = -(axisX / gravMag) * accelSens * 32767f
+                            accelLy = -(axisY / gravMag) * accelSens * 32767f
+                            accelRx = -(axisX / gravMag) * accelSens * 32767f
+                            accelRy = -(axisY / gravMag) * accelSens * 32767f
+                        }
+                    }
+                }
+
                 val combinedLx = when (gyroMode) {
                     GyroMode.LEFT_STICK -> {
                         val gyroLx = (-mappedX * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
                         val gyroLy = (-mappedY * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
                         (phoneStickX.toInt() + physicalStickX.toInt() + gyroLx.toInt()).coerceIn(-32768, 32767).toShort()
+                    }
+                    GyroMode.ACCELEROMETER_LEFT_STICK -> {
+                        (phoneStickX.toInt() + physicalStickX.toInt() + accelLx.toInt()).coerceIn(-32768, 32767).toShort()
                     }
                     else -> (phoneStickX.toInt() + physicalStickX.toInt()).coerceIn(-32768, 32767).toShort()
                 }
@@ -846,6 +884,9 @@ class GkViewModel @Inject constructor(
                         val gyroLy = (-mappedY * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
                         (phoneStickY.toInt() + physicalStickY.toInt() + gyroLy.toInt()).coerceIn(-32768, 32767).toShort()
                     }
+                    GyroMode.ACCELEROMETER_LEFT_STICK -> {
+                        (phoneStickY.toInt() + physicalStickY.toInt() + accelLy.toInt()).coerceIn(-32768, 32767).toShort()
+                    }
                     else -> (phoneStickY.toInt() + physicalStickY.toInt()).coerceIn(-32768, 32767).toShort()
                 }
                 val combinedRx = when (gyroMode) {
@@ -854,6 +895,9 @@ class GkViewModel @Inject constructor(
                         val gyroRy = (-mappedY * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
                         (phoneRStickX.toInt() + physicalRStickX.toInt() + gyroRx.toInt()).coerceIn(-32768, 32767).toShort()
                     }
+                    GyroMode.ACCELEROMETER_RIGHT_STICK -> {
+                        (phoneRStickX.toInt() + physicalRStickX.toInt() + accelRx.toInt()).coerceIn(-32768, 32767).toShort()
+                    }
                     else -> (phoneRStickX.toInt() + physicalRStickX.toInt()).coerceIn(-32768, 32767).toShort()
                 }
                 val combinedRy = when (gyroMode) {
@@ -861,6 +905,9 @@ class GkViewModel @Inject constructor(
                         val gyroRx = (-mappedX * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
                         val gyroRy = (-mappedY * sens * 32767f).toInt().coerceIn(-32768, 32767).toShort()
                         (phoneRStickY.toInt() + physicalRStickY.toInt() + gyroRy.toInt()).coerceIn(-32768, 32767).toShort()
+                    }
+                    GyroMode.ACCELEROMETER_RIGHT_STICK -> {
+                        (phoneRStickY.toInt() + physicalRStickY.toInt() + accelRy.toInt()).coerceIn(-32768, 32767).toShort()
                     }
                     else -> (phoneRStickY.toInt() + physicalRStickY.toInt()).coerceIn(-32768, 32767).toShort()
                 }

@@ -148,6 +148,11 @@ data class GyroSource(
     }
 }
 
+enum class GyroBaseDirection(val displayName: String) {
+    VERTICAL("竖放"),
+    HORIZONTAL("平放"),
+}
+
 enum class GyroCoordinateSystem(val displayName: String) {
     YAW("偏航"),
     ROLL("滚转"),
@@ -161,6 +166,8 @@ enum class GyroMode(val displayName: String) {
     MOUSE("陀螺仪转鼠标"),
     LEFT_STICK("陀螺仪转左摇杆"),
     RIGHT_STICK("陀螺仪转右摇杆"),
+    ACCELEROMETER_LEFT_STICK("加速度计转左摇杆"),
+    ACCELEROMETER_RIGHT_STICK("加速度计转右摇杆"),
 }
 
 enum class GyroActivateMode(val displayName: String) {
@@ -214,6 +221,7 @@ data class AppSettings(
     val gyroSensitivityZ: Int = 100,
     val gyroOrientation: GyroOrientation = GyroOrientation.LANDSCAPE,
     // ── Gyro mapping mode ──
+    val gyroBaseDirection: GyroBaseDirection = GyroBaseDirection.VERTICAL,
     val gyroCoordinateSystem: GyroCoordinateSystem = GyroCoordinateSystem.YAW_ROLL,
     val gyroMode: GyroMode = GyroMode.HANDHELD,
     val gyroModeSensitivity: Int = 20,
