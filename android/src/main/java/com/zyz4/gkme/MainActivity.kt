@@ -249,6 +249,15 @@ class MainActivity : ComponentActivity() {
     /** True while the user is picking a physical-controller input from the spinner. */
     internal var inputControllerUserSelecting = false
 
+    /** True while the user is picking a game-rumble device from the spinner. */
+    internal var gameVibrationUserSelecting = false
+
+    /** True while the user is picking a voice-coil device from the spinner. */
+    internal var voiceCoilUserSelecting = false
+
+    /** True while the user is picking a gyro source from the spinner. */
+    internal var gyroSourceUserSelecting = false
+
     /** Devices backing the voice-coil spinner. */
     internal var voiceCoilDeviceEntries: List<com.zyz4.gkme.model.AudioDevice> =
         listOf(com.zyz4.gkme.model.AudioDevice.PHONE_SPEAKER)

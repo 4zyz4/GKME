@@ -54,6 +54,8 @@ class SettingsRepository @Inject constructor(
         val VIBRATION_RELEASE_INTENSITY = intPreferencesKey("vibration_release_intensity")
         val GAME_VIBRATION_DEVICE_TYPE = intPreferencesKey("game_vibration_device_type")
         val GAME_VIBRATION_CONTROLLER_INDEX = intPreferencesKey("game_vibration_controller_index")
+        val GAME_VIBRATION_DEVICE_CONNECTED_TYPE = intPreferencesKey("game_vibration_device_connected_type")
+        val GAME_VIBRATION_CONTROLLER_CONNECTED_INDEX = intPreferencesKey("game_vibration_controller_connected_index")
         val SWAP_PHONE_MOTORS = booleanPreferencesKey("swap_phone_motors")
         val SWAP_CONTROLLER_MOTORS = booleanPreferencesKey("swap_controller_motors")
         val AUTO_START_ENABLED = booleanPreferencesKey("auto_start_enabled")
@@ -71,7 +73,9 @@ class SettingsRepository @Inject constructor(
         val GYRO_ACTIVATE_MODE = intPreferencesKey("gyro_activate_mode")
         val CONTROLLER_GYRO_ENABLED = booleanPreferencesKey("controller_gyro_enabled")
         val CONTROLLER_GYRO_ENABLED_CONNECTED = booleanPreferencesKey("controller_gyro_enabled_connected")
+        val GYRO_ENABLED_CONNECTED = booleanPreferencesKey("gyro_enabled_connected")
         val GYRO_CONTROLLER_INDEX = intPreferencesKey("gyro_controller_index")
+        val GYRO_CONTROLLER_INDEX_CONNECTED = intPreferencesKey("gyro_controller_index_connected")
         val VOLUME_UP_BITS = stringPreferencesKey("volume_up_bits")
         val VOLUME_DOWN_BITS = stringPreferencesKey("volume_down_bits")
         val NON_LINEAR_TRIGGER_ADAPTATION = booleanPreferencesKey("non_linear_trigger_adaptation")
@@ -81,6 +85,8 @@ class SettingsRepository @Inject constructor(
         val RIGHT_VOICE_COIL_OUTPUT = intPreferencesKey("right_voice_coil_output")
         val VOICE_COIL_DEVICE_TYPE = intPreferencesKey("voice_coil_device_type")
         val VOICE_COIL_CONTROLLER_INDEX = intPreferencesKey("voice_coil_controller_index")
+        val VOICE_COIL_DEVICE_CONNECTED_TYPE = intPreferencesKey("voice_coil_device_connected_type")
+        val VOICE_COIL_CONTROLLER_CONNECTED_INDEX = intPreferencesKey("voice_coil_controller_connected_index")
         val SWAP_VOICE_COIL_MOTORS = booleanPreferencesKey("swap_voice_coil_motors")
         val CONTROLLER_AUDIO_OUTPUT = intPreferencesKey("controller_audio_output")
         // Appearance
@@ -155,6 +161,12 @@ class SettingsRepository @Inject constructor(
                 ) { VibrationDeviceType.PHONE },
                 controllerIndex = prefs[Keys.GAME_VIBRATION_CONTROLLER_INDEX] ?: 0,
             ),
+            gameVibrationDeviceConnected = VibrationDevice(
+                type = VibrationDeviceType.entries.getOrElse(
+                    prefs[Keys.GAME_VIBRATION_DEVICE_CONNECTED_TYPE] ?: VibrationDeviceType.CONTROLLER.ordinal
+                ) { VibrationDeviceType.CONTROLLER },
+                controllerIndex = prefs[Keys.GAME_VIBRATION_CONTROLLER_CONNECTED_INDEX] ?: 0,
+            ),
             swapPhoneMotors = prefs[Keys.SWAP_PHONE_MOTORS] ?: false,
             swapControllerMotors = prefs[Keys.SWAP_CONTROLLER_MOTORS] ?: false,
             autoStartEnabled = prefs[Keys.AUTO_START_ENABLED] ?: false,
@@ -180,7 +192,9 @@ class SettingsRepository @Inject constructor(
             ) { GyroActivateMode.ALWAYS },
             controllerGyroEnabled = prefs[Keys.CONTROLLER_GYRO_ENABLED] ?: false,
             controllerGyroEnabledConnected = prefs[Keys.CONTROLLER_GYRO_ENABLED_CONNECTED] ?: true,
+            gyroEnabledConnected = prefs[Keys.GYRO_ENABLED_CONNECTED] ?: true,
             gyroControllerIndex = prefs[Keys.GYRO_CONTROLLER_INDEX] ?: 0,
+            gyroControllerIndexConnected = prefs[Keys.GYRO_CONTROLLER_INDEX_CONNECTED] ?: 0,
             volumeUpBits = parseBitList(prefs[Keys.VOLUME_UP_BITS]),
             volumeDownBits = parseBitList(prefs[Keys.VOLUME_DOWN_BITS]),
             nonLinearTriggerAdaptation = prefs[Keys.NON_LINEAR_TRIGGER_ADAPTATION] ?: false,
@@ -225,6 +239,12 @@ class SettingsRepository @Inject constructor(
                 prefs[Keys.LEFT_VOICE_COIL_OUTPUT],
                 prefs[Keys.RIGHT_VOICE_COIL_OUTPUT],
             ),
+            voiceCoilDeviceConnected = AudioDevice(
+                type = AudioDeviceType.entries.getOrElse(
+                    prefs[Keys.VOICE_COIL_DEVICE_CONNECTED_TYPE] ?: AudioDeviceType.CONTROLLER.ordinal
+                ) { AudioDeviceType.CONTROLLER },
+                controllerIndex = prefs[Keys.VOICE_COIL_CONTROLLER_CONNECTED_INDEX] ?: 0,
+            ),
             swapVoiceCoilMotors = prefs[Keys.SWAP_VOICE_COIL_MOTORS] ?: false,
             controllerAudioOutput = if ((prefs[Keys.CONTROLLER_AUDIO_OUTPUT]
                     ?: AudioOutput.ALL_SPEAKERS.ordinal) == AudioOutput.NONE.ordinal
@@ -250,6 +270,8 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.VIBRATION_RELEASE_INTENSITY] = settings.vibrationReleaseIntensity
             prefs[Keys.GAME_VIBRATION_DEVICE_TYPE] = settings.gameVibrationDevice.type.ordinal
             prefs[Keys.GAME_VIBRATION_CONTROLLER_INDEX] = settings.gameVibrationDevice.controllerIndex
+            prefs[Keys.GAME_VIBRATION_DEVICE_CONNECTED_TYPE] = settings.gameVibrationDeviceConnected.type.ordinal
+            prefs[Keys.GAME_VIBRATION_CONTROLLER_CONNECTED_INDEX] = settings.gameVibrationDeviceConnected.controllerIndex
             prefs[Keys.SWAP_PHONE_MOTORS] = settings.swapPhoneMotors
             prefs[Keys.SWAP_CONTROLLER_MOTORS] = settings.swapControllerMotors
             prefs[Keys.AUTO_START_ENABLED] = settings.autoStartEnabled
@@ -267,7 +289,9 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.GYRO_ACTIVATE_MODE] = settings.gyroActivateMode.ordinal
             prefs[Keys.CONTROLLER_GYRO_ENABLED] = settings.controllerGyroEnabled
             prefs[Keys.CONTROLLER_GYRO_ENABLED_CONNECTED] = settings.controllerGyroEnabledConnected
+            prefs[Keys.GYRO_ENABLED_CONNECTED] = settings.gyroEnabledConnected
             prefs[Keys.GYRO_CONTROLLER_INDEX] = settings.gyroControllerIndex
+            prefs[Keys.GYRO_CONTROLLER_INDEX_CONNECTED] = settings.gyroControllerIndexConnected
             prefs[Keys.VOLUME_UP_BITS] = gson.toJson(settings.volumeUpBits)
             prefs[Keys.VOLUME_DOWN_BITS] = gson.toJson(settings.volumeDownBits)
             prefs[Keys.NON_LINEAR_TRIGGER_ADAPTATION] = settings.nonLinearTriggerAdaptation
@@ -303,6 +327,8 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.LED_BOUND_COLORS] = gson.toJson(settings.ledBoundColors)
             prefs[Keys.VOICE_COIL_DEVICE_TYPE] = settings.voiceCoilDevice.type.ordinal
             prefs[Keys.VOICE_COIL_CONTROLLER_INDEX] = settings.voiceCoilDevice.controllerIndex
+            prefs[Keys.VOICE_COIL_DEVICE_CONNECTED_TYPE] = settings.voiceCoilDeviceConnected.type.ordinal
+            prefs[Keys.VOICE_COIL_CONTROLLER_CONNECTED_INDEX] = settings.voiceCoilDeviceConnected.controllerIndex
             prefs[Keys.SWAP_VOICE_COIL_MOTORS] = settings.swapVoiceCoilMotors
             prefs[Keys.CONTROLLER_AUDIO_OUTPUT] = settings.controllerAudioOutput.ordinal
         }
