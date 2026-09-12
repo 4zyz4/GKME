@@ -1487,7 +1487,7 @@
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
                         android:gravity="center"
-                        android:layout_marginBottom="16dp">
+                        android:layout_marginBottom="8dp">
 
                         <Button
                             android:id="@+id/btnTargetWindows"
@@ -1505,6 +1505,25 @@
                             android:id="@+id/btnTargetLinux"
                             style="@style/GamepadChip"
                             android:text="LINUX" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center"
+                        android:layout_marginBottom="16dp">
+
+                        <Button
+                            android:id="@+id/btnTargetAndroidGamepad"
+                            style="@style/GamepadChip"
+                            android:layout_marginEnd="6dp"
+                            android:text="Android-仅手柄" />
+
+                        <Button
+                            android:id="@+id/btnTargetUniversalKm"
+                            style="@style/GamepadChip"
+                            android:text="通用-键鼠" />
                     </LinearLayout>
                 </LinearLayout>
 
