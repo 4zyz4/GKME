@@ -94,11 +94,10 @@ internal fun MainActivity.observeState() {
                     } else {
                         a.window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     }
-                    a.physicalControllerHandler.gameVibrationDevice = s.gameVibrationDevice
                     a.physicalControllerHandler.swapPhoneMotors = s.swapPhoneMotors
                     a.physicalControllerHandler.swapControllerMotors = s.swapControllerMotors
                     a.physicalControllerHandler.inputControllerIndex = s.inputControllerIndex
-                    a.physicalControllerHandler.gyroControllerIndex = s.gyroControllerIndex
+                    a.applyEffectivePhysicalControllerSettings()
                     a.applyAppearanceIfChanged(s)
                 }
             }
@@ -150,12 +149,11 @@ internal fun MainActivity.observeState() {
             launch {
                 a.physicalControllerHandler.isConnected.collect { connected ->
                     a.viewModel.setPhysicalControllerConnected(connected)
-                    val s = a.viewModel.settings.value
-                    val gyroEnabled = if (connected) s.controllerGyroEnabledConnected else s.controllerGyroEnabled
-
-                    a.physicalControllerHandler.onControllerGyroSettingChanged(gyroEnabled)
+                    a.viewModel.connectionManager.setPhysicalControllerConnected(connected)
+                    a.applyEffectivePhysicalControllerSettings()
 
                     if (!a.settingsInflated) return@collect
+                    val s = a.viewModel.settings.value
 
                     a.syncPhysicalControllerUI()
                     a.syncGyroSourceUI()

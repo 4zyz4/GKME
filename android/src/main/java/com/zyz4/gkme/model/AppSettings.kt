@@ -197,6 +197,8 @@ data class AppSettings(
     val vibrationPressIntensity: Int = 128,
     val vibrationReleaseIntensity: Int = 64,
     val gameVibrationDevice: VibrationDevice = VibrationDevice.PHONE,
+    /** Game-rumble target used while a physical controller is connected (defaults to it). */
+    val gameVibrationDeviceConnected: VibrationDevice = VibrationDevice.controller(0),
     val swapPhoneMotors: Boolean = false,
     val swapControllerMotors: Boolean = false,
     val autoStartEnabled: Boolean = false,
@@ -217,8 +219,12 @@ data class AppSettings(
     // Connected state
     val gyroActivateMode: GyroActivateMode = GyroActivateMode.ALWAYS,
     val controllerGyroEnabledConnected: Boolean = true,
+    /** Master gyro flag used while a physical controller is connected (see [gyroEnabled]). */
+    val gyroEnabledConnected: Boolean = true,
     /** Index into the connected gamepads whose gyro is used when the source is a controller. */
     val gyroControllerIndex: Int = 0,
+    /** Controller gyro index used while a physical controller is connected. */
+    val gyroControllerIndexConnected: Int = 0,
     val volumeUpBits: List<Int> = emptyList(),
     val volumeDownBits: List<Int> = emptyList(),
     val nonLinearTriggerAdaptation: Boolean = false,
@@ -227,6 +233,8 @@ data class AppSettings(
     val inputControllerIndex: Int = 0,
     // ── Audio (DualSense Voice Coil + Speaker) ──
     val voiceCoilDevice: AudioDevice = AudioDevice.PHONE_SPEAKER,
+    /** Voice-coil target used while a physical controller is connected (defaults to it). */
+    val voiceCoilDeviceConnected: AudioDevice = AudioDevice.controller(0),
     val swapVoiceCoilMotors: Boolean = false,
     val controllerAudioOutput: AudioOutput = AudioOutput.ALL_SPEAKERS,
     // ── Appearance ──
@@ -278,3 +286,31 @@ data class AppSettings(
      *  names, e.g. "btnColor". The touchpad outline follows the controller LED by default. */
     val ledBoundColors: Set<String> = LedAppearance.DEFAULT_BOUND_COLORS,
 )
+
+/**
+ * The three device settings (game rumble, DualSense voice coil, gyro source) each keep an
+ * independent set for the "physical controller connected" and "disconnected" states. These
+ * helpers pick the active set; [connected] comes from the physical controller handler.
+ */
+fun AppSettings.gameVibrationDeviceFor(connected: Boolean): VibrationDevice =
+    if (connected) gameVibrationDeviceConnected else gameVibrationDevice
+
+fun AppSettings.voiceCoilDeviceFor(connected: Boolean): AudioDevice =
+    if (connected) voiceCoilDeviceConnected else voiceCoilDevice
+
+fun AppSettings.gyroControllerIndexFor(connected: Boolean): Int =
+    if (connected) gyroControllerIndexConnected else gyroControllerIndex
+
+/** Master gyro flag of the active set (see [gyroEnabled] / [gyroEnabledConnected]). */
+fun AppSettings.gyroMasterEnabledFor(connected: Boolean): Boolean =
+    if (connected) gyroEnabledConnected else gyroEnabled
+
+/** The gyro source selected in the active (connected or disconnected) set. */
+fun AppSettings.gyroSourceFor(connected: Boolean): GyroSource {
+    val useController = if (connected) controllerGyroEnabledConnected else controllerGyroEnabled
+    return when {
+        useController -> GyroSource.controller(gyroControllerIndexFor(connected))
+        gyroMasterEnabledFor(connected) -> GyroSource.PHONE
+        else -> GyroSource.NONE
+    }
+}

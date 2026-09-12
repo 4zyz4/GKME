@@ -15,6 +15,8 @@ import com.zyz4.gkme.model.ConnectionMode
 import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.model.TargetPlatform
 import com.zyz4.gkme.model.VibrationDeviceType
+import com.zyz4.gkme.model.gameVibrationDeviceFor
+import com.zyz4.gkme.model.voiceCoilDeviceFor
 import com.zyz4.gkme.proto.ClientToServer
 import com.zyz4.gkme.proto.GamepadInput
 import com.zyz4.gkme.proto.Hello
@@ -94,6 +96,11 @@ class ConnectionManager @Inject constructor(
     private val _settings = MutableStateFlow(AppSettings())
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
 
+    /** Whether a physical gamepad is currently connected; selects the active device set. */
+    @Volatile
+    var physicalControllerConnected: Boolean = false
+        private set
+
     private val _ledState = MutableStateFlow(LedState())
     val ledState: StateFlow<LedState> = _ledState.asStateFlow()
 
@@ -101,12 +108,7 @@ class ConnectionManager @Inject constructor(
         _settings.value = runBlocking(Dispatchers.IO) {
             settingsRepository.settings.first()
         }
-        audioPlaybackService.setSettings(
-            voiceCoilDevice = _settings.value.voiceCoilDevice,
-            voiceCoilSwap = _settings.value.swapVoiceCoilMotors,
-            controllerAudio = _settings.value.controllerAudioOutput,
-            motorOutputEnabled = _settings.value.gameVibrationDevice.type != VibrationDeviceType.NONE,
-        )
+        applyEffectiveAudioSettings()
         audioPlaybackService.onControllerMotorOutput = { controllerIndex, leftAmp, rightAmp ->
             onControllerVibrationRequest?.invoke(controllerIndex, leftAmp, rightAmp)
         }
@@ -123,18 +125,36 @@ class ConnectionManager @Inject constructor(
     }
 
     fun updateSettings(newSettings: AppSettings) {
-        if (newSettings.gameVibrationDevice.type == VibrationDeviceType.NONE) {
-            vibrator.cancel()
-        }
-        audioPlaybackService.setSettings(
-            voiceCoilDevice = newSettings.voiceCoilDevice,
-            voiceCoilSwap = newSettings.swapVoiceCoilMotors,
-            controllerAudio = newSettings.controllerAudioOutput,
-            motorOutputEnabled = newSettings.gameVibrationDevice.type != VibrationDeviceType.NONE,
-        )
         _settings.value = newSettings
+        applyEffectiveAudioSettings()
+        stopVibrationIfDisabled()
         scope.launch {
             settingsRepository.saveSettings(newSettings)
+        }
+    }
+
+    /** Called when a physical controller connects/disconnects so the audio/vibration
+     *  settings switch to the matching saved set. */
+    fun setPhysicalControllerConnected(connected: Boolean) {
+        if (physicalControllerConnected == connected) return
+        physicalControllerConnected = connected
+        applyEffectiveAudioSettings()
+        stopVibrationIfDisabled()
+    }
+
+    private fun applyEffectiveAudioSettings() {
+        val s = _settings.value
+        audioPlaybackService.setSettings(
+            voiceCoilDevice = s.voiceCoilDeviceFor(physicalControllerConnected),
+            voiceCoilSwap = s.swapVoiceCoilMotors,
+            controllerAudio = s.controllerAudioOutput,
+            motorOutputEnabled = s.gameVibrationDeviceFor(physicalControllerConnected).type != VibrationDeviceType.NONE,
+        )
+    }
+
+    private fun stopVibrationIfDisabled() {
+        if (_settings.value.gameVibrationDeviceFor(physicalControllerConnected).type == VibrationDeviceType.NONE) {
+            vibrator.cancel()
         }
     }
 
@@ -395,7 +415,7 @@ class ConnectionManager @Inject constructor(
         }
         when (msg.payloadCase) {
             ServerToClient.PayloadCase.VIBRATION -> {
-                if (_settings.value.gameVibrationDevice.type != VibrationDeviceType.NONE) {
+                if (_settings.value.gameVibrationDeviceFor(physicalControllerConnected).type != VibrationDeviceType.NONE) {
                     val v = msg.vibration
                     onRumbleRequest?.invoke(v.largeMotor, v.smallMotor)
                 }

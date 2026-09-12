@@ -41,6 +41,10 @@ import com.zyz4.gkme.model.DisplayMode
 import com.zyz4.gkme.model.GyroOrientation
 import com.zyz4.gkme.model.GyroSource
 import com.zyz4.gkme.model.GyroSourceType
+import com.zyz4.gkme.model.gameVibrationDeviceFor
+import com.zyz4.gkme.model.voiceCoilDeviceFor
+import com.zyz4.gkme.model.gyroSourceFor
+import com.zyz4.gkme.model.gyroControllerIndexFor
 import com.zyz4.gkme.model.HapticEffect
 import com.zyz4.gkme.model.LayoutPreset
 import com.zyz4.gkme.model.TargetPlatform
@@ -224,18 +228,27 @@ internal fun MainActivity.setupSettings() {
         }
 
     // ── Audio page ──
-    a.findViewById<Spinner>(R.id.spinnerVoiceCoil).onItemSelectedListener =
-        object : AdapterView.OnItemSelectedListener {
+    a.findViewById<Spinner>(R.id.spinnerVoiceCoil).apply {
+        setOnTouchListener { _, _ ->
+            a.voiceCoilUserSelecting = true
+            false
+        }
+        onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                if (!a.voiceCoilUserSelecting) return
+                a.voiceCoilUserSelecting = false
                 val device = a.voiceCoilDeviceEntries.getOrNull(pos) ?: return
-                if (a.viewModel.settings.value.voiceCoilDevice != device) {
+                if (a.effectiveVoiceCoilDevice() != device) {
                     a.viewModel.updateVoiceCoilDevice(device)
                 }
                 a.updateVoiceCoilSwapUI(device)
                 a.audioPlaybackService.resumeIfStopped()
             }
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+                a.voiceCoilUserSelecting = false
+            }
         }
+    }
     a.findViewById<Switch>(R.id.switchSwapVoiceCoilMotors).setOnCheckedChangeListener { _, isChecked ->
         a.viewModel.updateSwapVoiceCoilMotors(isChecked)
         a.audioPlaybackService.resumeIfStopped()
@@ -278,17 +291,28 @@ internal fun MainActivity.setupSettings() {
     }
 
     // ── Vibration page ──
-    a.findViewById<Spinner>(R.id.spinnerGameVibrationDevice).onItemSelectedListener =
-        object : AdapterView.OnItemSelectedListener {
+    a.findViewById<Spinner>(R.id.spinnerGameVibrationDevice).apply {
+        setOnTouchListener { _, _ ->
+            a.gameVibrationUserSelecting = true
+            false
+        }
+        onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                if (!a.gameVibrationUserSelecting) return
+                a.gameVibrationUserSelecting = false
                 val device = a.gameVibrationDeviceEntries.getOrNull(pos) ?: return
-                a.viewModel.updateGameVibrationDevice(device)
+                if (a.effectiveGameVibrationDevice() != device) {
+                    a.viewModel.updateGameVibrationDevice(device)
+                }
                 a.updateSwapMotorsUI(device)
             }
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+                a.gameVibrationUserSelecting = false
+            }
         }
+    }
     a.findViewById<Switch>(R.id.switchSwapMotors).setOnCheckedChangeListener { _, isChecked ->
-        when (a.viewModel.settings.value.gameVibrationDevice.type) {
+        when (a.effectiveGameVibrationDevice().type) {
             VibrationDeviceType.PHONE -> a.viewModel.updateSwapPhoneMotors(isChecked)
             VibrationDeviceType.CONTROLLER -> a.viewModel.updateSwapControllerMotors(isChecked)
             VibrationDeviceType.NONE -> {}
@@ -379,15 +403,24 @@ internal fun MainActivity.setupSettings() {
     }
 
     // ── Gyro page ──
-    a.findViewById<Spinner>(R.id.spinnerGyroSource).onItemSelectedListener =
-        object : AdapterView.OnItemSelectedListener {
+    a.findViewById<Spinner>(R.id.spinnerGyroSource).apply {
+        setOnTouchListener { _, _ ->
+            a.gyroSourceUserSelecting = true
+            false
+        }
+        onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                if (!a.gyroSourceUserSelecting) return
+                a.gyroSourceUserSelecting = false
                 val source = a.gyroSourceEntries.getOrNull(pos) ?: return
                 if (source == a.currentGyroSource()) return
                 a.applyGyroSource(source)
             }
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+                a.gyroSourceUserSelecting = false
+            }
         }
+    }
 
     listOf(
         R.id.btnGyroOriLandscape to GyroOrientation.LANDSCAPE,
@@ -571,20 +604,42 @@ internal fun MainActivity.updateSwapMotorsUI(device: VibrationDevice) {
 internal fun MainActivity.syncGameVibrationUI() {
     val a = this
     if (!a.settingsInflated) return
-    val s = a.viewModel.settings.value
     val entries = a.buildGameVibrationDeviceEntries()
     a.gameVibrationDeviceEntries = entries
     val spinner = a.findViewById<Spinner>(R.id.spinnerGameVibrationDevice)
     a.updateGameVibrationDeviceAdapter(spinner, entries)
 
     val connectedCount = a.physicalControllerHandler.connectedControllers.value.size
-    var selected = s.gameVibrationDevice
+    var selected = a.effectiveGameVibrationDevice()
     if (selected.type == VibrationDeviceType.CONTROLLER && selected.controllerIndex >= connectedCount) {
         selected = VibrationDevice.PHONE
     }
     val pos = entries.indexOf(selected).let { if (it >= 0) it else 0 }
     spinner.setSelection(pos)
     a.updateSwapMotorsUI(entries.getOrElse(pos) { VibrationDevice.PHONE })
+}
+
+/** The game-rumble target of the active set (connected vs disconnected). */
+internal fun MainActivity.effectiveGameVibrationDevice(): VibrationDevice =
+    viewModel.settings.value.gameVibrationDeviceFor(physicalControllerHandler.isConnected.value)
+
+/** The voice-coil target of the active set (connected vs disconnected). */
+internal fun MainActivity.effectiveVoiceCoilDevice(): AudioDevice =
+    viewModel.settings.value.voiceCoilDeviceFor(physicalControllerHandler.isConnected.value)
+
+/**
+ * Pushes the settings of the active (connected vs disconnected) set into the physical
+ * controller handler: game rumble target, gyro source index and controller-gyro flag.
+ */
+internal fun MainActivity.applyEffectivePhysicalControllerSettings() {
+    val a = this
+    val s = a.viewModel.settings.value
+    val connected = a.physicalControllerHandler.isConnected.value
+    a.physicalControllerHandler.gameVibrationDevice = s.gameVibrationDeviceFor(connected)
+    a.physicalControllerHandler.gyroControllerIndex = s.gyroControllerIndexFor(connected)
+    a.physicalControllerHandler.onControllerGyroSettingChanged(
+        s.gyroSourceFor(connected).type == GyroSourceType.CONTROLLER
+    )
 }
 
 internal fun MainActivity.buildInputControllerIndices(): List<Int> {
@@ -632,37 +687,16 @@ internal fun MainActivity.syncPhysicalControllerUI() {
 
 internal fun MainActivity.currentGyroSource(): GyroSource {
     val a = this
-    val s = a.viewModel.settings.value
     val connected = a.physicalControllerHandler.isConnected.value
-    val useController = if (connected) s.controllerGyroEnabledConnected else s.controllerGyroEnabled
-    return when {
-        useController -> GyroSource.controller(s.gyroControllerIndex)
-        s.gyroEnabled -> GyroSource.PHONE
-        else -> GyroSource.NONE
-    }
+    return a.viewModel.settings.value.gyroSourceFor(connected)
 }
 
 internal fun MainActivity.applyGyroSource(source: GyroSource) {
     val a = this
-    when (source.type) {
-        GyroSourceType.CONTROLLER -> {
-            a.physicalControllerHandler.gyroControllerIndex = source.controllerIndex
-            a.viewModel.updateGyroEnabled(true)
-            a.viewModel.updateControllerGyroEnabled(true)
-            a.viewModel.updateControllerGyroEnabledConnected(true)
-            a.viewModel.updateGyroControllerIndex(source.controllerIndex)
-        }
-        GyroSourceType.PHONE -> {
-            a.viewModel.updateGyroEnabled(true)
-            a.viewModel.updateControllerGyroEnabled(false)
-            a.viewModel.updateControllerGyroEnabledConnected(false)
-        }
-        GyroSourceType.NONE -> {
-            a.viewModel.updateGyroEnabled(false)
-            a.viewModel.updateControllerGyroEnabled(false)
-            a.viewModel.updateControllerGyroEnabledConnected(false)
-        }
-    }
+    val connected = a.physicalControllerHandler.isConnected.value
+    a.viewModel.updateGyroSource(source)
+    a.physicalControllerHandler.gyroControllerIndex =
+        a.viewModel.settings.value.gyroControllerIndexFor(connected)
     a.physicalControllerHandler.onControllerGyroSettingChanged(source.type == GyroSourceType.CONTROLLER)
     a.updateGyroSourceVisibility(source)
 }
@@ -689,7 +723,9 @@ internal fun MainActivity.updateGyroSourceVisibility(source: GyroSource) {
 
     // Column titles follow the actual selected source (controller name, not a fixed label).
     val ctrlSource = if (isController) source
-        else GyroSource.controller(a.viewModel.settings.value.gyroControllerIndex)
+        else GyroSource.controller(
+            a.viewModel.settings.value.gyroControllerIndexFor(a.physicalControllerHandler.isConnected.value)
+        )
     a.findViewById<TextView>(R.id.tvPhoneGyroTitle).text = a.gyroSourceDisplayName(GyroSource.PHONE)
     a.findViewById<TextView>(R.id.tvControllerGyroTitle).text = a.gyroSourceDisplayName(ctrlSource)
 
@@ -796,7 +832,7 @@ internal fun MainActivity.syncVoiceCoilUI() {
     val spinner = a.findViewById<Spinner>(R.id.spinnerVoiceCoil)
     a.updateVoiceCoilDeviceAdapter(spinner, entries)
     val connectedCount = a.physicalControllerHandler.connectedControllers.value.size
-    var selected = a.viewModel.settings.value.voiceCoilDevice
+    var selected = a.effectiveVoiceCoilDevice()
     if (selected.type == AudioDeviceType.CONTROLLER && selected.controllerIndex >= connectedCount) {
         selected = AudioDevice.PHONE_SPEAKER
     }

@@ -21,6 +21,9 @@ import com.zyz4.gkme.model.GyroMode
 import com.zyz4.gkme.model.GyroCoordinateSystem
 import com.zyz4.gkme.model.GyroOrientation
 import com.zyz4.gkme.model.GyroActivateMode
+import com.zyz4.gkme.model.GyroSource
+import com.zyz4.gkme.model.GyroSourceType
+import com.zyz4.gkme.model.gyroMasterEnabledFor
 import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.model.HapticEffect
 import com.zyz4.gkme.model.LayoutPreset
@@ -326,7 +329,12 @@ class GkViewModel @Inject constructor(
     }
 
     fun updateGameVibrationDevice(device: VibrationDevice) {
-        connectionManager.updateSettings(settings.value.copy(gameVibrationDevice = device))
+        val updated = if (_physicalControllerConnected.value) {
+            settings.value.copy(gameVibrationDeviceConnected = device)
+        } else {
+            settings.value.copy(gameVibrationDevice = device)
+        }
+        connectionManager.updateSettings(updated)
     }
 
     fun updateSwapPhoneMotors(enabled: Boolean) {
@@ -337,19 +345,47 @@ class GkViewModel @Inject constructor(
         connectionManager.updateSettings(settings.value.copy(swapControllerMotors = enabled))
     }
 
-    fun updateGyroEnabled(enabled: Boolean) {
-        val updated = settings.value.copy(gyroEnabled = enabled)
-        connectionManager.updateSettings(updated)
-        val mode = settings.value.gyroActivateMode
-        val canGyro = if (mode == GyroActivateMode.BUTTON) {
-            enabled
-        } else {
-            enabled
+    /**
+     * Selects the gyro source for the active set (connected or disconnected), writing only
+     * to that set so the two are remembered independently.
+     */
+    fun updateGyroSource(source: GyroSource) {
+        val connected = _physicalControllerConnected.value
+        val cur = settings.value
+        val updated = when (source.type) {
+            GyroSourceType.CONTROLLER -> if (connected) cur.copy(
+                gyroEnabledConnected = true,
+                controllerGyroEnabledConnected = true,
+                gyroControllerIndexConnected = source.controllerIndex,
+            ) else cur.copy(
+                gyroEnabled = true,
+                controllerGyroEnabled = true,
+                gyroControllerIndex = source.controllerIndex,
+            )
+            GyroSourceType.PHONE -> if (connected) cur.copy(
+                gyroEnabledConnected = true,
+                controllerGyroEnabledConnected = false,
+            ) else cur.copy(
+                gyroEnabled = true,
+                controllerGyroEnabled = false,
+            )
+            GyroSourceType.NONE -> if (connected) cur.copy(
+                gyroEnabledConnected = false,
+                controllerGyroEnabledConnected = false,
+            ) else cur.copy(
+                gyroEnabled = false,
+                controllerGyroEnabled = false,
+            )
         }
-        if (canGyro || settings.value.gyroMode != GyroMode.NONE) {
+        connectionManager.updateSettings(updated)
+        refreshGyroLoops(updated, connected)
+    }
+
+    private fun refreshGyroLoops(s: AppSettings, connected: Boolean) {
+        if (s.gyroMasterEnabledFor(connected) || s.gyroMode != GyroMode.NONE) {
             startSensorDisplay()
-            if (settings.value.connectionMode == ConnectionMode.WIFI ||
-                settings.value.connectionMode == ConnectionMode.BLUETOOTH
+            if (s.connectionMode == ConnectionMode.WIFI ||
+                s.connectionMode == ConnectionMode.BLUETOOTH
             ) {
                 startSensorSendLoop()
             }
@@ -390,7 +426,7 @@ class GkViewModel @Inject constructor(
         if (settings.value.connectionMode == ConnectionMode.WIFI ||
             settings.value.connectionMode == ConnectionMode.BLUETOOTH
         ) {
-            if (mode != GyroMode.NONE || settings.value.gyroEnabled) {
+            if (mode != GyroMode.NONE || settings.value.gyroMasterEnabledFor(_physicalControllerConnected.value)) {
                 startSensorSendLoop()
             } else {
                 sendJob?.cancel()
@@ -438,18 +474,6 @@ class GkViewModel @Inject constructor(
         updateGyroOverrideFromCount()
     }
 
-    fun updateControllerGyroEnabled(enabled: Boolean) {
-        connectionManager.updateSettings(settings.value.copy(controllerGyroEnabled = enabled))
-    }
-
-    fun updateControllerGyroEnabledConnected(enabled: Boolean) {
-        connectionManager.updateSettings(settings.value.copy(controllerGyroEnabledConnected = enabled))
-    }
-
-    fun updateGyroControllerIndex(index: Int) {
-        connectionManager.updateSettings(settings.value.copy(gyroControllerIndex = index))
-    }
-
     fun updateNonLinearTriggerAdaptation(enabled: Boolean) {
         connectionManager.updateSettings(settings.value.copy(nonLinearTriggerAdaptation = enabled))
     }
@@ -459,7 +483,12 @@ class GkViewModel @Inject constructor(
     }
 
     fun updateVoiceCoilDevice(device: AudioDevice) {
-        connectionManager.updateSettings(settings.value.copy(voiceCoilDevice = device))
+        val updated = if (_physicalControllerConnected.value) {
+            settings.value.copy(voiceCoilDeviceConnected = device)
+        } else {
+            settings.value.copy(voiceCoilDevice = device)
+        }
+        connectionManager.updateSettings(updated)
     }
 
     fun updateSwapVoiceCoilMotors(enabled: Boolean) {
@@ -571,16 +600,17 @@ class GkViewModel @Inject constructor(
                 mousePan = (hWheel.toInt() + _gamepadState.value.mousePan.toInt()).coerceIn(-127, 127).toShort(),
             )
         }
+        val gyroOn = settings.value.gyroMasterEnabledFor(_physicalControllerConnected.value)
         if (settings.value.connectionMode == ConnectionMode.WIFI ||
             settings.value.connectionMode == ConnectionMode.BLUETOOTH
         ) {
-            if (settings.value.gyroEnabled || settings.value.gyroMode != GyroMode.NONE) {
+            if (gyroOn || settings.value.gyroMode != GyroMode.NONE) {
                 startSensorSendLoop()
             } else {
                 startPeriodicSendLoop()
             }
         }
-        if (settings.value.gyroEnabled || settings.value.gyroMode != GyroMode.NONE) {
+        if (gyroOn || settings.value.gyroMode != GyroMode.NONE) {
             startSensorDisplay()
         }
     }
@@ -694,11 +724,12 @@ class GkViewModel @Inject constructor(
                 val s = settings.value
                 val sensor = sensorHandler.sensorData.value
                 _gyroDisplay.value = Triple(sensor.gyroX, sensor.gyroY, sensor.gyroZ)
-                val useControllerGyro = if (_physicalControllerConnected.value) s.controllerGyroEnabledConnected else s.controllerGyroEnabled
+                val connected = _physicalControllerConnected.value
+                val useControllerGyro = if (connected) s.controllerGyroEnabledConnected else s.controllerGyroEnabled
                 val actualGyroEnabled = if (s.gyroActivateMode == GyroActivateMode.BUTTON) {
                     _gyroOverrideEnabled.value
                 } else {
-                    s.gyroEnabled
+                    s.gyroMasterEnabledFor(connected)
                 }
                 if (!useControllerGyro && actualGyroEnabled) {
                     _gamepadState.value = _gamepadState.value.copy(
