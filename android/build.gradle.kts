@@ -78,6 +78,8 @@ dependencies {
 
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.constraintlayout:constraintlayout:2.2.0")
+
+    testImplementation("junit:junit:4.13.2")
 }
 
 protobuf {

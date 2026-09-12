@@ -105,16 +105,65 @@ static void linear_upsample_3k_to_48k(const int16_t* input_quad, int input_frame
     }
 }
 
+/*
+ * Keep several isochronous URBs in flight so the host controller always has the
+ * next 1 ms packet queued. The previous implementation submitted one URB and
+ * waited for it to complete, which leaves a gap at every URB boundary that the
+ * DualSense's audio buffer hears as periodic dropouts (the stuttering tone).
+ */
+#define PIPELINE_DEPTH 3
+
+typedef struct {
+    struct usbdevfs_urb* urb;
+    uint8_t* buffer;
+    int buffer_size;
+} haptic_slot;
+
+static haptic_slot g_slots[PIPELINE_DEPTH];
+static int g_inflight = 0;
+
+static void pipeline_reap(int blocking) {
+    struct usbdevfs_urb* reaped = NULL;
+    int op = blocking ? USBDEVFS_REAPURB : USBDEVFS_REAPURBNDELAY;
+    int i;
+
+    if (g_inflight <= 0) {
+        return;
+    }
+    if (ioctl(g_usb_fd, op, &reaped) != 0) {
+        return;
+    }
+
+    for (i = 0; i < PIPELINE_DEPTH; i++) {
+        if (g_slots[i].urb == reaped) {
+            if (reaped->status != 0) {
+                HLOGE("Haptic URB completed with status=%d", reaped->status);
+            }
+            free(reaped);
+            g_slots[i].urb = NULL;
+            g_inflight--;
+            return;
+        }
+    }
+    HLOGE("Reaped unexpected haptic URB");
+}
+
+static void pipeline_flush(void) {
+    while (g_inflight > 0) {
+        pipeline_reap(1);
+    }
+}
+
 static int submit_iso_pcm_locked(void* buffer, int length) {
     int frames;
     int packet_count;
     int base_frames;
     int extra_frames;
     int i;
-    int success;
+    int slot = -1;
     size_t urb_size;
     struct usbdevfs_urb* urb;
-    void* reaped_urb = NULL;
+    haptic_slot* s;
 
     if (buffer == NULL || length <= 0 || length > MAX_OUTPUT_BYTES ||
             length % BYTES_PER_OUTPUT_FRAME != 0) {
@@ -127,6 +176,33 @@ static int submit_iso_pcm_locked(void* buffer, int length) {
         return 0;
     }
 
+    /* Reclaim completed URBs, then block for one if the pipeline is saturated. */
+    pipeline_reap(0);
+    if (g_inflight >= PIPELINE_DEPTH) {
+        pipeline_reap(1);
+    }
+    for (i = 0; i < PIPELINE_DEPTH; i++) {
+        if (g_slots[i].urb == NULL) {
+            slot = i;
+            break;
+        }
+    }
+    if (slot < 0) {
+        return 0;
+    }
+
+    s = &g_slots[slot];
+    if (s->buffer_size < length) {
+        uint8_t* grown = (uint8_t*) realloc(s->buffer, (size_t) length);
+        if (grown == NULL) {
+            HLOGE("Failed to allocate haptic buffer");
+            return 0;
+        }
+        s->buffer = grown;
+        s->buffer_size = length;
+    }
+    memcpy(s->buffer, buffer, (size_t) length);
+
     urb_size = sizeof(struct usbdevfs_urb) +
             ((size_t) packet_count * sizeof(struct usbdevfs_iso_packet_desc));
     urb = (struct usbdevfs_urb*) calloc(1, urb_size);
@@ -138,7 +214,7 @@ static int submit_iso_pcm_locked(void* buffer, int length) {
     urb->type = USBDEVFS_URB_TYPE_ISO;
     urb->endpoint = g_haptic_endpoint;
     urb->flags = USBDEVFS_URB_ISO_ASAP;
-    urb->buffer = buffer;
+    urb->buffer = s->buffer;
     urb->buffer_length = length;
     urb->number_of_packets = packet_count;
 
@@ -154,37 +230,10 @@ static int submit_iso_pcm_locked(void* buffer, int length) {
         free(urb);
         return 0;
     }
-    if (ioctl(g_usb_fd, USBDEVFS_REAPURB, &reaped_urb) != 0) {
-        HLOGE("Failed to reap haptic URB, errno=%d", errno);
-        free(urb);
-        return 0;
-    }
-    if (reaped_urb != urb) {
-        HLOGE("Reaped unexpected haptic URB");
-        free(reaped_urb);
-        free(urb);
-        return 0;
-    }
 
-    success = urb->status == 0;
-    if (!success) {
-        HLOGE("Haptic URB completed with status=%d", urb->status);
-    }
-    else {
-        for (i = 0; i < packet_count; i++) {
-            if (urb->iso_frame_desc[i].status != 0 ||
-                    urb->iso_frame_desc[i].actual_length != urb->iso_frame_desc[i].length) {
-                HLOGE("Haptic isoch packet %d failed: status=%u actual=%u expected=%u",
-                      i, urb->iso_frame_desc[i].status,
-                      urb->iso_frame_desc[i].actual_length,
-                      urb->iso_frame_desc[i].length);
-                success = 0;
-                break;
-            }
-        }
-    }
-    free(urb);
-    return success;
+    s->urb = urb;
+    g_inflight++;
+    return 1;
 }
 
 JNIEXPORT jboolean JNICALL
@@ -237,6 +286,9 @@ Java_com_zyz4_gkme_input_usb_HapticNative_nativeEnableHaptics(
         pthread_mutex_unlock(&g_haptic_mutex);
         return JNI_FALSE;
     }
+
+    memset(g_slots, 0, sizeof(g_slots));
+    g_inflight = 0;
 
     if (g_upsampled_buffer == NULL) {
         g_upsampled_buffer = (int16_t*) calloc(1, MAX_OUTPUT_BYTES);
@@ -342,6 +394,18 @@ Java_com_zyz4_gkme_input_usb_HapticNative_nativeCleanupHaptics(
     pthread_mutex_lock(&g_haptic_mutex);
 
     g_haptic_enabled = 0;
+
+    pipeline_flush();
+    {
+        int i;
+        for (i = 0; i < PIPELINE_DEPTH; i++) {
+            free(g_slots[i].buffer);
+            g_slots[i].buffer = NULL;
+            g_slots[i].buffer_size = 0;
+            g_slots[i].urb = NULL;
+        }
+        g_inflight = 0;
+    }
 
     if (g_upsampled_buffer != NULL) {
         free(g_upsampled_buffer);

@@ -263,6 +263,9 @@ internal fun MainActivity.setupSettings() {
     val voiceCoilTest = View.OnClickListener {
         val device = a.effectiveVoiceCoilDevice()
         if (device.type == AudioDeviceType.CONTROLLER) {
+            // The test and the PC audio stream share the USB endpoint, so mute the
+            // PC stream for the test's duration.
+            a.audioPlaybackService.beginVoiceCoilTest()
             a.physicalControllerHandler.playVoiceCoilTest(device.controllerIndex)
             a.showToast("已发送音圈测试音（220Hz，2秒）")
         } else {

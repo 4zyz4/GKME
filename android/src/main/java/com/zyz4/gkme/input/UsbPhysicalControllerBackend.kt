@@ -19,6 +19,8 @@ import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.model.TouchPoint
 import com.zyz4.gkme.model.VibrationDevice
 import com.zyz4.gkme.model.VibrationDeviceType
+import com.zyz4.gkme.service.ControllerAudioDsp
+import com.zyz4.gkme.service.PcmToneGenerator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -395,6 +397,14 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
                 val controller = synchronized(lock) {
                     controllerList.getOrNull(gameVibrationDevice.controllerIndex)
                 } ?: return
+                // On a DualSense the compatible-vibration HID report and the
+                // audio-haptics PCM are mutually exclusive: the HID report
+                // (HAPTICS_SELECT) switches the pad out of audio-haptics mode.
+                // The PC echoes a zero-intensity vibration as a keepalive, which
+                // would otherwise permanently kill the voice coil, so for a pad
+                // with an advanced-audio endpoint the voice coil always wins and
+                // base vibration is ignored.
+                if (controller.hasAdvancedAudioHapticsSupport()) return
                 val motor0 = if (swapControllerMotors) high else low
                 val motor1 = if (swapControllerMotors) low else high
                 controller.rumble((motor0 * 257).toShort(), (motor1 * 257).toShort())
@@ -408,7 +418,11 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
             VibrationDeviceType.PHONE -> vibratePhone(0)
             VibrationDeviceType.CONTROLLER -> {
                 val controller = synchronized(lock) { controllerList.getOrNull(device.controllerIndex) }
-                controller?.rumble(0, 0)
+                // A zero HID rumble would knock an audio-haptics pad out of the
+                // voice-coil path, so leave it alone.
+                if (controller != null && !controller.hasAdvancedAudioHapticsSupport()) {
+                    controller.rumble(0, 0)
+                }
             }
             VibrationDeviceType.NONE -> {}
         }
@@ -441,38 +455,46 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
         )
         if (controller == null || !controller.hasAdvancedAudioHapticsSupport()) return
         Thread({
-            val sampleRate = 48000
+            val sampleRate = ControllerAudioDsp.USB_PCM_RATE
             val framesPerChunk = 480
-            val frequency = 220.0
             val totalFrames = sampleRate * 2
+            // Drive the voice-coil channels (ch2/ch3) only, so the test exercises
+            // the motors rather than the controller speaker.
+            val generator = PcmToneGenerator(
+                sampleRate = sampleRate,
+                frequencyHz = 220.0,
+                amplitude = 20000.0,
+                channels = 4,
+                activeChannels = intArrayOf(2, 3),
+            )
+
+            // The native sender submits one isochronous URB at a time and blocks
+            // until it completes, so it starves whenever the producer's queue is
+            // empty at a URB boundary. Pre-fill a few chunks, then pace against the
+            // audio clock (nanoTime) instead of Thread.sleep's ~10 ms granularity,
+            // which would otherwise feed slower than real time and drop out.
+            val leadFrames = framesPerChunk * 5
+            val startNs = System.nanoTime()
             var written = 0
-            var phase = 0.0
             while (written < totalFrames) {
                 val count = minOf(framesPerChunk, totalFrames - written)
-                val frame = ByteArray(count * 8)
-                for (i in 0 until count) {
-                    val v = (kotlin.math.sin(phase) * 20000.0).toInt()
-                    phase += 2.0 * Math.PI * frequency / sampleRate
-                    writeShortLe(frame, i * 8, v)
-                    writeShortLe(frame, i * 8 + 2, v)
-                    writeShortLe(frame, i * 8 + 4, v)
-                    writeShortLe(frame, i * 8 + 6, v)
-                }
-                controller.submitNativeAudioHapticsFrame(frame)
+                controller.submitNativeAudioHapticsFrame(generator.nextFrame(count))
                 written += count
-                try {
-                    Thread.sleep(10)
-                } catch (_: InterruptedException) {
-                    break
+
+                val ahead = written - leadFrames
+                if (ahead > 0) {
+                    val targetNs = startNs + ahead.toLong() * 1_000_000_000L / sampleRate
+                    val waitNs = targetNs - System.nanoTime()
+                    if (waitNs > 0) {
+                        try {
+                            Thread.sleep(waitNs / 1_000_000L)
+                        } catch (_: InterruptedException) {
+                            break
+                        }
+                    }
                 }
             }
         }, "VoiceCoilTest").start()
-    }
-
-    private fun writeShortLe(bytes: ByteArray, offset: Int, value: Int) {
-        val v = value.coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
-        bytes[offset] = v.toByte()
-        bytes[offset + 1] = (v shr 8).toByte()
     }
 
     // ── Adaptive triggers / trigger rumble (reserved) ──────
