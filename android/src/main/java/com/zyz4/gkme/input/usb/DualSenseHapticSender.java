@@ -7,6 +7,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 public final class DualSenseHapticSender {
@@ -15,6 +16,9 @@ public final class DualSenseHapticSender {
     private static final int QUEUE_CAPACITY = 64;
     private static final int DIRECT_BUFFER_SIZE = 4096;
     private static final long STATS_INTERVAL_MS = 2000L;
+    // 10 ms of 48 kHz 4-channel S16LE silence. The PC drops all-zero windows, so
+    // the worker fills idle gaps with this to keep the isochronous endpoint fed.
+    private static final int SILENCE_FRAME_BYTES = 480 * 8;
 
     private static final class HapticFrame {
         final byte[] data;
@@ -48,13 +52,27 @@ public final class DualSenseHapticSender {
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO);
             ByteBuffer directBuffer = ByteBuffer.allocateDirect(DIRECT_BUFFER_SIZE)
                     .order(ByteOrder.LITTLE_ENDIAN);
+            ByteBuffer silenceBuffer = ByteBuffer.allocateDirect(SILENCE_FRAME_BYTES)
+                    .order(ByteOrder.LITTLE_ENDIAN);
+            boolean nativeMode = false;
             long statsStartedMs = SystemClock.uptimeMillis();
             long sentNativePcmFrames = 0;
             long failedNativePcmFrames = 0;
             long sentNativePcmBytes = 0;
             while (running) {
                 try {
-                    HapticFrame frame = queue.take();
+                    HapticFrame frame;
+                    if (nativeMode) {
+                        // The PC drops all-zero windows, so idle gaps must be filled
+                        // locally to keep the isochronous endpoint from underrunning.
+                        frame = queue.poll(1, TimeUnit.MILLISECONDS);
+                        if (frame == null) {
+                            HapticNative.nativeSendNativeHapticPcm(silenceBuffer, SILENCE_FRAME_BYTES);
+                            continue;
+                        }
+                    } else {
+                        frame = queue.take();
+                    }
                     if (frame == null || frame.data == null || frame.data.length == 0 ||
                             frame.data.length > DIRECT_BUFFER_SIZE) {
                         continue;
@@ -64,6 +82,7 @@ public final class DualSenseHapticSender {
                     directBuffer.put(frame.data);
                     directBuffer.flip();
                     if (frame.nativePcm) {
+                        nativeMode = true;
                         if (HapticNative.nativeSendNativeHapticPcm(directBuffer, frame.data.length)) {
                             sentNativePcmFrames++;
                             sentNativePcmBytes += frame.data.length;

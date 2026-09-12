@@ -35,6 +35,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -103,6 +106,17 @@ class ConnectionManager @Inject constructor(
 
     private val _ledState = MutableStateFlow(LedState())
     val ledState: StateFlow<LedState> = _ledState.asStateFlow()
+
+    // Audio DSP runs on its own thread so a burst of audio frames can never block
+    // the UDP receive loop (which also carries vibration/LED/control messages).
+    // The bounded queue drops the oldest frame when the producer outruns the DSP,
+    // which is the right trade-off for real-time audio.
+    private val audioExecutor = ThreadPoolExecutor(
+        1, 1, 0L, TimeUnit.MILLISECONDS,
+        ArrayBlockingQueue(8),
+        { r -> Thread(r, "GkmeAudioDsp").apply { isDaemon = true } },
+        ThreadPoolExecutor.DiscardOldestPolicy(),
+    )
 
     init {
         _settings.value = runBlocking(Dispatchers.IO) {
@@ -422,14 +436,17 @@ class ConnectionManager @Inject constructor(
             }
             ServerToClient.PayloadCase.AUDIO_FRAME -> {
                 val af = msg.audioFrame
+                val pcm = af.pcm.toByteArray()
                 logAudioFrameDiag(af.frameIndex, af.sampleCount, af.sampleRateHz.toInt(),
-                    af.channels.toInt(), af.pcm.size())
-                audioPlaybackService.submitAudio(
-                    pcm = af.pcm.toByteArray(),
-                    sampleRate = af.sampleRateHz.toInt(),
-                    channels = af.channels.toInt(),
-                    bitsPerSample = af.bitsPerSample.toInt(),
-                )
+                    af.channels.toInt(), pcm.size)
+                if (pcm.isNotEmpty()) {
+                    val rate = af.sampleRateHz.toInt()
+                    val ch = af.channels.toInt()
+                    val bits = af.bitsPerSample.toInt()
+                    audioExecutor.execute {
+                        audioPlaybackService.submitAudio(pcm, rate, ch, bits)
+                    }
+                }
             }
             ServerToClient.PayloadCase.LED_STATE -> {
                 val led = msg.ledState
