@@ -1934,7 +1934,7 @@
                     android:fontFamily="sans-serif-medium"
                     android:layout_marginBottom="8dp" />
 
-                <!-- Left Voice Coil Output -->
+                <!-- Voice Coil Output -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
@@ -1948,40 +1948,41 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="左音圈马达"
+                        android:text="音圈马达"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp" />
 
                     <Spinner
-                        android:id="@+id/spinnerLeftVoiceCoil"
+                        android:id="@+id/spinnerVoiceCoil"
                         android:layout_width="wrap_content"
                         android:layout_height="match_parent"
                         android:minWidth="120dp" />
                 </LinearLayout>
 
-                <!-- Right Voice Coil Output -->
+                <!-- Swap left/right motors (only when the selected device has 2+ motors) -->
                 <LinearLayout
+                    android:id="@+id/layoutSwapVoiceCoilMotors"
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal"
                     android:background="@color/bg_surface"
                     android:paddingHorizontal="12dp"
-                    android:layout_marginBottom="8dp">
+                    android:layout_marginBottom="8dp"
+                    android:visibility="gone">
 
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="右音圈马达"
+                        android:text="交换左右马达"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp" />
 
-                    <Spinner
-                        android:id="@+id/spinnerRightVoiceCoil"
+                    <Switch
+                        android:id="@+id/switchSwapVoiceCoilMotors"
                         android:layout_width="wrap_content"
-                        android:layout_height="match_parent"
-                        android:minWidth="120dp" />
+                        android:layout_height="wrap_content" />
                 </LinearLayout>
 
                 <View
@@ -2162,17 +2163,30 @@
                     android:fontFamily="sans-serif-medium"
                     android:layout_marginBottom="16dp" />
 
-                <!-- Connection Status -->
-                <TextView
-                    android:id="@+id/tvPhysicalControllerStatus"
+                <!-- Input Controller Selection -->
+                <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:gravity="center"
-                    android:text="未连接手柄"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="14sp"
+                    android:layout_height="48dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
                     android:background="@color/bg_surface"
-                    android:layout_marginBottom="16dp" />
+                    android:paddingHorizontal="12dp"
+                    android:layout_marginBottom="16dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="输入手柄"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp" />
+
+                    <Spinner
+                        android:id="@+id/spinnerPhysicalController"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:minWidth="140dp" />
+                </LinearLayout>
 
                 <!-- Trigger Analog Simulation -->
                 <LinearLayout
@@ -2245,7 +2259,7 @@
                     android:fontFamily="sans-serif-medium"
                     android:layout_marginBottom="16dp" />
 
-                <!-- Gyro Enable Toggle -->
+                <!-- Gyro Source Selection -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
@@ -2259,85 +2273,68 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="体感开关"
+                        android:text="体感来源"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp" />
 
-                    <Switch
-                        android:id="@+id/switchGyroEnabled"
+                    <Spinner
+                        android:id="@+id/spinnerGyroSource"
                         android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
+                        android:layout_height="match_parent"
+                        android:minWidth="140dp" />
                 </LinearLayout>
 
-                <!-- Gyro Orientation -->
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="体感握持方向"
-                    android:textColor="@color/text_primary"
-                    android:textSize="14sp"
-                    android:fontFamily="sans-serif-medium"
-                    android:layout_marginBottom="8dp" />
-
+                <!-- Gyro Orientation (phone gyro only) -->
                 <LinearLayout
+                    android:id="@+id/layoutGyroOrientation"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center"
-                    android:layout_marginBottom="16dp">
-
-                    <Button
-                        android:id="@+id/btnGyroOriLandscape"
-                        style="@style/GamepadChip"
-                        android:layout_marginEnd="4dp"
-                        android:text="横屏" />
-
-                    <Button
-                        android:id="@+id/btnGyroOriPortrait"
-                        style="@style/GamepadChip"
-                        android:layout_marginEnd="4dp"
-                        android:text="竖屏" />
-
-                    <Button
-                        android:id="@+id/btnGyroOriPortraitInverted"
-                        style="@style/GamepadChip"
-                        android:text="倒置竖屏" />
-                </LinearLayout>
-
-                <TextView
-                    android:id="@+id/tvGyroLandscapeInvertedNote"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="当前屏幕方向会交换竖屏和倒置竖屏的效果"
-                    android:textColor="#FF9800"
-                    android:textSize="12sp"
-                    android:gravity="center"
-                    android:layout_marginBottom="12dp"
-                    android:visibility="gone" />
-
-                <!-- Controller Gyro Toggle -->
-                <LinearLayout
-                    android:id="@+id/layoutControllerGyro"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:background="@color/bg_surface"
-                    android:paddingHorizontal="12dp"
-                    android:layout_marginBottom="4dp">
+                    android:orientation="vertical">
 
                     <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="使用手柄陀螺仪"
-                        android:textColor="@color/text_primary"
-                        android:textSize="14sp" />
-
-                    <Switch
-                        android:id="@+id/switchControllerGyro"
                         android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
+                        android:layout_height="wrap_content"
+                        android:text="体感握持方向"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:layout_marginBottom="8dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center"
+                        android:layout_marginBottom="16dp">
+
+                        <Button
+                            android:id="@+id/btnGyroOriLandscape"
+                            style="@style/GamepadChip"
+                            android:layout_marginEnd="4dp"
+                            android:text="横屏" />
+
+                        <Button
+                            android:id="@+id/btnGyroOriPortrait"
+                            style="@style/GamepadChip"
+                            android:layout_marginEnd="4dp"
+                            android:text="竖屏" />
+
+                        <Button
+                            android:id="@+id/btnGyroOriPortraitInverted"
+                            style="@style/GamepadChip"
+                            android:text="倒置竖屏" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvGyroLandscapeInvertedNote"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="当前屏幕方向会交换竖屏和倒置竖屏的效果"
+                        android:textColor="#FF9800"
+                        android:textSize="12sp"
+                        android:gravity="center"
+                        android:layout_marginBottom="12dp"
+                        android:visibility="gone" />
                 </LinearLayout>
 
                 <!-- Note when gyro is using controller sensors -->
@@ -2367,6 +2364,7 @@
 
                     <!-- Phone Gyro Column -->
                     <LinearLayout
+                        android:id="@+id/layoutPhoneGyroDisplay"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
@@ -2376,9 +2374,9 @@
                         android:layout_marginEnd="4dp">
 
                         <TextView
+                            android:id="@+id/tvPhoneGyroTitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="手机陀螺仪"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp"
                             android:fontFamily="sans-serif-medium"
@@ -2440,6 +2438,7 @@
 
                     <!-- Controller Gyro Column -->
                     <LinearLayout
+                        android:id="@+id/layoutControllerGyroDisplay"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
@@ -2449,9 +2448,9 @@
                         android:layout_marginStart="4dp">
 
                         <TextView
+                            android:id="@+id/tvControllerGyroTitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="手柄陀螺仪"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp"
                             android:fontFamily="sans-serif-medium"

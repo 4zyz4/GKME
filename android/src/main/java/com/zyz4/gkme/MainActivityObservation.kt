@@ -14,7 +14,6 @@ import android.widget.TextView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.zyz4.gkme.model.AudioOutput
 import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.model.ConnectionMode
 import com.zyz4.gkme.model.GamepadState
@@ -98,6 +97,8 @@ internal fun MainActivity.observeState() {
                     a.physicalControllerHandler.gameVibrationDevice = s.gameVibrationDevice
                     a.physicalControllerHandler.swapPhoneMotors = s.swapPhoneMotors
                     a.physicalControllerHandler.swapControllerMotors = s.swapControllerMotors
+                    a.physicalControllerHandler.inputControllerIndex = s.inputControllerIndex
+                    a.physicalControllerHandler.gyroControllerIndex = s.gyroControllerIndex
                     a.applyAppearanceIfChanged(s)
                 }
             }
@@ -147,47 +148,27 @@ internal fun MainActivity.observeState() {
 
                     if (!a.settingsInflated) return@collect
 
-                    a.findViewById<TextView>(R.id.tvPhysicalControllerStatus).text =
-                        if (connected) "已连接: ${a.physicalControllerHandler.controllerName.value}"
-                        else "未连接手柄"
+                    a.syncPhysicalControllerUI()
+                    a.syncGyroSourceUI()
 
-                    a.findViewById<Switch>(R.id.switchControllerGyro).isChecked =
-                        connected && gyroEnabled
-                    a.findViewById<Switch>(R.id.switchControllerGyro).isEnabled = connected
-                    a.findViewById<TextView>(R.id.tvControllerGyroNote).visibility =
-                        if (gyroEnabled && connected) View.VISIBLE else View.GONE
-
-                    val phoneMotorCount = a.phoneMotorCount()
-
-                    val mc = a.physicalControllerHandler.controllerMotorCount
-                    val audioEntries = mutableListOf<AudioOutput>()
-                    audioEntries.add(AudioOutput.NONE)
-                    if (phoneMotorCount >= 1) audioEntries.add(AudioOutput.PHONE_MOTOR_1)
-                    if (phoneMotorCount >= 2) audioEntries.add(AudioOutput.PHONE_MOTOR_2)
-                    audioEntries.add(AudioOutput.LEFT_SPEAKER)
-                    audioEntries.add(AudioOutput.RIGHT_SPEAKER)
-                    audioEntries.add(AudioOutput.ALL_SPEAKERS)
-                    for (i in 0 until mc) {
-                        audioEntries.add(AudioOutput.controllerMotor(i))
-                    }
-                    a.audioOutputEntries = audioEntries
-                    a.audioControllerOutputEntries = audioEntries
-                    a.updateAudioOutputAdapter(a.findViewById(R.id.spinnerLeftVoiceCoil))
-                    a.updateAudioOutputAdapter(a.findViewById(R.id.spinnerRightVoiceCoil))
+                    a.syncVoiceCoilUI()
+                    a.audioControllerOutputEntries = a.controllerAudioEntries()
                     a.updateControllerAudioAdapter(a.findViewById(R.id.spinnerControllerAudio))
-                    fun selAudio(opts: List<AudioOutput>, target: AudioOutput): Int {
-                        val idx = opts.indexOf(target)
-                        return if (idx >= 0) idx else 0
-                    }
-                    a.findViewById<Spinner>(R.id.spinnerLeftVoiceCoil).setSelection(selAudio(audioEntries, s.leftVoiceCoilOutput))
-                    a.findViewById<Spinner>(R.id.spinnerRightVoiceCoil).setSelection(selAudio(audioEntries, s.rightVoiceCoilOutput))
-                    a.findViewById<Spinner>(R.id.spinnerControllerAudio).setSelection(selAudio(audioEntries, s.controllerAudioOutput))
+                    val ctrlPos = a.audioControllerOutputEntries.indexOf(s.controllerAudioOutput)
+                        .let { if (it >= 0) it else 0 }
+                    a.findViewById<Spinner>(R.id.spinnerControllerAudio).setSelection(ctrlPos)
                     a.syncGameVibrationUI()
                 }
             }
             launch {
                 a.physicalControllerHandler.connectedControllers.collect {
-                    if (a.settingsInflated) a.syncGameVibrationUI()
+                    if (a.settingsInflated) {
+                        a.syncGameVibrationUI()
+                        a.syncPhysicalControllerUI()
+                        a.syncVoiceCoilUI()
+                        a.syncGyroSourceUI()
+                    }
+                    a.syncPhysicalControllerState()
                 }
             }
             launch {

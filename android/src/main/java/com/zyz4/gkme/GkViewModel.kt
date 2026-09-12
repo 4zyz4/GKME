@@ -11,6 +11,7 @@ import com.zyz4.gkme.data.LayoutRepository
 import com.zyz4.gkme.input.SensorHandler
 import com.zyz4.gkme.input.toProto
 import com.zyz4.gkme.model.AudioOutput
+import com.zyz4.gkme.model.AudioDevice
 import com.zyz4.gkme.model.AppSettings
 import com.zyz4.gkme.model.ConnectionMode
 import com.zyz4.gkme.model.DisplayMode
@@ -426,16 +427,24 @@ class GkViewModel @Inject constructor(
         connectionManager.updateSettings(settings.value.copy(controllerGyroEnabledConnected = enabled))
     }
 
+    fun updateGyroControllerIndex(index: Int) {
+        connectionManager.updateSettings(settings.value.copy(gyroControllerIndex = index))
+    }
+
     fun updateNonLinearTriggerAdaptation(enabled: Boolean) {
         connectionManager.updateSettings(settings.value.copy(nonLinearTriggerAdaptation = enabled))
     }
 
-    fun updateLeftVoiceCoilOutput(output: AudioOutput) {
-        connectionManager.updateSettings(settings.value.copy(leftVoiceCoilOutput = output))
+    fun updateInputControllerIndex(index: Int) {
+        connectionManager.updateSettings(settings.value.copy(inputControllerIndex = index))
     }
 
-    fun updateRightVoiceCoilOutput(output: AudioOutput) {
-        connectionManager.updateSettings(settings.value.copy(rightVoiceCoilOutput = output))
+    fun updateVoiceCoilDevice(device: AudioDevice) {
+        connectionManager.updateSettings(settings.value.copy(voiceCoilDevice = device))
+    }
+
+    fun updateSwapVoiceCoilMotors(enabled: Boolean) {
+        connectionManager.updateSettings(settings.value.copy(swapVoiceCoilMotors = enabled))
     }
 
     fun updateControllerAudioOutput(output: AudioOutput) {

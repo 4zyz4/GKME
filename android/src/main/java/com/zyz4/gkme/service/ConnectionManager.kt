@@ -91,16 +91,13 @@ class ConnectionManager @Inject constructor(
             settingsRepository.settings.first()
         }
         audioPlaybackService.setSettings(
-            leftOutput = _settings.value.leftVoiceCoilOutput,
-            rightOutput = _settings.value.rightVoiceCoilOutput,
+            voiceCoilDevice = _settings.value.voiceCoilDevice,
+            voiceCoilSwap = _settings.value.swapVoiceCoilMotors,
             controllerAudio = _settings.value.controllerAudioOutput,
             motorOutputEnabled = _settings.value.gameVibrationDevice.type != VibrationDeviceType.NONE,
         )
-        audioPlaybackService.onVibroOutput = { strong, weak ->
-            onRumbleRequest?.invoke(strong, weak)
-        }
-        audioPlaybackService.onControllerMotorOutput = { motorIndex, intensity ->
-            onControllerVibrationRequest?.invoke(motorIndex, intensity)
+        audioPlaybackService.onControllerMotorOutput = { controllerIndex, leftAmp, rightAmp ->
+            onControllerVibrationRequest?.invoke(controllerIndex, leftAmp, rightAmp)
         }
     }
 
@@ -119,8 +116,8 @@ class ConnectionManager @Inject constructor(
             vibrator.cancel()
         }
         audioPlaybackService.setSettings(
-            leftOutput = newSettings.leftVoiceCoilOutput,
-            rightOutput = newSettings.rightVoiceCoilOutput,
+            voiceCoilDevice = newSettings.voiceCoilDevice,
+            voiceCoilSwap = newSettings.swapVoiceCoilMotors,
             controllerAudio = newSettings.controllerAudioOutput,
             motorOutputEnabled = newSettings.gameVibrationDevice.type != VibrationDeviceType.NONE,
         )
@@ -460,7 +457,7 @@ class ConnectionManager @Inject constructor(
     }
 
     var onRumbleRequest: ((largeMotor: Int, smallMotor: Int) -> Unit)? = null
-    var onControllerVibrationRequest: ((motorIndex: Int, intensity: Int) -> Unit)? = null
+    var onControllerVibrationRequest: ((controllerIndex: Int, leftAmp: Int, rightAmp: Int) -> Unit)? = null
 
     suspend fun sendGamepadState(state: GamepadInput) {
         when (_settings.value.connectionMode) {

@@ -23,6 +23,22 @@ data class VibrationDevice(
     }
 }
 
+/** Target device for the DualSense voice-coil (left/right motor) channels. Controllers are
+ *  addressed by their index in the list of currently connected gamepad devices. */
+enum class AudioDeviceType { NONE, PHONE_MOTOR, PHONE_SPEAKER, CONTROLLER }
+
+data class AudioDevice(
+    val type: AudioDeviceType = AudioDeviceType.PHONE_SPEAKER,
+    val controllerIndex: Int = 0,
+) {
+    companion object {
+        val NONE = AudioDevice(AudioDeviceType.NONE, 0)
+        val PHONE_MOTOR = AudioDevice(AudioDeviceType.PHONE_MOTOR, 0)
+        val PHONE_SPEAKER = AudioDevice(AudioDeviceType.PHONE_SPEAKER, 0)
+        fun controller(index: Int) = AudioDevice(AudioDeviceType.CONTROLLER, index)
+    }
+}
+
 sealed interface AudioOutput {
     val displayName: String
     val ordinal: Int
@@ -112,6 +128,20 @@ enum class GyroOrientation(val displayName: String) {
     PORTRAIT_INVERTED("倒置竖屏"),
 }
 
+/** Which sensor feeds the gyro. Controllers are addressed by their index in the connected list. */
+enum class GyroSourceType { CONTROLLER, PHONE, NONE }
+
+data class GyroSource(
+    val type: GyroSourceType = GyroSourceType.PHONE,
+    val controllerIndex: Int = 0,
+) {
+    companion object {
+        val PHONE = GyroSource(GyroSourceType.PHONE, 0)
+        val NONE = GyroSource(GyroSourceType.NONE, 0)
+        fun controller(index: Int) = GyroSource(GyroSourceType.CONTROLLER, index)
+    }
+}
+
 enum class GyroCoordinateSystem(val displayName: String) {
     YAW("偏航"),
     ROLL("滚转"),
@@ -186,12 +216,17 @@ data class AppSettings(
     // Connected state
     val gyroActivateMode: GyroActivateMode = GyroActivateMode.ALWAYS,
     val controllerGyroEnabledConnected: Boolean = true,
+    /** Index into the connected gamepads whose gyro is used when the source is a controller. */
+    val gyroControllerIndex: Int = 0,
     val volumeUpBits: List<Int> = emptyList(),
     val volumeDownBits: List<Int> = emptyList(),
     val nonLinearTriggerAdaptation: Boolean = false,
+    /** Index into the list of currently connected gamepads used as the input source.
+     *  -1 means the physical controller input is disabled ("不使用手柄"). */
+    val inputControllerIndex: Int = 0,
     // ── Audio (DualSense Voice Coil + Speaker) ──
-    val leftVoiceCoilOutput: AudioOutput = AudioOutput.LEFT_SPEAKER,
-    val rightVoiceCoilOutput: AudioOutput = AudioOutput.RIGHT_SPEAKER,
+    val voiceCoilDevice: AudioDevice = AudioDevice.PHONE_SPEAKER,
+    val swapVoiceCoilMotors: Boolean = false,
     val controllerAudioOutput: AudioOutput = AudioOutput.ALL_SPEAKERS,
     // ── Appearance ──
     val bgFillType: FillType = FillType.SOLID_COLOR,

@@ -51,12 +51,6 @@ class PhysicalControllerHandler(private val context: Context) {
     private val _isConnected = MutableStateFlow(false)
     val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
 
-    private val _controllerName = MutableStateFlow("")
-    val controllerName: StateFlow<String> = _controllerName.asStateFlow()
-
-    private val _controllerType = MutableStateFlow(ControllerType.UNKNOWN)
-    val controllerType: StateFlow<ControllerType> = _controllerType.asStateFlow()
-
     private val connectedDeviceIds = mutableSetOf<Int>()
 
     private val _controllerState = MutableStateFlow(PhysicalControllerState())
@@ -77,6 +71,23 @@ class PhysicalControllerHandler(private val context: Context) {
     var nonLinearTriggerAdaptation: Boolean = false
     var controllerHasGyro: Boolean = false
     var controllerMotorCount: Int = 0
+
+    /** Index into [connectedControllers] used as the input source; -1 disables controller input. */
+    var inputControllerIndex: Int = 0
+        set(value) {
+            if (field == value) return
+            field = value
+            refreshSelectedControllerType()
+            resetInputState()
+        }
+
+    /** Index into [connectedControllers] whose gyro/accel sensors are read. */
+    var gyroControllerIndex: Int = 0
+        set(value) {
+            if (field == value) return
+            field = value
+            refreshSelectedGyroSensor()
+        }
     var gameVibrationDevice: VibrationDevice = VibrationDevice.PHONE
         set(value) {
             val previous = field
@@ -138,21 +149,11 @@ class PhysicalControllerHandler(private val context: Context) {
         }
 
         override fun onInputDeviceChanged(deviceId: Int) {
-        if (connectedDeviceIds.isNotEmpty() && deviceId == connectedDeviceIds.first()) {
-            val device = inputManager.getInputDevice(deviceId)
-            if (device != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val sm = device.sensorManager ?: return
-                val gyro = sm.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
-                if (gyro != null && !gyroRegistered) {
-                    controllerSensorManager = sm
-                    gyroSensor = gyro
-                    accelSensor = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-                    controllerHasGyro = true
-                    registerGyro()
-                }
+            val selectedId = _connectedControllers.value.getOrNull(gyroControllerIndex)?.id
+            if (selectedId == deviceId) {
+                refreshSelectedGyroSensor()
             }
         }
-    }
     }
 
     fun start() {
@@ -182,7 +183,6 @@ class PhysicalControllerHandler(private val context: Context) {
         controllerHasGyro = false
         controllerTypeValue = ControllerType.UNKNOWN
         _isConnected.value = false
-        _controllerName.value = ""
     }
 
     private fun detectControllerType(device: InputDevice): ControllerType {
@@ -224,25 +224,13 @@ if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         controllerMotorCount = 1
                     }
                 }
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                controllerSensorManager = device.sensorManager
-                val sm = device.sensorManager
-                val gyro = sm.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
-                if (gyro != null) {
-                    controllerSensorManager = sm
-                    gyroSensor = gyro
-                    accelSensor = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-                    controllerHasGyro = true
-                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                        registerGyro()
-                    }, 150)
-                }
             }
-        }
 
         updateConnectedState()
         updateConnectedControllers()
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            refreshSelectedGyroSensor()
+        }, 150)
     }
 
     /** Detects the vibrators of a single gamepad and caches them for game-rumble routing. */
@@ -273,20 +261,38 @@ if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             ControllerInfo(id, device.name ?: "手柄", deviceMotorCounts[id] ?: 0)
         }.sortedBy { it.id }
         _connectedControllers.value = infos
+        refreshSelectedControllerType()
+        if (inputControllerIndex !in infos.indices) {
+            resetInputState()
+        }
+        refreshSelectedGyroSensor()
+    }
+
+    /** Device id of the gamepad currently selected as the input source, or null if disabled. */
+    private fun selectedDeviceId(): Int? {
+        val list = _connectedControllers.value
+        val index = inputControllerIndex
+        if (index < 0 || index >= list.size) return null
+        return list[index].id
+    }
+
+    private fun refreshSelectedControllerType() {
+        val id = selectedDeviceId()
+        controllerTypeValue = if (id != null) {
+            inputManager.getInputDevice(id)?.let { detectControllerType(it) } ?: ControllerType.UNKNOWN
+        } else {
+            ControllerType.UNKNOWN
+        }
+    }
+
+    private fun resetInputState() {
+        buttonState.clear()
+        dpadKeyState = 0
+        _controllerState.value = PhysicalControllerState()
     }
 
     private fun updateConnectedState() {
-        val connected = connectedDeviceIds.isNotEmpty()
-        _isConnected.value = connected
-        if (connected) {
-            val firstId = connectedDeviceIds.first()
-            val device = inputManager.getInputDevice(firstId)
-            _controllerName.value = device?.name ?: "手柄"
-            _controllerType.value = if (device != null) detectControllerType(device) else ControllerType.UNKNOWN
-        } else {
-            _controllerName.value = ""
-            _controllerType.value = ControllerType.UNKNOWN
-        }
+        _isConnected.value = connectedDeviceIds.isNotEmpty()
     }
 
     private fun isGamepadDevice(device: InputDevice): Boolean {
@@ -302,14 +308,15 @@ if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
     }
 
     fun handleKeyEvent(event: KeyEvent): Boolean {
+        val selectedId = selectedDeviceId() ?: return false
+        if (event.deviceId != selectedId) return false
+
         if (event.keyCode == KeyEvent.KEYCODE_BUTTON_1) {
             if (controllerTypeValue == ControllerType.PS) {
                 return handleButtonEvent(event, GamepadState.TOUCHPAD_CLICK)
             }
             return false
         }
-
-        if (!_isConnected.value) return false
 
         val dpadDir = keyCodeToDpad(event.keyCode)
         if (dpadDir != null) {
@@ -365,11 +372,12 @@ if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
     fun handleMotionEvent(event: MotionEvent): Boolean {
         val device = inputManager.getInputDevice(event.deviceId) ?: return false
 
+        val selectedId = selectedDeviceId() ?: return false
+        if (event.deviceId != selectedId) return false
+
         if (event.source and android.view.InputDevice.SOURCE_TOUCHPAD == android.view.InputDevice.SOURCE_TOUCHPAD) {
             return handleTouchpadMotion(event)
         }
-
-        if (!_isConnected.value) return false
 
         if (!isGamepadDevice(device)) return false
 
@@ -717,29 +725,10 @@ if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         )
     }
 
-    fun setControllerMotorVibration(motorIndex: Int, intensity: Int) {
-        if (!_isConnected.value || controllerMotorCount == 0) return
-        val clamped = intensity.coerceIn(0, 255)
-        if (clamped < 1) {
-            try {
-                controllerVibratorManager?.cancel()
-            } catch (_: Exception) {}
-            return
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val vm = controllerVibratorManager
-            if (vm != null) {
-                val ids = vm.vibratorIds
-                if (motorIndex < ids.size) {
-                    try {
-                        vm.cancel()
-                        val combo = CombinedVibration.startParallel()
-                        combo.addVibrator(ids[motorIndex], VibrationEffect.createOneShot(60000, clamped))
-                        vm.vibrate(combo.combine())
-                    } catch (_: Exception) {}
-                }
-            }
-        }
+    /** Drives the two motors of the given controller from the voice-coil left/right channels. */
+    fun setControllerMotorsVibration(controllerIndex: Int, leftIntensity: Int, rightIntensity: Int) {
+        val info = _connectedControllers.value.getOrNull(controllerIndex) ?: return
+        vibrateControllerMotors(info.id, leftIntensity, rightIntensity, false)
     }
 
     fun rumble(lowFreqMotor: Int, highFreqMotor: Int) {
@@ -887,14 +876,51 @@ if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
 
     fun onControllerGyroSettingChanged(enabled: Boolean) {
         controllerGyroEnabled = enabled
-        if (controllerSensorManager != null) {
-            registerGyro()
-        }
+        if (controllerSensorManager == null) return
+        if (enabled) registerGyro() else unregisterGyro()
     }
 
     fun ensureGyroRegistered() {
         if (controllerHasGyro && !gyroRegistered && controllerSensorManager != null) {
             registerGyro()
+        }
+    }
+
+    /** Points the gyro/accel listener at the currently selected controller's sensors. */
+    private fun refreshSelectedGyroSensor() {
+        val oldManager = controllerSensorManager
+        if (gyroRegistered && oldManager != null) {
+            controllerGyroListener?.let { oldManager.unregisterListener(it) }
+        }
+        gyroRegistered = false
+        controllerGyroListener = null
+
+        val device = _connectedControllers.value.getOrNull(gyroControllerIndex)
+            ?.let { inputManager.getInputDevice(it.id) }
+        var sm: SensorManager? = null
+        var gyro: Sensor? = null
+        var accel: Sensor? = null
+        if (device != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            sm = device.sensorManager
+            gyro = sm?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+            accel = sm?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+        }
+
+        if (sm != null && gyro != null) {
+            controllerSensorManager = sm
+            gyroSensor = gyro
+            accelSensor = accel
+            controllerHasGyro = true
+            if (controllerGyroEnabled) registerGyro()
+        } else {
+            controllerSensorManager = null
+            gyroSensor = null
+            accelSensor = null
+            controllerHasGyro = false
+        }
+        if (!gyroRegistered) {
+            _gyroData.value = floatArrayOf(0f, 0f, 0f)
+            _accelData.value = floatArrayOf(0f, 0f, 0f)
         }
     }
 
