@@ -39,6 +39,12 @@ class AudioPlaybackService {
         private const val MOTOR_SMOOTH_FACTOR = 0.65f
         private const val MOTOR_DEADSHELL_THRESHOLD = 0.05f
         private const val MOTOR_VIBRATE_DURATION_MS = 20L
+        // 490 four-channel frames * 8 bytes = 3920 bytes, the native USB PCM frame limit.
+        private const val USB_MAX_FRAMES = 490
+        // The DualSense USB audio endpoint is fixed at 48 kHz.
+        private const val USB_PCM_RATE = 48000
+        // DS4 uses 32 kHz USB audio endpoint (handled separately).
+        private const val DS4_USB_PCM_RATE = 32000
     }
 
     private var audioTrack: AudioTrack? = null
@@ -109,6 +115,20 @@ class AudioPlaybackService {
 
     /** (controllerIndex, leftAmp, rightAmp) — controller motor output for the voice coil. */
     var onControllerMotorOutput: ((controllerIndex: Int, leftAmp: Int, rightAmp: Int) -> Unit)? = null
+
+    // ── USB controller PCM output (voice coil / speaker) ──
+
+    /** True when the controller at [controllerIndex] can play PCM through its voice coil. */
+    var supportsVoiceCoilPcm: ((controllerIndex: Int) -> Boolean)? = null
+
+    /** True when the controller at [controllerIndex] exposes a speaker/audio endpoint. */
+    var supportsControllerAudio: ((controllerIndex: Int) -> Boolean)? = null
+
+    /** Sends a 4-channel, 48 kHz, S16LE frame to the controller voice coil. */
+    var onVoiceCoilPcm: ((controllerIndex: Int, frame: ByteArray) -> Boolean)? = null
+
+    /** Sends a 4-channel, 48 kHz, S16LE frame to the controller speaker. */
+    var onControllerAudioPcm: ((controllerIndex: Int, frame: ByteArray) -> Boolean)? = null
 
     fun submitAudio(pcm: ByteArray, sampleRate: Int, channels: Int, bitsPerSample: Int) {
         val oldRate = this.sampleRate
@@ -210,19 +230,82 @@ class AudioPlaybackService {
                 }
             }
             AudioDeviceType.CONTROLLER -> {
-                val m0 = if (voiceCoilSwap) rightAmp else leftAmp
-                val m1 = if (voiceCoilSwap) leftAmp else rightAmp
                 val index = voiceCoilDevice.controllerIndex
-                if (m0 > 1 || m1 > 1) {
-                    if (lastControllerMotorActive && lastControllerMotorIndex != index) {
+                if (sampleRate == USB_PCM_RATE && supportsVoiceCoilPcm?.invoke(index) == true) {
+                    // Advanced path: the PCM is streamed further below.
+                    if (lastControllerMotorActive) {
                         onControllerMotorOutput?.invoke(lastControllerMotorIndex, 0, 0)
+                        lastControllerMotorActive = false
                     }
-                    onControllerMotorOutput?.invoke(index, m0, m1)
-                    lastControllerMotorActive = true
-                    lastControllerMotorIndex = index
-                } else if (lastControllerMotorActive) {
-                    onControllerMotorOutput?.invoke(lastControllerMotorIndex, 0, 0)
-                    lastControllerMotorActive = false
+                } else {
+                    val m0 = if (voiceCoilSwap) rightAmp else leftAmp
+                    val m1 = if (voiceCoilSwap) leftAmp else rightAmp
+                    if (m0 > 1 || m1 > 1) {
+                        if (lastControllerMotorActive && lastControllerMotorIndex != index) {
+                            onControllerMotorOutput?.invoke(lastControllerMotorIndex, 0, 0)
+                        }
+                        onControllerMotorOutput?.invoke(index, m0, m1)
+                        lastControllerMotorActive = true
+                        lastControllerMotorIndex = index
+                    } else if (lastControllerMotorActive) {
+                        onControllerMotorOutput?.invoke(lastControllerMotorIndex, 0, 0)
+                        lastControllerMotorActive = false
+                    }
+                }
+            }
+        }
+
+// ── USB controller PCM output (voice coil + speaker) ──
+        // One merged four-channel frame per target controller: ch0/ch1 = speaker,
+        // ch2/ch3 = voice coil. This keeps the controller's native frame rate intact
+        // even when both the voice coil and the speaker target the same device.
+        // PC always sends 44100Hz — resample to 48000Hz (DS5) or 32000Hz (DS4) on the fly.
+        val needsResampleToDS5 = voiceCoilDevice.type == AudioDeviceType.CONTROLLER &&
+            supportsVoiceCoilPcm?.invoke(voiceCoilDevice.controllerIndex) == true &&
+            sampleRate != USB_PCM_RATE
+        val needsResampleToDS4 = controllerAudio.outputType == AudioOutput.OutputType.CONTROLLER &&
+            supportsControllerAudio?.invoke(controllerAudio.index) == true &&
+            sampleRate != DS4_USB_PCM_RATE
+        val vcPcmIndex = if (voiceCoilDevice.type == AudioDeviceType.CONTROLLER &&
+            supportsVoiceCoilPcm?.invoke(voiceCoilDevice.controllerIndex) == true
+        ) voiceCoilDevice.controllerIndex else -1
+        val caPcmIndex = if (controllerAudio.outputType == AudioOutput.OutputType.CONTROLLER &&
+            supportsControllerAudio?.invoke(controllerAudio.index) == true
+        ) controllerAudio.index else -1
+        if (vcPcmIndex >= 0 || caPcmIndex >= 0) {
+            Log.i(TAG, "USB PCM path selected: vcIndex=$vcPcmIndex caIndex=$caPcmIndex rate=$sampleRate ch=$channels needsResample=$needsResampleToDS5")
+        }
+        if (vcPcmIndex >= 0 || caPcmIndex >= 0) {
+            val targets = LinkedHashSet<Int>()
+            if (vcPcmIndex >= 0) targets.add(vcPcmIndex)
+            if (caPcmIndex >= 0) targets.add(caPcmIndex)
+            for (idx in targets) {
+                val isVoiceCoil = idx == vcPcmIndex
+                val targetRate = if (isVoiceCoil) USB_PCM_RATE else DS4_USB_PCM_RATE
+                val resampledPcm = if (sampleRate != targetRate && pcm.size > 0) {
+                    resamplePcm(pcm, sampleRate, targetRate, channels)
+                } else {
+                    pcm
+                }
+                val accepted = submitUsbFrames(
+                    idx, resampledPcm, channels, resampledPcm.size / (4 * 2),
+                    1, 2, 3,
+                    includeControllerAudio = idx == caPcmIndex,
+                    includeVoiceCoil = idx == vcPcmIndex,
+                    swap = voiceCoilSwap,
+                    voiceCoil = isVoiceCoil,
+                )
+                if (!accepted && isVoiceCoil) {
+                    val m0 = if (voiceCoilSwap) rightAmp else leftAmp
+                    val m1 = if (voiceCoilSwap) leftAmp else rightAmp
+                    if (m0 > 1 || m1 > 1) {
+                        onControllerMotorOutput?.invoke(idx, m0, m1)
+                        lastControllerMotorActive = true
+                        lastControllerMotorIndex = idx
+                    } else if (lastControllerMotorActive) {
+                        onControllerMotorOutput?.invoke(lastControllerMotorIndex, 0, 0)
+                        lastControllerMotorActive = false
+                    }
                 }
             }
         }
@@ -312,6 +395,103 @@ class AudioPlaybackService {
         return ((bytes[offset].toInt() and 0xFF) or ((bytes[offset + 1].toInt() and 0xFF) shl 8)).toShort()
     }
 
+    /**
+     * Re-packs the incoming four-channel frame into the DualSense USB audio layout
+     * (ch0/ch1 = speaker, ch2/ch3 = voice coil) and submits it in native-PCM sized chunks.
+     */
+    private fun submitUsbFrames(
+        index: Int, pcm: ByteArray, inputCh: Int, numSamples: Int,
+        controllerCh: Int, leftVcmCh: Int, rightVcmCh: Int,
+        includeControllerAudio: Boolean, includeVoiceCoil: Boolean,
+        swap: Boolean, voiceCoil: Boolean,
+    ): Boolean {
+        var accepted = false
+        var start = 0
+        var lastDiagIndex = -1
+        if (voiceCoil && onVoiceCoilPcm == null) {
+            Log.w(TAG, "onVoiceCoilPcm callback is NULL — USB PCM will be dropped!")
+        }
+        if (!voiceCoil && onControllerAudioPcm == null) {
+            Log.w(TAG, "onControllerAudioPcm callback is NULL — USB PCM will be dropped!")
+        }
+        while (start < numSamples) {
+            val count = minOf(USB_MAX_FRAMES, numSamples - start)
+            val frame = buildUsbFrame(
+                pcm, inputCh, start, count,
+                controllerCh, leftVcmCh, rightVcmCh,
+                includeControllerAudio, includeVoiceCoil, swap,
+            )
+            val ok = if (voiceCoil) {
+                onVoiceCoilPcm?.invoke(index, frame) ?: false
+            } else {
+                onControllerAudioPcm?.invoke(index, frame) ?: false
+            }
+            if (ok) accepted = true
+            if (index != lastDiagIndex) {
+                logUsbPcmDiag(frame, includeVoiceCoil, includeControllerAudio, ok)
+                lastDiagIndex = index
+            }
+            start += count
+        }
+        return accepted
+    }
+
+    private var lastUsbDiagAt = 0L
+
+    private fun logUsbPcmDiag(frame: ByteArray, voiceCoil: Boolean, controllerAudio: Boolean, accepted: Boolean) {
+        val now = System.currentTimeMillis()
+        if (now - lastUsbDiagAt < 1000) return
+        lastUsbDiagAt = now
+        var peak = 0
+        var i = 0
+        while (i + 1 < frame.size) {
+            val v = kotlin.math.abs(leBytesToShort(frame, i).toInt())
+            if (v > peak) peak = v
+            i += 2
+        }
+        Log.i(
+            TAG,
+            "USB PCM: len=${frame.size} peak=$peak vc=$voiceCoil ca=$controllerAudio accepted=$accepted " +
+                "rate=$sampleRate vcAmp=($leftVoiceCoilAmplitude,$rightVoiceCoilAmplitude)"
+        )
+    }
+
+    private fun buildUsbFrame(
+        pcm: ByteArray, inputCh: Int, startSample: Int, sampleCount: Int,
+        controllerCh: Int, leftVcmCh: Int, rightVcmCh: Int,
+        includeControllerAudio: Boolean, includeVoiceCoil: Boolean, swap: Boolean,
+    ): ByteArray {
+        val out = ByteArray(sampleCount * 8)
+        for (i in 0 until sampleCount) {
+            val s = startSample + i
+            val inBase = s * inputCh * 2
+            val outOff = i * 8
+
+            if (includeControllerAudio) {
+                val off = inBase + controllerCh * 2
+                val v = if (off + 1 < pcm.size) leBytesToShort(pcm, off).toInt() else 0
+                writeShortLe(out, outOff, v)
+                writeShortLe(out, outOff + 2, v)
+            }
+
+            if (includeVoiceCoil) {
+                val offL = inBase + leftVcmCh * 2
+                val offR = inBase + rightVcmCh * 2
+                val l = if (offL + 1 < pcm.size) leBytesToShort(pcm, offL).toInt() else 0
+                val r = if (offR + 1 < pcm.size) leBytesToShort(pcm, offR).toInt() else 0
+                writeShortLe(out, outOff + 4, if (swap) r else l)
+                writeShortLe(out, outOff + 6, if (swap) l else r)
+            }
+        }
+        return out
+    }
+
+    private fun writeShortLe(bytes: ByteArray, offset: Int, value: Int) {
+        val v = value.coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
+        bytes[offset] = v.toByte()
+        bytes[offset + 1] = (v shr 8).toByte()
+    }
+
     private fun recreateTrackIfNeeded() {
         synchronized(this) {
             if (audioTrack != null && audioTrack?.state == AudioTrack.STATE_INITIALIZED) {
@@ -385,5 +565,47 @@ class AudioPlaybackService {
             if (v > 0f) { sum += v; count++ }
         }
         return if (count > 0) sum / count else 0f
+    }
+
+    /**
+     * Linear resampler for PCM audio. Converts interleaved S16LE from [fromRate] to [toRate].
+     * Preserves channel count. Returns a new ByteArray.
+     */
+    private fun resamplePcm(input: ByteArray, fromRate: Int, toRate: Int, channels: Int): ByteArray {
+        if (fromRate == toRate) return input
+        if (input.isEmpty()) return input
+
+        val inputFrames = input.size / (channels * 2)
+        if (inputFrames <= 0) return input
+
+        val ratio = toRate.toDouble() / fromRate.toDouble()
+        val outputFrames = maxOf(1, (inputFrames * ratio).toInt())
+        val outputSize = outputFrames * channels * 2
+        val output = ByteArray(outputSize)
+
+        for (frame in 0 until outputFrames) {
+            val srcFloat = (frame / ratio).toDouble()
+            val srcIdx = srcFloat.toInt()
+            val frac = srcFloat - srcIdx
+
+            for (ch in 0 until channels) {
+                val off = frame * channels * 2 + ch * 2
+                val s0 = if (srcIdx + 1 < inputFrames) {
+                    leBytesToShort(input, (srcIdx * channels + ch) * 2).toDouble()
+                } else {
+                    0.0
+                }
+                val s1 = if (srcIdx + 1 < inputFrames) {
+                    leBytesToShort(input, ((srcIdx + 1) * channels + ch) * 2).toDouble()
+                } else {
+                    s0
+                }
+                val mixed = ((1.0 - frac) * s0 + frac * s1).coerceIn(Short.MIN_VALUE.toDouble(), Short.MAX_VALUE.toDouble())
+                val v = mixed.toInt().toShort()
+                output[off] = v.toByte()
+                output[off + 1] = ((v.toInt() ushr 8) and 0xFF).toByte()
+            }
+        }
+        return output
     }
 }

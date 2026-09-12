@@ -181,9 +181,26 @@ class MainActivity : ComponentActivity() {
         })
         observeState()
         autoStartService()
+        setupUsbAudioCallbacks()
         displayManager.registerDisplayListener(displayListener, null)
         checkDeviceRotation()
         physicalControllerHandler.start()
+    }
+
+    private fun setupUsbAudioCallbacks() {
+        val a = this
+        a.audioPlaybackService.supportsVoiceCoilPcm = { index ->
+            a.physicalControllerHandler.controllerSupportsVoiceCoilPcm(index)
+        }
+        a.audioPlaybackService.supportsControllerAudio = { index ->
+            a.physicalControllerHandler.controllerSupportsAudio(index)
+        }
+        a.audioPlaybackService.onVoiceCoilPcm = { index, frame ->
+            a.physicalControllerHandler.submitVoiceCoilFrame(index, frame)
+        }
+        a.audioPlaybackService.onControllerAudioPcm = { index, frame ->
+            a.physicalControllerHandler.submitControllerAudioFrame(index, frame)
+        }
     }
 
     @SuppressLint("ObsoleteSdkInt")
@@ -248,6 +265,13 @@ class MainActivity : ComponentActivity() {
 
     /** True while the user is picking a physical-controller input from the spinner. */
     internal var inputControllerUserSelecting = false
+
+    /** True while the user is picking the physical-controller driver from the spinner. */
+    internal var controllerDriverUserSelecting = false
+
+    /** Drivers backing the physical-controller driver spinner. */
+    internal var controllerDriverEntries: List<com.zyz4.gkme.model.ControllerDriver> =
+        com.zyz4.gkme.model.ControllerDriver.entries
 
     /** True while the user is picking a game-rumble device from the spinner. */
     internal var gameVibrationUserSelecting = false

@@ -10,6 +10,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.zyz4.gkme.model.AppSettings
 import com.zyz4.gkme.model.ConnectionMode
+import com.zyz4.gkme.model.ControllerDriver
 import com.zyz4.gkme.model.DisplayMode
 import com.zyz4.gkme.model.FillType
 import com.zyz4.gkme.model.GyroOrientation
@@ -79,6 +80,7 @@ class SettingsRepository @Inject constructor(
         val VOLUME_UP_BITS = stringPreferencesKey("volume_up_bits")
         val VOLUME_DOWN_BITS = stringPreferencesKey("volume_down_bits")
         val NON_LINEAR_TRIGGER_ADAPTATION = booleanPreferencesKey("non_linear_trigger_adaptation")
+        val CONTROLLER_DRIVER = intPreferencesKey("controller_driver")
         val INPUT_CONTROLLER_INDEX = intPreferencesKey("input_controller_index")
         // Audio
         val LEFT_VOICE_COIL_OUTPUT = intPreferencesKey("left_voice_coil_output")
@@ -198,6 +200,9 @@ class SettingsRepository @Inject constructor(
             volumeUpBits = parseBitList(prefs[Keys.VOLUME_UP_BITS]),
             volumeDownBits = parseBitList(prefs[Keys.VOLUME_DOWN_BITS]),
             nonLinearTriggerAdaptation = prefs[Keys.NON_LINEAR_TRIGGER_ADAPTATION] ?: false,
+            controllerDriver = ControllerDriver.entries.getOrElse(
+                prefs[Keys.CONTROLLER_DRIVER] ?: 0
+            ) { ControllerDriver.SDL3 },
             inputControllerIndex = prefs[Keys.INPUT_CONTROLLER_INDEX] ?: 0,
             bgFillType = FillType.entries.getOrElse(prefs[Keys.BG_FILL_TYPE] ?: 0) { FillType.SOLID_COLOR },
             bgColor = prefs[Keys.BG_COLOR] ?: 0xFF000000.toInt(),
@@ -246,9 +251,7 @@ class SettingsRepository @Inject constructor(
                 controllerIndex = prefs[Keys.VOICE_COIL_CONTROLLER_CONNECTED_INDEX] ?: 0,
             ),
             swapVoiceCoilMotors = prefs[Keys.SWAP_VOICE_COIL_MOTORS] ?: false,
-            controllerAudioOutput = if ((prefs[Keys.CONTROLLER_AUDIO_OUTPUT]
-                    ?: AudioOutput.ALL_SPEAKERS.ordinal) == AudioOutput.NONE.ordinal
-            ) AudioOutput.NONE else AudioOutput.ALL_SPEAKERS,
+            controllerAudioOutput = restoreControllerAudioOutput(prefs[Keys.CONTROLLER_AUDIO_OUTPUT]),
         )
     }
 
@@ -295,6 +298,7 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.VOLUME_UP_BITS] = gson.toJson(settings.volumeUpBits)
             prefs[Keys.VOLUME_DOWN_BITS] = gson.toJson(settings.volumeDownBits)
             prefs[Keys.NON_LINEAR_TRIGGER_ADAPTATION] = settings.nonLinearTriggerAdaptation
+            prefs[Keys.CONTROLLER_DRIVER] = settings.controllerDriver.ordinal
             prefs[Keys.INPUT_CONTROLLER_INDEX] = settings.inputControllerIndex
             prefs[Keys.BG_FILL_TYPE] = settings.bgFillType.ordinal
             prefs[Keys.BG_COLOR] = settings.bgColor
@@ -331,6 +335,17 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.VOICE_COIL_CONTROLLER_CONNECTED_INDEX] = settings.voiceCoilDeviceConnected.controllerIndex
             prefs[Keys.SWAP_VOICE_COIL_MOTORS] = settings.swapVoiceCoilMotors
             prefs[Keys.CONTROLLER_AUDIO_OUTPUT] = settings.controllerAudioOutput.ordinal
+        }
+    }
+
+    /** Restores the controller-audio target, including per-controller USB speaker outputs. */
+    private fun restoreControllerAudioOutput(ordinal: Int?): AudioOutput {
+        val o = ordinal ?: AudioOutput.ALL_SPEAKERS.ordinal
+        return when {
+            o == AudioOutput.NONE.ordinal -> AudioOutput.NONE
+            o >= AudioOutput.CONTROLLER_MOTOR_1.ordinal && o <= AudioOutput.CONTROLLER_MOTOR_4.ordinal ->
+                AudioOutput.controllerMotor(o - AudioOutput.CONTROLLER_MOTOR_1.ordinal)
+            else -> AudioOutput.ALL_SPEAKERS
         }
     }
 

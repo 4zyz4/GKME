@@ -14,6 +14,7 @@ import com.zyz4.gkme.model.AudioOutput
 import com.zyz4.gkme.model.AudioDevice
 import com.zyz4.gkme.model.AppSettings
 import com.zyz4.gkme.model.ConnectionMode
+import com.zyz4.gkme.model.ControllerDriver
 import com.zyz4.gkme.model.DisplayMode
 import com.zyz4.gkme.model.FillType
 import com.zyz4.gkme.model.GamepadState
@@ -480,6 +481,10 @@ class GkViewModel @Inject constructor(
 
     fun updateInputControllerIndex(index: Int) {
         connectionManager.updateSettings(settings.value.copy(inputControllerIndex = index))
+    }
+
+    fun updateControllerDriver(driver: ControllerDriver) {
+        connectionManager.updateSettings(settings.value.copy(controllerDriver = driver))
     }
 
     fun updateVoiceCoilDevice(device: AudioDevice) {

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22.1)
 
-project(gkme_sdl CXX)
+project(gkme_sdl C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -9,7 +9,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(SDL3 REQUIRED CONFIG)
 
 add_library(gkme_sdl SHARED
-        sdl_bridge.cpp)
+        sdl_bridge.cpp
+        haptic_native.c)
 
 target_include_directories(gkme_sdl PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/sdl/include)
