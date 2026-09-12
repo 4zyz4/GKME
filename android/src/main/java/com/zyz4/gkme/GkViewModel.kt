@@ -24,7 +24,7 @@ import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.model.HapticEffect
 import com.zyz4.gkme.model.LayoutPreset
 import com.zyz4.gkme.model.TargetPlatform
-import com.zyz4.gkme.model.VibrationMotor
+import com.zyz4.gkme.model.VibrationDevice
 import com.zyz4.gkme.model.TouchPoint
 import com.zyz4.gkme.model.VibrationType
 import com.zyz4.gkme.service.ConnectionManager
@@ -283,10 +283,6 @@ class GkViewModel @Inject constructor(
         connectionManager.updateSettings(settings.value.copy(vibrationEnabled = enabled))
     }
 
-    fun updateGameVibrationEnabled(enabled: Boolean) {
-        connectionManager.updateSettings(settings.value.copy(gameVibrationEnabled = enabled))
-    }
-
     fun updateVibrationPressType(type: VibrationType) {
         connectionManager.updateSettings(settings.value.copy(vibrationPressType = type))
     }
@@ -317,6 +313,18 @@ class GkViewModel @Inject constructor(
 
     fun updateVibrationReleaseIntensity(intensity: Int) {
         connectionManager.updateSettings(settings.value.copy(vibrationReleaseIntensity = intensity))
+    }
+
+    fun updateGameVibrationDevice(device: VibrationDevice) {
+        connectionManager.updateSettings(settings.value.copy(gameVibrationDevice = device))
+    }
+
+    fun updateSwapPhoneMotors(enabled: Boolean) {
+        connectionManager.updateSettings(settings.value.copy(swapPhoneMotors = enabled))
+    }
+
+    fun updateSwapControllerMotors(enabled: Boolean) {
+        connectionManager.updateSettings(settings.value.copy(swapControllerMotors = enabled))
     }
 
     fun updateGyroEnabled(enabled: Boolean) {
@@ -408,22 +416,6 @@ class GkViewModel @Inject constructor(
     fun onGyroActivateButtonUp() {
         _gyroActivateCount = maxOf(0, _gyroActivateCount - 1)
         updateGyroOverrideFromCount()
-    }
-
-    fun updateStrongVibrationMapping(mapping: VibrationMotor) {
-        connectionManager.updateSettings(settings.value.copy(strongVibrationMapping = mapping))
-    }
-
-    fun updateStrongVibrationMappingConnected(mapping: VibrationMotor) {
-        connectionManager.updateSettings(settings.value.copy(strongVibrationMappingConnected = mapping))
-    }
-
-    fun updateWeakVibrationMapping(mapping: VibrationMotor) {
-        connectionManager.updateSettings(settings.value.copy(weakVibrationMapping = mapping))
-    }
-
-    fun updateWeakVibrationMappingConnected(mapping: VibrationMotor) {
-        connectionManager.updateSettings(settings.value.copy(weakVibrationMappingConnected = mapping))
     }
 
     fun updateControllerGyroEnabled(enabled: Boolean) {

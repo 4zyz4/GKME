@@ -8,32 +8,100 @@ enum class DisplayMode { XBOX, PLAYSTATION, SWITCH }
 
 enum class VibrationType { NONE, VIEW, VIBRATION_EFFECT }
 
-enum class VibrationMotor(val displayName: String) {
-    CONTROLLER_MOTOR_1("手柄马达1"),
-    CONTROLLER_MOTOR_2("手柄马达2"),
-    CONTROLLER_MOTOR_3("手柄马达3"),
-    CONTROLLER_MOTOR_4("手柄马达4"),
-    PHONE_MOTOR_1("手机马达1"),
-    PHONE_MOTOR_2("手机马达2"),
-    NONE("无"),
+/** Which physical actuator receives the game rumble. Controllers are addressed by their
+ *  index in the list of currently connected gamepad devices. */
+enum class VibrationDeviceType { PHONE, CONTROLLER, NONE }
+
+data class VibrationDevice(
+    val type: VibrationDeviceType = VibrationDeviceType.PHONE,
+    val controllerIndex: Int = 0,
+) {
+    companion object {
+        val PHONE = VibrationDevice(VibrationDeviceType.PHONE, 0)
+        val NONE = VibrationDevice(VibrationDeviceType.NONE, 0)
+        fun controller(index: Int) = VibrationDevice(VibrationDeviceType.CONTROLLER, index)
+    }
 }
 
-enum class AudioOutput(val displayName: String, val isLeft: Boolean) {
-    NONE("无", false),
-    PHONE_MOTOR_1("手机马达1", false),
-    PHONE_MOTOR_2("手机马达2", false),
-    LEFT_SPEAKER("左扬声器", true),
-    RIGHT_SPEAKER("右扬声器", false),
-    ALL_SPEAKERS("全部扬声器", false),
-    CONTROLLER_MOTOR_1("手柄马达1", false),
-    CONTROLLER_MOTOR_2("手柄马达2", false),
-    CONTROLLER_MOTOR_3("手柄马达3", false),
-    CONTROLLER_MOTOR_4("手柄马达4", false),
-    ;
-
+sealed interface AudioOutput {
+    val displayName: String
+    val ordinal: Int
+    val outputType: OutputType
+    val index: Int
+    val isLeft: Boolean
+    
+    enum class OutputType { NONE, PHONE, LEFT_SPEAKER, RIGHT_SPEAKER, ALL_SPEAKERS, CONTROLLER }
+    
+    data class NoneOutput(
+        override val displayName: String = "无",
+        override val ordinal: Int = 0,
+    ) : AudioOutput {
+        override val outputType: OutputType get() = OutputType.NONE
+        override val index: Int get() = 0
+        override val isLeft: Boolean get() = false
+    }
+    
+    data class PhoneMotor(
+        val motorIndex: Int,
+        override val displayName: String,
+        override val ordinal: Int,
+    ) : AudioOutput {
+        override val outputType: OutputType get() = OutputType.PHONE
+        override val index: Int get() = motorIndex
+        override val isLeft: Boolean get() = false
+    }
+    
+    data class SpeakerOutput(
+        val speakerIndex: Int,
+        override val displayName: String,
+        override val ordinal: Int,
+        override val isLeft: Boolean,
+    ) : AudioOutput {
+        override val outputType: OutputType get() = OutputType.entries[speakerIndex + 2]
+        override val index: Int get() = 0
+    }
+    
+    data class ControllerMotor(
+        val motorIndex: Int,
+        override val displayName: String,
+        override val ordinal: Int,
+    ) : AudioOutput {
+        override val outputType: OutputType get() = OutputType.CONTROLLER
+        override val index: Int get() = motorIndex
+        override val isLeft: Boolean get() = false
+    }
+    
     companion object {
+        val entries: List<AudioOutput> = mutableListOf<AudioOutput>().apply {
+            add(NoneOutput())
+            add(PhoneMotor(0, "手机马达1", 1))
+            add(PhoneMotor(1, "手机马达2", 2))
+            add(SpeakerOutput(0, "左扬声器", 3, true))
+            add(SpeakerOutput(1, "右扬声器", 4, false))
+            add(SpeakerOutput(2, "全部扬声器", 5, false))
+            add(ControllerMotor(0, "手柄马达1", 6))
+            add(ControllerMotor(1, "手柄马达2", 7))
+            add(ControllerMotor(2, "手柄马达3", 8))
+            add(ControllerMotor(3, "手柄马达4", 9))
+        }
+        
+        val NONE = NoneOutput()
+        val PHONE_MOTOR_1 = PhoneMotor(0, "手机马达1", 1)
+        val PHONE_MOTOR_2 = PhoneMotor(1, "手机马达2", 2)
+        val LEFT_SPEAKER = SpeakerOutput(0, "左扬声器", 3, true)
+        val RIGHT_SPEAKER = SpeakerOutput(1, "右扬声器", 4, false)
+        val ALL_SPEAKERS = SpeakerOutput(2, "全部扬声器", 5, false)
+        val CONTROLLER_MOTOR_1 = ControllerMotor(0, "手柄马达1", 6)
+        val CONTROLLER_MOTOR_2 = ControllerMotor(1, "手柄马达2", 7)
+        val CONTROLLER_MOTOR_3 = ControllerMotor(2, "手柄马达3", 8)
+        val CONTROLLER_MOTOR_4 = ControllerMotor(3, "手柄马达4", 9)
+        
         fun fromOrdinalSafe(ordinal: Int, isLeft: Boolean = false): AudioOutput {
-            return entries.getOrElse(ordinal) { NONE }
+            return entries.find { it.ordinal == ordinal } ?: NONE
+        }
+        
+        fun controllerMotor(index: Int): AudioOutput {
+            return ControllerMotor(index, "手柄马达${index + 1}", index + 6)
         }
     }
 }
@@ -91,7 +159,6 @@ data class AppSettings(
     val currentPresetName: String = "完整控制器",
     val isEditMode: Boolean = false,
     val vibrationEnabled: Boolean = true,
-    val gameVibrationEnabled: Boolean = true,
     val vibrationPressType: VibrationType = VibrationType.VIEW,
     val vibrationReleaseType: VibrationType = VibrationType.VIEW,
     val vibrationPressViewEffect: HapticEffect = HapticEffect.CONFIRM,
@@ -100,6 +167,9 @@ data class AppSettings(
     val vibrationReleaseDuration: Int = 20,
     val vibrationPressIntensity: Int = 128,
     val vibrationReleaseIntensity: Int = 64,
+    val gameVibrationDevice: VibrationDevice = VibrationDevice.PHONE,
+    val swapPhoneMotors: Boolean = false,
+    val swapControllerMotors: Boolean = false,
     val autoStartEnabled: Boolean = false,
     val gyroEnabled: Boolean = true,
     val gyroSensitivityX: Int = 100,
@@ -113,13 +183,9 @@ data class AppSettings(
     val keepScreenOn: Boolean = false,
     // Disconnected state
     val controllerGyroEnabled: Boolean = false,
-    val strongVibrationMapping: VibrationMotor = VibrationMotor.PHONE_MOTOR_1,
-    val weakVibrationMapping: VibrationMotor = VibrationMotor.PHONE_MOTOR_1,
     // Connected state
     val gyroActivateMode: GyroActivateMode = GyroActivateMode.ALWAYS,
     val controllerGyroEnabledConnected: Boolean = true,
-    val strongVibrationMappingConnected: VibrationMotor = VibrationMotor.CONTROLLER_MOTOR_1,
-    val weakVibrationMappingConnected: VibrationMotor = VibrationMotor.CONTROLLER_MOTOR_2,
     val volumeUpBits: List<Int> = emptyList(),
     val volumeDownBits: List<Int> = emptyList(),
     val nonLinearTriggerAdaptation: Boolean = false,

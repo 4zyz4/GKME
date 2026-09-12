@@ -32,7 +32,6 @@ import com.zyz4.gkme.model.AudioOutput
 import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.model.AppSettings
 import com.zyz4.gkme.model.HapticEffect
-import com.zyz4.gkme.model.VibrationMotor
 import com.zyz4.gkme.model.VibrationType
 import com.zyz4.gkme.view.FloatingEditorPanel
 import com.zyz4.gkme.view.GamepadLayout
@@ -244,7 +243,8 @@ class MainActivity : ComponentActivity() {
     internal var settingsInflated = false
     internal var outputPickerDialog: Dialog? = null
 
-    internal var vibrationMappingEntries: List<VibrationMotor> = VibrationMotor.entries.toList()
+    internal var gameVibrationDeviceEntries: List<com.zyz4.gkme.model.VibrationDevice> =
+        listOf(com.zyz4.gkme.model.VibrationDevice.PHONE, com.zyz4.gkme.model.VibrationDevice.NONE)
 
     // Appearance image pickers
     internal var bgImagePickerLauncher: androidx.activity.result.ActivityResultLauncher<String>? = null

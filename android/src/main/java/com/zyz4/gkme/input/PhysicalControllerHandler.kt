@@ -16,7 +16,8 @@ import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
 import com.zyz4.gkme.model.GamepadState
-import com.zyz4.gkme.model.VibrationMotor
+import com.zyz4.gkme.model.VibrationDevice
+import com.zyz4.gkme.model.VibrationDeviceType
 import com.zyz4.gkme.model.TouchPoint
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -76,10 +77,26 @@ class PhysicalControllerHandler(private val context: Context) {
     var nonLinearTriggerAdaptation: Boolean = false
     var controllerHasGyro: Boolean = false
     var controllerMotorCount: Int = 0
-    var strongVibrationMapping: VibrationMotor = VibrationMotor.CONTROLLER_MOTOR_1
-    var weakVibrationMapping: VibrationMotor = VibrationMotor.CONTROLLER_MOTOR_2
+    var gameVibrationDevice: VibrationDevice = VibrationDevice.PHONE
+        set(value) {
+            val previous = field
+            field = value
+            if (previous != value) stopVibrationForDevice(previous)
+        }
+    var swapPhoneMotors: Boolean = false
+    var swapControllerMotors: Boolean = false
     private var gyroRegistered = false
     private var lastPhoneAmp = -1
+
+    /** A connected physical gamepad that can receive game rumble. */
+    data class ControllerInfo(val id: Int, val name: String, val motorCount: Int)
+
+    private val _connectedControllers = MutableStateFlow<List<ControllerInfo>>(emptyList())
+    val connectedControllers: StateFlow<List<ControllerInfo>> = _connectedControllers.asStateFlow()
+
+    private val deviceVibratorManagers = mutableMapOf<Int, VibratorManager>()
+    private val deviceLegacyVibrators = mutableMapOf<Int, Vibrator>()
+    private val deviceMotorCounts = mutableMapOf<Int, Int>()
 
     var onPointerCaptureNeeded: ((Boolean) -> Unit)? = null
     var isPointerCaptureActive: Boolean = false
@@ -99,7 +116,11 @@ class PhysicalControllerHandler(private val context: Context) {
 
         override fun onInputDeviceRemoved(deviceId: Int) {
             connectedDeviceIds.remove(deviceId)
+            deviceVibratorManagers.remove(deviceId)
+            deviceLegacyVibrators.remove(deviceId)
+            deviceMotorCounts.remove(deviceId)
             updateConnectedState()
+            updateConnectedControllers()
             if (connectedDeviceIds.isEmpty()) {
                 unregisterGyro()
                 controllerVibratorManager = null
@@ -148,6 +169,10 @@ class PhysicalControllerHandler(private val context: Context) {
         unregisterGyro()
         inputManager.unregisterInputDeviceListener(deviceListener)
         connectedDeviceIds.clear()
+        deviceVibratorManagers.clear()
+        deviceLegacyVibrators.clear()
+        deviceMotorCounts.clear()
+        _connectedControllers.value = emptyList()
         controllerVibratorManager = null
         controllerVibrator = null
         controllerMotorCount = 0
@@ -175,6 +200,7 @@ class PhysicalControllerHandler(private val context: Context) {
         if (!isGamepadDevice(device)) return
 
         connectedDeviceIds.add(deviceId)
+        registerDeviceVibrator(device)
 
         if (connectedDeviceIds.size == 1) {
             controllerTypeValue = detectControllerType(device)
@@ -216,6 +242,37 @@ if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         }
 
         updateConnectedState()
+        updateConnectedControllers()
+    }
+
+    /** Detects the vibrators of a single gamepad and caches them for game-rumble routing. */
+    private fun registerDeviceVibrator(device: InputDevice) {
+        var count = 0
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vm = device.vibratorManager
+            val ids = vm.vibratorIds
+            if (ids.isNotEmpty()) {
+                deviceVibratorManagers[device.id] = vm
+                count = ids.size
+            }
+        }
+        if (count == 0) {
+            @Suppress("DEPRECATION")
+            if (device.vibrator.hasVibrator()) {
+                @Suppress("DEPRECATION")
+                deviceLegacyVibrators[device.id] = device.vibrator
+                count = 1
+            }
+        }
+        deviceMotorCounts[device.id] = count
+    }
+
+    private fun updateConnectedControllers() {
+        val infos = connectedDeviceIds.mapNotNull { id ->
+            val device = inputManager.getInputDevice(id) ?: return@mapNotNull null
+            ControllerInfo(id, device.name ?: "手柄", deviceMotorCounts[id] ?: 0)
+        }.sortedBy { it.id }
+        _connectedControllers.value = infos
     }
 
     private fun updateConnectedState() {
@@ -689,86 +746,108 @@ if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         val lowNorm = lowFreqMotor.coerceIn(0, 255)
         val highNorm = highFreqMotor.coerceIn(0, 255)
 
-        fun isPhoneMotor(m: VibrationMotor): Boolean {
-            return m == VibrationMotor.PHONE_MOTOR_1 ||
-                   m == VibrationMotor.PHONE_MOTOR_2
-        }
-
-        fun resolveMotor(m: VibrationMotor): VibrationMotor {
-            if (m == VibrationMotor.NONE) return m
-            if (isPhoneMotor(m)) return m
-            // 手柄马达序号超出实际数量则回退到 PHONE_MOTOR_1
-            return if ((m.ordinal - VibrationMotor.CONTROLLER_MOTOR_1.ordinal) < controllerMotorCount) m
-                   else VibrationMotor.PHONE_MOTOR_1
-        }
-
-        val strongEff = resolveMotor(strongVibrationMapping)
-        val weakEff = resolveMotor(weakVibrationMapping)
-
-        var phoneAmp = 0
-        if (strongEff == VibrationMotor.PHONE_MOTOR_1 && lowNorm > 1) phoneAmp = maxOf(phoneAmp, lowNorm.coerceIn(2, 255))
-        if (strongEff == VibrationMotor.PHONE_MOTOR_2 && lowNorm > 1) phoneAmp = maxOf(phoneAmp, lowNorm.coerceIn(2, 255))
-        if (weakEff == VibrationMotor.PHONE_MOTOR_1 && highNorm > 1) phoneAmp = maxOf(phoneAmp, highNorm.coerceIn(2, 255))
-        if (weakEff == VibrationMotor.PHONE_MOTOR_2 && highNorm > 1) phoneAmp = maxOf(phoneAmp, highNorm.coerceIn(2, 255))
-        if (phoneAmp > 0) {
-            vibratePhone(phoneAmp)
-        } else if (lastPhoneAmp >= 0) {
-            vibratePhone(0)
-        }
-
-        if (!_isConnected.value) return
-
-        // Build controller motor intensity map: motorIndex -> intensity
-        val ctrlVib = mutableMapOf<Int, Int>()
-
-        fun addCtrlMotor(motor: VibrationMotor, intensity: Int) {
-            if (motor == VibrationMotor.NONE) return
-            if (isPhoneMotor(motor)) {
-                val phoneIdx = if (motor == VibrationMotor.PHONE_MOTOR_1) 0 else 1
-                if (intensity > 1) {
-                    ctrlVib.merge(phoneIdx, intensity.coerceIn(2, 255), Int::plus)
+        when (gameVibrationDevice.type) {
+            VibrationDeviceType.PHONE -> vibratePhoneMotors(lowNorm, highNorm, swapPhoneMotors)
+            VibrationDeviceType.CONTROLLER -> {
+                val info = _connectedControllers.value.getOrNull(gameVibrationDevice.controllerIndex)
+                if (info != null) {
+                    vibrateControllerMotors(info.id, lowNorm, highNorm, swapControllerMotors)
                 }
+            }
+            VibrationDeviceType.NONE -> {}
+        }
+    }
+
+    /** 强震动(low) → 马达1，弱震动(high) → 马达2；单马达设备取两者较大值。 */
+    private fun vibratePhoneMotors(low: Int, high: Int, swap: Boolean) {
+        val motor0 = if (swap) high else low
+        val motor1 = if (swap) low else high
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+            val ids = vm?.vibratorIds
+            if (vm != null && ids != null && ids.size >= 2) {
+                vibrateMultiMotor(vm, ids, intArrayOf(motor0, motor1))
                 return
             }
-            val idx = motor.ordinal - VibrationMotor.CONTROLLER_MOTOR_1.ordinal
-            if (idx >= 0 && idx < controllerMotorCount && intensity > 1) {
-                ctrlVib.merge(idx, intensity.coerceIn(2, 255), Int::plus)
+        }
+        vibratePhone(maxOf(motor0, motor1))
+    }
+
+    private fun vibrateControllerMotors(deviceId: Int, low: Int, high: Int, swap: Boolean) {
+        val motor0 = if (swap) high else low
+        val motor1 = if (swap) low else high
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vm = deviceVibratorManagers[deviceId]
+            val ids = vm?.vibratorIds
+            if (vm != null && ids != null && ids.isNotEmpty()) {
+                vibrateMultiMotor(vm, ids, intArrayOf(motor0, motor1))
+                return
             }
         }
+        deviceLegacyVibrators[deviceId]?.let { vibrateLegacy(it, maxOf(motor0, motor1)) }
+    }
 
-        addCtrlMotor(strongEff, lowNorm)
-        addCtrlMotor(weakEff, highNorm)
-
-        if (ctrlVib.isEmpty()) {
-            controllerVibratorManager?.cancel()
+    private fun vibrateMultiMotor(vm: VibratorManager, ids: IntArray, amps: IntArray) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        var hasActive = false
+        for (i in ids.indices) {
+            if (i < amps.size && amps[i] > 1) { hasActive = true; break }
+        }
+        if (!hasActive) {
+            try { vm.cancel() } catch (_: Exception) {}
             return
         }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val vm = controllerVibratorManager
-            if (vm != null) {
-                val ids = vm.vibratorIds
-                val combo = CombinedVibration.startParallel()
-                var hasMotor = false
-                for ((idx, intensity) in ctrlVib) {
-                    if (idx < ids.size) {
-                        combo.addVibrator(ids[idx], VibrationEffect.createOneShot(60000, intensity.coerceIn(0, 255)))
-                        hasMotor = true
-                    }
-                }
-                if (hasMotor) {
-                    try {
-                        vm.cancel()
-                        vm.vibrate(combo.combine())
-                    } catch (_: Exception) {}
+        try {
+            vm.cancel()
+            val combo = CombinedVibration.startParallel()
+            for (i in ids.indices) {
+                if (i < amps.size && amps[i] > 1) {
+                    combo.addVibrator(ids[i], VibrationEffect.createOneShot(60000, amps[i].coerceIn(0, 255)))
                 }
             }
+            vm.vibrate(combo.combine())
+        } catch (_: Exception) {}
+    }
+
+    private fun vibrateLegacy(vibrator: Vibrator, amp: Int) {
+        val clamped = amp.coerceIn(0, 255)
+        if (clamped < 1) {
+            try { vibrator.cancel() } catch (_: Exception) {}
+            return
         }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.cancel()
+                vibrator.vibrate(VibrationEffect.createOneShot(60000, clamped))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(60000)
+            }
+        } catch (_: Exception) {}
     }
 
     private fun cancelVibration() {
         controllerVibratorManager?.cancel()
+        for (vm in deviceVibratorManagers.values) {
+            try { vm.cancel() } catch (_: Exception) {}
+        }
+        for (v in deviceLegacyVibrators.values) {
+            try { v.cancel() } catch (_: Exception) {}
+        }
         vibratePhone(0)
+    }
+
+    /** Stops the actuators of the device that was just deselected in the game vibration setting. */
+    private fun stopVibrationForDevice(device: VibrationDevice) {
+        when (device.type) {
+            VibrationDeviceType.PHONE -> vibratePhone(0)
+            VibrationDeviceType.CONTROLLER -> {
+                val info = _connectedControllers.value.getOrNull(device.controllerIndex) ?: return
+                try { deviceVibratorManagers[info.id]?.cancel() } catch (_: Exception) {}
+                try { deviceLegacyVibrators[info.id]?.cancel() } catch (_: Exception) {}
+            }
+            VibrationDeviceType.NONE -> {}
+        }
     }
 
     private fun vibratePhone(amp: Int) {

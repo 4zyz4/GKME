@@ -14,6 +14,7 @@ import com.zyz4.gkme.model.AudioOutput
 import com.zyz4.gkme.model.ConnectionMode
 import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.model.TargetPlatform
+import com.zyz4.gkme.model.VibrationDeviceType
 import com.zyz4.gkme.proto.ClientToServer
 import com.zyz4.gkme.proto.GamepadInput
 import com.zyz4.gkme.proto.Hello
@@ -93,7 +94,7 @@ class ConnectionManager @Inject constructor(
             leftOutput = _settings.value.leftVoiceCoilOutput,
             rightOutput = _settings.value.rightVoiceCoilOutput,
             controllerAudio = _settings.value.controllerAudioOutput,
-            gameVibrationEnabled = _settings.value.gameVibrationEnabled,
+            motorOutputEnabled = _settings.value.gameVibrationDevice.type != VibrationDeviceType.NONE,
         )
         audioPlaybackService.onVibroOutput = { strong, weak ->
             onRumbleRequest?.invoke(strong, weak)
@@ -114,14 +115,14 @@ class ConnectionManager @Inject constructor(
     }
 
     fun updateSettings(newSettings: AppSettings) {
-        if (!newSettings.gameVibrationEnabled) {
+        if (newSettings.gameVibrationDevice.type == VibrationDeviceType.NONE) {
             vibrator.cancel()
         }
         audioPlaybackService.setSettings(
             leftOutput = newSettings.leftVoiceCoilOutput,
             rightOutput = newSettings.rightVoiceCoilOutput,
             controllerAudio = newSettings.controllerAudioOutput,
-            gameVibrationEnabled = newSettings.gameVibrationEnabled,
+            motorOutputEnabled = newSettings.gameVibrationDevice.type != VibrationDeviceType.NONE,
         )
         _settings.value = newSettings
         scope.launch {
@@ -386,7 +387,7 @@ class ConnectionManager @Inject constructor(
         }
         when (msg.payloadCase) {
             ServerToClient.PayloadCase.VIBRATION -> {
-                if (_settings.value.gameVibrationEnabled) {
+                if (_settings.value.gameVibrationDevice.type != VibrationDeviceType.NONE) {
                     val v = msg.vibration
                     onRumbleRequest?.invoke(v.largeMotor, v.smallMotor)
                 }
