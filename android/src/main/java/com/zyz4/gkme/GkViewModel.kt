@@ -87,6 +87,9 @@ class GkViewModel @Inject constructor(
     private val _gyroOverrideEnabled = MutableStateFlow(false)
     val gyroOverrideEnabled: StateFlow<Boolean> = _gyroOverrideEnabled.asStateFlow()
 
+    /** Reference angular rate (rad/s) used to normalize the gyro dead zone / reverse dead zone. */
+    private val gyroDeadZoneMaxRate = 5f
+
     private fun updateGyroOverrideFromCount() {
         _gyroOverrideEnabled.value = _gyroActivateCount > 0
     }
@@ -231,6 +234,14 @@ class GkViewModel @Inject constructor(
         }
         preset.gyroModeSensitivity?.let {
             val updated = settings.value.copy(gyroModeSensitivity = it)
+            connectionManager.updateSettings(updated)
+        }
+        preset.gyroDeadZone?.let {
+            val updated = settings.value.copy(gyroDeadZone = it)
+            connectionManager.updateSettings(updated)
+        }
+        preset.gyroReverseDeadZone?.let {
+            val updated = settings.value.copy(gyroReverseDeadZone = it)
             connectionManager.updateSettings(updated)
         }
     }
@@ -397,6 +408,16 @@ class GkViewModel @Inject constructor(
 
     fun updateGyroModeSensitivity(value: Int) {
         val updated = settings.value.copy(gyroModeSensitivity = value)
+        connectionManager.updateSettings(updated)
+    }
+
+    fun updateGyroDeadZone(value: Int) {
+        val updated = settings.value.copy(gyroDeadZone = value)
+        connectionManager.updateSettings(updated)
+    }
+
+    fun updateGyroReverseDeadZone(value: Int) {
+        val updated = settings.value.copy(gyroReverseDeadZone = value)
         connectionManager.updateSettings(updated)
     }
 
@@ -726,6 +747,23 @@ class GkViewModel @Inject constructor(
                         else _controllerWorldDx * s.gyroSensitivityX / 100f
                         mappedY = if (!useControllerGyro) sensor.worldDy * s.gyroSensitivityY / 100f
         else _controllerWorldDy * s.gyroSensitivityY / 100f
+                    }
+                }
+
+                // Apply gyro dead zone / reverse dead zone (radial, mirrors joystick behavior)
+                val gyroDeadZone = (s.gyroDeadZone / 100f).coerceIn(0f, 0.99f)
+                val gyroReverseDeadZone = (s.gyroReverseDeadZone / 100f).coerceIn(0f, 0.99f)
+                if (gyroDeadZone > 0f || gyroReverseDeadZone > 0f) {
+                    val mag = sqrt(mappedX * mappedX + mappedY * mappedY)
+                    if (mag > 0f) {
+                        val normalized = (mag / gyroDeadZoneMaxRate).coerceIn(0f, 1f)
+                        val afterDeadZone = if (normalized <= gyroDeadZone) 0f
+                                            else (normalized - gyroDeadZone) / (1f - gyroDeadZone)
+                        val afterReverseDeadZone = if (afterDeadZone == 0f) gyroReverseDeadZone
+                                                   else afterDeadZone * (1f - gyroReverseDeadZone) + gyroReverseDeadZone
+                        val scale = (afterReverseDeadZone * gyroDeadZoneMaxRate) / mag
+                        mappedX *= scale
+                        mappedY *= scale
                     }
                 }
 

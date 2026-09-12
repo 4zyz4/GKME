@@ -144,6 +144,20 @@ override fun onGyroModeSensitivityChanged(value: Int) {
                         a.viewModel.updateGyroModeSensitivity(value)
                     }
 
+                override fun onGyroDeadZoneChanged(value: Int) {
+                    val preset = a.gamepadLayout.currentGyroPreset.copy(gyroDeadZone = value)
+                    a.gamepadLayout.loadPreset(preset)
+                    a.viewModel.updatePresetButtons(preset)
+                    a.viewModel.updateGyroDeadZone(value)
+                }
+
+                override fun onGyroReverseDeadZoneChanged(value: Int) {
+                    val preset = a.gamepadLayout.currentGyroPreset.copy(gyroReverseDeadZone = value)
+                    a.gamepadLayout.loadPreset(preset)
+                    a.viewModel.updatePresetButtons(preset)
+                    a.viewModel.updateGyroReverseDeadZone(value)
+                }
+
                 override fun onGyroActivateModeChanged(mode: com.zyz4.gkme.model.GyroActivateMode) {
                         val preset = a.gamepadLayout.currentGyroPreset.copy(gyroActivateMode = mode)
                         a.gamepadLayout.loadPreset(preset)
@@ -163,6 +177,12 @@ override fun onGyroModeSensitivityChanged(value: Int) {
                 }
                 preset.gyroModeSensitivity?.let {
                     a.floatingEditor.presetGyroModeSensitivity = it
+                }
+                preset.gyroDeadZone?.let {
+                    a.floatingEditor.presetGyroDeadZone = it
+                }
+                preset.gyroReverseDeadZone?.let {
+                    a.floatingEditor.presetGyroReverseDeadZone = it
                 }
             }
 

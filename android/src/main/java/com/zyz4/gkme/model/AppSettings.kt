@@ -210,6 +210,8 @@ data class AppSettings(
     val gyroCoordinateSystem: GyroCoordinateSystem = GyroCoordinateSystem.YAW_ROLL,
     val gyroMode: GyroMode = GyroMode.HANDHELD,
     val gyroModeSensitivity: Int = 20,
+    val gyroDeadZone: Int = 0,
+    val gyroReverseDeadZone: Int = 0,
     val keepScreenOn: Boolean = false,
     // Disconnected state
     val controllerGyroEnabled: Boolean = false,

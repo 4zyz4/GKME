@@ -50,6 +50,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         fun onGyroCoordinateSystemChanged(coordinateSystem: com.zyz4.gkme.model.GyroCoordinateSystem)
         fun onGyroModeChanged(mode: com.zyz4.gkme.model.GyroMode)
         fun onGyroModeSensitivityChanged(value: Int)
+        fun onGyroDeadZoneChanged(value: Int)
+        fun onGyroReverseDeadZoneChanged(value: Int)
         fun onGyroActivateModeChanged(mode: com.zyz4.gkme.model.GyroActivateMode)
         fun onEnterGlobalGyroSettings()
         fun onExitGlobalGyroSettings()
@@ -97,6 +99,16 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             field = value
         }
 
+    var presetGyroDeadZone: Int = 0
+        set(value) {
+            field = value
+        }
+
+    var presetGyroReverseDeadZone: Int = 0
+        set(value) {
+            field = value
+        }
+
     var presetGyroActivateMode: com.zyz4.gkme.model.GyroActivateMode = com.zyz4.gkme.model.GyroActivateMode.ALWAYS
         set(value) {
             field = value
@@ -108,6 +120,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     private var gyroModeSpinner: Spinner? = null
     private var gyroActivateSpinnerRef: Spinner? = null
     private var globalSettingsContainer: LinearLayout? = null
+    private var gyroAdvancedContainer: LinearLayout? = null
     var showingGlobalSettings = false
 
     var currentSettings: com.zyz4.gkme.model.AppSettings? = null
@@ -118,6 +131,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         presetGyroCoordinateSystem = settings.gyroCoordinateSystem
         presetGyroMode = settings.gyroMode
         presetGyroModeSensitivity = settings.gyroModeSensitivity
+        presetGyroDeadZone = settings.gyroDeadZone
+        presetGyroReverseDeadZone = settings.gyroReverseDeadZone
         presetGyroActivateMode = settings.gyroActivateMode
     }
 
@@ -578,6 +593,19 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
         val container = globalSettingsContainer!!
 
+        // ── Gyro orientation (top) ──
+        buildGyroSelector(density, container)
+
+        // Separator
+        val sep = View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (1f * density).toInt()).apply {
+                topMargin = (4f * density).toInt()
+                bottomMargin = (8f * density).toInt()
+            }
+            background = GradientDrawable().apply { setColor(-0x444445) }
+        }
+        container.addView(sep)
+
         // ── Gyro activation mode ──
         val tvGyroActivate = TextView(context).apply {
             text = "陀螺仪激活方式"
@@ -608,33 +636,6 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         gyroActivateSpinnerRef = gyroActivateSpinner
         container.addView(gyroActivateSpinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt(); bottomMargin = (12f * density).toInt() })
 
-        // ── Gyro coordinate system ──
-        val tvGyroCoordinateSystem = TextView(context).apply {
-            text = "坐标系"
-            setTextColor(-0x1)
-            textSize = 15f
-            setPadding(0, (8f * density).toInt(), 0, 0)
-        }
-        container.addView(tvGyroCoordinateSystem)
-
-        val gyroCoordinateSystemItems = listOf("偏航", "滚转", "偏航+滚转", "世界空间")
-        val coordinateSystemSpinner = Spinner(context).apply {
-            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, gyroCoordinateSystemItems).also {
-                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            }
-            setSelection(coordinateSystemValues.indexOf(presetGyroCoordinateSystem).coerceAtLeast(0))
-            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
-                    val coordinateSystem = coordinateSystemValues.getOrNull(pos) ?: GyroCoordinateSystem.YAW_ROLL
-                    presetGyroCoordinateSystem = coordinateSystem
-                    editorListener?.onGyroCoordinateSystemChanged(coordinateSystem)
-                }
-                override fun onNothingSelected(parent: AdapterView<*>?) {}
-            }
-        }
-        gyroCoordinateSystemSpinner = coordinateSystemSpinner
-        container.addView(coordinateSystemSpinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt(); bottomMargin = (12f * density).toInt() })
-
         // ── Gyro mapping mode ──
         val tvGyroMode = TextView(context).apply {
             text = "陀螺仪行为"
@@ -663,26 +664,61 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         gyroModeSpinner = modeSpinner
         container.addView(modeSpinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt(); bottomMargin = (12f * density).toInt() })
 
+        // ── Advanced settings: coordinate system, sensitivity, dead zones ──
+        // Only shown when the gyro mode is not HANDHELD (手柄陀螺仪).
+        gyroAdvancedContainer = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        val advanced = gyroAdvancedContainer!!
+
+        // ── Gyro coordinate system ──
+        val tvGyroCoordinateSystem = TextView(context).apply {
+            text = "坐标系"
+            setTextColor(-0x1)
+            textSize = 15f
+            setPadding(0, (8f * density).toInt(), 0, 0)
+        }
+        advanced.addView(tvGyroCoordinateSystem)
+
+        val gyroCoordinateSystemItems = listOf("偏航", "滚转", "偏航+滚转", "世界空间")
+        val coordinateSystemSpinner = Spinner(context).apply {
+            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, gyroCoordinateSystemItems).also {
+                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+            setSelection(coordinateSystemValues.indexOf(presetGyroCoordinateSystem).coerceAtLeast(0))
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                    val coordinateSystem = coordinateSystemValues.getOrNull(pos) ?: GyroCoordinateSystem.YAW_ROLL
+                    presetGyroCoordinateSystem = coordinateSystem
+                    editorListener?.onGyroCoordinateSystemChanged(coordinateSystem)
+                }
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
+        }
+        gyroCoordinateSystemSpinner = coordinateSystemSpinner
+        advanced.addView(coordinateSystemSpinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt(); bottomMargin = (12f * density).toInt() })
+
         // ── Gyro sensitivity (only for mouse/stick mapping) ──
-        addSeekbar(container, "灵敏度", presetGyroModeSensitivity, 1, 100, onChange = {
+        addSeekbar(advanced, "灵敏度", presetGyroModeSensitivity, 1, 100, onChange = {
             presetGyroModeSensitivity = it
             editorListener?.onGyroModeSensitivityChanged(it)
         })
 
-        // Separator
-        val sep = View(context).apply {
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (1f * density).toInt()).apply {
-                topMargin = (12f * density).toInt()
-                bottomMargin = (8f * density).toInt()
-            }
-            background = GradientDrawable().apply { setColor(-0x444445) }
-        }
-        container.addView(sep)
+        // ── Gyro dead zone ──
+        addSeekbar(advanced, "陀螺仪死区(%)", presetGyroDeadZone, 0, 100, onChange = {
+            presetGyroDeadZone = it
+            editorListener?.onGyroDeadZoneChanged(it)
+        })
 
-        // ── Gyro orientation ──
-        buildGyroSelector(density, container)
+        // ── Gyro reverse dead zone ──
+        addSeekbar(advanced, "陀螺仪反死区(%)", presetGyroReverseDeadZone, 0, 100, onChange = {
+            presetGyroReverseDeadZone = it
+            editorListener?.onGyroReverseDeadZoneChanged(it)
+        })
 
-        // Store seekbar for visibility toggling
+        container.addView(advanced)
+
+        updateGyroModeVisibility()
 
         buttonParamsInner.addView(container)
     }
@@ -690,23 +726,12 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     private fun clearGlobalSettingsPanel() {
         globalSettingsContainer?.removeAllViews()
         globalSettingsContainer = null
+        gyroAdvancedContainer = null
     }
 
     private fun updateGyroModeVisibility() {
         val vis = if (presetGyroMode != com.zyz4.gkme.model.GyroMode.HANDHELD) View.VISIBLE else View.GONE
-        globalSettingsContainer?.let { container ->
-            for (i in 0 until container.childCount) {
-                val child = container.getChildAt(i)
-                if (child is LinearLayout) {
-                    for (j in 0 until child.childCount) {
-                        val grandchild = child.getChildAt(j)
-                        if (grandchild is SeekBar) {
-                            grandchild.visibility = vis
-                        }
-                    }
-                }
-            }
-        }
+        gyroAdvancedContainer?.visibility = vis
     }
 
     private fun buildGripBar(density: Float): View {

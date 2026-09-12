@@ -118,8 +118,12 @@ class GamepadLayout @JvmOverloads constructor(
         private set
     var currentGyroModeSensitivity: Int? = null
         private set
+    var currentGyroDeadZone: Int? = null
+        private set
+    var currentGyroReverseDeadZone: Int? = null
+        private set
     val currentGyroPreset: com.zyz4.gkme.model.LayoutPreset
-        get() = LayoutPreset(version = 1, buttons = currentButtons, gyroOrientation = currentGyroOrientation, gyroActivateMode = currentGyroActivateMode, gyroMode = currentGyroMode, gyroModeSensitivity = currentGyroModeSensitivity)
+        get() = LayoutPreset(version = 1, buttons = currentButtons, gyroOrientation = currentGyroOrientation, gyroActivateMode = currentGyroActivateMode, gyroMode = currentGyroMode, gyroModeSensitivity = currentGyroModeSensitivity, gyroDeadZone = currentGyroDeadZone, gyroReverseDeadZone = currentGyroReverseDeadZone)
     private var isEditMode = false
     var selectedButtonId: String? = null
         private set
@@ -782,6 +786,8 @@ class GamepadLayout @JvmOverloads constructor(
         currentGyroActivateMode = preset.gyroActivateMode
         currentGyroMode = preset.gyroMode
         currentGyroModeSensitivity = preset.gyroModeSensitivity
+        currentGyroDeadZone = preset.gyroDeadZone
+        currentGyroReverseDeadZone = preset.gyroReverseDeadZone
         hasChanges = false
         refreshSwipeTriggers()
         bringSettingsToFront()
@@ -854,7 +860,7 @@ class GamepadLayout @JvmOverloads constructor(
     }
 
     fun getPreset(): LayoutPreset {
-        return LayoutPreset(version = 1, buttons = currentButtons.toList(), gyroOrientation = currentGyroOrientation, gyroActivateMode = currentGyroActivateMode, gyroMode = currentGyroMode, gyroModeSensitivity = currentGyroModeSensitivity)
+        return LayoutPreset(version = 1, buttons = currentButtons.toList(), gyroOrientation = currentGyroOrientation, gyroActivateMode = currentGyroActivateMode, gyroMode = currentGyroMode, gyroModeSensitivity = currentGyroModeSensitivity, gyroDeadZone = currentGyroDeadZone, gyroReverseDeadZone = currentGyroReverseDeadZone)
     }
 
     fun enterEditMode() {
