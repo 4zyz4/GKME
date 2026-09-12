@@ -24,6 +24,7 @@ import com.zyz4.gkme.model.GyroActivateMode
 import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.model.HapticEffect
 import com.zyz4.gkme.model.LayoutPreset
+import com.zyz4.gkme.model.LedAppearance
 import com.zyz4.gkme.model.TargetPlatform
 import com.zyz4.gkme.model.VibrationDevice
 import com.zyz4.gkme.model.TouchPoint
@@ -55,6 +56,7 @@ class GkViewModel @Inject constructor(
 
     val connectionState = connectionManager.connectionState
     val settings = connectionManager.settings
+    val ledState = connectionManager.ledState
     val pairedDeviceName = connectionManager.pairedDeviceName
     val isBluetoothRunning: Boolean get() = connectionManager.isBluetoothRunning
 
@@ -471,6 +473,18 @@ class GkViewModel @Inject constructor(
     // ── Appearance updates ──
     fun updateAppearance(transform: (AppSettings) -> AppSettings) {
         connectionManager.updateSettings(transform(settings.value))
+    }
+
+    private var lastAppliedLedColor = Int.MIN_VALUE
+
+    /** Pushes the live controller LED color into every appearance field bound to it. */
+    fun applyLedColorToAppearance(ledColor: Int) {
+        if (ledColor == lastAppliedLedColor) return
+        lastAppliedLedColor = ledColor
+        val current = settings.value
+        if (current.ledBoundColors.isEmpty()) return
+        val updated = LedAppearance.applyLedColor(current, ledColor)
+        if (updated != current) updateAppearance { updated }
     }
 
     fun onPhysicalControllerInput(

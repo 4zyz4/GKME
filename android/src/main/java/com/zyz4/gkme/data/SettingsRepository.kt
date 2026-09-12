@@ -17,6 +17,7 @@ import com.zyz4.gkme.model.GyroMode
 import com.zyz4.gkme.model.GyroCoordinateSystem
 import com.zyz4.gkme.model.GyroActivateMode
 import com.zyz4.gkme.model.HapticEffect
+import com.zyz4.gkme.model.LedAppearance
 import com.zyz4.gkme.model.TargetPlatform
 import com.zyz4.gkme.model.AudioOutput
 import com.zyz4.gkme.model.AudioDevice
@@ -111,10 +112,12 @@ class SettingsRepository @Inject constructor(
         val TP_OUTLINE_COLOR = intPreferencesKey("tp_outline_color")
         val TP_OUTLINE_WIDTH = intPreferencesKey("tp_outline_width")
         val ICON_MAX_SIZE = intPreferencesKey("icon_max_size")
+        val LED_BOUND_COLORS = stringPreferencesKey("led_bound_colors")
     }
 
     private val gson = Gson()
     private val listIntType = object : TypeToken<List<Int>>() {}.type
+    private val stringSetType = object : TypeToken<Set<String>>() {}.type
 
     val settings: Flow<AppSettings> = context.settingsDataStore.data.map { prefs ->
         AppSettings(
@@ -210,6 +213,9 @@ class SettingsRepository @Inject constructor(
             tpOutlineColor = prefs[Keys.TP_OUTLINE_COLOR] ?: 0xFF666666.toInt(),
             tpOutlineWidth = prefs[Keys.TP_OUTLINE_WIDTH] ?: 4,
             iconMaxSize = prefs[Keys.ICON_MAX_SIZE] ?: 24,
+            ledBoundColors = prefs[Keys.LED_BOUND_COLORS]
+                ?.let { parseStringSet(it) }
+                ?: LedAppearance.DEFAULT_BOUND_COLORS,
             voiceCoilDevice = prefs[Keys.VOICE_COIL_DEVICE_TYPE]?.let { typeOrdinal ->
                 AudioDevice(
                     type = AudioDeviceType.entries.getOrElse(typeOrdinal) { AudioDeviceType.PHONE_SPEAKER },
@@ -294,6 +300,7 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.TP_OUTLINE_COLOR] = settings.tpOutlineColor
             prefs[Keys.TP_OUTLINE_WIDTH] = settings.tpOutlineWidth
             prefs[Keys.ICON_MAX_SIZE] = settings.iconMaxSize
+            prefs[Keys.LED_BOUND_COLORS] = gson.toJson(settings.ledBoundColors)
             prefs[Keys.VOICE_COIL_DEVICE_TYPE] = settings.voiceCoilDevice.type.ordinal
             prefs[Keys.VOICE_COIL_CONTROLLER_INDEX] = settings.voiceCoilDevice.controllerIndex
             prefs[Keys.SWAP_VOICE_COIL_MOTORS] = settings.swapVoiceCoilMotors
@@ -320,5 +327,12 @@ class SettingsRepository @Inject constructor(
         return try {
             gson.fromJson(json, listIntType) ?: emptyList()
         } catch (_: Exception) { emptyList() }
+    }
+
+    private fun parseStringSet(json: String?): Set<String> {
+        if (json.isNullOrEmpty()) return emptySet()
+        return try {
+            gson.fromJson<Set<String>>(json, stringSetType) ?: emptySet()
+        } catch (_: Exception) { emptySet() }
     }
 }

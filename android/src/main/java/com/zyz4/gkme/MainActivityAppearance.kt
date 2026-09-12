@@ -22,6 +22,7 @@ import androidx.core.graphics.scale
 import com.zyz4.gkme.model.AppearanceProfile
 import com.zyz4.gkme.model.AppSettings
 import com.zyz4.gkme.model.FillType
+import com.zyz4.gkme.model.LedAppearance
 import java.io.File
 import java.io.FileOutputStream
 
@@ -130,9 +131,7 @@ internal fun MainActivity.setupAppearancePage() {
         a.onAppearanceChange { it.copy(bgFillType = FillType.IMAGE) }
     }
     a.findViewById<Button>(R.id.btnBgColor).setOnClickListener {
-        a.showColorPickerDialog(a.viewModel.settings.value.bgColor) { color ->
-            a.onAppearanceChange { it.copy(bgColor = color) }
-        }
+        a.showAppearanceColorPicker("bgColor", a.viewModel.settings.value.bgColor)
     }
     a.findViewById<Button>(R.id.btnBgPickImage).setOnClickListener {
         a.bgImagePickerLauncher?.launch("image/*")
@@ -146,17 +145,13 @@ internal fun MainActivity.setupAppearancePage() {
         a.onAppearanceChange { it.copy(btnFillType = FillType.IMAGE) }
     }
     a.findViewById<Button>(R.id.btnBtnColor).setOnClickListener {
-        a.showColorPickerDialog(a.viewModel.settings.value.btnColor) { color ->
-            a.onAppearanceChange { it.copy(btnColor = color) }
-        }
+        a.showAppearanceColorPicker("btnColor", a.viewModel.settings.value.btnColor)
     }
     a.findViewById<Button>(R.id.btnBtnPickImage).setOnClickListener {
         a.btnImagePickerLauncher?.launch("image/*")
     }
     a.findViewById<Button>(R.id.btnBtnOutlineColor).setOnClickListener {
-        a.showColorPickerDialog(a.viewModel.settings.value.btnOutlineColor) { color ->
-            a.onAppearanceChange { it.copy(btnOutlineColor = color) }
-        }
+        a.showAppearanceColorPicker("btnOutlineColor", a.viewModel.settings.value.btnOutlineColor)
     }
     a.findViewById<SeekBar>(R.id.seekBtnOutlineWidth).setOnSeekBarChangeListener(
         object : SeekBar.OnSeekBarChangeListener {
@@ -178,17 +173,13 @@ internal fun MainActivity.setupAppearancePage() {
         a.onAppearanceChange { it.copy(joyBaseFillType = FillType.IMAGE) }
     }
     a.findViewById<Button>(R.id.btnJoyBaseColor).setOnClickListener {
-        a.showColorPickerDialog(a.viewModel.settings.value.joyBaseColor) { color ->
-            a.onAppearanceChange { it.copy(joyBaseColor = color) }
-        }
+        a.showAppearanceColorPicker("joyBaseColor", a.viewModel.settings.value.joyBaseColor)
     }
     a.findViewById<Button>(R.id.btnJoyBasePickImage).setOnClickListener {
         a.joyBaseImagePickerLauncher?.launch("image/*")
     }
     a.findViewById<Button>(R.id.btnJoyBaseOutlineColor).setOnClickListener {
-        a.showColorPickerDialog(a.viewModel.settings.value.joyBaseOutlineColor) { color ->
-            a.onAppearanceChange { it.copy(joyBaseOutlineColor = color) }
-        }
+        a.showAppearanceColorPicker("joyBaseOutlineColor", a.viewModel.settings.value.joyBaseOutlineColor)
     }
     a.findViewById<SeekBar>(R.id.seekJoyBaseOutlineWidth).setOnSeekBarChangeListener(
         object : SeekBar.OnSeekBarChangeListener {
@@ -210,17 +201,13 @@ internal fun MainActivity.setupAppearancePage() {
         a.onAppearanceChange { it.copy(joyCapFillType = FillType.IMAGE) }
     }
     a.findViewById<Button>(R.id.btnJoyCapColor).setOnClickListener {
-        a.showColorPickerDialog(a.viewModel.settings.value.joyCapColor) { color ->
-            a.onAppearanceChange { it.copy(joyCapColor = color) }
-        }
+        a.showAppearanceColorPicker("joyCapColor", a.viewModel.settings.value.joyCapColor)
     }
     a.findViewById<Button>(R.id.btnJoyCapPickImage).setOnClickListener {
         a.joyCapImagePickerLauncher?.launch("image/*")
     }
     a.findViewById<Button>(R.id.btnJoyCapOutlineColor).setOnClickListener {
-        a.showColorPickerDialog(a.viewModel.settings.value.joyCapOutlineColor) { color ->
-            a.onAppearanceChange { it.copy(joyCapOutlineColor = color) }
-        }
+        a.showAppearanceColorPicker("joyCapOutlineColor", a.viewModel.settings.value.joyCapOutlineColor)
     }
     a.findViewById<SeekBar>(R.id.seekJoyCapOutlineWidth).setOnSeekBarChangeListener(
         object : SeekBar.OnSeekBarChangeListener {
@@ -236,9 +223,7 @@ internal fun MainActivity.setupAppearancePage() {
 
     // ── Trigger Area ──
     a.findViewById<Button>(R.id.btnJoyTriggerOutlineColor).setOnClickListener {
-        a.showColorPickerDialog(a.viewModel.settings.value.joyTriggerOutlineColor) { color ->
-            a.onAppearanceChange { it.copy(joyTriggerOutlineColor = color) }
-        }
+        a.showAppearanceColorPicker("joyTriggerOutlineColor", a.viewModel.settings.value.joyTriggerOutlineColor)
     }
     a.findViewById<SeekBar>(R.id.seekJoyTriggerOutlineWidth).setOnSeekBarChangeListener(
         object : SeekBar.OnSeekBarChangeListener {
@@ -260,17 +245,13 @@ internal fun MainActivity.setupAppearancePage() {
         a.onAppearanceChange { it.copy(tpFillType = FillType.IMAGE) }
     }
     a.findViewById<Button>(R.id.btnTpColor).setOnClickListener {
-        a.showColorPickerDialog(a.viewModel.settings.value.tpColor) { color ->
-            a.onAppearanceChange { it.copy(tpColor = color) }
-        }
+        a.showAppearanceColorPicker("tpColor", a.viewModel.settings.value.tpColor)
     }
     a.findViewById<Button>(R.id.btnTpPickImage).setOnClickListener {
         a.tpImagePickerLauncher?.launch("image/*")
     }
     a.findViewById<Button>(R.id.btnTpOutlineColor).setOnClickListener {
-        a.showColorPickerDialog(a.viewModel.settings.value.tpOutlineColor) { color ->
-            a.onAppearanceChange { it.copy(tpOutlineColor = color) }
-        }
+        a.showAppearanceColorPicker("tpOutlineColor", a.viewModel.settings.value.tpOutlineColor)
     }
     a.findViewById<SeekBar>(R.id.seekTpOutlineWidth).setOnSeekBarChangeListener(
         object : SeekBar.OnSeekBarChangeListener {
@@ -286,9 +267,7 @@ internal fun MainActivity.setupAppearancePage() {
 
     // ── Touchpad Extended Range ──
     a.findViewById<Button>(R.id.btnTpTriggerOutlineColor).setOnClickListener {
-        a.showColorPickerDialog(a.viewModel.settings.value.tpTriggerOutlineColor) { color ->
-            a.onAppearanceChange { it.copy(tpTriggerOutlineColor = color) }
-        }
+        a.showAppearanceColorPicker("tpTriggerOutlineColor", a.viewModel.settings.value.tpTriggerOutlineColor)
     }
     a.findViewById<SeekBar>(R.id.seekTpTriggerOutlineWidth).setOnSeekBarChangeListener(
         object : SeekBar.OnSeekBarChangeListener {
@@ -310,17 +289,13 @@ internal fun MainActivity.setupAppearancePage() {
         a.onAppearanceChange { it.copy(dpadPadFillType = FillType.IMAGE) }
     }
     a.findViewById<Button>(R.id.btnPadColor).setOnClickListener {
-        a.showColorPickerDialog(a.viewModel.settings.value.dpadPadColor) { color ->
-            a.onAppearanceChange { it.copy(dpadPadColor = color) }
-        }
+        a.showAppearanceColorPicker("dpadPadColor", a.viewModel.settings.value.dpadPadColor)
     }
     a.findViewById<Button>(R.id.btnPadPickImage).setOnClickListener {
         a.padImagePickerLauncher?.launch("image/*")
     }
     a.findViewById<Button>(R.id.btnPadBorderColor).setOnClickListener {
-        a.showColorPickerDialog(a.viewModel.settings.value.dpadPadOutlineColor) { color ->
-            a.onAppearanceChange { it.copy(dpadPadOutlineColor = color) }
-        }
+        a.showAppearanceColorPicker("dpadPadOutlineColor", a.viewModel.settings.value.dpadPadOutlineColor)
     }
     a.findViewById<SeekBar>(R.id.seekPadBorderWidth).setOnSeekBarChangeListener(
         object : SeekBar.OnSeekBarChangeListener {
@@ -336,9 +311,7 @@ internal fun MainActivity.setupAppearancePage() {
 
     // ── 触发区域（一体十字键/自定义按键盘） ──
     a.findViewById<Button>(R.id.btnPadTriggerOutlineColor).setOnClickListener {
-        a.showColorPickerDialog(a.viewModel.settings.value.dpadPadTriggerOutlineColor) { color ->
-            a.onAppearanceChange { it.copy(dpadPadTriggerOutlineColor = color) }
-        }
+        a.showAppearanceColorPicker("dpadPadTriggerOutlineColor", a.viewModel.settings.value.dpadPadTriggerOutlineColor)
     }
     a.findViewById<SeekBar>(R.id.seekPadTriggerOutlineWidth).setOnSeekBarChangeListener(
         object : SeekBar.OnSeekBarChangeListener {
@@ -354,9 +327,7 @@ internal fun MainActivity.setupAppearancePage() {
 
     // ── Reset buttons ──
     a.findViewById<Button>(R.id.btnLinearTriggerBoxOutlineColor).setOnClickListener {
-        a.showColorPickerDialog(a.viewModel.settings.value.linearTriggerBoxOutlineColor) { color ->
-            a.onAppearanceChange { it.copy(linearTriggerBoxOutlineColor = color) }
-        }
+        a.showAppearanceColorPicker("linearTriggerBoxOutlineColor", a.viewModel.settings.value.linearTriggerBoxOutlineColor)
     }
     a.findViewById<SeekBar>(R.id.seekLinearTriggerBoxOutlineWidth).setOnSeekBarChangeListener(
         object : SeekBar.OnSeekBarChangeListener {
@@ -400,7 +371,8 @@ internal fun MainActivity.setupAppearancePage() {
         a.onAppearanceChange { it.copy(tpColor = 0xFF121212.toInt()) }
     }
     a.findViewById<Button>(R.id.btnResetTpOutlineColor).setOnClickListener {
-        a.onAppearanceChange { it.copy(tpOutlineColor = 0xFF666666.toInt()) }
+        val led = LedAppearance.clamp(a.viewModel.ledState.value.color)
+        a.onAppearanceChange { LedAppearance.setColorField(it, "tpOutlineColor", led, bind = true) }
     }
     a.findViewById<Button>(R.id.btnResetTpTriggerOutlineColor).setOnClickListener {
         a.onAppearanceChange { it.copy(tpTriggerOutlineColor = -0x666667) }
@@ -426,7 +398,12 @@ internal fun MainActivity.setupAppearancePage() {
 
 // ── Color Picker Dialog ──
 
-internal fun MainActivity.showColorPickerDialog(currentColor: Int, onColorSelected: (Int) -> Unit) {
+internal fun MainActivity.showColorPickerDialog(
+    currentColor: Int,
+    onColorSelected: (color: Int, useLed: Boolean) -> Unit,
+    ledColor: Int? = null,
+    ledBound: Boolean = false,
+) {
     val a = this
     val density = a.resources.displayMetrics.density
     val pad = (8 * density).toInt()
@@ -435,7 +412,7 @@ internal fun MainActivity.showColorPickerDialog(currentColor: Int, onColorSelect
 
     // ── Color picker (full width) ──
     val picker = com.zyz4.gkme.view.ColorPickerView(a)
-    picker.color = currentColor
+    picker.color = if (ledBound && ledColor != null) ledColor else currentColor
     root.addView(picker, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (200 * density).toInt()))
 
     // ── Bottom row: swatches + hex input ──
@@ -458,7 +435,7 @@ internal fun MainActivity.showColorPickerDialog(currentColor: Int, onColorSelect
         setTextColor(-0x1)
         setPadding(pad, 0, pad, 0)
     }
-    val newSwatch = swatchView(currentColor)
+    val newSwatch = swatchView(picker.color)
     val hexInput = android.widget.EditText(a).apply {
         textSize = 14f
         gravity = android.view.Gravity.CENTER
@@ -486,8 +463,6 @@ internal fun MainActivity.showColorPickerDialog(currentColor: Int, onColorSelect
     root.addView(bottomRow)
 
     // ── Wire up ──
-    fun updateHex() { hexInput.setText(String.format("#%06X", 0xFFFFFF and currentColor)) }
-    updateHex()
     fun applySwatchColor(v: View, c: Int) {
         v.background = android.graphics.drawable.GradientDrawable().apply {
             shape = android.graphics.drawable.GradientDrawable.RECTANGLE
@@ -496,6 +471,12 @@ internal fun MainActivity.showColorPickerDialog(currentColor: Int, onColorSelect
             setStroke(1, -0x1)
         }
     }
+    fun showColor(c: Int) {
+        picker.color = c
+        applySwatchColor(newSwatch, c)
+        hexInput.setText(String.format("#%06X", 0xFFFFFF and c))
+    }
+    showColor(picker.color)
     picker.onColorChanged = { c ->
         applySwatchColor(newSwatch, c)
         hexInput.setText(String.format("#%06X", 0xFFFFFF and c))
@@ -503,18 +484,85 @@ internal fun MainActivity.showColorPickerDialog(currentColor: Int, onColorSelect
     hexInput.setOnEditorActionListener { v, _, _ ->
         val text = v.text.toString().removePrefix("#")
         val c = try { Integer.parseInt(text, 16) or -0x1000000 } catch (_: Exception) { return@setOnEditorActionListener true }
-        picker.color = c
-        applySwatchColor(newSwatch, c)
+        showColor(c)
         true
     }
 
-    CustomDialog.showCustomView(a, "选择颜色", root, negativeText = "取消",
-        positiveText = "确认", onPositive = { onColorSelected(picker.color) },
-        scrollable = true)
+    // ── "Use controller LED color" checkbox (above the buttons) ──
+    val ledCheck: android.widget.CheckBox? = ledColor?.let { led ->
+        android.widget.CheckBox(a).apply {
+            text = "使用控制LED颜色"
+            setTextColor(-0x1)
+            textSize = 14f
+            isChecked = ledBound
+            setPadding(0, pad, 0, 0)
+            setOnCheckedChangeListener { _, checked ->
+                if (checked) showColor(led)
+            }
+        }.also { root.addView(it) }
+    }
+
+    CustomDialog.showCustomView(
+        a, "选择颜色", root,
+        negativeText = "取消",
+        positiveText = "确认",
+        onPositive = { onColorSelected(picker.color, ledCheck?.isChecked == true) },
+        scrollable = true,
+    )
+}
+
+/**
+ * Color picker for an appearance color field. Besides picking a manual color, the user
+ * can tick "使用手柄LED颜色" to bind the field to the live controller LED color; bound
+ * fields update in real time and are clamped to a minimum brightness of #1A1A1A.
+ * Unticking the box and confirming removes the binding.
+ */
+internal fun MainActivity.showAppearanceColorPicker(field: String, currentColor: Int) {
+    val a = this
+    val led = LedAppearance.clamp(a.viewModel.ledState.value.color)
+    val bound = a.viewModel.settings.value.ledBoundColors.contains(field)
+    a.showColorPickerDialog(
+        currentColor = currentColor,
+        ledColor = led,
+        ledBound = bound,
+        onColorSelected = { color, useLed ->
+            val chosen = if (useLed) led else color
+            a.onAppearanceChange { LedAppearance.setColorField(it, field, chosen, bind = useLed) }
+        },
+    )
 }
 
 private fun colorBg(c: Int) = android.graphics.drawable.GradientDrawable().apply {
     shape = android.graphics.drawable.GradientDrawable.RECTANGLE; cornerRadius = 0f; setColor(c); setStroke(1, -0x1)
+}
+
+/** Renders an appearance color preview. When the field follows the controller LED the
+ *  color square is replaced by a "控制器LED" label. */
+internal fun MainActivity.syncColorPreview(buttonId: Int, field: String, color: Int) {
+    val btn = findViewById<Button>(buttonId) ?: return
+    val density = resources.displayMetrics.density
+    val bound = viewModel.settings.value.ledBoundColors.contains(field)
+    val lp = btn.layoutParams
+    if (bound) {
+        btn.text = "控制器LED"
+        btn.textSize = 11f
+        btn.setTextColor(0xFFFFFFFF.toInt())
+        btn.isAllCaps = false
+        btn.setPadding((6 * density).toInt(), 0, (6 * density).toInt(), 0)
+        btn.background = android.graphics.drawable.GradientDrawable().apply {
+            shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+            cornerRadius = 0f
+            setColor(0xFF3A3A3A.toInt())
+            setStroke(1, 0xFF888888.toInt())
+        }
+        if (lp != null) lp.width = ViewGroup.LayoutParams.WRAP_CONTENT
+    } else {
+        btn.text = ""
+        btn.setPadding(0, 0, 0, 0)
+        btn.background = colorBg(color)
+        if (lp != null) lp.width = (32 * density).toInt()
+    }
+    if (lp != null) btn.layoutParams = lp
 }
 
 internal fun iconMaxSizeLabel(value: Int): String =
@@ -533,73 +581,73 @@ internal fun MainActivity.syncAppearanceUI() {
 
     // Background
     a.selectChipGroup(listOf(R.id.btnBgFillSolid, R.id.btnBgFillImage), s.bgFillType.ordinal)
-    a.findViewById<Button>(R.id.btnBgColor).background = colorBg(s.bgColor)
+    a.syncColorPreview(R.id.btnBgColor, "bgColor", s.bgColor)
     a.findViewById<View>(R.id.layoutBgColor).visibility = if (s.bgFillType == FillType.SOLID_COLOR) View.VISIBLE else View.GONE
     a.findViewById<View>(R.id.btnBgPickImage).visibility = if (s.bgFillType == FillType.IMAGE) View.VISIBLE else View.GONE
 
     // Buttons
     a.selectChipGroup(listOf(R.id.btnBtnFillSolid, R.id.btnBtnFillImage), s.btnFillType.ordinal)
-    a.findViewById<Button>(R.id.btnBtnColor).background = colorBg(s.btnColor)
+    a.syncColorPreview(R.id.btnBtnColor, "btnColor", s.btnColor)
     a.findViewById<View>(R.id.layoutBtnColor).visibility = if (s.btnFillType == FillType.SOLID_COLOR) View.VISIBLE else View.GONE
     a.findViewById<View>(R.id.btnBtnPickImage).visibility = if (s.btnFillType == FillType.IMAGE) View.VISIBLE else View.GONE
-    a.findViewById<Button>(R.id.btnBtnOutlineColor).background = colorBg(s.btnOutlineColor)
+    a.syncColorPreview(R.id.btnBtnOutlineColor, "btnOutlineColor", s.btnOutlineColor)
     a.findViewById<SeekBar>(R.id.seekBtnOutlineWidth).progress = s.btnOutlineWidth
     a.findViewById<TextView>(R.id.tvBtnOutlineWidth).text = "轮廓粗细: ${s.btnOutlineWidth}"
 
     // Joystick Base
     a.selectChipGroup(listOf(R.id.btnJoyBaseFillSolid, R.id.btnJoyBaseFillImage), s.joyBaseFillType.ordinal)
-    a.findViewById<Button>(R.id.btnJoyBaseColor).background = colorBg(s.joyBaseColor)
+    a.syncColorPreview(R.id.btnJoyBaseColor, "joyBaseColor", s.joyBaseColor)
     a.findViewById<View>(R.id.layoutJoyBaseColor).visibility = if (s.joyBaseFillType == FillType.SOLID_COLOR) View.VISIBLE else View.GONE
     a.findViewById<View>(R.id.btnJoyBasePickImage).visibility = if (s.joyBaseFillType == FillType.IMAGE) View.VISIBLE else View.GONE
-    a.findViewById<Button>(R.id.btnJoyBaseOutlineColor).background = colorBg(s.joyBaseOutlineColor)
+    a.syncColorPreview(R.id.btnJoyBaseOutlineColor, "joyBaseOutlineColor", s.joyBaseOutlineColor)
     a.findViewById<SeekBar>(R.id.seekJoyBaseOutlineWidth).progress = s.joyBaseOutlineWidth
     a.findViewById<TextView>(R.id.tvJoyBaseOutlineWidth).text = "底座轮廓粗细: ${s.joyBaseOutlineWidth}"
 
     // Joystick Cap
     a.selectChipGroup(listOf(R.id.btnJoyCapFillSolid, R.id.btnJoyCapFillImage), s.joyCapFillType.ordinal)
-    a.findViewById<Button>(R.id.btnJoyCapColor).background = colorBg(s.joyCapColor)
+    a.syncColorPreview(R.id.btnJoyCapColor, "joyCapColor", s.joyCapColor)
     a.findViewById<View>(R.id.layoutJoyCapColor).visibility = if (s.joyCapFillType == FillType.SOLID_COLOR) View.VISIBLE else View.GONE
     a.findViewById<View>(R.id.btnJoyCapPickImage).visibility = if (s.joyCapFillType == FillType.IMAGE) View.VISIBLE else View.GONE
-    a.findViewById<Button>(R.id.btnJoyCapOutlineColor).background = colorBg(s.joyCapOutlineColor)
+    a.syncColorPreview(R.id.btnJoyCapOutlineColor, "joyCapOutlineColor", s.joyCapOutlineColor)
     a.findViewById<SeekBar>(R.id.seekJoyCapOutlineWidth).progress = s.joyCapOutlineWidth
     a.findViewById<TextView>(R.id.tvJoyCapOutlineWidth).text = "摇杆帽轮廓粗细: ${s.joyCapOutlineWidth}"
 
     // Trigger Area
-    a.findViewById<Button>(R.id.btnJoyTriggerOutlineColor).background = colorBg(s.joyTriggerOutlineColor)
+    a.syncColorPreview(R.id.btnJoyTriggerOutlineColor, "joyTriggerOutlineColor", s.joyTriggerOutlineColor)
     a.findViewById<SeekBar>(R.id.seekJoyTriggerOutlineWidth).progress = s.joyTriggerOutlineWidth
     a.findViewById<TextView>(R.id.tvJoyTriggerOutlineWidth).text = "触发区域粗细: ${s.joyTriggerOutlineWidth}"
 
     // Linear Trigger Box
-    a.findViewById<Button>(R.id.btnLinearTriggerBoxOutlineColor).background = colorBg(s.linearTriggerBoxOutlineColor)
+    a.syncColorPreview(R.id.btnLinearTriggerBoxOutlineColor, "linearTriggerBoxOutlineColor", s.linearTriggerBoxOutlineColor)
     a.findViewById<SeekBar>(R.id.seekLinearTriggerBoxOutlineWidth).progress = s.linearTriggerBoxOutlineWidth
     a.findViewById<TextView>(R.id.tvLinearTriggerBoxOutlineWidth).text = "线框粗细: ${s.linearTriggerBoxOutlineWidth}"
 
     // Touchpad
     a.selectChipGroup(listOf(R.id.btnTpFillSolid, R.id.btnTpFillImage), s.tpFillType.ordinal)
-    a.findViewById<Button>(R.id.btnTpColor).background = colorBg(s.tpColor)
+    a.syncColorPreview(R.id.btnTpColor, "tpColor", s.tpColor)
     a.findViewById<View>(R.id.layoutTpColor).visibility = if (s.tpFillType == FillType.SOLID_COLOR) View.VISIBLE else View.GONE
     a.findViewById<View>(R.id.btnTpPickImage).visibility = if (s.tpFillType == FillType.IMAGE) View.VISIBLE else View.GONE
-    a.findViewById<Button>(R.id.btnTpOutlineColor).background = colorBg(s.tpOutlineColor)
+    a.syncColorPreview(R.id.btnTpOutlineColor, "tpOutlineColor", s.tpOutlineColor)
     a.findViewById<SeekBar>(R.id.seekTpOutlineWidth).progress = s.tpOutlineWidth
     a.findViewById<TextView>(R.id.tvTpOutlineWidth).text = "触摸板轮廓粗细: ${s.tpOutlineWidth}"
 
     // Touchpad Extended Range
-    a.findViewById<Button>(R.id.btnTpTriggerOutlineColor).background = colorBg(s.tpTriggerOutlineColor)
+    a.syncColorPreview(R.id.btnTpTriggerOutlineColor, "tpTriggerOutlineColor", s.tpTriggerOutlineColor)
     a.findViewById<SeekBar>(R.id.seekTpTriggerOutlineWidth).progress = s.tpTriggerOutlineWidth
     a.findViewById<TextView>(R.id.tvTpTriggerOutlineWidth).text = "区域粗细: ${s.tpTriggerOutlineWidth}"
 
     // 一体十字键/自定义按键盘
     val dpadPadAppearance = s
     a.selectChipGroup(listOf(R.id.btnPadFillSolid, R.id.btnPadFillImage), dpadPadAppearance.dpadPadFillType.ordinal)
-    a.findViewById<Button>(R.id.btnPadColor).background = colorBg(dpadPadAppearance.dpadPadColor)
+    a.syncColorPreview(R.id.btnPadColor, "dpadPadColor", dpadPadAppearance.dpadPadColor)
     a.findViewById<View>(R.id.layoutPadColor).visibility = if (dpadPadAppearance.dpadPadFillType == FillType.SOLID_COLOR) View.VISIBLE else View.GONE
     a.findViewById<View>(R.id.btnPadPickImage).visibility = if (dpadPadAppearance.dpadPadFillType == FillType.IMAGE) View.VISIBLE else View.GONE
-    a.findViewById<Button>(R.id.btnPadBorderColor).background = colorBg(dpadPadAppearance.dpadPadOutlineColor)
+    a.syncColorPreview(R.id.btnPadBorderColor, "dpadPadOutlineColor", dpadPadAppearance.dpadPadOutlineColor)
     a.findViewById<SeekBar>(R.id.seekPadBorderWidth).progress = dpadPadAppearance.dpadPadOutlineWidth
     a.findViewById<TextView>(R.id.tvPadBorderWidth).text = "控件轮廓粗细: ${dpadPadAppearance.dpadPadOutlineWidth}"
 
     // 触发区域（一体十字键/自定义按键盘）
-    a.findViewById<Button>(R.id.btnPadTriggerOutlineColor).background = colorBg(dpadPadAppearance.dpadPadTriggerOutlineColor)
+    a.syncColorPreview(R.id.btnPadTriggerOutlineColor, "dpadPadTriggerOutlineColor", dpadPadAppearance.dpadPadTriggerOutlineColor)
     a.findViewById<SeekBar>(R.id.seekPadTriggerOutlineWidth).progress = dpadPadAppearance.dpadPadTriggerOutlineWidth
     a.findViewById<TextView>(R.id.tvPadTriggerOutlineWidth).text = "触发区域轮廓粗细: ${dpadPadAppearance.dpadPadTriggerOutlineWidth}"
 

@@ -557,6 +557,47 @@ class PhysicalControllerHandler(private val context: Context) {
         )
     }
 
+    // ── LED passthrough ────────────────────────────────────
+
+    @Volatile
+    private var lastAppliedLedColor = Int.MIN_VALUE
+
+    @Volatile
+    private var lastAppliedPlayerLed = Int.MIN_VALUE
+
+    /**
+     * Forwards the emulated controller's LED state to every attached physical gamepad
+     * that exposes an LED. [color] is 0xRRGGBB; [playerLed] is the player-indicator
+     * bitmask (bit0 = LED 1 …).
+     */
+    fun setLedColor(color: Int, playerLed: Int) {
+        if (color == lastAppliedLedColor && playerLed == lastAppliedPlayerLed) return
+        lastAppliedLedColor = color
+        lastAppliedPlayerLed = playerLed
+
+        val count = SdlNative.nativeGetControllerCount()
+        if (count <= 0) return
+        val r = (color shr 16) and 0xFF
+        val g = (color shr 8) and 0xFF
+        val b = color and 0xFF
+        for (i in 0 until count) {
+            if (SdlNative.nativeGetControllerHasLed(i)) {
+                SdlNative.nativeSetControllerLed(i, r, g, b)
+            }
+            if (SdlNative.nativeGetControllerHasPlayerLed(i)) {
+                // DualSense 的 playerIndicator 是“点亮灯数”模式：玩家 N 亮 N 个灯
+                // （P1=0x04, P2=0x0A, P3=0x15, P4=0x1B, P5=0x1F）。SDL 的 player index
+                // 0..4 对应玩家 1..5，所以用点亮灯数减一得到正确索引。
+                val playerIndex = if (playerLed != 0) {
+                    (Integer.bitCount(playerLed) - 1).coerceIn(0, 4)
+                } else {
+                    -1 // 清除玩家指示灯
+                }
+                SdlNative.nativeSetControllerPlayerIndex(i, playerIndex)
+            }
+        }
+    }
+
     // ── Vibration ──────────────────────────────────────────
 
     /** Drives the two motors of the given controller from the voice-coil left/right channels. */

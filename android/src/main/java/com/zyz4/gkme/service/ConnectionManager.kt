@@ -47,6 +47,14 @@ data class ConnectionState(
     val restartToken: Int = 0,
 )
 
+/** LED state of the emulated controller as reported by the PC. [color] is 0xRRGGBB
+ *  (0x000000 for controllers without an LED, e.g. Xbox 360). [playerLed] is the
+ *  player-indicator bitmask (bit0 = LED 1 …). */
+data class LedState(
+    val color: Int = 0,
+    val playerLed: Int = 0,
+)
+
 @Singleton
 class ConnectionManager @Inject constructor(
     private val context: Context,
@@ -85,6 +93,9 @@ class ConnectionManager @Inject constructor(
 
     private val _settings = MutableStateFlow(AppSettings())
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
+
+    private val _ledState = MutableStateFlow(LedState())
+    val ledState: StateFlow<LedState> = _ledState.asStateFlow()
 
     init {
         _settings.value = runBlocking(Dispatchers.IO) {
@@ -396,6 +407,13 @@ class ConnectionManager @Inject constructor(
                     sampleRate = af.sampleRateHz.toInt(),
                     channels = af.channels.toInt(),
                     bitsPerSample = af.bitsPerSample.toInt(),
+                )
+            }
+            ServerToClient.PayloadCase.LED_STATE -> {
+                val led = msg.ledState
+                _ledState.value = LedState(
+                    color = led.color.toInt() and 0xFFFFFF,
+                    playerLed = led.playerLed.toInt(),
                 )
             }
             ServerToClient.PayloadCase.DISCONNECT -> {

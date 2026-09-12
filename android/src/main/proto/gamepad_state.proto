@@ -79,7 +79,15 @@ message ServerToClient {
     Disconnect disconnect = 3;
     ServerHello server_hello = 7;
     AudioFrame audio_frame = 8;
+    LedState led_state = 9;
   }
+}
+
+/// 模拟手柄的 LED 状态。color 为 0xRRGGBB；不支持 LED 的手柄（如 Xbox 360）
+/// 传 0x000000。player_led 为玩家指示灯位掩码（bit0=灯1 …）。
+message LedState {
+  uint32 color = 1;
+  uint32 player_led = 2;
 }
 
 message AudioFrame {
