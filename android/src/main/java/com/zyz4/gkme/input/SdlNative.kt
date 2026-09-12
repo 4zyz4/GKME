@@ -45,6 +45,18 @@ object SdlNative {
 
     external fun nativeRumble(index: Int, low: Int, high: Int, durationMs: Int): Boolean
 
+    /** True when the gamepad at [index] exposes a (RGB or mono) LED. */
+    external fun nativeGetControllerHasLed(index: Int): Boolean
+
+    /** True when the gamepad at [index] exposes a player-indicator LED. */
+    external fun nativeGetControllerHasPlayerLed(index: Int): Boolean
+
+    /** Sets the gamepad LED color (RGB, 0..255 each). */
+    external fun nativeSetControllerLed(index: Int, red: Int, green: Int, blue: Int): Boolean
+
+    /** Sets the gamepad player index, which drives its player-indicator LEDs. */
+    external fun nativeSetControllerPlayerIndex(index: Int, playerIndex: Int): Boolean
+
     external fun nativeSetSensorEnabled(index: Int, enabled: Boolean)
 
     /**

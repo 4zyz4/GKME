@@ -118,6 +118,15 @@ internal fun MainActivity.observeState() {
                 }
             }
             launch {
+                a.viewModel.ledState.collect { led ->
+                    // 透传 PC 端模拟手柄的 LED 颜色与玩家指示灯到实体手柄
+                    a.physicalControllerHandler.setLedColor(led.color, led.playerLed)
+                    // 外观颜色绑定到 LED 时实时更新
+                    a.viewModel.applyLedColorToAppearance(led.color)
+                    if (a.settingsInflated) a.syncAppearanceUI()
+                }
+            }
+            launch {
                 a.viewModel.presetInfos.collect { _ ->
                     if (a.inSettings) a.refreshPresetList()
                 }

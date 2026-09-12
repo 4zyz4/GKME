@@ -272,4 +272,9 @@ data class AppSettings(
     // 0..99 caps content, 100 = unlimited (content fills the button). Content always
     // keeps a min(width,height) x 10% padding.
     val iconMaxSize: Int = 24,
+
+    /** Appearance color fields currently bound to the live controller LED color
+     *  (see [com.zyz4.gkme.model.LedAppearance]). Values are the AppSettings field
+     *  names, e.g. "btnColor". The touchpad outline follows the controller LED by default. */
+    val ledBoundColors: Set<String> = LedAppearance.DEFAULT_BOUND_COLORS,
 )

@@ -706,6 +706,65 @@ Java_com_zyz4_gkme_input_SdlNative_nativeSetSensorEnabled(JNIEnv *env, jobject t
     g_gamepads[index].sensorRequested = enabled == JNI_TRUE;
 }
 
+JNIEXPORT jboolean JNICALL
+Java_com_zyz4_gkme_input_SdlNative_nativeGetControllerHasLed(JNIEnv *env, jobject thiz,
+                                                             jint index) {
+    (void) env;
+    (void) thiz;
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (!validIndex(index) || g_gamepads[index].handle == nullptr) {
+        return JNI_FALSE;
+    }
+    const SDL_PropertiesID props = SDL_GetGamepadProperties(g_gamepads[index].handle);
+    const bool hasRgb =
+        SDL_GetBooleanProperty(props, SDL_PROP_GAMEPAD_CAP_RGB_LED_BOOLEAN, false);
+    const bool hasMono =
+        SDL_GetBooleanProperty(props, SDL_PROP_GAMEPAD_CAP_MONO_LED_BOOLEAN, false);
+    return (hasRgb || hasMono) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_zyz4_gkme_input_SdlNative_nativeGetControllerHasPlayerLed(JNIEnv *env, jobject thiz,
+                                                                   jint index) {
+    (void) env;
+    (void) thiz;
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (!validIndex(index) || g_gamepads[index].handle == nullptr) {
+        return JNI_FALSE;
+    }
+    const SDL_PropertiesID props = SDL_GetGamepadProperties(g_gamepads[index].handle);
+    return SDL_GetBooleanProperty(props, SDL_PROP_GAMEPAD_CAP_PLAYER_LED_BOOLEAN, false)
+               ? JNI_TRUE
+               : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_zyz4_gkme_input_SdlNative_nativeSetControllerLed(JNIEnv *env, jobject thiz, jint index,
+                                                          jint red, jint green, jint blue) {
+    (void) env;
+    (void) thiz;
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (!validIndex(index) || g_gamepads[index].handle == nullptr) {
+        return JNI_FALSE;
+    }
+    const Uint8 r = static_cast<Uint8>(clampInt(red, 0, 255));
+    const Uint8 g = static_cast<Uint8>(clampInt(green, 0, 255));
+    const Uint8 b = static_cast<Uint8>(clampInt(blue, 0, 255));
+    return SDL_SetGamepadLED(g_gamepads[index].handle, r, g, b) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_zyz4_gkme_input_SdlNative_nativeSetControllerPlayerIndex(JNIEnv *env, jobject thiz,
+                                                                  jint index, jint playerIndex) {
+    (void) env;
+    (void) thiz;
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (!validIndex(index) || g_gamepads[index].handle == nullptr) {
+        return JNI_FALSE;
+    }
+    return SDL_SetGamepadPlayerIndex(g_gamepads[index].handle, playerIndex) ? JNI_TRUE : JNI_FALSE;
+}
+
 JNIEXPORT void JNICALL
 Java_com_zyz4_gkme_input_SdlNative_nativeSetUsbDeviceIds(JNIEnv *env, jobject thiz,
                                                          jintArray keys) {
