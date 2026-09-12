@@ -6,6 +6,12 @@ enum class TargetPlatform { WINDOWS, ANDROID, LINUX, ANDROID_GAMEPAD_ONLY, UNIVE
 
 enum class DisplayMode { XBOX, PLAYSTATION, SWITCH }
 
+/** Which low-level stack drives the physical gamepads. */
+enum class ControllerDriver(val displayName: String) {
+    SDL3("SDL3"),
+    AXIXI2233_USB("Axixi2233的USB驱动"),
+}
+
 enum class VibrationType { NONE, VIEW, VIBRATION_EFFECT }
 
 /** Which physical actuator receives the game rumble. Controllers are addressed by their
@@ -228,6 +234,8 @@ data class AppSettings(
     val volumeUpBits: List<Int> = emptyList(),
     val volumeDownBits: List<Int> = emptyList(),
     val nonLinearTriggerAdaptation: Boolean = false,
+    /** Low-level driver used for physical gamepads (SDL3 or the Axixi2233 USB driver). */
+    val controllerDriver: ControllerDriver = ControllerDriver.SDL3,
     /** Index into the list of currently connected gamepads used as the input source.
      *  -1 means the physical controller input is disabled ("不使用手柄"). */
     val inputControllerIndex: Int = 0,

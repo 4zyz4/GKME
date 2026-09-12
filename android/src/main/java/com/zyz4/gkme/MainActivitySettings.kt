@@ -258,6 +258,23 @@ internal fun MainActivity.setupSettings() {
         a.audioPlaybackService.resumeIfStopped()
     }
 
+    // Play a local test tone on the controller voice coil, independent of any audio
+    // coming from the PC (diagnostic for the USB audio path).
+    val voiceCoilTest = View.OnClickListener {
+        val device = a.effectiveVoiceCoilDevice()
+        if (device.type == AudioDeviceType.CONTROLLER) {
+            a.physicalControllerHandler.playVoiceCoilTest(device.controllerIndex)
+            a.showToast("已发送音圈测试音（220Hz，2秒）")
+        } else {
+            a.showToast("请先在「音圈马达」中选择手柄")
+        }
+    }
+    a.findViewById<Button>(R.id.btnVoiceCoilTest).setOnClickListener(voiceCoilTest)
+    a.findViewById<View>(R.id.layoutVoiceCoilStatus).setOnLongClickListener {
+        voiceCoilTest.onClick(it)
+        true
+    }
+
     // Audio VC indicator polling will be started in selectSettingsCategory when index == 6
 
     listOf(R.id.btnConnWifi to 0, R.id.btnConnBluetooth to 1).forEach { (id, idx) ->
@@ -468,6 +485,31 @@ internal fun MainActivity.setupSettings() {
     }
 
     // ── Physical Controller page ──
+    a.findViewById<Spinner>(R.id.spinnerControllerDriver).apply {
+        setOnTouchListener { _, _ ->
+            a.controllerDriverUserSelecting = true
+            false
+        }
+        val names = a.controllerDriverEntries.map { it.displayName }.toTypedArray()
+        adapter = ArrayAdapter(a, android.R.layout.simple_spinner_item, names).apply {
+            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
+        onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                if (!a.controllerDriverUserSelecting) return
+                a.controllerDriverUserSelecting = false
+                val driver = a.controllerDriverEntries.getOrNull(pos) ?: return
+                if (driver == a.viewModel.settings.value.controllerDriver) return
+                a.viewModel.updateControllerDriver(driver)
+                a.physicalControllerHandler.setDriver(driver)
+                a.showToast("已切换到「${driver.displayName}」，正在重新连接手柄")
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+                a.controllerDriverUserSelecting = false
+            }
+        }
+    }
+
     a.findViewById<Button>(R.id.btnGoVibration).setOnClickListener {
         a.selectSettingsCategory(3)
     }
@@ -665,9 +707,19 @@ internal fun MainActivity.updateInputControllerAdapter(spinner: Spinner, indices
     spinner.adapter = adapter
 }
 
+internal fun MainActivity.syncControllerDriverUI() {
+    val a = this
+    if (!a.settingsInflated) return
+    val spinner = a.findViewById<Spinner>(R.id.spinnerControllerDriver)
+    val pos = a.controllerDriverEntries.indexOf(a.viewModel.settings.value.controllerDriver)
+        .let { if (it >= 0) it else 0 }
+    spinner.setSelection(pos)
+}
+
 internal fun MainActivity.syncPhysicalControllerUI() {
     val a = this
     if (!a.settingsInflated) return
+    a.syncControllerDriverUI()
     val indices = a.buildInputControllerIndices()
     a.inputControllerIndices = indices
     val controllerCount = indices.size - 1
@@ -774,8 +826,18 @@ internal fun MainActivity.syncGyroSourceUI() {
     a.updateGyroSourceVisibility(entries.getOrElse(pos) { GyroSource.PHONE })
 }
 
-internal fun MainActivity.controllerAudioEntries(): List<AudioOutput> =
-    listOf(AudioOutput.ALL_SPEAKERS, AudioOutput.NONE)
+internal fun MainActivity.controllerAudioEntries(): List<AudioOutput> {
+    val a = this
+    val entries = mutableListOf<AudioOutput>()
+    entries.add(AudioOutput.ALL_SPEAKERS)
+    a.physicalControllerHandler.connectedControllers.value.forEachIndexed { index, _ ->
+        if (a.physicalControllerHandler.controllerSupportsAudio(index)) {
+            entries.add(AudioOutput.controllerMotor(index))
+        }
+    }
+    entries.add(AudioOutput.NONE)
+    return entries
+}
 
 internal fun MainActivity.buildVoiceCoilDeviceEntries(): List<AudioDevice> {
     val a = this
@@ -856,8 +918,16 @@ internal fun MainActivity.setupControllerAudioSpinner(entries: List<AudioOutput>
 
 internal fun MainActivity.updateControllerAudioAdapter(spinner: Spinner) {
     val a = this
-    val names = a.audioControllerOutputEntries.map {
-        if (it == AudioOutput.ALL_SPEAKERS) "手机扬声器" else it.displayName
+    val controllers = a.physicalControllerHandler.connectedControllers.value
+    val names = a.audioControllerOutputEntries.map { output ->
+        if (output.outputType == AudioOutput.OutputType.CONTROLLER) {
+            controllers.getOrNull(output.index)?.name?.takeIf { it.isNotBlank() }
+                ?: "手柄${output.index + 1}"
+        } else if (output == AudioOutput.ALL_SPEAKERS) {
+            "手机扬声器"
+        } else {
+            output.displayName
+        }
     }.toTypedArray()
     val adapter = ArrayAdapter(a, android.R.layout.simple_spinner_item, names)
     adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)

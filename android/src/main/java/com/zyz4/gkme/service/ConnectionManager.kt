@@ -422,6 +422,8 @@ class ConnectionManager @Inject constructor(
             }
             ServerToClient.PayloadCase.AUDIO_FRAME -> {
                 val af = msg.audioFrame
+                logAudioFrameDiag(af.frameIndex, af.sampleCount, af.sampleRateHz.toInt(),
+                    af.channels.toInt(), af.pcm.size())
                 audioPlaybackService.submitAudio(
                     pcm = af.pcm.toByteArray(),
                     sampleRate = af.sampleRateHz.toInt(),
@@ -445,6 +447,38 @@ class ConnectionManager @Inject constructor(
             }
             else -> {}
         }
+    }
+
+    private var lastAudioDiagAt = 0L
+    private var audioFramesSinceDiag = 0
+    private var audioBytesSinceDiag = 0L
+    private var lastAudioFrameIndex = -1
+    private var missingAudioFrames = 0L
+
+    private fun logAudioFrameDiag(frameIndex: Int, sampleCount: Int, rate: Int, channels: Int, bytes: Int) {
+        audioFramesSinceDiag++
+        audioBytesSinceDiag += bytes
+        if (lastAudioFrameIndex >= 0) {
+            val gap = frameIndex - lastAudioFrameIndex - 1
+            if (gap in 1..10000) missingAudioFrames += gap
+        }
+        lastAudioFrameIndex = frameIndex
+        val now = System.currentTimeMillis()
+        if (lastAudioDiagAt == 0L) {
+            lastAudioDiagAt = now
+            return
+        }
+        if (now - lastAudioDiagAt < 2000) return
+        val elapsed = now - lastAudioDiagAt
+        android.util.Log.i(
+            "GkmeAudio",
+            "Audio in: ${audioFramesSinceDiag * 1000L / elapsed}/s ${audioBytesSinceDiag * 1000L / elapsed} B/s " +
+                "missing=$missingAudioFrames frameIndex=$frameIndex samples=$sampleCount rate=$rate ch=$channels pcm=$bytes"
+        )
+        audioFramesSinceDiag = 0
+        audioBytesSinceDiag = 0
+        missingAudioFrames = 0
+        lastAudioDiagAt = now
     }
 
     private fun doReconnect() {
