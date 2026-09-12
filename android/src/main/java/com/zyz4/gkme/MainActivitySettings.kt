@@ -40,7 +40,8 @@ import com.zyz4.gkme.model.GyroOrientation
 import com.zyz4.gkme.model.HapticEffect
 import com.zyz4.gkme.model.LayoutPreset
 import com.zyz4.gkme.model.TargetPlatform
-import com.zyz4.gkme.model.VibrationMotor
+import com.zyz4.gkme.model.VibrationDevice
+import com.zyz4.gkme.model.VibrationDeviceType
 import com.zyz4.gkme.model.VibrationType
 import com.zyz4.gkme.service.ConnectionPhase
 import com.zyz4.gkme.view.WrapContentGridView
@@ -220,15 +221,17 @@ internal fun MainActivity.setupSettings() {
         }
 
     // ── Audio page ──
-    val audioOutputEntries = listOf(AudioOutput.NONE, AudioOutput.PHONE_MOTOR_1, AudioOutput.PHONE_MOTOR_2, AudioOutput.LEFT_SPEAKER, AudioOutput.RIGHT_SPEAKER, AudioOutput.ALL_SPEAKERS).plus(
-        if (a.physicalControllerHandler.controllerMotorCount >= 1) listOf(AudioOutput.CONTROLLER_MOTOR_1) else emptyList()
-    ).plus(
-        if (a.physicalControllerHandler.controllerMotorCount >= 2) listOf(AudioOutput.CONTROLLER_MOTOR_2) else emptyList()
-    ).plus(
-        if (a.physicalControllerHandler.controllerMotorCount >= 3) listOf(AudioOutput.CONTROLLER_MOTOR_3) else emptyList()
-    ).plus(
-        if (a.physicalControllerHandler.controllerMotorCount >= 4) listOf(AudioOutput.CONTROLLER_MOTOR_4) else emptyList()
-    )
+    val audioOutputEntries = mutableListOf<AudioOutput>().apply {
+        add(AudioOutput.NONE)
+        add(AudioOutput.PHONE_MOTOR_1)
+        add(AudioOutput.PHONE_MOTOR_2)
+        add(AudioOutput.LEFT_SPEAKER)
+        add(AudioOutput.RIGHT_SPEAKER)
+        add(AudioOutput.ALL_SPEAKERS)
+        for (i in 0 until a.physicalControllerHandler.controllerMotorCount) {
+            add(AudioOutput.controllerMotor(i))
+        }
+    }
     a.audioMappingEntries = audioOutputEntries
     a.audioControllerOutputEntries = audioOutputEntries
     a.setupAudioOutputSpinner(R.id.spinnerLeftVoiceCoil, audioOutputEntries) { output ->
@@ -284,8 +287,21 @@ internal fun MainActivity.setupSettings() {
     a.findViewById<Switch>(R.id.switchBtnVibration).setOnCheckedChangeListener { _, isChecked ->
         a.viewModel.updateVibrationEnabled(isChecked)
     }
-    a.findViewById<Switch>(R.id.switchGameVibration).setOnCheckedChangeListener { _, isChecked ->
-        a.viewModel.updateGameVibrationEnabled(isChecked)
+    a.findViewById<Spinner>(R.id.spinnerGameVibrationDevice).onItemSelectedListener =
+        object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                val device = a.gameVibrationDeviceEntries.getOrNull(pos) ?: return
+                a.viewModel.updateGameVibrationDevice(device)
+                a.updateSwapMotorsUI(device)
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+    a.findViewById<Switch>(R.id.switchSwapMotors).setOnCheckedChangeListener { _, isChecked ->
+        when (a.viewModel.settings.value.gameVibrationDevice.type) {
+            VibrationDeviceType.PHONE -> a.viewModel.updateSwapPhoneMotors(isChecked)
+            VibrationDeviceType.CONTROLLER -> a.viewModel.updateSwapControllerMotors(isChecked)
+            VibrationDeviceType.NONE -> {}
+        }
     }
 
     val pressTypeIds = listOf(
@@ -369,24 +385,6 @@ internal fun MainActivity.setupSettings() {
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { a.testHaptic(isPress = false); true }
             else -> false
         }
-    }
-
-    // Vibration Mapping spinners
-    a.setupVibrationMappingSpinner(R.id.spinnerStrongVibration) { mapping ->
-        if (a.physicalControllerHandler.isConnected.value) {
-            a.viewModel.updateStrongVibrationMappingConnected(mapping)
-        } else {
-            a.viewModel.updateStrongVibrationMapping(mapping)
-        }
-        a.physicalControllerHandler.strongVibrationMapping = mapping
-    }
-    a.setupVibrationMappingSpinner(R.id.spinnerWeakVibration) { mapping ->
-        if (a.physicalControllerHandler.isConnected.value) {
-            a.viewModel.updateWeakVibrationMappingConnected(mapping)
-        } else {
-            a.viewModel.updateWeakVibrationMapping(mapping)
-        }
-        a.physicalControllerHandler.weakVibrationMapping = mapping
     }
 
     // ── Gyro page ──
@@ -501,25 +499,84 @@ internal fun MainActivity.setupEffectSpinner(spinnerId: Int, isPress: Boolean) {
     }
 }
 
-internal fun MainActivity.setupVibrationMappingSpinner(spinnerId: Int, onChanged: (VibrationMotor) -> Unit) {
+internal fun MainActivity.phoneMotorCount(): Int {
     val a = this
-    val spinner = a.findViewById<Spinner>(spinnerId)
-    a.vibrationMappingEntries = VibrationMotor.entries.toList()
-    a.updateMappingAdapter(spinner)
-    spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-        override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
-            if (pos < a.vibrationMappingEntries.size) onChanged(a.vibrationMappingEntries[pos])
-        }
-        override fun onNothingSelected(parent: AdapterView<*>?) {}
-    }
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        try {
+            val vm = a.getSystemService(android.content.Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager
+            vm?.vibratorIds?.size ?: 0
+        } catch (_: Exception) { 0 }
+    } else { 0 }
 }
 
-internal fun MainActivity.updateMappingAdapter(spinner: Spinner) {
+internal fun MainActivity.buildGameVibrationDeviceEntries(): List<VibrationDevice> {
     val a = this
-    val names = a.vibrationMappingEntries.map { it.displayName }.toTypedArray()
+    val entries = mutableListOf<VibrationDevice>()
+    entries.add(VibrationDevice.PHONE)
+    a.physicalControllerHandler.connectedControllers.value.forEachIndexed { index, _ ->
+        entries.add(VibrationDevice.controller(index))
+    }
+    entries.add(VibrationDevice.NONE)
+    return entries
+}
+
+internal fun MainActivity.updateGameVibrationDeviceAdapter(spinner: Spinner, entries: List<VibrationDevice>) {
+    val a = this
+    val names = entries.map { device ->
+        when (device.type) {
+            VibrationDeviceType.PHONE -> "手机马达"
+            VibrationDeviceType.NONE -> "无"
+            VibrationDeviceType.CONTROLLER -> {
+                val info = a.physicalControllerHandler.connectedControllers.value.getOrNull(device.controllerIndex)
+                info?.name?.takeIf { it.isNotBlank() } ?: "手柄${device.controllerIndex + 1}"
+            }
+        }
+    }.toTypedArray()
     val adapter = ArrayAdapter(a, android.R.layout.simple_spinner_item, names)
     adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
     spinner.adapter = adapter
+}
+
+internal fun MainActivity.selectedDeviceMotorCount(device: VibrationDevice): Int {
+    val a = this
+    return when (device.type) {
+        VibrationDeviceType.PHONE -> a.phoneMotorCount()
+        VibrationDeviceType.CONTROLLER ->
+            a.physicalControllerHandler.connectedControllers.value.getOrNull(device.controllerIndex)?.motorCount ?: 0
+        VibrationDeviceType.NONE -> 0
+    }
+}
+
+internal fun MainActivity.updateSwapMotorsUI(device: VibrationDevice) {
+    val a = this
+    val s = a.viewModel.settings.value
+    val showSwap = a.selectedDeviceMotorCount(device) >= 2
+    a.findViewById<View>(R.id.layoutSwapMotors).visibility = if (showSwap) View.VISIBLE else View.GONE
+    val sw = a.findViewById<Switch>(R.id.switchSwapMotors)
+    sw.isChecked = when (device.type) {
+        VibrationDeviceType.PHONE -> s.swapPhoneMotors
+        VibrationDeviceType.CONTROLLER -> s.swapControllerMotors
+        VibrationDeviceType.NONE -> false
+    }
+}
+
+internal fun MainActivity.syncGameVibrationUI() {
+    val a = this
+    if (!a.settingsInflated) return
+    val s = a.viewModel.settings.value
+    val entries = a.buildGameVibrationDeviceEntries()
+    a.gameVibrationDeviceEntries = entries
+    val spinner = a.findViewById<Spinner>(R.id.spinnerGameVibrationDevice)
+    a.updateGameVibrationDeviceAdapter(spinner, entries)
+
+    val connectedCount = a.physicalControllerHandler.connectedControllers.value.size
+    var selected = s.gameVibrationDevice
+    if (selected.type == VibrationDeviceType.CONTROLLER && selected.controllerIndex >= connectedCount) {
+        selected = VibrationDevice.PHONE
+    }
+    val pos = entries.indexOf(selected).let { if (it >= 0) it else 0 }
+    spinner.setSelection(pos)
+    a.updateSwapMotorsUI(entries.getOrElse(pos) { VibrationDevice.PHONE })
 }
 
 internal fun MainActivity.setupAudioOutputSpinner(spinnerId: Int, entries: List<AudioOutput>, onChanged: (AudioOutput) -> Unit) {
@@ -1026,8 +1083,8 @@ internal fun MainActivity.syncSettingsUI() {
         a.findViewById<Spinner>(R.id.spinnerPollingRate).setSelection(pollingRateIndex)
     }
     a.findViewById<Switch>(R.id.switchBtnVibration).isChecked = s.vibrationEnabled
-    a.findViewById<Switch>(R.id.switchGameVibration).isChecked = s.gameVibrationEnabled
     a.updateVibrationUI()
+    a.syncGameVibrationUI()
     a.vibrationRedirectStatus?.let { a.renderVibrationRedirect(it) }
         ?: a.lifecycleScope.launch { a.refreshVibrationRedirect() }
     a.updateSettingsVisibility(s.connectionMode)
@@ -1056,8 +1113,6 @@ internal fun MainActivity.syncSettingsUI() {
     a.applyAppearanceIfChanged(s)
 
     val physicalConnected = a.physicalControllerHandler.isConnected.value
-    val strongMapping = if (physicalConnected) s.strongVibrationMappingConnected else s.strongVibrationMapping
-    val weakMapping = if (physicalConnected) s.weakVibrationMappingConnected else s.weakVibrationMapping
     val gyroEnabled = if (physicalConnected) s.controllerGyroEnabledConnected else s.controllerGyroEnabled
 
     a.findViewById<Switch>(R.id.switchControllerGyro).isChecked =
@@ -1071,42 +1126,6 @@ internal fun MainActivity.syncSettingsUI() {
     a.findViewById<SeekBar>(R.id.seekControllerGyroX).progress = 0
     a.findViewById<SeekBar>(R.id.seekControllerGyroY).progress = 0
     a.findViewById<SeekBar>(R.id.seekControllerGyroZ).progress = 0
-
-    val motorCount = a.physicalControllerHandler.controllerMotorCount
-    val phoneMotorCount = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        try {
-            val vm = a.getSystemService(android.content.Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager
-            vm?.vibratorIds?.size ?: 0
-        } catch (_: Exception) { 0 }
-    } else { 0 }
-
-    a.vibrationMappingEntries = if (physicalConnected) {
-        val entries = mutableListOf<VibrationMotor>()
-        for (i in 0 until motorCount) {
-            entries += when (i) {
-                0 -> VibrationMotor.CONTROLLER_MOTOR_1
-                1 -> VibrationMotor.CONTROLLER_MOTOR_2
-                2 -> VibrationMotor.CONTROLLER_MOTOR_3
-                3 -> VibrationMotor.CONTROLLER_MOTOR_4
-                else -> break
-            }
-        }
-        if (phoneMotorCount >= 1) entries.add(VibrationMotor.PHONE_MOTOR_1)
-        if (phoneMotorCount >= 2) entries.add(VibrationMotor.PHONE_MOTOR_2)
-        entries.add(VibrationMotor.NONE)
-        entries
-    } else if (phoneMotorCount >= 2) {
-        listOf(VibrationMotor.PHONE_MOTOR_1, VibrationMotor.PHONE_MOTOR_2, VibrationMotor.NONE)
-    } else if (phoneMotorCount >= 1) {
-        listOf(VibrationMotor.PHONE_MOTOR_1, VibrationMotor.NONE)
-    } else {
-        listOf(VibrationMotor.NONE)
-    }
-    fun sel(m: VibrationMotor) = a.vibrationMappingEntries.indexOf(m).let { if (it >= 0) it else a.vibrationMappingEntries.indexOf(VibrationMotor.PHONE_MOTOR_1) }
-    a.updateMappingAdapter(a.findViewById(R.id.spinnerStrongVibration))
-    a.findViewById<Spinner>(R.id.spinnerStrongVibration).setSelection(sel(strongMapping))
-    a.updateMappingAdapter(a.findViewById(R.id.spinnerWeakVibration))
-    a.findViewById<Spinner>(R.id.spinnerWeakVibration).setSelection(sel(weakMapping))
 
     a.findViewById<TextView>(R.id.tvPhysicalControllerStatus).text =
         if (physicalConnected) "已连接: ${a.physicalControllerHandler.controllerName.value}"
@@ -1136,16 +1155,7 @@ internal fun MainActivity.syncAudioUI() {
     audioEntries.add(AudioOutput.RIGHT_SPEAKER)
     audioEntries.add(AudioOutput.ALL_SPEAKERS)
     for (i in 0 until mc) {
-        val output = when (i) {
-            0 -> AudioOutput.CONTROLLER_MOTOR_1
-            1 -> AudioOutput.CONTROLLER_MOTOR_2
-            2 -> AudioOutput.CONTROLLER_MOTOR_3
-            3 -> AudioOutput.CONTROLLER_MOTOR_4
-            else -> null
-        }
-        if (output != null) {
-            audioEntries.add(output)
-        }
+        audioEntries.add(AudioOutput.controllerMotor(i))
     }
 
     a.audioOutputEntries = audioEntries

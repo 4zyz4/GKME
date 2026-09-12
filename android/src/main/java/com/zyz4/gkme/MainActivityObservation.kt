@@ -1,6 +1,5 @@
 package com.zyz4.gkme
 
-import android.os.Build
 import android.bluetooth.BluetoothAdapter
 import android.content.Intent
 import android.view.View
@@ -20,7 +19,6 @@ import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.model.ConnectionMode
 import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.model.GyroActivateMode
-import com.zyz4.gkme.model.VibrationMotor
 import com.zyz4.gkme.service.BluetoothTransportType
 import com.zyz4.gkme.service.ConnectionPhase
 import kotlinx.coroutines.launch
@@ -97,6 +95,9 @@ internal fun MainActivity.observeState() {
                     } else {
                         a.window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     }
+                    a.physicalControllerHandler.gameVibrationDevice = s.gameVibrationDevice
+                    a.physicalControllerHandler.swapPhoneMotors = s.swapPhoneMotors
+                    a.physicalControllerHandler.swapControllerMotors = s.swapControllerMotors
                     a.applyAppearanceIfChanged(s)
                 }
             }
@@ -140,12 +141,8 @@ internal fun MainActivity.observeState() {
                 a.physicalControllerHandler.isConnected.collect { connected ->
                     a.viewModel.setPhysicalControllerConnected(connected)
                     val s = a.viewModel.settings.value
-                    val strongMapping = if (connected) s.strongVibrationMappingConnected else s.strongVibrationMapping
-                    val weakMapping = if (connected) s.weakVibrationMappingConnected else s.weakVibrationMapping
                     val gyroEnabled = if (connected) s.controllerGyroEnabledConnected else s.controllerGyroEnabled
 
-                    a.physicalControllerHandler.strongVibrationMapping = strongMapping
-                    a.physicalControllerHandler.weakVibrationMapping = weakMapping
                     a.physicalControllerHandler.onControllerGyroSettingChanged(gyroEnabled)
 
                     if (!a.settingsInflated) return@collect
@@ -160,41 +157,7 @@ internal fun MainActivity.observeState() {
                     a.findViewById<TextView>(R.id.tvControllerGyroNote).visibility =
                         if (gyroEnabled && connected) View.VISIBLE else View.GONE
 
-                    val motorCount = a.physicalControllerHandler.controllerMotorCount
-                    val phoneMotorCount = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        try {
-                            val vm = a.getSystemService(android.content.Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager
-                            vm?.vibratorIds?.size ?: 0
-                        } catch (_: Exception) { 0 }
-                    } else { 0 }
-
-                    a.vibrationMappingEntries = if (connected) {
-                        val entries = mutableListOf<VibrationMotor>()
-                        for (i in 0 until motorCount) {
-                            entries += when (i) {
-                                0 -> VibrationMotor.CONTROLLER_MOTOR_1
-                                1 -> VibrationMotor.CONTROLLER_MOTOR_2
-                                2 -> VibrationMotor.CONTROLLER_MOTOR_3
-                                3 -> VibrationMotor.CONTROLLER_MOTOR_4
-                                else -> break
-                            }
-                        }
-                        if (phoneMotorCount >= 1) entries.add(VibrationMotor.PHONE_MOTOR_1)
-                        if (phoneMotorCount >= 2) entries.add(VibrationMotor.PHONE_MOTOR_2)
-                        entries.add(VibrationMotor.NONE)
-                        entries
-                    } else if (phoneMotorCount >= 2) {
-                        listOf(VibrationMotor.PHONE_MOTOR_1, VibrationMotor.PHONE_MOTOR_2, VibrationMotor.NONE)
-                    } else if (phoneMotorCount >= 1) {
-                        listOf(VibrationMotor.PHONE_MOTOR_1, VibrationMotor.NONE)
-                    } else {
-                        listOf(VibrationMotor.NONE)
-                    }
-                    fun sel(m: VibrationMotor) = a.vibrationMappingEntries.indexOf(m).let { if (it >= 0) it else a.vibrationMappingEntries.indexOf(VibrationMotor.PHONE_MOTOR_1) }
-                    a.updateMappingAdapter(a.findViewById(R.id.spinnerStrongVibration))
-                    a.findViewById<Spinner>(R.id.spinnerStrongVibration).setSelection(sel(strongMapping))
-                    a.updateMappingAdapter(a.findViewById(R.id.spinnerWeakVibration))
-                    a.findViewById<Spinner>(R.id.spinnerWeakVibration).setSelection(sel(weakMapping))
+                    val phoneMotorCount = a.phoneMotorCount()
 
                     val mc = a.physicalControllerHandler.controllerMotorCount
                     val audioEntries = mutableListOf<AudioOutput>()
@@ -205,16 +168,7 @@ internal fun MainActivity.observeState() {
                     audioEntries.add(AudioOutput.RIGHT_SPEAKER)
                     audioEntries.add(AudioOutput.ALL_SPEAKERS)
                     for (i in 0 until mc) {
-                        val output = when (i) {
-                            0 -> AudioOutput.CONTROLLER_MOTOR_1
-                            1 -> AudioOutput.CONTROLLER_MOTOR_2
-                            2 -> AudioOutput.CONTROLLER_MOTOR_3
-                            3 -> AudioOutput.CONTROLLER_MOTOR_4
-                            else -> null
-                        }
-                        if (output != null) {
-                            audioEntries.add(output)
-                        }
+                        audioEntries.add(AudioOutput.controllerMotor(i))
                     }
                     a.audioOutputEntries = audioEntries
                     a.audioControllerOutputEntries = audioEntries
@@ -228,6 +182,12 @@ internal fun MainActivity.observeState() {
                     a.findViewById<Spinner>(R.id.spinnerLeftVoiceCoil).setSelection(selAudio(audioEntries, s.leftVoiceCoilOutput))
                     a.findViewById<Spinner>(R.id.spinnerRightVoiceCoil).setSelection(selAudio(audioEntries, s.rightVoiceCoilOutput))
                     a.findViewById<Spinner>(R.id.spinnerControllerAudio).setSelection(selAudio(audioEntries, s.controllerAudioOutput))
+                    a.syncGameVibrationUI()
+                }
+            }
+            launch {
+                a.physicalControllerHandler.connectedControllers.collect {
+                    if (a.settingsInflated) a.syncGameVibrationUI()
                 }
             }
             launch {

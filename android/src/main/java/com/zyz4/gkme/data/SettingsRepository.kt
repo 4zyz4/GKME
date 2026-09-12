@@ -19,7 +19,8 @@ import com.zyz4.gkme.model.GyroActivateMode
 import com.zyz4.gkme.model.HapticEffect
 import com.zyz4.gkme.model.TargetPlatform
 import com.zyz4.gkme.model.AudioOutput
-import com.zyz4.gkme.model.VibrationMotor
+import com.zyz4.gkme.model.VibrationDevice
+import com.zyz4.gkme.model.VibrationDeviceType
 import com.zyz4.gkme.model.VibrationType
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -41,7 +42,6 @@ class SettingsRepository @Inject constructor(
         val DEVICE_NAME = stringPreferencesKey("device_name")
         val CURRENT_PRESET_NAME = stringPreferencesKey("current_preset_name")
         val VIBRATION_ENABLED = booleanPreferencesKey("vibration_enabled")
-        val GAME_VIBRATION_ENABLED = booleanPreferencesKey("game_vibration_enabled")
         val VIBRATION_PRESS_TYPE = intPreferencesKey("vibration_press_type")
         val VIBRATION_RELEASE_TYPE = intPreferencesKey("vibration_release_type")
         val VIBRATION_PRESS_VIEW_EFFECT = intPreferencesKey("vibration_press_view_effect")
@@ -50,6 +50,10 @@ class SettingsRepository @Inject constructor(
         val VIBRATION_RELEASE_DURATION = intPreferencesKey("vibration_release_duration")
         val VIBRATION_PRESS_INTENSITY = intPreferencesKey("vibration_press_intensity")
         val VIBRATION_RELEASE_INTENSITY = intPreferencesKey("vibration_release_intensity")
+        val GAME_VIBRATION_DEVICE_TYPE = intPreferencesKey("game_vibration_device_type")
+        val GAME_VIBRATION_CONTROLLER_INDEX = intPreferencesKey("game_vibration_controller_index")
+        val SWAP_PHONE_MOTORS = booleanPreferencesKey("swap_phone_motors")
+        val SWAP_CONTROLLER_MOTORS = booleanPreferencesKey("swap_controller_motors")
         val AUTO_START_ENABLED = booleanPreferencesKey("auto_start_enabled")
         val GYRO_ENABLED = booleanPreferencesKey("gyro_enabled")
         val GYRO_SENSITIVITY_X = intPreferencesKey("gyro_sensitivity_x")
@@ -62,11 +66,7 @@ class SettingsRepository @Inject constructor(
         val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val GYRO_ACTIVATE_MODE = intPreferencesKey("gyro_activate_mode")
         val CONTROLLER_GYRO_ENABLED = booleanPreferencesKey("controller_gyro_enabled")
-        val STRONG_VIBRATION_MAPPING = intPreferencesKey("strong_vibration_mapping")
-        val WEAK_VIBRATION_MAPPING = intPreferencesKey("weak_vibration_mapping")
         val CONTROLLER_GYRO_ENABLED_CONNECTED = booleanPreferencesKey("controller_gyro_enabled_connected")
-        val STRONG_VIBRATION_MAPPING_CONNECTED = intPreferencesKey("strong_vibration_mapping_connected")
-        val WEAK_VIBRATION_MAPPING_CONNECTED = intPreferencesKey("weak_vibration_mapping_connected")
         val VOLUME_UP_BITS = stringPreferencesKey("volume_up_bits")
         val VOLUME_DOWN_BITS = stringPreferencesKey("volume_down_bits")
         val NON_LINEAR_TRIGGER_ADAPTATION = booleanPreferencesKey("non_linear_trigger_adaptation")
@@ -123,7 +123,6 @@ class SettingsRepository @Inject constructor(
             deviceName = prefs[Keys.DEVICE_NAME] ?: "Gamepad Emu",
             currentPresetName = prefs[Keys.CURRENT_PRESET_NAME] ?: "完整控制器",
             vibrationEnabled = prefs[Keys.VIBRATION_ENABLED] ?: true,
-            gameVibrationEnabled = prefs[Keys.GAME_VIBRATION_ENABLED] ?: true,
             vibrationPressType = VibrationType.entries.getOrElse(
                 prefs[Keys.VIBRATION_PRESS_TYPE] ?: VibrationType.VIEW.ordinal
             ) { VibrationType.VIEW },
@@ -140,6 +139,14 @@ class SettingsRepository @Inject constructor(
             vibrationReleaseDuration = prefs[Keys.VIBRATION_RELEASE_DURATION] ?: 20,
             vibrationPressIntensity = prefs[Keys.VIBRATION_PRESS_INTENSITY] ?: 128,
             vibrationReleaseIntensity = prefs[Keys.VIBRATION_RELEASE_INTENSITY] ?: 64,
+            gameVibrationDevice = VibrationDevice(
+                type = VibrationDeviceType.entries.getOrElse(
+                    prefs[Keys.GAME_VIBRATION_DEVICE_TYPE] ?: VibrationDeviceType.PHONE.ordinal
+                ) { VibrationDeviceType.PHONE },
+                controllerIndex = prefs[Keys.GAME_VIBRATION_CONTROLLER_INDEX] ?: 0,
+            ),
+            swapPhoneMotors = prefs[Keys.SWAP_PHONE_MOTORS] ?: false,
+            swapControllerMotors = prefs[Keys.SWAP_CONTROLLER_MOTORS] ?: false,
             autoStartEnabled = prefs[Keys.AUTO_START_ENABLED] ?: false,
             gyroEnabled = prefs[Keys.GYRO_ENABLED] ?: true,
             gyroSensitivityX = prefs[Keys.GYRO_SENSITIVITY_X] ?: 100,
@@ -160,19 +167,7 @@ class SettingsRepository @Inject constructor(
                 prefs[Keys.GYRO_ACTIVATE_MODE] ?: 0
             ) { GyroActivateMode.ALWAYS },
             controllerGyroEnabled = prefs[Keys.CONTROLLER_GYRO_ENABLED] ?: false,
-            strongVibrationMapping = VibrationMotor.entries.getOrElse(
-                prefs[Keys.STRONG_VIBRATION_MAPPING] ?: VibrationMotor.PHONE_MOTOR_1.ordinal
-            ) { VibrationMotor.PHONE_MOTOR_1 },
-            weakVibrationMapping = VibrationMotor.entries.getOrElse(
-                prefs[Keys.WEAK_VIBRATION_MAPPING] ?: VibrationMotor.PHONE_MOTOR_1.ordinal
-            ) { VibrationMotor.PHONE_MOTOR_1 },
             controllerGyroEnabledConnected = prefs[Keys.CONTROLLER_GYRO_ENABLED_CONNECTED] ?: true,
-            strongVibrationMappingConnected = VibrationMotor.entries.getOrElse(
-                prefs[Keys.STRONG_VIBRATION_MAPPING_CONNECTED] ?: VibrationMotor.CONTROLLER_MOTOR_1.ordinal
-            ) { VibrationMotor.CONTROLLER_MOTOR_1 },
-            weakVibrationMappingConnected = VibrationMotor.entries.getOrElse(
-                prefs[Keys.WEAK_VIBRATION_MAPPING_CONNECTED] ?: VibrationMotor.CONTROLLER_MOTOR_2.ordinal
-            ) { VibrationMotor.CONTROLLER_MOTOR_2 },
             volumeUpBits = parseBitList(prefs[Keys.VOLUME_UP_BITS]),
             volumeDownBits = parseBitList(prefs[Keys.VOLUME_DOWN_BITS]),
             nonLinearTriggerAdaptation = prefs[Keys.NON_LINEAR_TRIGGER_ADAPTATION] ?: false,
@@ -225,7 +220,6 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.DEVICE_NAME] = settings.deviceName
             prefs[Keys.CURRENT_PRESET_NAME] = settings.currentPresetName
             prefs[Keys.VIBRATION_ENABLED] = settings.vibrationEnabled
-            prefs[Keys.GAME_VIBRATION_ENABLED] = settings.gameVibrationEnabled
             prefs[Keys.VIBRATION_PRESS_TYPE] = settings.vibrationPressType.ordinal
             prefs[Keys.VIBRATION_RELEASE_TYPE] = settings.vibrationReleaseType.ordinal
             prefs[Keys.VIBRATION_PRESS_VIEW_EFFECT] = settings.vibrationPressViewEffect.ordinal
@@ -234,6 +228,10 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.VIBRATION_RELEASE_DURATION] = settings.vibrationReleaseDuration
             prefs[Keys.VIBRATION_PRESS_INTENSITY] = settings.vibrationPressIntensity
             prefs[Keys.VIBRATION_RELEASE_INTENSITY] = settings.vibrationReleaseIntensity
+            prefs[Keys.GAME_VIBRATION_DEVICE_TYPE] = settings.gameVibrationDevice.type.ordinal
+            prefs[Keys.GAME_VIBRATION_CONTROLLER_INDEX] = settings.gameVibrationDevice.controllerIndex
+            prefs[Keys.SWAP_PHONE_MOTORS] = settings.swapPhoneMotors
+            prefs[Keys.SWAP_CONTROLLER_MOTORS] = settings.swapControllerMotors
             prefs[Keys.AUTO_START_ENABLED] = settings.autoStartEnabled
             prefs[Keys.GYRO_ENABLED] = settings.gyroEnabled
             prefs[Keys.GYRO_SENSITIVITY_X] = settings.gyroSensitivityX
@@ -246,11 +244,7 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.KEEP_SCREEN_ON] = settings.keepScreenOn
             prefs[Keys.GYRO_ACTIVATE_MODE] = settings.gyroActivateMode.ordinal
             prefs[Keys.CONTROLLER_GYRO_ENABLED] = settings.controllerGyroEnabled
-            prefs[Keys.STRONG_VIBRATION_MAPPING] = settings.strongVibrationMapping.ordinal
-            prefs[Keys.WEAK_VIBRATION_MAPPING] = settings.weakVibrationMapping.ordinal
             prefs[Keys.CONTROLLER_GYRO_ENABLED_CONNECTED] = settings.controllerGyroEnabledConnected
-            prefs[Keys.STRONG_VIBRATION_MAPPING_CONNECTED] = settings.strongVibrationMappingConnected.ordinal
-            prefs[Keys.WEAK_VIBRATION_MAPPING_CONNECTED] = settings.weakVibrationMappingConnected.ordinal
             prefs[Keys.VOLUME_UP_BITS] = gson.toJson(settings.volumeUpBits)
             prefs[Keys.VOLUME_DOWN_BITS] = gson.toJson(settings.volumeDownBits)
             prefs[Keys.NON_LINEAR_TRIGGER_ADAPTATION] = settings.nonLinearTriggerAdaptation

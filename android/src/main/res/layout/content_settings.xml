@@ -1842,40 +1842,14 @@
                     android:layout_marginBottom="8dp" />
 
                 <!-- Game Vibration -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:background="@color/bg_surface"
-                    android:paddingHorizontal="12dp"
-                    android:layout_marginBottom="8dp">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="游戏震动"
-                        android:textColor="@color/text_primary"
-                        android:textSize="14sp" />
-
-                    <Switch
-                        android:id="@+id/switchGameVibration"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
-                </LinearLayout>
-
-                <!-- Vibration Mapping (under Game Vibration) -->
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="震动映射"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="12sp"
+                    android:text="游戏震动"
+                    android:textColor="@color/text_primary"
+                    android:textSize="14sp"
                     android:fontFamily="sans-serif-medium"
-                    android:layout_marginTop="4dp"
-                    android:layout_marginBottom="4dp"
-                    android:layout_marginStart="12dp" />
+                    android:layout_marginBottom="8dp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -1890,39 +1864,41 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="强震动"
+                        android:text="震动设备"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp" />
 
                     <Spinner
-                        android:id="@+id/spinnerStrongVibration"
+                        android:id="@+id/spinnerGameVibrationDevice"
                         android:layout_width="wrap_content"
                         android:layout_height="match_parent"
-                        android:minWidth="100dp" />
+                        android:minWidth="140dp" />
                 </LinearLayout>
 
+                <!-- Swap left/right motors (only when the selected device has 2 motors) -->
                 <LinearLayout
+                    android:id="@+id/layoutSwapMotors"
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal"
                     android:background="@color/bg_surface"
                     android:paddingHorizontal="12dp"
-                    android:layout_marginBottom="8dp">
+                    android:layout_marginBottom="8dp"
+                    android:visibility="gone">
 
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="弱震动"
+                        android:text="交换左右马达"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp" />
 
-                    <Spinner
-                        android:id="@+id/spinnerWeakVibration"
+                    <Switch
+                        android:id="@+id/switchSwapMotors"
                         android:layout_width="wrap_content"
-                        android:layout_height="match_parent"
-                        android:minWidth="100dp" />
+                        android:layout_height="wrap_content" />
                 </LinearLayout>
 
             </LinearLayout>
