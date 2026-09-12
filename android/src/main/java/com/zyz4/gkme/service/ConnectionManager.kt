@@ -438,6 +438,9 @@ class ConnectionManager @Inject constructor(
                     playerLed = led.playerLed.toInt(),
                 )
             }
+            ServerToClient.PayloadCase.TEST_TONE -> {
+                audioPlaybackService.setTestTone(msg.testTone.enabled)
+            }
             ServerToClient.PayloadCase.DISCONNECT -> {
                 stopAutoReconnect()
                 udpService.clearPcAddress()
