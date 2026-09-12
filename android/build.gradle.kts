@@ -16,6 +16,8 @@ android {
     //noinspection GradleDependency
     compileSdk = 36
 
+    ndkVersion = "30.0.16248370"
+
     defaultConfig {
         applicationId = "com.zyz4.gkme"
         minSdk = 26
@@ -23,6 +25,23 @@ android {
         targetSdk = 36
         versionCode = 4000
         versionName = "4.0.0"
+
+        externalNativeBuild {
+            cmake {
+                arguments += "-DANDROID_STL=c++_shared"
+            }
+        }
+    }
+
+    buildFeatures {
+        prefab = true
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "4.4.3"
+        }
     }
 
     buildTypes {
@@ -43,6 +62,8 @@ android {
 }
 
 dependencies {
+    implementation(files("libs/SDL3-3.4.16.aar"))
+
     implementation("androidx.activity:activity-ktx:1.9.3")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")

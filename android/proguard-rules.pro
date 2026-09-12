@@ -86,3 +86,9 @@
 
 # View 相关 - 如果有自定义 View
 -keep class com.zyz4.gkme.view.** { *; }
+
+# SDL3 Java 胶水层（AAR 自带 consumer 规则，这里再显式保留以确保 JNI 回调不被裁剪）
+-keep class org.libsdl.app.** { *; }
+-keepclassmembers class org.libsdl.app.** {
+    native <methods>;
+}
