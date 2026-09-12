@@ -122,7 +122,6 @@ internal fun MainActivity.selectSettingsCategory(index: Int) {
     if (index == 4) {
         a.vibrationPollingJob = a.lifecycleScope.launch {
             while (true) {
-                a.refreshVibrationRedirect()
                 delay(1000.milliseconds)
             }
         }
@@ -279,9 +278,6 @@ internal fun MainActivity.setupSettings() {
     }
 
     // ── Vibration page ──
-    a.findViewById<Switch>(R.id.switchBtnVibration).setOnCheckedChangeListener { _, isChecked ->
-        a.viewModel.updateVibrationEnabled(isChecked)
-    }
     a.findViewById<Spinner>(R.id.spinnerGameVibrationDevice).onItemSelectedListener =
         object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
@@ -874,64 +870,9 @@ internal fun MainActivity.updateVibrationUI() {
     a.findViewById<SeekBar>(R.id.seekReleaseIntensity).progress = s.vibrationReleaseIntensity
 }
 
-@SuppressLint("SetTextI18n")
-internal fun MainActivity.renderVibrationRedirect(value: String?) {
-    val a = this
-    val statusView = a.findViewById<TextView>(R.id.tvVibrationRedirectStatus) ?: return
-    val noteView = a.findViewById<TextView>(R.id.tvVibrationRedirectNote) ?: return
-    noteView.text = "开启震动重定向后，手机震动会自动变为手柄马达1震动。\n本应用的手柄震动不受此设置影响。\n如果要在本应用中使用手机震动，请在系统设置-更多设置-语言与输入法中关闭震动重定向。"
-    noteView.visibility = View.VISIBLE
-    when (value) {
-        "0" -> {
-            statusView.text = "震动重定向：已关闭"
-            statusView.setTextColor(0xFF4CAF50.toInt())
-        }
-        "1" -> {
-            statusView.text = "震动重定向：已开启"
-            statusView.setTextColor(0xFFFF5252.toInt())
-        }
-        else -> {
-            statusView.text = "震动重定向：没有这个设置项"
-            statusView.setTextColor(0xFFBBBBBB.toInt())
-        }
-    }
-}
-
-/** Reads the vibration-redirect setting off the main thread and caches the result. */
-internal suspend fun MainActivity.refreshVibrationRedirect() {
-    val a = this
-    val value = withContext(Dispatchers.IO) { a.readVibrationRedirectSettingBlocking() }
-    a.vibrationRedirectStatus = value
-    a.renderVibrationRedirect(value)
-}
-
-internal fun MainActivity.readVibrationRedirectSettingBlocking(): String? {
-    val a = this
-    val key = "vibrate_input_devices"
-    try {
-        Settings.System.getString(a.contentResolver, key)?.let { return it }
-    } catch (_: SecurityException) {}
-    try {
-        Settings.Global.getString(a.contentResolver, key)?.let { return it }
-    } catch (_: SecurityException) {}
-    try {
-        Settings.Secure.getString(a.contentResolver, key)?.let { return it }
-    } catch (_: SecurityException) {}
-    try {
-        val process = ProcessBuilder("/system/bin/sh", "-c", "settings get system $key")
-            .redirectErrorStream(true)
-            .start()
-        val output = process.inputStream.bufferedReader().use { it.readText().trim() }
-        process.waitFor()
-        if (output.isNotEmpty() && output != "null") return output
-    } catch (_: Exception) {}
-    return null
-}
-
 internal fun MainActivity.testHaptic(isPress: Boolean) {
     val a = this
     val s = a.viewModel.settings.value
-    if (!s.vibrationEnabled) return
     val type = if (isPress) s.vibrationPressType else s.vibrationReleaseType
     when (type) {
         VibrationType.NONE -> return
@@ -1295,11 +1236,8 @@ internal fun MainActivity.syncSettingsUI() {
     if (pollingRateIndex >= 0) {
         a.findViewById<Spinner>(R.id.spinnerPollingRate).setSelection(pollingRateIndex)
     }
-    a.findViewById<Switch>(R.id.switchBtnVibration).isChecked = s.vibrationEnabled
     a.updateVibrationUI()
     a.syncGameVibrationUI()
-    a.vibrationRedirectStatus?.let { a.renderVibrationRedirect(it) }
-        ?: a.lifecycleScope.launch { a.refreshVibrationRedirect() }
     a.updateSettingsVisibility(s.connectionMode)
 
     a.findViewById<Switch>(R.id.switchAutoStart).isChecked = s.autoStartEnabled

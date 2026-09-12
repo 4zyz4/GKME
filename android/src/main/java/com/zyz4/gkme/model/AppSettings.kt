@@ -188,7 +188,6 @@ data class AppSettings(
     val deviceName: String = "Gamepad Emu",
     val currentPresetName: String = "完整控制器",
     val isEditMode: Boolean = false,
-    val vibrationEnabled: Boolean = true,
     val vibrationPressType: VibrationType = VibrationType.VIEW,
     val vibrationReleaseType: VibrationType = VibrationType.VIEW,
     val vibrationPressViewEffect: HapticEffect = HapticEffect.CONFIRM,

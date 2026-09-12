@@ -43,7 +43,6 @@ class SettingsRepository @Inject constructor(
         val POLLING_RATE = intPreferencesKey("polling_rate")
         val DEVICE_NAME = stringPreferencesKey("device_name")
         val CURRENT_PRESET_NAME = stringPreferencesKey("current_preset_name")
-        val VIBRATION_ENABLED = booleanPreferencesKey("vibration_enabled")
         val VIBRATION_PRESS_TYPE = intPreferencesKey("vibration_press_type")
         val VIBRATION_RELEASE_TYPE = intPreferencesKey("vibration_release_type")
         val VIBRATION_PRESS_VIEW_EFFECT = intPreferencesKey("vibration_press_view_effect")
@@ -131,7 +130,6 @@ class SettingsRepository @Inject constructor(
             pollingRate = prefs[Keys.POLLING_RATE] ?: 120,
             deviceName = prefs[Keys.DEVICE_NAME] ?: "Gamepad Emu",
             currentPresetName = prefs[Keys.CURRENT_PRESET_NAME] ?: "完整控制器",
-            vibrationEnabled = prefs[Keys.VIBRATION_ENABLED] ?: true,
             vibrationPressType = VibrationType.entries.getOrElse(
                 prefs[Keys.VIBRATION_PRESS_TYPE] ?: VibrationType.VIEW.ordinal
             ) { VibrationType.VIEW },
@@ -236,7 +234,6 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.POLLING_RATE] = settings.pollingRate
             prefs[Keys.DEVICE_NAME] = settings.deviceName
             prefs[Keys.CURRENT_PRESET_NAME] = settings.currentPresetName
-            prefs[Keys.VIBRATION_ENABLED] = settings.vibrationEnabled
             prefs[Keys.VIBRATION_PRESS_TYPE] = settings.vibrationPressType.ordinal
             prefs[Keys.VIBRATION_RELEASE_TYPE] = settings.vibrationReleaseType.ordinal
             prefs[Keys.VIBRATION_PRESS_VIEW_EFFECT] = settings.vibrationPressViewEffect.ordinal
