@@ -34,9 +34,13 @@ import android.widget.Switch
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import com.zyz4.gkme.model.AudioOutput
+import com.zyz4.gkme.model.AudioDevice
+import com.zyz4.gkme.model.AudioDeviceType
 import com.zyz4.gkme.model.ConnectionMode
 import com.zyz4.gkme.model.DisplayMode
 import com.zyz4.gkme.model.GyroOrientation
+import com.zyz4.gkme.model.GyroSource
+import com.zyz4.gkme.model.GyroSourceType
 import com.zyz4.gkme.model.HapticEffect
 import com.zyz4.gkme.model.LayoutPreset
 import com.zyz4.gkme.model.TargetPlatform
@@ -221,28 +225,23 @@ internal fun MainActivity.setupSettings() {
         }
 
     // ── Audio page ──
-    val audioOutputEntries = mutableListOf<AudioOutput>().apply {
-        add(AudioOutput.NONE)
-        add(AudioOutput.PHONE_MOTOR_1)
-        add(AudioOutput.PHONE_MOTOR_2)
-        add(AudioOutput.LEFT_SPEAKER)
-        add(AudioOutput.RIGHT_SPEAKER)
-        add(AudioOutput.ALL_SPEAKERS)
-        for (i in 0 until a.physicalControllerHandler.controllerMotorCount) {
-            add(AudioOutput.controllerMotor(i))
+    a.findViewById<Spinner>(R.id.spinnerVoiceCoil).onItemSelectedListener =
+        object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                val device = a.voiceCoilDeviceEntries.getOrNull(pos) ?: return
+                if (a.viewModel.settings.value.voiceCoilDevice != device) {
+                    a.viewModel.updateVoiceCoilDevice(device)
+                }
+                a.updateVoiceCoilSwapUI(device)
+                a.audioPlaybackService.resumeIfStopped()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
-    }
-    a.audioMappingEntries = audioOutputEntries
-    a.audioControllerOutputEntries = audioOutputEntries
-    a.setupAudioOutputSpinner(R.id.spinnerLeftVoiceCoil, audioOutputEntries) { output ->
-        a.viewModel.updateLeftVoiceCoilOutput(output)
+    a.findViewById<Switch>(R.id.switchSwapVoiceCoilMotors).setOnCheckedChangeListener { _, isChecked ->
+        a.viewModel.updateSwapVoiceCoilMotors(isChecked)
         a.audioPlaybackService.resumeIfStopped()
     }
-    a.setupAudioOutputSpinner(R.id.spinnerRightVoiceCoil, audioOutputEntries) { output ->
-        a.viewModel.updateRightVoiceCoilOutput(output)
-        a.audioPlaybackService.resumeIfStopped()
-    }
-    a.setupControllerAudioSpinner(audioOutputEntries) { output ->
+    a.setupControllerAudioSpinner(controllerAudioEntries()) { output ->
         a.viewModel.updateControllerAudioOutput(output)
         a.audioPlaybackService.resumeIfStopped()
     }
@@ -388,9 +387,15 @@ internal fun MainActivity.setupSettings() {
     }
 
     // ── Gyro page ──
-    a.findViewById<Switch>(R.id.switchGyroEnabled).setOnCheckedChangeListener { _, isChecked ->
-        a.viewModel.updateGyroEnabled(isChecked)
-    }
+    a.findViewById<Spinner>(R.id.spinnerGyroSource).onItemSelectedListener =
+        object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                val source = a.gyroSourceEntries.getOrNull(pos) ?: return
+                if (source == a.currentGyroSource()) return
+                a.applyGyroSource(source)
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
 
     listOf(
         R.id.btnGyroOriLandscape to GyroOrientation.LANDSCAPE,
@@ -428,18 +433,7 @@ internal fun MainActivity.setupSettings() {
         setOnTouchListener { _, _ -> true }
     }
 
-    // Controller gyro toggle
-    a.findViewById<Switch>(R.id.switchControllerGyro).setOnCheckedChangeListener { _, isChecked ->
-        if (a.physicalControllerHandler.isConnected.value) {
-            a.viewModel.updateControllerGyroEnabledConnected(isChecked)
-        } else {
-            a.viewModel.updateControllerGyroEnabled(isChecked)
-        }
-        a.physicalControllerHandler.onControllerGyroSettingChanged(isChecked)
-        a.findViewById<TextView>(R.id.tvControllerGyroNote).visibility =
-            if (isChecked) View.VISIBLE else View.GONE
-    }
-
+    // Controller gyro real-time display (read-only)
     listOf(R.id.seekControllerGyroX, R.id.seekControllerGyroY, R.id.seekControllerGyroZ).forEach { id ->
         a.findViewById<SeekBar>(id).apply {
             min = -3000
@@ -461,6 +455,28 @@ internal fun MainActivity.setupSettings() {
         a.physicalControllerHandler.nonLinearTriggerAdaptation = isChecked
     }
 
+    a.findViewById<Spinner>(R.id.spinnerPhysicalController).apply {
+        setOnTouchListener { _, _ ->
+            a.inputControllerUserSelecting = true
+            false
+        }
+        onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                if (!a.inputControllerUserSelecting) return
+                a.inputControllerUserSelecting = false
+                val index = a.inputControllerIndices.getOrNull(pos) ?: return
+                if (a.viewModel.settings.value.inputControllerIndex != index) {
+                    a.viewModel.updateInputControllerIndex(index)
+                }
+                a.physicalControllerHandler.inputControllerIndex = index
+                a.syncPhysicalControllerState()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+                a.inputControllerUserSelecting = false
+            }
+        }
+    }
+
     // ── Misc page ──
     a.setupMiscPage()
 
@@ -477,8 +493,8 @@ internal fun MainActivity.setupSettings() {
     a.viewModel.connectionManager.onRumbleRequest = { large, small ->
         a.physicalControllerHandler.rumble(large, small)
     }
-    a.viewModel.connectionManager.onControllerVibrationRequest = { motorIndex, intensity ->
-        a.physicalControllerHandler.setControllerMotorVibration(motorIndex, intensity)
+    a.viewModel.connectionManager.onControllerVibrationRequest = { controllerIndex, leftAmp, rightAmp ->
+        a.physicalControllerHandler.setControllerMotorsVibration(controllerIndex, leftAmp, rightAmp)
     }
 }
 
@@ -579,17 +595,222 @@ internal fun MainActivity.syncGameVibrationUI() {
     a.updateSwapMotorsUI(entries.getOrElse(pos) { VibrationDevice.PHONE })
 }
 
-internal fun MainActivity.setupAudioOutputSpinner(spinnerId: Int, entries: List<AudioOutput>, onChanged: (AudioOutput) -> Unit) {
+internal fun MainActivity.buildInputControllerIndices(): List<Int> {
     val a = this
-    val spinner = a.findViewById<Spinner>(spinnerId)
-    a.audioOutputEntries = entries
-    a.updateAudioOutputAdapter(spinner)
-    spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-        override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
-            if (pos < a.audioOutputEntries.size) onChanged(a.audioOutputEntries[pos])
+    val indices = mutableListOf<Int>()
+    a.physicalControllerHandler.connectedControllers.value.forEachIndexed { index, _ -> indices.add(index) }
+    indices.add(-1)
+    return indices
+}
+
+internal fun MainActivity.updateInputControllerAdapter(spinner: Spinner, indices: List<Int>) {
+    val a = this
+    val names = indices.map { index ->
+        if (index < 0) {
+            "不使用手柄"
+        } else {
+            a.physicalControllerHandler.connectedControllers.value.getOrNull(index)?.name
+                ?.takeIf { it.isNotBlank() } ?: "手柄${index + 1}"
         }
-        override fun onNothingSelected(parent: AdapterView<*>?) {}
+    }.toTypedArray()
+    val adapter = ArrayAdapter(a, android.R.layout.simple_spinner_item, names)
+    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+    spinner.adapter = adapter
+}
+
+internal fun MainActivity.syncPhysicalControllerUI() {
+    val a = this
+    if (!a.settingsInflated) return
+    val indices = a.buildInputControllerIndices()
+    a.inputControllerIndices = indices
+    val controllerCount = indices.size - 1
+    val setting = a.viewModel.settings.value.inputControllerIndex
+    var effective = setting
+    if (effective !in 0 until controllerCount) {
+        effective = if (controllerCount > 0) 0 else -1
+        if (controllerCount > 0 && setting != effective) {
+            a.viewModel.updateInputControllerIndex(effective)
+        }
     }
+    val spinner = a.findViewById<Spinner>(R.id.spinnerPhysicalController)
+    val pos = indices.indexOf(effective).let { if (it >= 0) it else indices.size - 1 }
+    a.updateInputControllerAdapter(spinner, indices)
+    spinner.setSelection(pos)
+}
+
+internal fun MainActivity.currentGyroSource(): GyroSource {
+    val a = this
+    val s = a.viewModel.settings.value
+    val connected = a.physicalControllerHandler.isConnected.value
+    val useController = if (connected) s.controllerGyroEnabledConnected else s.controllerGyroEnabled
+    return when {
+        useController -> GyroSource.controller(s.gyroControllerIndex)
+        s.gyroEnabled -> GyroSource.PHONE
+        else -> GyroSource.NONE
+    }
+}
+
+internal fun MainActivity.applyGyroSource(source: GyroSource) {
+    val a = this
+    when (source.type) {
+        GyroSourceType.CONTROLLER -> {
+            a.physicalControllerHandler.gyroControllerIndex = source.controllerIndex
+            a.viewModel.updateGyroEnabled(true)
+            a.viewModel.updateControllerGyroEnabled(true)
+            a.viewModel.updateControllerGyroEnabledConnected(true)
+            a.viewModel.updateGyroControllerIndex(source.controllerIndex)
+        }
+        GyroSourceType.PHONE -> {
+            a.viewModel.updateGyroEnabled(true)
+            a.viewModel.updateControllerGyroEnabled(false)
+            a.viewModel.updateControllerGyroEnabledConnected(false)
+        }
+        GyroSourceType.NONE -> {
+            a.viewModel.updateGyroEnabled(false)
+            a.viewModel.updateControllerGyroEnabled(false)
+            a.viewModel.updateControllerGyroEnabledConnected(false)
+        }
+    }
+    a.physicalControllerHandler.onControllerGyroSettingChanged(source.type == GyroSourceType.CONTROLLER)
+    a.updateGyroSourceVisibility(source)
+}
+
+internal fun MainActivity.gyroSourceDisplayName(source: GyroSource): String {
+    val controllers = physicalControllerHandler.connectedControllers.value
+    return when (source.type) {
+        GyroSourceType.CONTROLLER ->
+            controllers.getOrNull(source.controllerIndex)?.name?.takeIf { it.isNotBlank() }
+                ?: "手柄${source.controllerIndex + 1}"
+        GyroSourceType.PHONE -> "手机陀螺仪"
+        GyroSourceType.NONE -> "不使用体感"
+    }
+}
+
+internal fun MainActivity.updateGyroSourceVisibility(source: GyroSource) {
+    val a = this
+    val isPhone = source.type == GyroSourceType.PHONE
+    val isController = source.type == GyroSourceType.CONTROLLER
+    a.findViewById<View>(R.id.layoutGyroOrientation).visibility =
+        if (isPhone) View.VISIBLE else View.GONE
+    a.findViewById<TextView>(R.id.tvControllerGyroNote).visibility =
+        if (isController) View.VISIBLE else View.GONE
+
+    // Column titles follow the actual selected source (controller name, not a fixed label).
+    val ctrlSource = if (isController) source
+        else GyroSource.controller(a.viewModel.settings.value.gyroControllerIndex)
+    a.findViewById<TextView>(R.id.tvPhoneGyroTitle).text = a.gyroSourceDisplayName(GyroSource.PHONE)
+    a.findViewById<TextView>(R.id.tvControllerGyroTitle).text = a.gyroSourceDisplayName(ctrlSource)
+
+    val phoneCol = a.findViewById<View>(R.id.layoutPhoneGyroDisplay)
+    val ctrlCol = a.findViewById<View>(R.id.layoutControllerGyroDisplay)
+    phoneCol.visibility = if (isPhone) View.VISIBLE else View.GONE
+    ctrlCol.visibility = if (isController) View.VISIBLE else View.GONE
+    (phoneCol.layoutParams as? LinearLayout.LayoutParams)?.weight = if (isPhone && !isController) 2f else 1f
+    (ctrlCol.layoutParams as? LinearLayout.LayoutParams)?.weight = if (isController && !isPhone) 2f else 1f
+}
+
+internal fun MainActivity.buildGyroSourceEntries(): List<GyroSource> {
+    val a = this
+    val entries = mutableListOf<GyroSource>()
+    a.physicalControllerHandler.connectedControllers.value.forEachIndexed { index, _ ->
+        entries.add(GyroSource.controller(index))
+    }
+    entries.add(GyroSource.PHONE)
+    entries.add(GyroSource.NONE)
+    return entries
+}
+
+internal fun MainActivity.updateGyroSourceAdapter(spinner: Spinner, entries: List<GyroSource>) {
+    val a = this
+    val names = entries.map { a.gyroSourceDisplayName(it) }.toTypedArray()
+    val adapter = ArrayAdapter(a, android.R.layout.simple_spinner_item, names)
+    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+    spinner.adapter = adapter
+}
+
+internal fun MainActivity.syncGyroSourceUI() {
+    val a = this
+    if (!a.settingsInflated) return
+    val entries = a.buildGyroSourceEntries()
+    a.gyroSourceEntries = entries
+    val spinner = a.findViewById<Spinner>(R.id.spinnerGyroSource)
+    a.updateGyroSourceAdapter(spinner, entries)
+    var source = a.currentGyroSource()
+    if (source.type == GyroSourceType.CONTROLLER &&
+        source.controllerIndex >= a.physicalControllerHandler.connectedControllers.value.size
+    ) {
+        source = GyroSource.PHONE
+    }
+    val pos = entries.indexOf(source).let { if (it >= 0) it else entries.size - 1 }
+    spinner.setSelection(pos)
+    a.updateGyroSourceVisibility(entries.getOrElse(pos) { GyroSource.PHONE })
+}
+
+internal fun MainActivity.controllerAudioEntries(): List<AudioOutput> =
+    listOf(AudioOutput.ALL_SPEAKERS, AudioOutput.NONE)
+
+internal fun MainActivity.buildVoiceCoilDeviceEntries(): List<AudioDevice> {
+    val a = this
+    val entries = mutableListOf<AudioDevice>()
+    a.physicalControllerHandler.connectedControllers.value.forEachIndexed { index, _ ->
+        entries.add(AudioDevice.controller(index))
+    }
+    entries.add(AudioDevice.PHONE_MOTOR)
+    entries.add(AudioDevice.PHONE_SPEAKER)
+    entries.add(AudioDevice.NONE)
+    return entries
+}
+
+internal fun MainActivity.updateVoiceCoilDeviceAdapter(spinner: Spinner, entries: List<AudioDevice>) {
+    val a = this
+    val controllers = a.physicalControllerHandler.connectedControllers.value
+    val names = entries.map { device ->
+        when (device.type) {
+            AudioDeviceType.CONTROLLER ->
+                controllers.getOrNull(device.controllerIndex)?.name?.takeIf { it.isNotBlank() }
+                    ?: "手柄${device.controllerIndex + 1}"
+            AudioDeviceType.PHONE_MOTOR -> "手机马达"
+            AudioDeviceType.PHONE_SPEAKER -> "手机扬声器"
+            AudioDeviceType.NONE -> "无"
+        }
+    }.toTypedArray()
+    val adapter = ArrayAdapter(a, android.R.layout.simple_spinner_item, names)
+    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+    spinner.adapter = adapter
+}
+
+internal fun MainActivity.selectedVoiceCoilMotorCount(device: AudioDevice): Int {
+    val a = this
+    return when (device.type) {
+        AudioDeviceType.PHONE_MOTOR -> a.phoneMotorCount()
+        AudioDeviceType.CONTROLLER ->
+            a.physicalControllerHandler.connectedControllers.value.getOrNull(device.controllerIndex)?.motorCount ?: 0
+        else -> 0
+    }
+}
+
+internal fun MainActivity.updateVoiceCoilSwapUI(device: AudioDevice) {
+    val a = this
+    val showSwap = a.selectedVoiceCoilMotorCount(device) >= 2
+    a.findViewById<View>(R.id.layoutSwapVoiceCoilMotors).visibility = if (showSwap) View.VISIBLE else View.GONE
+    a.findViewById<Switch>(R.id.switchSwapVoiceCoilMotors).isChecked = a.viewModel.settings.value.swapVoiceCoilMotors
+}
+
+internal fun MainActivity.syncVoiceCoilUI() {
+    val a = this
+    if (!a.settingsInflated) return
+    val entries = a.buildVoiceCoilDeviceEntries()
+    a.voiceCoilDeviceEntries = entries
+    val spinner = a.findViewById<Spinner>(R.id.spinnerVoiceCoil)
+    a.updateVoiceCoilDeviceAdapter(spinner, entries)
+    val connectedCount = a.physicalControllerHandler.connectedControllers.value.size
+    var selected = a.viewModel.settings.value.voiceCoilDevice
+    if (selected.type == AudioDeviceType.CONTROLLER && selected.controllerIndex >= connectedCount) {
+        selected = AudioDevice.PHONE_SPEAKER
+    }
+    val pos = entries.indexOf(selected).let { if (it >= 0) it else entries.size - 1 }
+    spinner.setSelection(pos)
+    a.updateVoiceCoilSwapUI(entries.getOrElse(pos) { AudioDevice.PHONE_SPEAKER })
 }
 
 internal fun MainActivity.setupControllerAudioSpinner(entries: List<AudioOutput>, onChanged: (AudioOutput) -> Unit) {
@@ -605,17 +826,11 @@ internal fun MainActivity.setupControllerAudioSpinner(entries: List<AudioOutput>
     }
 }
 
-internal fun MainActivity.updateAudioOutputAdapter(spinner: Spinner) {
-    val a = this
-    val names = a.audioOutputEntries.map { it.displayName }.toTypedArray()
-    val adapter = ArrayAdapter(a, android.R.layout.simple_spinner_item, names)
-    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-    spinner.adapter = adapter
-}
-
 internal fun MainActivity.updateControllerAudioAdapter(spinner: Spinner) {
     val a = this
-    val names = a.audioControllerOutputEntries.map { it.displayName }.toTypedArray()
+    val names = a.audioControllerOutputEntries.map {
+        if (it == AudioOutput.ALL_SPEAKERS) "手机扬声器" else it.displayName
+    }.toTypedArray()
     val adapter = ArrayAdapter(a, android.R.layout.simple_spinner_item, names)
     adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
     spinner.adapter = adapter
@@ -1090,7 +1305,7 @@ internal fun MainActivity.syncSettingsUI() {
     a.updateSettingsVisibility(s.connectionMode)
 
     a.findViewById<Switch>(R.id.switchAutoStart).isChecked = s.autoStartEnabled
-    a.findViewById<Switch>(R.id.switchGyroEnabled).isChecked = s.gyroEnabled
+    a.syncGyroSourceUI()
     val effectiveOrientation = a.viewModel.currentPreset.value.gyroOrientation ?: s.gyroOrientation
     a.selectChipGroup(listOf(R.id.btnGyroOriLandscape, R.id.btnGyroOriPortrait, R.id.btnGyroOriPortraitInverted),
         GyroOrientation.entries.indexOf(effectiveOrientation).coerceAtLeast(0))
@@ -1112,14 +1327,6 @@ internal fun MainActivity.syncSettingsUI() {
     a.syncAppearanceUI()
     a.applyAppearanceIfChanged(s)
 
-    val physicalConnected = a.physicalControllerHandler.isConnected.value
-    val gyroEnabled = if (physicalConnected) s.controllerGyroEnabledConnected else s.controllerGyroEnabled
-
-    a.findViewById<Switch>(R.id.switchControllerGyro).isChecked =
-        physicalConnected && gyroEnabled
-    a.findViewById<Switch>(R.id.switchControllerGyro).isEnabled = physicalConnected
-    a.findViewById<TextView>(R.id.tvControllerGyroNote).visibility =
-        if (gyroEnabled && physicalConnected) View.VISIBLE else View.GONE
     a.findViewById<TextView>(R.id.tvControllerGyroX).text = "X: 0.00"
     a.findViewById<TextView>(R.id.tvControllerGyroY).text = "Y: 0.00"
     a.findViewById<TextView>(R.id.tvControllerGyroZ).text = "Z: 0.00"
@@ -1127,9 +1334,7 @@ internal fun MainActivity.syncSettingsUI() {
     a.findViewById<SeekBar>(R.id.seekControllerGyroY).progress = 0
     a.findViewById<SeekBar>(R.id.seekControllerGyroZ).progress = 0
 
-    a.findViewById<TextView>(R.id.tvPhysicalControllerStatus).text =
-        if (physicalConnected) "已连接: ${a.physicalControllerHandler.controllerName.value}"
-        else "未连接手柄"
+    a.syncPhysicalControllerUI()
 
     a.refreshPresetList()
     a.syncAudioUI()
@@ -1140,36 +1345,10 @@ internal fun MainActivity.syncAudioUI() {
     val a = this
     val s = a.viewModel.settings.value
 
-    val mc = a.physicalControllerHandler.controllerMotorCount
-    val phoneMotorCount = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        try {
-            val vm = a.getSystemService(android.content.Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager
-            vm?.vibratorIds?.size ?: 0
-        } catch (_: Exception) { 0 }
-    } else { 0 }
-    val audioEntries = mutableListOf<AudioOutput>()
-    audioEntries.add(AudioOutput.NONE)
-    if (phoneMotorCount >= 1) audioEntries.add(AudioOutput.PHONE_MOTOR_1)
-    if (phoneMotorCount >= 2) audioEntries.add(AudioOutput.PHONE_MOTOR_2)
-    audioEntries.add(AudioOutput.LEFT_SPEAKER)
-    audioEntries.add(AudioOutput.RIGHT_SPEAKER)
-    audioEntries.add(AudioOutput.ALL_SPEAKERS)
-    for (i in 0 until mc) {
-        audioEntries.add(AudioOutput.controllerMotor(i))
-    }
-
-    a.audioOutputEntries = audioEntries
-    a.audioControllerOutputEntries = audioEntries
-    a.updateAudioOutputAdapter(a.findViewById(R.id.spinnerLeftVoiceCoil))
-    a.updateAudioOutputAdapter(a.findViewById(R.id.spinnerRightVoiceCoil))
+    a.syncVoiceCoilUI()
+    a.audioControllerOutputEntries = a.controllerAudioEntries()
     a.updateControllerAudioAdapter(a.findViewById(R.id.spinnerControllerAudio))
-
-    fun selAudio(opts: List<AudioOutput>, target: AudioOutput): Int {
-        val idx = opts.indexOf(target)
-        return if (idx >= 0) idx else 0
-    }
-
-    a.findViewById<Spinner>(R.id.spinnerLeftVoiceCoil).setSelection(selAudio(audioEntries, s.leftVoiceCoilOutput))
-    a.findViewById<Spinner>(R.id.spinnerRightVoiceCoil).setSelection(selAudio(audioEntries, s.rightVoiceCoilOutput))
-    a.findViewById<Spinner>(R.id.spinnerControllerAudio).setSelection(selAudio(audioEntries, s.controllerAudioOutput))
+    val ctrlPos = a.audioControllerOutputEntries.indexOf(s.controllerAudioOutput)
+        .let { if (it >= 0) it else 0 }
+    a.findViewById<Spinner>(R.id.spinnerControllerAudio).setSelection(ctrlPos)
 }

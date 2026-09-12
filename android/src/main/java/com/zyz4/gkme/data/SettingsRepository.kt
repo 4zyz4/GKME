@@ -19,6 +19,8 @@ import com.zyz4.gkme.model.GyroActivateMode
 import com.zyz4.gkme.model.HapticEffect
 import com.zyz4.gkme.model.TargetPlatform
 import com.zyz4.gkme.model.AudioOutput
+import com.zyz4.gkme.model.AudioDevice
+import com.zyz4.gkme.model.AudioDeviceType
 import com.zyz4.gkme.model.VibrationDevice
 import com.zyz4.gkme.model.VibrationDeviceType
 import com.zyz4.gkme.model.VibrationType
@@ -67,12 +69,17 @@ class SettingsRepository @Inject constructor(
         val GYRO_ACTIVATE_MODE = intPreferencesKey("gyro_activate_mode")
         val CONTROLLER_GYRO_ENABLED = booleanPreferencesKey("controller_gyro_enabled")
         val CONTROLLER_GYRO_ENABLED_CONNECTED = booleanPreferencesKey("controller_gyro_enabled_connected")
+        val GYRO_CONTROLLER_INDEX = intPreferencesKey("gyro_controller_index")
         val VOLUME_UP_BITS = stringPreferencesKey("volume_up_bits")
         val VOLUME_DOWN_BITS = stringPreferencesKey("volume_down_bits")
         val NON_LINEAR_TRIGGER_ADAPTATION = booleanPreferencesKey("non_linear_trigger_adaptation")
+        val INPUT_CONTROLLER_INDEX = intPreferencesKey("input_controller_index")
         // Audio
         val LEFT_VOICE_COIL_OUTPUT = intPreferencesKey("left_voice_coil_output")
         val RIGHT_VOICE_COIL_OUTPUT = intPreferencesKey("right_voice_coil_output")
+        val VOICE_COIL_DEVICE_TYPE = intPreferencesKey("voice_coil_device_type")
+        val VOICE_COIL_CONTROLLER_INDEX = intPreferencesKey("voice_coil_controller_index")
+        val SWAP_VOICE_COIL_MOTORS = booleanPreferencesKey("swap_voice_coil_motors")
         val CONTROLLER_AUDIO_OUTPUT = intPreferencesKey("controller_audio_output")
         // Appearance
         val BG_FILL_TYPE = intPreferencesKey("bg_fill_type")
@@ -168,9 +175,11 @@ class SettingsRepository @Inject constructor(
             ) { GyroActivateMode.ALWAYS },
             controllerGyroEnabled = prefs[Keys.CONTROLLER_GYRO_ENABLED] ?: false,
             controllerGyroEnabledConnected = prefs[Keys.CONTROLLER_GYRO_ENABLED_CONNECTED] ?: true,
+            gyroControllerIndex = prefs[Keys.GYRO_CONTROLLER_INDEX] ?: 0,
             volumeUpBits = parseBitList(prefs[Keys.VOLUME_UP_BITS]),
             volumeDownBits = parseBitList(prefs[Keys.VOLUME_DOWN_BITS]),
             nonLinearTriggerAdaptation = prefs[Keys.NON_LINEAR_TRIGGER_ADAPTATION] ?: false,
+            inputControllerIndex = prefs[Keys.INPUT_CONTROLLER_INDEX] ?: 0,
             bgFillType = FillType.entries.getOrElse(prefs[Keys.BG_FILL_TYPE] ?: 0) { FillType.SOLID_COLOR },
             bgColor = prefs[Keys.BG_COLOR] ?: 0xFF000000.toInt(),
             bgImagePath = prefs[Keys.BG_IMAGE_PATH],
@@ -199,15 +208,19 @@ class SettingsRepository @Inject constructor(
             tpOutlineColor = prefs[Keys.TP_OUTLINE_COLOR] ?: 0xFF666666.toInt(),
             tpOutlineWidth = prefs[Keys.TP_OUTLINE_WIDTH] ?: 4,
             iconMaxSize = prefs[Keys.ICON_MAX_SIZE] ?: 24,
-            leftVoiceCoilOutput = AudioOutput.fromOrdinalSafe(
-                prefs[Keys.LEFT_VOICE_COIL_OUTPUT] ?: AudioOutput.LEFT_SPEAKER.ordinal
+            voiceCoilDevice = prefs[Keys.VOICE_COIL_DEVICE_TYPE]?.let { typeOrdinal ->
+                AudioDevice(
+                    type = AudioDeviceType.entries.getOrElse(typeOrdinal) { AudioDeviceType.PHONE_SPEAKER },
+                    controllerIndex = prefs[Keys.VOICE_COIL_CONTROLLER_INDEX] ?: 0,
+                )
+            } ?: migrateVoiceCoilDevice(
+                prefs[Keys.LEFT_VOICE_COIL_OUTPUT],
+                prefs[Keys.RIGHT_VOICE_COIL_OUTPUT],
             ),
-            rightVoiceCoilOutput = AudioOutput.fromOrdinalSafe(
-                prefs[Keys.RIGHT_VOICE_COIL_OUTPUT] ?: AudioOutput.RIGHT_SPEAKER.ordinal
-            ),
-            controllerAudioOutput = AudioOutput.fromOrdinalSafe(
-                prefs[Keys.CONTROLLER_AUDIO_OUTPUT] ?: AudioOutput.ALL_SPEAKERS.ordinal
-            ),
+            swapVoiceCoilMotors = prefs[Keys.SWAP_VOICE_COIL_MOTORS] ?: false,
+            controllerAudioOutput = if ((prefs[Keys.CONTROLLER_AUDIO_OUTPUT]
+                    ?: AudioOutput.ALL_SPEAKERS.ordinal) == AudioOutput.NONE.ordinal
+            ) AudioOutput.NONE else AudioOutput.ALL_SPEAKERS,
         )
     }
 
@@ -245,9 +258,11 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.GYRO_ACTIVATE_MODE] = settings.gyroActivateMode.ordinal
             prefs[Keys.CONTROLLER_GYRO_ENABLED] = settings.controllerGyroEnabled
             prefs[Keys.CONTROLLER_GYRO_ENABLED_CONNECTED] = settings.controllerGyroEnabledConnected
+            prefs[Keys.GYRO_CONTROLLER_INDEX] = settings.gyroControllerIndex
             prefs[Keys.VOLUME_UP_BITS] = gson.toJson(settings.volumeUpBits)
             prefs[Keys.VOLUME_DOWN_BITS] = gson.toJson(settings.volumeDownBits)
             prefs[Keys.NON_LINEAR_TRIGGER_ADAPTATION] = settings.nonLinearTriggerAdaptation
+            prefs[Keys.INPUT_CONTROLLER_INDEX] = settings.inputControllerIndex
             prefs[Keys.BG_FILL_TYPE] = settings.bgFillType.ordinal
             prefs[Keys.BG_COLOR] = settings.bgColor
             if (settings.bgImagePath != null) prefs[Keys.BG_IMAGE_PATH] = settings.bgImagePath else prefs.remove(Keys.BG_IMAGE_PATH)
@@ -276,9 +291,24 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.TP_OUTLINE_COLOR] = settings.tpOutlineColor
             prefs[Keys.TP_OUTLINE_WIDTH] = settings.tpOutlineWidth
             prefs[Keys.ICON_MAX_SIZE] = settings.iconMaxSize
-            prefs[Keys.LEFT_VOICE_COIL_OUTPUT] = settings.leftVoiceCoilOutput.ordinal
-            prefs[Keys.RIGHT_VOICE_COIL_OUTPUT] = settings.rightVoiceCoilOutput.ordinal
+            prefs[Keys.VOICE_COIL_DEVICE_TYPE] = settings.voiceCoilDevice.type.ordinal
+            prefs[Keys.VOICE_COIL_CONTROLLER_INDEX] = settings.voiceCoilDevice.controllerIndex
+            prefs[Keys.SWAP_VOICE_COIL_MOTORS] = settings.swapVoiceCoilMotors
             prefs[Keys.CONTROLLER_AUDIO_OUTPUT] = settings.controllerAudioOutput.ordinal
+        }
+    }
+
+    /** Maps the legacy left/right voice-coil outputs onto the new single-device model. */
+    private fun migrateVoiceCoilDevice(leftOrdinal: Int?, rightOrdinal: Int?): AudioDevice {
+        val ordinal = leftOrdinal ?: rightOrdinal ?: AudioOutput.ALL_SPEAKERS.ordinal
+        return when (ordinal) {
+            AudioOutput.PHONE_MOTOR_1.ordinal, AudioOutput.PHONE_MOTOR_2.ordinal ->
+                AudioDevice.PHONE_MOTOR
+            AudioOutput.CONTROLLER_MOTOR_1.ordinal, AudioOutput.CONTROLLER_MOTOR_2.ordinal,
+            AudioOutput.CONTROLLER_MOTOR_3.ordinal, AudioOutput.CONTROLLER_MOTOR_4.ordinal ->
+                AudioDevice.controller(0)
+            AudioOutput.NONE.ordinal -> AudioDevice.NONE
+            else -> AudioDevice.PHONE_SPEAKER
         }
     }
 

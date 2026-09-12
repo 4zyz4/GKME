@@ -55,8 +55,6 @@ class MainActivity : ComponentActivity() {
     internal var lastPresetInfos: Any? = null
     internal var lastPresetCurrentName: String? = null
 
-    internal var audioMappingEntries: List<AudioOutput> = emptyList()
-    internal var audioOutputEntries: List<AudioOutput> = emptyList()
     internal var audioControllerOutputEntries: List<AudioOutput> = emptyList()
 
     private var mediaSession: MediaSession? = null
@@ -245,6 +243,20 @@ class MainActivity : ComponentActivity() {
 
     internal var gameVibrationDeviceEntries: List<com.zyz4.gkme.model.VibrationDevice> =
         listOf(com.zyz4.gkme.model.VibrationDevice.PHONE, com.zyz4.gkme.model.VibrationDevice.NONE)
+
+    /** Controller indices backing the physical-controller input spinner; -1 = 不使用手柄. */
+    internal var inputControllerIndices: List<Int> = listOf(-1)
+
+    /** True while the user is picking a physical-controller input from the spinner. */
+    internal var inputControllerUserSelecting = false
+
+    /** Devices backing the voice-coil spinner. */
+    internal var voiceCoilDeviceEntries: List<com.zyz4.gkme.model.AudioDevice> =
+        listOf(com.zyz4.gkme.model.AudioDevice.PHONE_SPEAKER)
+
+    /** Sources backing the gyro-source spinner. */
+    internal var gyroSourceEntries: List<com.zyz4.gkme.model.GyroSource> =
+        listOf(com.zyz4.gkme.model.GyroSource.PHONE, com.zyz4.gkme.model.GyroSource.NONE)
 
     // Appearance image pickers
     internal var bgImagePickerLauncher: androidx.activity.result.ActivityResultLauncher<String>? = null
