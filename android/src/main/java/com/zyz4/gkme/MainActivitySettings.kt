@@ -261,26 +261,22 @@ internal fun MainActivity.setupSettings() {
         }
     }
 
-    listOf(R.id.btnTargetWindows to 0, R.id.btnTargetAndroid to 1, R.id.btnTargetLinux to 2)
-        .forEach { (id, idx) ->
-            a.findViewById<Button>(id).setOnClickListener {
-                val platform = TargetPlatform.entries[idx]
-                if (platform == a.viewModel.settings.value.targetPlatform) return@setOnClickListener
-                val btRunning = a.viewModel.settings.value.connectionMode == ConnectionMode.BLUETOOTH
-                    && a.viewModel.isBluetoothRunning
-                if (btRunning) {
-                    CustomDialog.showConfirm(a, "切换目标平台",
-                        "将删除已保存的配对设备，是否继续？",
-                        positiveText = "确定", onPositive = {
-                            a.selectChipGroup(listOf(R.id.btnTargetWindows, R.id.btnTargetAndroid, R.id.btnTargetLinux), idx)
-                            a.viewModel.switchTargetPlatform(platform)
-                        })
-                } else {
-                    a.selectChipGroup(listOf(R.id.btnTargetWindows, R.id.btnTargetAndroid, R.id.btnTargetLinux), idx)
-                    a.viewModel.updateTargetPlatform(platform)
-                }
-            }
+    val targetChipIds = listOf(
+        R.id.btnTargetWindows, R.id.btnTargetAndroid, R.id.btnTargetLinux,
+        R.id.btnTargetAndroidGamepad, R.id.btnTargetUniversalKm
+    )
+    targetChipIds.forEachIndexed { idx, id ->
+        a.findViewById<Button>(id).setOnClickListener {
+            val platform = TargetPlatform.entries[idx]
+            if (platform == a.viewModel.settings.value.targetPlatform) return@setOnClickListener
+            CustomDialog.showConfirm(a, "切换目标平台",
+                "将删除已保存的配对设备，是否继续？",
+                positiveText = "确定", onPositive = {
+                    a.selectChipGroup(targetChipIds, idx)
+                    a.viewModel.switchTargetPlatform(platform)
+                })
         }
+    }
 
     // ── Vibration page ──
     a.findViewById<Switch>(R.id.switchBtnVibration).setOnCheckedChangeListener { _, isChecked ->
@@ -1290,8 +1286,10 @@ internal fun MainActivity.syncSettingsUI() {
         DisplayMode.entries.indexOf(s.displayMode).coerceAtLeast(0))
     a.selectChipGroup(listOf(R.id.btnConnWifi, R.id.btnConnBluetooth),
         ConnectionMode.entries.indexOf(s.connectionMode).coerceAtLeast(0))
-    a.selectChipGroup(listOf(R.id.btnTargetWindows, R.id.btnTargetAndroid, R.id.btnTargetLinux),
-        TargetPlatform.entries.indexOf(s.targetPlatform).coerceAtLeast(0))
+    a.selectChipGroup(listOf(
+        R.id.btnTargetWindows, R.id.btnTargetAndroid, R.id.btnTargetLinux,
+        R.id.btnTargetAndroidGamepad, R.id.btnTargetUniversalKm
+    ), TargetPlatform.entries.indexOf(s.targetPlatform).coerceAtLeast(0))
     val pollingRateOptions = listOf(30, 45, 60, 90, 100, 120, 200, 250, 300, 500, 750, 1000)
     val pollingRateIndex = pollingRateOptions.indexOf(s.pollingRate)
     if (pollingRateIndex >= 0) {
