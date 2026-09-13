@@ -12,6 +12,8 @@ import android.os.VibratorManager
 import android.view.KeyEvent
 import android.view.MotionEvent
 import com.zyz4.gkme.input.usb.AbstractController
+import com.zyz4.gkme.input.usb.DualSenseController
+import com.zyz4.gkme.input.usb.DualSenseOutputReport
 import com.zyz4.gkme.input.usb.GkmeBridge
 import com.zyz4.gkme.input.usb.UsbDriverListener
 import com.zyz4.gkme.input.usb.UsbDriverService
@@ -388,20 +390,31 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
     // ── LED / vibration ────────────────────────────────────
 
     override fun setLedColor(color: Int, playerLed: Int) {
-        val list: List<AbstractController>
-        synchronized(lock) { list = controllerList }
-        if (list.isEmpty()) return
-        val r = ((color shr 16) and 0xFF).toByte()
-        val g = ((color shr 8) and 0xFF).toByte()
-        val b = (color and 0xFF).toByte()
-        val playerPattern = if (playerLed != 0) {
-            PLAYER_LED_PATTERNS[(Integer.bitCount(playerLed) - 1).coerceIn(0, 4)]
-        } else {
-            0
-        }
-        for (c in list) {
-            c.setControllerLED(r, g, b)
-            c.setPlayerIndicator(playerPattern.toByte())
+        when (gameVibrationDevice.type) {
+            VibrationDeviceType.CONTROLLER -> {
+                _lastLedColor = color
+                _lastPlayerLed = playerLed
+                synchronized(this) { sendCombinedReport() }
+            }
+            else -> {
+                synchronized(this) {
+                    val list: List<AbstractController>
+                    synchronized(lock) { list = controllerList }
+                    if (list.isEmpty()) return
+                    val r = ((color shr 16) and 0xFF).toByte()
+                    val g = ((color shr 8) and 0xFF).toByte()
+                    val b = (color and 0xFF).toByte()
+                    val playerPattern = if (playerLed != 0) {
+                        PLAYER_LED_PATTERNS[(Integer.bitCount(playerLed) - 1).coerceIn(0, 4)]
+                    } else {
+                        0
+                    }
+                    for (c in list) {
+                        c.setControllerLED(r, g, b)
+                        c.setPlayerIndicator(playerPattern.toByte())
+                    }
+                }
+            }
         }
     }
 
@@ -421,14 +434,47 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
     }
 
     override fun setControllerMotorsVibration(controllerIndex: Int, leftIntensity: Int, rightIntensity: Int) {
-        val controller = synchronized(lock) { controllerList.getOrNull(controllerIndex) } ?: return
-        controller.rumble(
-            (leftIntensity.coerceIn(0, 255) * 257).toShort(),
-            (rightIntensity.coerceIn(0, 255) * 257).toShort(),
-        )
+        synchronized(this) {
+            val controller = synchronized(lock) { controllerList.getOrNull(controllerIndex) } ?: return
+            
+            val left = leftIntensity.coerceIn(0, 255)
+            val right = rightIntensity.coerceIn(0, 255)
+            
+            if (controller.hasAdvancedAudioHapticsSupport() && controller.isAdvancedAudioHapticsActive()) {
+                val timeSinceLastActivity = System.nanoTime() - _lastVoiceCoilActivityNs
+                val isStale = _lastVoiceCoilActivityNs == 0L || timeSinceLastActivity > VOICE_COIL_SILENCE_TIMEOUT_NS
+                val vcLeft = _voiceCoilLeftAmp
+                val vcRight = _voiceCoilRightAmp
+                if (!isStale && (vcLeft > 1 || vcRight > 1)) return
+            }
+            
+            if (left == 0 && right == 0) {
+                controller.rumble(0, 0)
+            } else {
+                controller.rumble(
+                    (left * 257).toShort(),
+                    (right * 257).toShort(),
+                )
+            }
+        }
     }
 
     override fun rumble(lowFreqMotor: Int, highFreqMotor: Int) {
+        val low = lowFreqMotor.coerceIn(0, 255)
+        val high = highFreqMotor.coerceIn(0, 255)
+        
+        if (gameVibrationDevice.type == VibrationDeviceType.CONTROLLER) {
+            _lastRumbleLow = low
+            _lastRumbleHigh = high
+            synchronized(this) { sendCombinedReport() }
+        } else if (low != 0 || high != 0) {
+            synchronized(this) { doRumble(low, high) }
+        } else {
+            vibratePhone(0)
+        }
+    }
+
+    private fun doRumble(lowFreqMotor: Int, highFreqMotor: Int) {
         val low = lowFreqMotor.coerceIn(0, 255)
         val high = highFreqMotor.coerceIn(0, 255)
         when (gameVibrationDevice.type) {
@@ -546,22 +592,92 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
         }, "VoiceCoilTest").start()
     }
 
+    // ── Compact frame merging: rumble + triggers + LED in one HID report ─
+
+    // Last-known state, always merged into a single 0x02 HID report so that a
+    // trigger- or LED-only update keeps the current rumble running instead of
+    // interrupting it with a separate bulkTransfer.
+    @Volatile private var _lastRumbleLow = 0
+    @Volatile private var _lastRumbleHigh = 0
+    @Volatile private var _lastTriggerTypeL: Byte = 0
+    @Volatile private var _lastTriggerTypeR: Byte = 0
+    @Volatile private var _lastTriggerDataL: ByteArray? = null
+    @Volatile private var _lastTriggerDataR: ByteArray? = null
+    @Volatile private var _lastTriggerActive = false
+    @Volatile private var _lastLedColor = 0
+    @Volatile private var _lastPlayerLed = 0
+
+    /** Builds and sends a combined rumble + trigger + LED report in one bulkTransfer. */
+    private fun sendCombinedReport() {
+        val controller = synchronized(lock) {
+            controllerList.getOrNull(gameVibrationDevice.controllerIndex)
+        } ?: return
+
+        // On a DualSense the compatible-vibration HID report and the audio-haptics
+        // PCM are mutually exclusive. While the voice coil is actively carrying the
+        // vibration, zero the motors but still forward triggers/LED so adaptive
+        // trigger and lightbar updates are not lost.
+        val voiceCoilActive = controller.hasAdvancedAudioHapticsSupport() &&
+            controller.isAdvancedAudioHapticsActive() &&
+            _lastVoiceCoilActivityNs != 0L &&
+            System.nanoTime() - _lastVoiceCoilActivityNs <= VOICE_COIL_SILENCE_TIMEOUT_NS &&
+            (_voiceCoilLeftAmp > 1 || _voiceCoilRightAmp > 1)
+
+        val low = _lastRumbleLow
+        val high = _lastRumbleHigh
+        val motor0 = if (voiceCoilActive) 0
+            else if (swapControllerMotors) high * 257 else low * 257
+        val motor1 = if (voiceCoilActive) 0
+            else if (swapControllerMotors) low * 257 else high * 257
+
+        val r = ((_lastLedColor shr 16) and 0xFF).toByte()
+        val g = ((_lastLedColor shr 8) and 0xFF).toByte()
+        val b = (_lastLedColor and 0xFF).toByte()
+        val playerPattern = if (_lastPlayerLed != 0) {
+            PLAYER_LED_PATTERNS[(Integer.bitCount(_lastPlayerLed) - 1).coerceIn(0, 4)]
+        } else 0
+
+        val report = DualSenseOutputReport.compactFrame(
+            motor0, motor1,
+            _lastTriggerTypeL, _lastTriggerTypeR,
+            _lastTriggerDataL, _lastTriggerDataR,
+            _lastTriggerActive, r, g, b, playerPattern,
+        )
+        controller.sendCommand(report)
+    }
+
     // ── Adaptive triggers / trigger rumble (reserved) ──────
 
     override fun setAdaptiveTriggerEffects(
         controllerIndex: Int, eventFlags: Byte, typeLeft: Byte, typeRight: Byte,
         left: ByteArray?, right: ByteArray?,
     ) {
-        val controller = synchronized(lock) { controllerList.getOrNull(controllerIndex) } ?: return
-        controller.setAdaptiveTriggerEffects(eventFlags, typeLeft, typeRight, left, right)
+        when (gameVibrationDevice.type) {
+            VibrationDeviceType.CONTROLLER -> {
+                _lastTriggerTypeL = typeLeft
+                _lastTriggerTypeR = typeRight
+                _lastTriggerDataL = left
+                _lastTriggerDataR = right
+                _lastTriggerActive = true
+                synchronized(this) { sendCombinedReport() }
+            }
+            VibrationDeviceType.PHONE, VibrationDeviceType.NONE -> {
+                synchronized(this) {
+                    val ctrl = synchronized(lock) { controllerList.getOrNull(controllerIndex) } ?: return
+                    ctrl.setAdaptiveTriggerEffects(eventFlags, typeLeft, typeRight, left, right)
+                }
+            }
+        }
     }
 
     override fun setTriggerRumble(controllerIndex: Int, leftTrigger: Int, rightTrigger: Int) {
-        val controller = synchronized(lock) { controllerList.getOrNull(controllerIndex) } ?: return
-        controller.rumbleTriggers(
-            (leftTrigger.coerceIn(0, 255) * 257).toShort(),
-            (rightTrigger.coerceIn(0, 255) * 257).toShort(),
-        )
+        synchronized(this) {
+            val controller = synchronized(lock) { controllerList.getOrNull(controllerIndex) } ?: return
+            controller.rumbleTriggers(
+                (leftTrigger.coerceIn(0, 255) * 257).toShort(),
+                (rightTrigger.coerceIn(0, 255) * 257).toShort(),
+            )
+        }
     }
 
     // ── Phone vibration (mirrors the SDL backend) ──────────
@@ -667,5 +783,36 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
         private const val USB_MISC = 0x200000
 
         private val PLAYER_LED_PATTERNS = intArrayOf(0x04, 0x0A, 0x15, 0x1B, 0x1F)
+    }
+
+    override fun sendCompactFrame(
+        rumbleLow: Int, rumbleHigh: Int,
+        triggerTypeLeft: Byte, triggerTypeRight: Byte,
+        triggerDataLeft: ByteArray?, triggerDataRight: ByteArray?,
+        ledColor: Int, playerLed: Int,
+        eventFlags: Byte,
+    ) {
+        when (gameVibrationDevice.type) {
+            VibrationDeviceType.CONTROLLER -> {
+                _lastRumbleLow = rumbleLow.coerceIn(0, 255)
+                _lastRumbleHigh = rumbleHigh.coerceIn(0, 255)
+                _lastTriggerTypeL = triggerTypeLeft
+                _lastTriggerTypeR = triggerTypeRight
+                _lastTriggerDataL = triggerDataLeft
+                _lastTriggerDataR = triggerDataRight
+                if (triggerTypeLeft.toInt() != 0 || triggerTypeRight.toInt() != 0 ||
+                    triggerDataLeft != null || triggerDataRight != null) {
+                    _lastTriggerActive = true
+                }
+                _lastLedColor = ledColor
+                _lastPlayerLed = playerLed
+                synchronized(this) { sendCombinedReport() }
+            }
+            VibrationDeviceType.PHONE -> {
+                rumble(rumbleLow, rumbleHigh)
+                if (ledColor != 0 || playerLed != 0) setLedColor(ledColor, playerLed)
+            }
+            VibrationDeviceType.NONE -> {}
+        }
     }
 }

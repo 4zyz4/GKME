@@ -439,12 +439,40 @@ class ConnectionManager @Inject constructor(
             doReconnect()
         }
         when (msg.payloadCase) {
+            ServerToClient.PayloadCase.COMPACT_FRAME -> {
+                val cf = msg.compactFrame
+                val rumbleLow = if (cf.hasVibration()) cf.vibration.largeMotor.toInt() else 0
+                val rumbleHigh = if (cf.hasVibration()) cf.vibration.smallMotor.toInt() else 0
+                if (cf.hasVibration() && _settings.value.gameVibrationDeviceFor(physicalControllerConnected).type != VibrationDeviceType.NONE) {
+                    onRumbleRequest?.invoke(rumbleLow, rumbleHigh)
+                }
+                if (cf.hasTriggerEffects() && cf.triggerEffects.leftTriggerEffect.size() > 0) {
+                    onTriggerEffectsRequest?.invoke(
+                        cf.triggerEffects.leftTriggerEffect.toByteArray(),
+                        cf.triggerEffects.rightTriggerEffect.toByteArray(),
+                    )
+                }
+                if (cf.hasTriggerEffects() && cf.triggerEffects.leftTriggerEffect.size() == 0 && cf.triggerEffects.rightTriggerEffect.size() == 0) {
+                    onTriggerEffectsRequest?.invoke(
+                        byteArrayOf(),
+                        byteArrayOf(),
+                    )
+                }
+                if (cf.hasLedState()) {
+                    _ledState.value = LedState(
+                        color = cf.ledState.color.toInt() and 0xFFFFFF,
+                        playerLed = cf.ledState.playerLed.toInt(),
+                    )
+                }
+                if (cf.hasTestTone()) {
+                    audioPlaybackService.setTestTone(cf.testTone.enabled)
+                }
+            }
             ServerToClient.PayloadCase.VIBRATION -> {
                 if (_settings.value.gameVibrationDeviceFor(physicalControllerConnected).type != VibrationDeviceType.NONE) {
                     val v = msg.vibration
-                    onRumbleRequest?.invoke(v.largeMotor, v.smallMotor)
+                    onRumbleRequest?.invoke(v.largeMotor.toInt(), v.smallMotor.toInt())
                 }
-                // Also echo pending trigger effects on every vibration wake.
                 if (msg.hasTriggerEffects() && msg.triggerEffects.leftTriggerEffect.size() > 0) {
                     onTriggerEffectsRequest?.invoke(
                         msg.triggerEffects.leftTriggerEffect.toByteArray(),

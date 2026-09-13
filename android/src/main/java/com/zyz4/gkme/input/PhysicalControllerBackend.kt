@@ -84,4 +84,13 @@ interface PhysicalControllerBackend {
     ) = Unit
 
     fun setTriggerRumble(controllerIndex: Int, leftTrigger: Int, rightTrigger: Int) = Unit
+
+    /** Sends a combined rumble + trigger + LED report in one HID bulkTransfer. */
+    fun sendCompactFrame(
+        rumbleLow: Int, rumbleHigh: Int,
+        triggerTypeLeft: Byte, triggerTypeRight: Byte,
+        triggerDataLeft: ByteArray?, triggerDataRight: ByteArray?,
+        ledColor: Int, playerLed: Int,
+        eventFlags: Byte = 0x0F,
+    ) = Unit
 }

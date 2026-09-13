@@ -626,22 +626,49 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
         )
     }
 
+    @Volatile
+    private var _lastRumbleLow = 0
+
+    @Volatile
+    private var _lastRumbleHigh = 0
+
     override fun rumble(lowFreqMotor: Int, highFreqMotor: Int) {
         val low = lowFreqMotor.coerceIn(0, 255)
         val high = highFreqMotor.coerceIn(0, 255)
 
-        when (gameVibrationDevice.type) {
-            VibrationDeviceType.PHONE -> vibratePhoneMotors(low, high, swapPhoneMotors)
-            VibrationDeviceType.CONTROLLER -> {
-                val index = gameVibrationDevice.controllerIndex
-                if (index in 0 until SdlNative.nativeGetControllerCount()) {
-                    val motor0 = if (swapControllerMotors) high else low
-                    val motor1 = if (swapControllerMotors) low else high
-                    SdlNative.nativeRumble(index, motor0 * 257, motor1 * 257, RUMBLE_DURATION_MS)
+        val wasActive = _lastRumbleLow != 0 || _lastRumbleHigh != 0
+        val isNowActive = low != 0 || high != 0
+
+        if (wasActive && !isNowActive) {
+            when (gameVibrationDevice.type) {
+                VibrationDeviceType.PHONE -> vibratePhone(0)
+                VibrationDeviceType.CONTROLLER -> {
+                    val index = gameVibrationDevice.controllerIndex
+                    if (index in 0 until SdlNative.nativeGetControllerCount()) {
+                        SdlNative.nativeRumble(index, 0, 0, 0)
+                    }
                 }
+                VibrationDeviceType.NONE -> {}
             }
-            VibrationDeviceType.NONE -> {}
         }
+
+        if (isNowActive) {
+            when (gameVibrationDevice.type) {
+                VibrationDeviceType.PHONE -> vibratePhoneMotors(low, high, swapPhoneMotors)
+                VibrationDeviceType.CONTROLLER -> {
+                    val index = gameVibrationDevice.controllerIndex
+                    if (index in 0 until SdlNative.nativeGetControllerCount()) {
+                        val motor0 = if (swapControllerMotors) high else low
+                        val motor1 = if (swapControllerMotors) low else high
+                        SdlNative.nativeRumble(index, motor0 * 257, motor1 * 257, RUMBLE_DURATION_MS)
+                    }
+                }
+                VibrationDeviceType.NONE -> {}
+            }
+        }
+
+        _lastRumbleLow = low
+        _lastRumbleHigh = high
     }
 
     override fun setVoiceCoilMotorOutput(leftAmp: Int, rightAmp: Int) {
