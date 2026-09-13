@@ -117,8 +117,11 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
     private val controllers = LinkedHashMap<Int, AbstractController>()
     private var controllerList: List<AbstractController> = emptyList()
 
-    // Touchpad state of the active controller (normalized 0..1).
-    private val touchPoints = LinkedHashMap<Int, TouchPoint>()
+    // Touchpad state of the active controller (normalized 0..1). Two stable slots
+    // preserve a finger's position when the other finger lifts; pointerSlots maps
+    // the driver's contact id onto its assigned slot.
+    private val touchSlots = arrayOfNulls<TouchPoint>(2)
+    private val pointerSlots = HashMap<Int, Int>()
     private var touchX = 0f
     private var touchY = 0f
 
@@ -242,10 +245,12 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
         synchronized(lock) {
             when (eventType) {
                 GkmeBridge.LI_TOUCH_EVENT_CANCEL_ALL, GkmeBridge.LI_TOUCH_EVENT_CANCEL -> {
-                    touchPoints.clear()
+                    touchSlots.fill(null)
+                    pointerSlots.clear()
                 }
                 GkmeBridge.LI_TOUCH_EVENT_UP -> {
-                    touchPoints.remove(pointerId)
+                    val slot = pointerSlots.remove(pointerId)
+                    if (slot != null) touchSlots[slot] = null
                 }
                 GkmeBridge.LI_TOUCH_EVENT_DOWN, GkmeBridge.LI_TOUCH_EVENT_MOVE,
                 GkmeBridge.LI_TOUCH_EVENT_HOVER, GkmeBridge.LI_TOUCH_EVENT_BUTTON_ONLY -> {
@@ -253,20 +258,27 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
                     val ny = y.coerceIn(0f, 1f)
                     touchX = nx
                     touchY = ny
-                    touchPoints[pointerId] = TouchPoint(
-                        id = pointerId,
-                        x = (nx * 1919f).toInt().coerceIn(0, 1919),
-                        y = (ny * 942f).toInt().coerceIn(0, 942),
-                        active = true,
-                    )
+                    var slot = pointerSlots[pointerId]
+                    if (slot == null) {
+                        slot = touchSlots.indexOfFirst { it == null }
+                        if (slot >= 0) pointerSlots[pointerId] = slot
+                    }
+                    if (slot >= 0) {
+                        touchSlots[slot] = TouchPoint(
+                            id = slot,
+                            x = (nx * 1919f).toInt().coerceIn(0, 1919),
+                            y = (ny * 942f).toInt().coerceIn(0, 942),
+                            active = true,
+                        )
+                    }
                 }
             }
             val current = _controllerState.value
             _controllerState.value = current.copy(
                 touchpadX = touchX,
                 touchpadY = touchY,
-                touchpadTouch = touchPoints.isNotEmpty(),
-                touches = touchPoints.values.toList(),
+                touchpadTouch = touchSlots.any { it != null },
+                touches = touchSlots.mapIndexed { i, tp -> tp ?: TouchPoint(id = i, active = false) },
             )
         }
     }
@@ -296,9 +308,9 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
             dpad = dpad,
             touchpadX = touchX,
             touchpadY = touchY,
-            touchpadTouch = touchPoints.isNotEmpty(),
+            touchpadTouch = touchSlots.any { it != null },
             touchpadClick = (buttons and GamepadState.TOUCHPAD_CLICK.toUInt()) != 0u,
-            touches = touchPoints.values.toList(),
+            touches = touchSlots.mapIndexed { i, tp -> tp ?: TouchPoint(id = i, active = false) },
         )
     }
 
@@ -328,7 +340,8 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
 
     private fun resetInputState() {
         synchronized(lock) {
-            touchPoints.clear()
+            touchSlots.fill(null)
+            pointerSlots.clear()
             touchX = 0f
             touchY = 0f
         }

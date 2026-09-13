@@ -14,8 +14,9 @@ import com.zyz4.gkme.input.usb.GkmeBridge;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public abstract class AbstractDualSenseController extends AbstractController {
     private static final int HAPTIC_AUDIO_ENDPOINT_PACKET_SIZE = 0x188;
@@ -42,10 +43,7 @@ public abstract class AbstractDualSenseController extends AbstractController {
     private byte cachedRightTriggerType;
     private final byte[] cachedRightTriggerData = new byte[TRIGGER_DATA_LEN];
     private DualSenseHapticSender advancedAudioHapticsSender;
-    private final boolean[] activeTouchpadFingers = new boolean[TOUCHPAD_FINGER_COUNT];
-    private final int[] activeTouchpadFingerIds = new int[TOUCHPAD_FINGER_COUNT];
-    private final float[] activeTouchpadFingerX = new float[TOUCHPAD_FINGER_COUNT];
-    private final float[] activeTouchpadFingerY = new float[TOUCHPAD_FINGER_COUNT];
+    private final LinkedHashMap<Integer, float[]> activeTouchContacts = new LinkedHashMap<>();
 
     protected UsbEndpoint inEndpt, outEndpt;
     protected UsbInterface hapticIface;
@@ -464,56 +462,46 @@ public abstract class AbstractDualSenseController extends AbstractController {
         return gain;
     }
 
-    protected void updateTouchpadFinger(int fingerIndex, boolean active, int pointerId, float x, float y) {
-        if (fingerIndex < 0 || fingerIndex >= TOUCHPAD_FINGER_COUNT) {
-            return;
+    protected void updateTouchpadFingers(
+            boolean active0, int id0, float x0, float y0,
+            boolean active1, int id1, float x1, float y1) {
+        LinkedHashMap<Integer, float[]> current = new LinkedHashMap<>(TOUCHPAD_FINGER_COUNT);
+        if (active0) {
+            current.put(id0, new float[]{clampUnitRange(x0), clampUnitRange(y0)});
+        }
+        if (active1) {
+            current.put(id1, new float[]{clampUnitRange(x1), clampUnitRange(y1)});
         }
 
-        boolean wasActive = activeTouchpadFingers[fingerIndex];
-        int previousPointerId = activeTouchpadFingerIds[fingerIndex];
-        float previousX = activeTouchpadFingerX[fingerIndex];
-        float previousY = activeTouchpadFingerY[fingerIndex];
-
-        float normalizedX = clampUnitRange(x);
-        float normalizedY = clampUnitRange(y);
-
-        if (active) {
-            if (!wasActive) {
-                reportTouchpadEvent(GkmeBridge.LI_TOUCH_EVENT_DOWN, pointerId, normalizedX, normalizedY, 1.0f);
+        // A contact that is still down but reported in the other hardware slot keeps
+        // the same id, so it must not be emitted as an UP followed by a DOWN.
+        for (Map.Entry<Integer, float[]> entry : activeTouchContacts.entrySet()) {
+            if (!current.containsKey(entry.getKey())) {
+                float[] pos = entry.getValue();
+                reportTouchpadEvent(GkmeBridge.LI_TOUCH_EVENT_UP, entry.getKey(), pos[0], pos[1], 0.0f);
             }
-            else if (previousPointerId != pointerId) {
-                reportTouchpadEvent(GkmeBridge.LI_TOUCH_EVENT_UP, previousPointerId, previousX, previousY, 0.0f);
-                reportTouchpadEvent(GkmeBridge.LI_TOUCH_EVENT_DOWN, pointerId, normalizedX, normalizedY, 1.0f);
-            }
-            else if (Float.compare(previousX, normalizedX) != 0 || Float.compare(previousY, normalizedY) != 0) {
-                reportTouchpadEvent(GkmeBridge.LI_TOUCH_EVENT_MOVE, pointerId, normalizedX, normalizedY, 1.0f);
-            }
-
-            activeTouchpadFingers[fingerIndex] = true;
-            activeTouchpadFingerIds[fingerIndex] = pointerId;
-            activeTouchpadFingerX[fingerIndex] = normalizedX;
-            activeTouchpadFingerY[fingerIndex] = normalizedY;
         }
-        else if (wasActive) {
-            reportTouchpadEvent(GkmeBridge.LI_TOUCH_EVENT_UP, previousPointerId, previousX, previousY, 0.0f);
-            activeTouchpadFingers[fingerIndex] = false;
+
+        for (Map.Entry<Integer, float[]> entry : current.entrySet()) {
+            float[] previous = activeTouchContacts.get(entry.getKey());
+            float[] pos = entry.getValue();
+            if (previous == null) {
+                reportTouchpadEvent(GkmeBridge.LI_TOUCH_EVENT_DOWN, entry.getKey(), pos[0], pos[1], 1.0f);
+            } else if (Float.compare(previous[0], pos[0]) != 0 || Float.compare(previous[1], pos[1]) != 0) {
+                reportTouchpadEvent(GkmeBridge.LI_TOUCH_EVENT_MOVE, entry.getKey(), pos[0], pos[1], 1.0f);
+            }
         }
+
+        activeTouchContacts.clear();
+        activeTouchContacts.putAll(current);
     }
 
     protected void cancelActiveTouchpadFingers() {
-        boolean hasActiveTouch = false;
-        for (boolean activeTouchpadFinger : activeTouchpadFingers) {
-            if (activeTouchpadFinger) {
-                hasActiveTouch = true;
-                break;
-            }
-        }
-
-        if (hasActiveTouch) {
+        if (!activeTouchContacts.isEmpty()) {
             reportTouchpadEvent(GkmeBridge.LI_TOUCH_EVENT_CANCEL_ALL, 0, 0.0f, 0.0f, 0.0f);
         }
 
-        Arrays.fill(activeTouchpadFingers, false);
+        activeTouchContacts.clear();
     }
 
     protected float normalizeTouchCoordinate(int rawValue, float range) {
