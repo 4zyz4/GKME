@@ -569,6 +569,13 @@ internal fun MainActivity.setupSettings() {
     a.viewModel.connectionManager.onVoiceCoilMotorOutputUpdate = { leftAmp, rightAmp ->
         a.physicalControllerHandler.setVoiceCoilMotorOutput(leftAmp, rightAmp)
     }
+a.viewModel.connectionManager.onTriggerEffectsRequest = { leftEffect: ByteArray?, rightEffect: ByteArray? ->
+        val tl = if (leftEffect != null && leftEffect.size > 0) leftEffect[0].toInt().toByte() else 0x00.toByte()
+        val tr = if (rightEffect != null && rightEffect.size > 0) rightEffect[0].toInt().toByte() else 0x00.toByte()
+        val leftData = if (leftEffect != null && leftEffect.size > 1) leftEffect.copyOfRange(1, leftEffect.size) else null
+        val rightData = if (rightEffect != null && rightEffect.size > 1) rightEffect.copyOfRange(1, rightEffect.size) else null
+        a.physicalControllerHandler.setAdaptiveTriggerEffects(0, 0x0F.toByte(), tl, tr, leftData, rightData)
+    }
 }
 
 internal fun MainActivity.setupEffectSpinner(spinnerId: Int, isPress: Boolean) {

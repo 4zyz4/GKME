@@ -237,12 +237,12 @@ public class DualSenseController extends AbstractDualSenseController {
 
    }
 
-   @Override
-   public void setAdaptiveTriggerEffects(byte eventFlags, byte typeLeft, byte typeRight,
-                                         byte[] left, byte[] right) {
-      sendCommand(DualSenseOutputReport.adaptiveTriggers(eventFlags, typeLeft, typeRight,
-              left, right));
-   }
+@Override
+    public void setAdaptiveTriggerEffects(byte eventFlags, byte typeLeft, byte typeRight,
+                                          byte[] left, byte[] right) {
+       sendCommand(DualSenseOutputReport.adaptiveTriggers(eventFlags, typeLeft, typeRight,
+               left, right));
+    }
 
    @Override
    public void setControllerLED(byte red, byte green, byte blue) {
