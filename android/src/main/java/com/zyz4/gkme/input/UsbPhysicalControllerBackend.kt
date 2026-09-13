@@ -350,6 +350,10 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
         if (infos.isEmpty()) {
             controllerHasGyro = false
             resetInputState()
+        } else {
+            val active = activeInputController()
+            controllerHasGyro = active != null &&
+                (active.getCapabilities().toInt() and GkmeBridge.LI_CCAP_GYRO.toInt()) != 0
         }
     }
 

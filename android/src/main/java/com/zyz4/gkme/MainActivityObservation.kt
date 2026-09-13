@@ -186,7 +186,12 @@ internal fun MainActivity.observeState() {
             }
             launch {
                 a.physicalControllerHandler.gyroData.collect { gyro ->
-                    val x = gyro[0]; val y = gyro[1]; val z = gyro[2]
+                    // Raw values are in deg/s for USB controllers; convert to rad/s for display
+                    // to match the phone gyro display units used elsewhere in the app.
+                    val dpsToRad = Math.PI / 180.0
+                    val x = gyro[0] * dpsToRad.toFloat()
+                    val y = gyro[1] * dpsToRad.toFloat()
+                    val z = gyro[2] * dpsToRad.toFloat()
                     if (a.settingsInflated) {
                         a.findViewById<TextView>(R.id.tvControllerGyroX).text = "X: %.2f".format(x)
                         a.findViewById<TextView>(R.id.tvControllerGyroY).text = "Y: %.2f".format(y)
@@ -205,7 +210,13 @@ internal fun MainActivity.observeState() {
                     }
                     if (actualGyroEnabled && a.physicalControllerHandler.controllerHasGyro) {
                         val accel = a.physicalControllerHandler.accelData.value
-                        a.viewModel.onPhysicalControllerGyro(x, y, z, accel[0], accel[1], accel[2])
+                        // USB controller gyro data is in deg/s; convert to rad/s so the
+                        // sensitivity multipliers (designed for rad/s) produce correct values.
+                        val dpsToRad = Math.PI / 180.0
+                        val gxRad = gyro[0] * dpsToRad.toFloat()
+                        val gyRad = gyro[1] * dpsToRad.toFloat()
+                        val gzRad = gyro[2] * dpsToRad.toFloat()
+                        a.viewModel.onPhysicalControllerGyro(gxRad, gyRad, gzRad, accel[0], accel[1], accel[2])
                     }
                 }
             }

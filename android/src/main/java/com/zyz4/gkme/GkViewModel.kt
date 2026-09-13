@@ -848,17 +848,22 @@ class GkViewModel @Inject constructor(
                 var accelRy = 0f
                 if (actualGyroEnabled) {
                     val accelSens = s.gyroModeSensitivity / 100f
-                    val gravMag = sqrt(sensor.accelX * sensor.accelX + sensor.accelY * sensor.accelY + sensor.accelZ * sensor.accelZ)
+                    val (aX, aY, aZ) = if (useControllerGyro) {
+                        Triple(_gamepadState.value.accelX, _gamepadState.value.accelY, _gamepadState.value.accelZ)
+                    } else {
+                        Triple(sensor.accelX, sensor.accelY, sensor.accelZ)
+                    }
+                    val gravMag = sqrt(aX * aX + aY * aY + aZ * aZ)
                     val baseDirection = s.gyroBaseDirection
                     if (gravMag > 0.1f) {
                         if (baseDirection == GyroBaseDirection.VERTICAL) {
-                            accelLx = -(sensor.accelX / gravMag) * accelSens * 32767f
-                            accelLy = -(sensor.accelY / gravMag) * accelSens * 32767f
-                            accelRx = -(sensor.accelX / gravMag) * accelSens * 32767f
-                            accelRy = -(sensor.accelY / gravMag) * accelSens * 32767f
+                            accelLx = -(aX / gravMag) * accelSens * 32767f
+                            accelLy = -(aY / gravMag) * accelSens * 32767f
+                            accelRx = -(aX / gravMag) * accelSens * 32767f
+                            accelRy = -(aY / gravMag) * accelSens * 32767f
                         } else {
-                            val axisX = sensor.accelX
-                            val axisY = sensor.accelZ
+                            val axisX = aX
+                            val axisY = aZ
                             accelLx = -(axisX / gravMag) * accelSens * 32767f
                             accelLy = -(axisY / gravMag) * accelSens * 32767f
                             accelRx = -(axisX / gravMag) * accelSens * 32767f
