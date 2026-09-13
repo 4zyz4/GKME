@@ -341,7 +341,19 @@ class AudioPlaybackService {
                 // frame (noise, dropouts, speaker bleed).
                 if (supportsVoiceCoilPcm?.invoke(index) == true) {
                     // Advanced path: the PCM is streamed further below.
-                    if (lastControllerMotorActive) {
+                    // Always pass the current voice-coil amplitudes so the
+                    // backend can resolve rumble conflicts even when the PCM
+                    // path is used.
+                    val m0 = if (voiceCoilSwap) rightAmp else leftAmp
+                    val m1 = if (voiceCoilSwap) leftAmp else rightAmp
+                    if (m0 > 1 || m1 > 1) {
+                        if (lastControllerMotorActive && lastControllerMotorIndex != index) {
+                            onControllerMotorOutput?.invoke(lastControllerMotorIndex, 0, 0)
+                        }
+                        onControllerMotorOutput?.invoke(index, m0, m1)
+                        lastControllerMotorActive = true
+                        lastControllerMotorIndex = index
+                    } else if (lastControllerMotorActive) {
                         onControllerMotorOutput?.invoke(lastControllerMotorIndex, 0, 0)
                         lastControllerMotorActive = false
                     }
