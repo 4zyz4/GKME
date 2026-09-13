@@ -159,6 +159,13 @@ class ConnectionManager @Inject constructor(
         stopVibrationIfDisabled()
     }
 
+    fun clearTriggerEffects() {
+        onTriggerEffectsRequest?.invoke(
+            byteArrayOf(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00),
+            byteArrayOf(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00),
+        )
+    }
+
     private fun applyEffectiveAudioSettings() {
         val s = _settings.value
         audioPlaybackService.setSettings(
@@ -414,6 +421,7 @@ class ConnectionManager @Inject constructor(
         audioPlaybackService.stop()
         activeProtocol = ActiveProtocol.NONE
         _connectionState.value = ConnectionState()
+        clearTriggerEffects()
     }
 
     private fun stopBluetooth() {
@@ -435,6 +443,13 @@ class ConnectionManager @Inject constructor(
                 if (_settings.value.gameVibrationDeviceFor(physicalControllerConnected).type != VibrationDeviceType.NONE) {
                     val v = msg.vibration
                     onRumbleRequest?.invoke(v.largeMotor, v.smallMotor)
+                }
+                // Also echo pending trigger effects on every vibration wake.
+                if (msg.hasTriggerEffects() && msg.triggerEffects.leftTriggerEffect.size() > 0) {
+                    onTriggerEffectsRequest?.invoke(
+                        msg.triggerEffects.leftTriggerEffect.toByteArray(),
+                        msg.triggerEffects.rightTriggerEffect.toByteArray(),
+                    )
                 }
             }
             ServerToClient.PayloadCase.AUDIO_FRAME -> {
@@ -461,12 +476,20 @@ class ConnectionManager @Inject constructor(
             ServerToClient.PayloadCase.TEST_TONE -> {
                 audioPlaybackService.setTestTone(msg.testTone.enabled)
             }
+            ServerToClient.PayloadCase.TRIGGER_EFFECTS -> {
+                val te = msg.triggerEffects
+                onTriggerEffectsRequest?.invoke(
+                    te.leftTriggerEffect.toByteArray(),
+                    te.rightTriggerEffect.toByteArray(),
+                )
+            }
             ServerToClient.PayloadCase.DISCONNECT -> {
                 stopAutoReconnect()
                 udpService.clearPcAddress()
                 udpService.resumeBroadcast()
                 activeProtocol = ActiveProtocol.NONE
                 _connectionState.value = ConnectionState(statusText = "已断开")
+                clearTriggerEffects()
             }
             else -> {}
         }
@@ -554,6 +577,7 @@ class ConnectionManager @Inject constructor(
     var onRumbleRequest: ((largeMotor: Int, smallMotor: Int) -> Unit)? = null
     var onControllerVibrationRequest: ((controllerIndex: Int, leftAmp: Int, rightAmp: Int) -> Unit)? = null
     var onVoiceCoilMotorOutputUpdate: ((leftAmp: Int, rightAmp: Int) -> Unit)? = null
+    var onTriggerEffectsRequest: ((left: ByteArray?, right: ByteArray?) -> Unit)? = null
 
     suspend fun sendGamepadState(state: GamepadInput) {
         when (_settings.value.connectionMode) {

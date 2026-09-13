@@ -69,6 +69,9 @@ internal fun MainActivity.observeState() {
                     if (st.phase == ConnectionPhase.IDLE) {
                         a.discoverableRequested = false
                     }
+                    if (st.phase == ConnectionPhase.IDLE || st.phase == ConnectionPhase.DISCONNECTED) {
+                        a.viewModel.connectionManager.clearTriggerEffects()
+                    }
                 }
             }
             launch {

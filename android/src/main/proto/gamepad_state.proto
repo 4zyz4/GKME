@@ -76,12 +76,18 @@ message TouchPoint {
 message ServerToClient {
   oneof payload {
     Vibration vibration = 1;
+    TriggerEffects trigger_effects = 2;
     Disconnect disconnect = 3;
     ServerHello server_hello = 7;
     AudioFrame audio_frame = 8;
     LedState led_state = 9;
     TestTone test_tone = 10;
   }
+}
+
+message TriggerEffects {
+  bytes left_trigger_effect = 1;
+  bytes right_trigger_effect = 2;
 }
 
 /// DualSense 扬声器测试（WAVEOUT_CTRL）的 1 kHz 测试音状态。enabled 时由手机端
