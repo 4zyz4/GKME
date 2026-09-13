@@ -260,6 +260,7 @@ class AudioPlaybackService {
                 rightVoiceCoilAmplitude = 0,
                 controllerAudioAmplitude = 0,
             )
+            onVoiceCoilAmplitudes?.invoke(0, 0)
             return
         }
 
