@@ -329,9 +329,9 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
         val ty: Float
         val touchActive: Boolean
         if (useSdlTouch) {
-            val list = ArrayList<TouchPoint>(touchCount)
+            val candidates = ArrayList<TouchPoint>(touchCount)
             for (i in 0 until touchCount) {
-                list.add(
+                candidates.add(
                     TouchPoint(
                         id = i,
                         x = v[9 + i * 2].coerceIn(0, 1919),
@@ -340,10 +340,12 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
                     )
                 )
             }
-            touches = list
-            tx = v[9] / 1919f
-            ty = v[10] / 942f
-            touchActive = true
+            val (s0, s1) = assignSlots(activeSlot(0), activeSlot(1), candidates)
+            touches = canonicalSlots(s0, s1)
+            val primary = s0 ?: s1
+            tx = if (primary != null) primary.x / 1919f else 0f
+            ty = if (primary != null) primary.y / 942f else 0f
+            touchActive = primary != null
         } else {
             touches = localTouches
             tx = localTouchX
@@ -423,6 +425,20 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
         )
     }
 
+    /** Currently active touch occupying the given stable slot (0 or 1), if any. */
+    private fun activeSlot(index: Int): TouchPoint? =
+        _controllerState.value.touches.getOrNull(index)?.takeIf { it.active }
+
+    /**
+     * Always emits exactly two positional slots so the downstream DSU encoder can
+     * map each touch to a stable slot instead of collapsing the list (which would
+     * shift a surviving finger into slot 0 when the other finger lifts).
+     */
+    private fun canonicalSlots(s0: TouchPoint?, s1: TouchPoint?): List<TouchPoint> = listOf(
+        s0?.copy(id = 0, active = true) ?: TouchPoint(id = 0, active = false),
+        s1?.copy(id = 1, active = true) ?: TouchPoint(id = 1, active = false),
+    )
+
     /**
      * DualSense touchpad slot assignment adapted from
      * Moonlight Android (https://github.com/moonlight-stream/moonlight-android).
@@ -435,7 +451,8 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
         if (candidates.isEmpty()) return null to null
         if (candidates.size == 1) {
             val c = candidates[0]
-            return if (distSq(old0, c) < distSq(old1, c)) (c to null) else (null to c)
+            // `<=` keeps the first touch in slot 0 when both slots are empty.
+            return if (distSq(old0, c) <= distSq(old1, c)) (c to null) else (null to c)
         }
         val c0 = candidates[0]
         val c1 = candidates[1]
@@ -469,8 +486,8 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
         val minY = yRange?.min ?: 0f
         val action = event.actionMasked
 
-        val old0 = _controllerState.value.touches.getOrNull(0)
-        val old1 = _controllerState.value.touches.getOrNull(1)
+        val old0 = activeSlot(0)
+        val old1 = activeSlot(1)
 
         val candidates = (0 until event.pointerCount).map { i ->
             val nx = ((event.getX(i) - minX) / rangeX).coerceIn(0f, 1f)
@@ -489,7 +506,7 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
                 val idx = event.actionIndex
                 val x = ((event.getX(idx) - minX) / rangeX).coerceIn(0f, 1f)
                 val y = ((event.getY(idx) - minY) / rangeY).coerceIn(0f, 1f)
-                commitTouchpad(x, y, true, localClick, listOfNotNull(s0, s1))
+                commitTouchpad(x, y, true, localClick, canonicalSlots(s0, s1))
             }
             MotionEvent.ACTION_POINTER_UP -> {
                 if (event.pointerCount == 0) {
@@ -499,7 +516,7 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
                     commitTouchpad(
                         if (primary != null) (primary.x / 1919f).coerceIn(0f, 1f) else localTouchX,
                         if (primary != null) (primary.y / 942f).coerceIn(0f, 1f) else localTouchY,
-                        true, localClick, listOfNotNull(s0, s1),
+                        true, localClick, canonicalSlots(s0, s1),
                     )
                 }
             }
@@ -510,7 +527,7 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
                     commitTouchpad(
                         (primary.x / 1919f).coerceIn(0f, 1f),
                         (primary.y / 942f).coerceIn(0f, 1f),
-                        true, localClick, listOfNotNull(s0, s1),
+                        true, localClick, canonicalSlots(s0, s1),
                     )
                 }
             }

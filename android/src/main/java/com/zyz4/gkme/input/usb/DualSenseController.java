@@ -175,15 +175,17 @@ public class DualSenseController extends AbstractDualSenseController {
       int touch0id = touch00 & 0x7F;
       int touch0x = ((touch02 & 0x0F) << 8) | touch01;
       int touch0y = (touch03 << 4) | ((touch02 & 0xF0) >> 4);
-      updateTouchpadFinger(0, touch0active, touch0id,
-              normalizeTouchCoordinate(touch0x, 1920.0f),
-              normalizeTouchCoordinate(touch0y, 1080.0f));
 
       boolean touch1active = (touch10 & 0x80) == 0;
       int touch1id = touch10 & 0x7F;
       int touch1x = ((touch12 & 0x0F) << 8) | touch11;
       int touch1y = (touch13 << 4) | ((touch12 & 0xF0) >> 4);
-      updateTouchpadFinger(1, touch1active, touch1id,
+
+      updateTouchpadFingers(
+              touch0active, touch0id,
+              normalizeTouchCoordinate(touch0x, 1920.0f),
+              normalizeTouchCoordinate(touch0y, 1080.0f),
+              touch1active, touch1id,
               normalizeTouchCoordinate(touch1x, 1920.0f),
               normalizeTouchCoordinate(touch1y, 1080.0f));
       // Return true to send input
