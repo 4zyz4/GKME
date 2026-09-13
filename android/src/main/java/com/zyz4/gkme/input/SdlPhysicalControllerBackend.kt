@@ -627,6 +627,10 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
         }
     }
 
+    override fun setVoiceCoilMotorOutput(leftAmp: Int, rightAmp: Int) {
+        // SDL backend has no voice-coil path.
+    }
+
     /** 强震动(low) → 马达1，弱震动(high) → 马达2；单马达设备取两者较大值。 */
     private fun vibratePhoneMotors(low: Int, high: Int, swap: Boolean) {
         val motor0 = if (swap) high else low

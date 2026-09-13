@@ -192,6 +192,10 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
         backend?.rumble(lowFreqMotor, highFreqMotor)
     }
 
+    override fun setVoiceCoilMotorOutput(leftAmp: Int, rightAmp: Int) {
+        backend?.setVoiceCoilMotorOutput(leftAmp, rightAmp)
+    }
+
     override fun controllerSupportsVoiceCoilPcm(controllerIndex: Int): Boolean =
         backend?.controllerSupportsVoiceCoilPcm(controllerIndex) ?: false
 

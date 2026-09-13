@@ -56,6 +56,9 @@ interface PhysicalControllerBackend {
     fun setControllerMotorsVibration(controllerIndex: Int, leftIntensity: Int, rightIntensity: Int)
     fun rumble(lowFreqMotor: Int, highFreqMotor: Int)
 
+    /** Updates the latest voice-coil motor amplitudes for rumble conflict resolution. */
+    fun setVoiceCoilMotorOutput(leftAmp: Int, rightAmp: Int) = Unit
+
     // ── Controller audio / voice coil (USB driver) ──
 
     /** True when the controller at [controllerIndex] can play PCM through its voice-coil haptics. */
