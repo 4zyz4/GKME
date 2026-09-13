@@ -216,6 +216,9 @@ class AudioPlaybackService {
     /** (controllerIndex, leftAmp, rightAmp) — controller motor output for the voice coil. */
     var onControllerMotorOutput: ((controllerIndex: Int, leftAmp: Int, rightAmp: Int) -> Unit)? = null
 
+    /** (leftAmp, rightAmp) — latest voice-coil amplitudes for rumble conflict resolution. */
+    var onVoiceCoilAmplitudes: ((leftAmp: Int, rightAmp: Int) -> Unit)? = null
+
     // ── USB controller PCM output (voice coil / speaker) ──
 
     /** True when the controller at [controllerIndex] can play PCM through its voice coil. */
@@ -341,19 +344,7 @@ class AudioPlaybackService {
                 // frame (noise, dropouts, speaker bleed).
                 if (supportsVoiceCoilPcm?.invoke(index) == true) {
                     // Advanced path: the PCM is streamed further below.
-                    // Always pass the current voice-coil amplitudes so the
-                    // backend can resolve rumble conflicts even when the PCM
-                    // path is used.
-                    val m0 = if (voiceCoilSwap) rightAmp else leftAmp
-                    val m1 = if (voiceCoilSwap) leftAmp else rightAmp
-                    if (m0 > 1 || m1 > 1) {
-                        if (lastControllerMotorActive && lastControllerMotorIndex != index) {
-                            onControllerMotorOutput?.invoke(lastControllerMotorIndex, 0, 0)
-                        }
-                        onControllerMotorOutput?.invoke(index, m0, m1)
-                        lastControllerMotorActive = true
-                        lastControllerMotorIndex = index
-                    } else if (lastControllerMotorActive) {
+                    if (lastControllerMotorActive) {
                         onControllerMotorOutput?.invoke(lastControllerMotorIndex, 0, 0)
                         lastControllerMotorActive = false
                     }
@@ -436,6 +427,8 @@ class AudioPlaybackService {
                     }
                 }
             }
+            // Notify backend about voice-coil activity for rumble conflict resolution.
+            onVoiceCoilAmplitudes?.invoke(leftAmp, rightAmp)
         }
 
         // ── Phone speaker output ──

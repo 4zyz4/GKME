@@ -125,6 +125,8 @@ class ConnectionManager @Inject constructor(
         applyEffectiveAudioSettings()
         audioPlaybackService.onControllerMotorOutput = { controllerIndex, leftAmp, rightAmp ->
             onControllerVibrationRequest?.invoke(controllerIndex, leftAmp, rightAmp)
+        }
+        audioPlaybackService.onVoiceCoilAmplitudes = { leftAmp, rightAmp ->
             onVoiceCoilMotorOutputUpdate?.invoke(leftAmp, rightAmp)
         }
     }
