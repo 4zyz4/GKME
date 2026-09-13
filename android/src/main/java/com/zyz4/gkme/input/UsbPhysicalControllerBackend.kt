@@ -384,6 +384,17 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
         }
     }
 
+    @Volatile
+    private var _voiceCoilLeftAmp = 0
+
+    @Volatile
+    private var _voiceCoilRightAmp = 0
+
+    override fun setVoiceCoilMotorOutput(leftAmp: Int, rightAmp: Int) {
+        _voiceCoilLeftAmp = leftAmp
+        _voiceCoilRightAmp = rightAmp
+    }
+
     override fun setControllerMotorsVibration(controllerIndex: Int, leftIntensity: Int, rightIntensity: Int) {
         val controller = synchronized(lock) { controllerList.getOrNull(controllerIndex) } ?: return
         controller.rumble(
@@ -404,11 +415,15 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
                 // On a DualSense the compatible-vibration HID report and the
                 // audio-haptics PCM are mutually exclusive: the HID report
                 // (HAPTICS_SELECT) switches the pad out of audio-haptics mode.
-                // The PC echoes a zero-intensity vibration as a keepalive, which
-                // would otherwise permanently kill the voice coil, so for a pad
-                // with an advanced-audio endpoint the voice coil always wins and
-                // base vibration is ignored.
-                if (controller.hasAdvancedAudioHapticsSupport()) return
+                // When voice-coil channels are silent (no audio playing or
+                // channels muted) base rumble is allowed to play through the
+                // HID report; otherwise the voice-coil path carries the
+                // vibration and HID rumble is skipped to avoid conflict.
+                if (controller.hasAdvancedAudioHapticsSupport() && controller.isAdvancedAudioHapticsActive()) {
+                    val vcLeft = _voiceCoilLeftAmp
+                    val vcRight = _voiceCoilRightAmp
+                    if (vcLeft > 1 || vcRight > 1) return
+                }
                 val motor0 = if (swapControllerMotors) high else low
                 val motor1 = if (swapControllerMotors) low else high
                 controller.rumble((motor0 * 257).toShort(), (motor1 * 257).toShort())

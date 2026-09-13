@@ -566,6 +566,9 @@ internal fun MainActivity.setupSettings() {
     a.viewModel.connectionManager.onControllerVibrationRequest = { controllerIndex, leftAmp, rightAmp ->
         a.physicalControllerHandler.setControllerMotorsVibration(controllerIndex, leftAmp, rightAmp)
     }
+    a.viewModel.connectionManager.onVoiceCoilMotorOutputUpdate = { leftAmp, rightAmp ->
+        a.physicalControllerHandler.setVoiceCoilMotorOutput(leftAmp, rightAmp)
+    }
 }
 
 internal fun MainActivity.setupEffectSpinner(spinnerId: Int, isPress: Boolean) {

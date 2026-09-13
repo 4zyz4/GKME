@@ -125,6 +125,7 @@ class ConnectionManager @Inject constructor(
         applyEffectiveAudioSettings()
         audioPlaybackService.onControllerMotorOutput = { controllerIndex, leftAmp, rightAmp ->
             onControllerVibrationRequest?.invoke(controllerIndex, leftAmp, rightAmp)
+            onVoiceCoilMotorOutputUpdate?.invoke(leftAmp, rightAmp)
         }
     }
 
@@ -550,6 +551,7 @@ class ConnectionManager @Inject constructor(
 
     var onRumbleRequest: ((largeMotor: Int, smallMotor: Int) -> Unit)? = null
     var onControllerVibrationRequest: ((controllerIndex: Int, leftAmp: Int, rightAmp: Int) -> Unit)? = null
+    var onVoiceCoilMotorOutputUpdate: ((leftAmp: Int, rightAmp: Int) -> Unit)? = null
 
     suspend fun sendGamepadState(state: GamepadInput) {
         when (_settings.value.connectionMode) {
