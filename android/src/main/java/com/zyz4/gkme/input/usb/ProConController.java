@@ -346,9 +346,9 @@ public class ProConController extends AbstractController {
         rightStickX = applyStickCalibration(_rightStickX, 1, 0);
         rightStickY = applyStickCalibration(-_rightStickY - 1, 1, 1);
 
-        accelX = buffer.getShort(37) / 4096.0f;
-        accelY = buffer.getShort(39) / 4096.0f;
-        accelZ = buffer.getShort(41) / 4096.0f;
+        accelX = buffer.getShort(37) / 4096.0f * 9.81f;
+        accelY = buffer.getShort(39) / 4096.0f * 9.81f;
+        accelZ = buffer.getShort(41) / 4096.0f * 9.81f;
         gyroZ = -buffer.getShort(43) / 16.0f;
         gyroX = -buffer.getShort(45) / 16.0f;
         gyroY = buffer.getShort(47) / 16.0f;
