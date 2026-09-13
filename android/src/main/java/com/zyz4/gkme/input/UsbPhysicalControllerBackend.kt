@@ -362,10 +362,13 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
         val list: List<AbstractController>
         synchronized(lock) { list = controllerList }
         val infos = list.map { c ->
+            val capabilities = c.getCapabilities().toInt()
             ControllerInfo(
                 id = c.getControllerId(),
                 name = displayName(c),
-                motorCount = if ((c.getCapabilities().toInt() and GkmeBridge.LI_CCAP_RUMBLE.toInt()) != 0) 2 else 0,
+                motorCount = if ((capabilities and GkmeBridge.LI_CCAP_RUMBLE.toInt()) != 0) 2 else 0,
+                hasTriggerRumble = (capabilities and GkmeBridge.LI_CCAP_TRIGGER_RUMBLE.toInt()) != 0,
+                hasAdaptiveTrigger = c.hasAdaptiveTriggerSupport(),
             )
         }
         _connectedControllers.value = infos
@@ -652,20 +655,19 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
         controllerIndex: Int, eventFlags: Byte, typeLeft: Byte, typeRight: Byte,
         left: ByteArray?, right: ByteArray?,
     ) {
-        when (gameVibrationDevice.type) {
-            VibrationDeviceType.CONTROLLER -> {
-                _lastTriggerTypeL = typeLeft
-                _lastTriggerTypeR = typeRight
-                _lastTriggerDataL = left
-                _lastTriggerDataR = right
-                _lastTriggerActive = true
-                synchronized(this) { sendCombinedReport() }
-            }
-            VibrationDeviceType.PHONE, VibrationDeviceType.NONE -> {
-                synchronized(this) {
-                    val ctrl = synchronized(lock) { controllerList.getOrNull(controllerIndex) } ?: return
-                    ctrl.setAdaptiveTriggerEffects(eventFlags, typeLeft, typeRight, left, right)
-                }
+        val combined = gameVibrationDevice.type == VibrationDeviceType.CONTROLLER &&
+            gameVibrationDevice.controllerIndex == controllerIndex
+        if (combined) {
+            _lastTriggerTypeL = typeLeft
+            _lastTriggerTypeR = typeRight
+            _lastTriggerDataL = left
+            _lastTriggerDataR = right
+            _lastTriggerActive = true
+            synchronized(this) { sendCombinedReport() }
+        } else {
+            synchronized(this) {
+                val ctrl = synchronized(lock) { controllerList.getOrNull(controllerIndex) } ?: return
+                ctrl.setAdaptiveTriggerEffects(eventFlags, typeLeft, typeRight, left, right)
             }
         }
     }

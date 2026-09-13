@@ -231,6 +231,8 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
                 id = SdlNative.nativeGetControllerInstanceId(i),
                 name = SdlNative.nativeGetControllerName(i).ifBlank { "手柄${i + 1}" },
                 motorCount = SdlNative.nativeGetControllerMotorCount(i),
+                hasTriggerRumble = SdlNative.nativeGetControllerHasTriggerRumble(i),
+                hasAdaptiveTrigger = false,
             )
         }
         // StateFlow conflates equal lists, so this only emits on real changes.
@@ -673,6 +675,17 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
 
     override fun setVoiceCoilMotorOutput(leftAmp: Int, rightAmp: Int) {
         // SDL backend has no voice-coil path.
+    }
+
+    override fun setTriggerRumble(controllerIndex: Int, leftTrigger: Int, rightTrigger: Int) {
+        val count = SdlNative.nativeGetControllerCount()
+        if (controllerIndex < 0 || controllerIndex >= count) return
+        SdlNative.nativeRumbleTriggers(
+            controllerIndex,
+            leftTrigger.coerceIn(0, 255) * 257,
+            rightTrigger.coerceIn(0, 255) * 257,
+            RUMBLE_DURATION_MS,
+        )
     }
 
     /** 强震动(low) → 马达1，弱震动(high) → 马达2；单马达设备取两者较大值。 */

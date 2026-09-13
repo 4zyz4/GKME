@@ -139,6 +139,11 @@ Uint16 gamepadBus(SDL_JoystickID id) {
     return static_cast<Uint16>(guid.data[0] | (guid.data[1] << 8));
 }
 
+// SDL exposes trigger rumble only for Xbox One gamepads (see SDL_RumbleGamepadTriggers).
+bool gamepadHasTriggerRumble(SDL_Gamepad *gp) {
+    return gp != nullptr && SDL_GetGamepadType(gp) == SDL_GAMEPAD_TYPE_XBOXONE;
+}
+
 // Console controllers that HIDAPI is known to handle (and where it adds gyro,
 // touchpad and proper rumble). Only these wait for HIDAPI so generic HID pads
 // are not delayed.
@@ -583,6 +588,17 @@ Java_com_zyz4_gkme_input_SdlNative_nativeGetControllerMotorCount(JNIEnv *env, jo
 }
 
 JNIEXPORT jboolean JNICALL
+Java_com_zyz4_gkme_input_SdlNative_nativeGetControllerHasTriggerRumble(JNIEnv *env, jobject thiz, jint index) {
+    (void) env;
+    (void) thiz;
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (!validIndex(index)) {
+        return JNI_FALSE;
+    }
+    return gamepadHasTriggerRumble(g_gamepads[index].handle) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
 Java_com_zyz4_gkme_input_SdlNative_nativeGetControllerHasGyro(JNIEnv *env, jobject thiz, jint index) {
     (void) env;
     (void) thiz;
@@ -690,6 +706,23 @@ Java_com_zyz4_gkme_input_SdlNative_nativeRumble(JNIEnv *env, jobject thiz, jint 
     const Uint16 highValue = static_cast<Uint16>(clampInt(high, 0, 65535));
     const Uint32 duration = durationMs <= 0 ? 0 : static_cast<Uint32>(durationMs);
     return SDL_RumbleGamepad(g_gamepads[index].handle, lowValue, highValue, duration)
+               ? JNI_TRUE
+               : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_zyz4_gkme_input_SdlNative_nativeRumbleTriggers(JNIEnv *env, jobject thiz, jint index,
+                                                        jint left, jint right, jint durationMs) {
+    (void) env;
+    (void) thiz;
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (!validIndex(index)) {
+        return JNI_FALSE;
+    }
+    const Uint16 leftValue = static_cast<Uint16>(clampInt(left, 0, 65535));
+    const Uint16 rightValue = static_cast<Uint16>(clampInt(right, 0, 65535));
+    const Uint32 duration = durationMs <= 0 ? 0 : static_cast<Uint32>(durationMs);
+    return SDL_RumbleGamepadTriggers(g_gamepads[index].handle, leftValue, rightValue, duration)
                ? JNI_TRUE
                : JNI_FALSE;
 }

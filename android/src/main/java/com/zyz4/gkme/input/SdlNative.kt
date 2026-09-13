@@ -26,6 +26,9 @@ object SdlNative {
 
     external fun nativeGetControllerMotorCount(index: Int): Int
 
+    /** True when the gamepad at [index] exposes trigger rumble (SDL: currently Xbox One). */
+    external fun nativeGetControllerHasTriggerRumble(index: Int): Boolean
+
     external fun nativeGetControllerHasGyro(index: Int): Boolean
 
     external fun nativeGetControllerHasAccel(index: Int): Boolean
@@ -44,6 +47,9 @@ object SdlNative {
     external fun nativePollSensor(index: Int, out: FloatArray): Boolean
 
     external fun nativeRumble(index: Int, low: Int, high: Int, durationMs: Int): Boolean
+
+    /** Drives the trigger rumble motors (Xbox One). 0..65535 each. */
+    external fun nativeRumbleTriggers(index: Int, left: Int, right: Int, durationMs: Int): Boolean
 
     /** True when the gamepad at [index] exposes a (RGB or mono) LED. */
     external fun nativeGetControllerHasLed(index: Int): Boolean

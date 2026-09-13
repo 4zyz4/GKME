@@ -7,7 +7,15 @@ import com.zyz4.gkme.model.VibrationDevice
 import kotlinx.coroutines.flow.StateFlow
 
 /** A connected physical gamepad that can receive game rumble. */
-data class ControllerInfo(val id: Int, val name: String, val motorCount: Int)
+data class ControllerInfo(
+    val id: Int,
+    val name: String,
+    val motorCount: Int,
+    /** True when the controller exposes rumble in its triggers (e.g. Xbox One). */
+    val hasTriggerRumble: Boolean = false,
+    /** True when the controller exposes natively programmable adaptive triggers (DualSense). */
+    val hasAdaptiveTrigger: Boolean = false,
+)
 
 /**
  * Common surface shared by the SDL3 and Axixi2233 USB physical-controller backends.

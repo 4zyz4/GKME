@@ -29,6 +29,27 @@ data class VibrationDevice(
     }
 }
 
+/** Target actuator for PC adaptive-trigger effects.
+ *  [PHONE_MOTOR]/[CONTROLLER_MOTOR] render the effect as motor vibration,
+ *  [CONTROLLER_TRIGGER] forwards it natively when the controller supports adaptive
+ *  triggers, or falls back to trigger rumble / motors. */
+enum class AdaptiveTriggerTargetType { NONE, PHONE_MOTOR, CONTROLLER_MOTOR, CONTROLLER_TRIGGER }
+
+/** Which actuator receives PC adaptive-trigger effects. Controllers are addressed by their
+ *  index in the list of currently connected gamepad devices. The same controller can appear
+ *  both as a motor target and a trigger target. */
+data class AdaptiveTriggerDevice(
+    val type: AdaptiveTriggerTargetType = AdaptiveTriggerTargetType.NONE,
+    val controllerIndex: Int = 0,
+) {
+    companion object {
+        val NONE = AdaptiveTriggerDevice(AdaptiveTriggerTargetType.NONE, 0)
+        val PHONE_MOTOR = AdaptiveTriggerDevice(AdaptiveTriggerTargetType.PHONE_MOTOR, 0)
+        fun controllerMotor(index: Int) = AdaptiveTriggerDevice(AdaptiveTriggerTargetType.CONTROLLER_MOTOR, index)
+        fun controllerTrigger(index: Int) = AdaptiveTriggerDevice(AdaptiveTriggerTargetType.CONTROLLER_TRIGGER, index)
+    }
+}
+
 /** Target device for the DualSense voice-coil (left/right motor) channels. Controllers are
  *  addressed by their index in the list of currently connected gamepad devices. */
 enum class AudioDeviceType { NONE, PHONE_MOTOR, PHONE_SPEAKER, CONTROLLER }
@@ -214,6 +235,12 @@ data class AppSettings(
     val gameVibrationDeviceConnected: VibrationDevice = VibrationDevice.controller(0),
     val swapPhoneMotors: Boolean = false,
     val swapControllerMotors: Boolean = false,
+    /** Actuator that receives PC adaptive-trigger effects while no physical controller is connected. */
+    val adaptiveTriggerDevice: AdaptiveTriggerDevice = AdaptiveTriggerDevice.NONE,
+    /** Adaptive-trigger target used while a physical controller is connected. */
+    val adaptiveTriggerDeviceConnected: AdaptiveTriggerDevice = AdaptiveTriggerDevice.controllerTrigger(0),
+    /** Swaps the left/right output channels of the adaptive-trigger effect. */
+    val swapAdaptiveTriggers: Boolean = false,
     val autoStartEnabled: Boolean = false,
     val gyroEnabled: Boolean = true,
     val gyroSensitivityX: Int = 100,
@@ -313,6 +340,10 @@ fun AppSettings.gameVibrationDeviceFor(connected: Boolean): VibrationDevice =
 
 fun AppSettings.voiceCoilDeviceFor(connected: Boolean): AudioDevice =
     if (connected) voiceCoilDeviceConnected else voiceCoilDevice
+
+/** The adaptive-trigger target of the active (connected vs disconnected) set. */
+fun AppSettings.adaptiveTriggerDeviceFor(connected: Boolean): AdaptiveTriggerDevice =
+    if (connected) adaptiveTriggerDeviceConnected else adaptiveTriggerDevice
 
 fun AppSettings.gyroControllerIndexFor(connected: Boolean): Int =
     if (connected) gyroControllerIndexConnected else gyroControllerIndex

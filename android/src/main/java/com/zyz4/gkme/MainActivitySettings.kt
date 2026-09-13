@@ -36,6 +36,8 @@ import androidx.core.content.ContextCompat
 import com.zyz4.gkme.model.AudioOutput
 import com.zyz4.gkme.model.AudioDevice
 import com.zyz4.gkme.model.AudioDeviceType
+import com.zyz4.gkme.model.AdaptiveTriggerDevice
+import com.zyz4.gkme.model.AdaptiveTriggerTargetType
 import com.zyz4.gkme.model.ConnectionMode
 import com.zyz4.gkme.model.DisplayMode
 import com.zyz4.gkme.model.GyroOrientation
@@ -43,6 +45,7 @@ import com.zyz4.gkme.model.GyroSource
 import com.zyz4.gkme.model.GyroSourceType
 import com.zyz4.gkme.model.gameVibrationDeviceFor
 import com.zyz4.gkme.model.voiceCoilDeviceFor
+import com.zyz4.gkme.model.adaptiveTriggerDeviceFor
 import com.zyz4.gkme.model.gyroSourceFor
 import com.zyz4.gkme.model.gyroControllerIndexFor
 import com.zyz4.gkme.model.HapticEffect
@@ -339,6 +342,31 @@ internal fun MainActivity.setupSettings() {
         }
     }
 
+    a.findViewById<Spinner>(R.id.spinnerAdaptiveTriggerDevice).apply {
+        setOnTouchListener { _, _ ->
+            a.adaptiveTriggerUserSelecting = true
+            false
+        }
+        onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                if (!a.adaptiveTriggerUserSelecting) return
+                a.adaptiveTriggerUserSelecting = false
+                val device = a.adaptiveTriggerDeviceEntries.getOrNull(pos) ?: return
+                if (a.effectiveAdaptiveTriggerDevice() != device) {
+                    a.viewModel.updateAdaptiveTriggerDevice(device)
+                }
+                a.applyAdaptiveTriggerSettings()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+                a.adaptiveTriggerUserSelecting = false
+            }
+        }
+    }
+    a.findViewById<Switch>(R.id.switchSwapAdaptiveTriggers).setOnCheckedChangeListener { _, isChecked ->
+        a.viewModel.updateSwapAdaptiveTriggers(isChecked)
+        a.applyAdaptiveTriggerSettings()
+    }
+
     val pressTypeIds = listOf(
         R.id.btnVibPressTypeNone to VibrationType.NONE,
         R.id.btnVibPressTypeView to VibrationType.VIEW,
@@ -569,12 +597,8 @@ internal fun MainActivity.setupSettings() {
     a.viewModel.connectionManager.onVoiceCoilMotorOutputUpdate = { leftAmp, rightAmp ->
         a.physicalControllerHandler.setVoiceCoilMotorOutput(leftAmp, rightAmp)
     }
-a.viewModel.connectionManager.onTriggerEffectsRequest = { leftEffect: ByteArray?, rightEffect: ByteArray? ->
-        val tl = if (leftEffect != null && leftEffect.size > 0) leftEffect[0].toInt().toByte() else 0x00.toByte()
-        val tr = if (rightEffect != null && rightEffect.size > 0) rightEffect[0].toInt().toByte() else 0x00.toByte()
-        val leftData = if (leftEffect != null && leftEffect.size > 1) leftEffect.copyOfRange(1, leftEffect.size) else null
-        val rightData = if (rightEffect != null && rightEffect.size > 1) rightEffect.copyOfRange(1, rightEffect.size) else null
-        a.physicalControllerHandler.setAdaptiveTriggerEffects(0, 0x0F.toByte(), tl, tr, leftData, rightData)
+    a.viewModel.connectionManager.onTriggerEffectsRequest = { leftEffect: ByteArray?, rightEffect: ByteArray? ->
+        a.adaptiveTriggerHandler.onEffects(leftEffect, rightEffect)
     }
 }
 
@@ -674,6 +698,81 @@ internal fun MainActivity.syncGameVibrationUI() {
     a.updateSwapMotorsUI(entries.getOrElse(pos) { VibrationDevice.PHONE })
 }
 
+// ── Adaptive trigger ─────────────────────────────────────
+
+internal fun MainActivity.buildAdaptiveTriggerDeviceEntries(): List<AdaptiveTriggerDevice> {
+    val a = this
+    val entries = mutableListOf<AdaptiveTriggerDevice>()
+    entries.add(AdaptiveTriggerDevice.PHONE_MOTOR)
+    a.physicalControllerHandler.connectedControllers.value.forEachIndexed { index, info ->
+        if (info.motorCount > 0) entries.add(AdaptiveTriggerDevice.controllerMotor(index))
+        if (info.hasTriggerRumble || info.hasAdaptiveTrigger) {
+            entries.add(AdaptiveTriggerDevice.controllerTrigger(index))
+        }
+    }
+    entries.add(AdaptiveTriggerDevice.NONE)
+    return entries
+}
+
+internal fun MainActivity.adaptiveTriggerDeviceName(device: AdaptiveTriggerDevice): String {
+    val a = this
+    val info = a.physicalControllerHandler.connectedControllers.value.getOrNull(device.controllerIndex)
+    val controllerName = info?.name?.takeIf { it.isNotBlank() } ?: "手柄${device.controllerIndex + 1}"
+    return when (device.type) {
+        AdaptiveTriggerTargetType.PHONE_MOTOR -> "手机马达"
+        AdaptiveTriggerTargetType.CONTROLLER_MOTOR -> "$controllerName 马达"
+        AdaptiveTriggerTargetType.CONTROLLER_TRIGGER -> "$controllerName 扳机"
+        AdaptiveTriggerTargetType.NONE -> "无"
+    }
+}
+
+internal fun MainActivity.updateAdaptiveTriggerDeviceAdapter(
+    spinner: Spinner, entries: List<AdaptiveTriggerDevice>,
+) {
+    val a = this
+    val names = entries.map { a.adaptiveTriggerDeviceName(it) }.toTypedArray()
+    val adapter = ArrayAdapter(a, android.R.layout.simple_spinner_item, names)
+    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+    spinner.adapter = adapter
+}
+
+internal fun MainActivity.syncAdaptiveTriggerUI() {
+    val a = this
+    if (!a.settingsInflated) return
+    val entries = a.buildAdaptiveTriggerDeviceEntries()
+    a.adaptiveTriggerDeviceEntries = entries
+    val spinner = a.findViewById<Spinner>(R.id.spinnerAdaptiveTriggerDevice)
+    a.updateAdaptiveTriggerDeviceAdapter(spinner, entries)
+
+    val connectedCount = a.physicalControllerHandler.connectedControllers.value.size
+    var selected = a.effectiveAdaptiveTriggerDevice()
+    val missingController = selected.type != AdaptiveTriggerTargetType.PHONE_MOTOR &&
+        selected.type != AdaptiveTriggerTargetType.NONE &&
+        (selected.controllerIndex >= connectedCount || selected !in entries)
+    if (missingController) {
+        selected = AdaptiveTriggerDevice.NONE
+    }
+    val pos = entries.indexOf(selected).let { if (it >= 0) it else entries.size - 1 }
+    spinner.setSelection(pos)
+    a.findViewById<Switch>(R.id.switchSwapAdaptiveTriggers).isChecked =
+        a.viewModel.settings.value.swapAdaptiveTriggers
+    a.applyAdaptiveTriggerSettings()
+}
+
+/** The adaptive-trigger target of the active set (connected vs disconnected). */
+internal fun MainActivity.effectiveAdaptiveTriggerDevice(): AdaptiveTriggerDevice =
+    viewModel.settings.value.adaptiveTriggerDeviceFor(physicalControllerHandler.isConnected.value)
+
+/** Pushes the selected adaptive-trigger target into the adaptive-trigger handler. */
+internal fun MainActivity.applyAdaptiveTriggerSettings() {
+    val a = this
+    val s = a.viewModel.settings.value
+    a.adaptiveTriggerHandler.setTarget(
+        s.adaptiveTriggerDeviceFor(a.physicalControllerHandler.isConnected.value),
+        s.swapAdaptiveTriggers,
+    )
+}
+
 /** The game-rumble target of the active set (connected vs disconnected). */
 internal fun MainActivity.effectiveGameVibrationDevice(): VibrationDevice =
     viewModel.settings.value.gameVibrationDeviceFor(physicalControllerHandler.isConnected.value)
@@ -695,6 +794,7 @@ internal fun MainActivity.applyEffectivePhysicalControllerSettings() {
     a.physicalControllerHandler.onControllerGyroSettingChanged(
         s.gyroSourceFor(connected).type == GyroSourceType.CONTROLLER
     )
+    a.applyAdaptiveTriggerSettings()
 }
 
 internal fun MainActivity.buildInputControllerIndices(): List<Int> {

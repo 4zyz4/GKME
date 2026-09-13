@@ -102,6 +102,7 @@ internal fun MainActivity.observeState() {
                     a.physicalControllerHandler.inputControllerIndex = s.inputControllerIndex
                     a.physicalControllerHandler.setDriver(s.controllerDriver)
                     a.applyEffectivePhysicalControllerSettings()
+                    a.applyAdaptiveTriggerSettings()
                     a.applyAppearanceIfChanged(s)
                 }
             }
@@ -118,6 +119,7 @@ internal fun MainActivity.observeState() {
                 a.viewModel._gamepadState.collect { state ->
                     a.gamepadLayout._gamepadButtons = state.buttons
                     a.gamepadLayout.ctrlEntryBitMap = com.zyz4.gkme.ctrlEntryBitMap
+                    a.adaptiveTriggerHandler.onTriggerPositions(state.leftTrigger, state.rightTrigger)
                 }
             }
             launch {
@@ -172,12 +174,14 @@ internal fun MainActivity.observeState() {
                         .let { if (it >= 0) it else 0 }
                     a.findViewById<Spinner>(R.id.spinnerControllerAudio).setSelection(ctrlPos)
                     a.syncGameVibrationUI()
+                    a.syncAdaptiveTriggerUI()
                 }
             }
             launch {
                 a.physicalControllerHandler.connectedControllers.collect {
                     if (a.settingsInflated) {
                         a.syncGameVibrationUI()
+                        a.syncAdaptiveTriggerUI()
                         a.syncPhysicalControllerUI()
                         a.syncVoiceCoilUI()
                         a.syncGyroSourceUI()

@@ -27,6 +27,8 @@ import com.zyz4.gkme.model.AudioDeviceType
 import com.zyz4.gkme.model.VibrationDevice
 import com.zyz4.gkme.model.VibrationDeviceType
 import com.zyz4.gkme.model.VibrationType
+import com.zyz4.gkme.model.AdaptiveTriggerDevice
+import com.zyz4.gkme.model.AdaptiveTriggerTargetType
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -60,6 +62,11 @@ class SettingsRepository @Inject constructor(
         val GAME_VIBRATION_CONTROLLER_CONNECTED_INDEX = intPreferencesKey("game_vibration_controller_connected_index")
         val SWAP_PHONE_MOTORS = booleanPreferencesKey("swap_phone_motors")
         val SWAP_CONTROLLER_MOTORS = booleanPreferencesKey("swap_controller_motors")
+        val ADAPTIVE_TRIGGER_DEVICE_TYPE = intPreferencesKey("adaptive_trigger_device_type")
+        val ADAPTIVE_TRIGGER_CONTROLLER_INDEX = intPreferencesKey("adaptive_trigger_controller_index")
+        val ADAPTIVE_TRIGGER_DEVICE_CONNECTED_TYPE = intPreferencesKey("adaptive_trigger_device_connected_type")
+        val ADAPTIVE_TRIGGER_CONTROLLER_CONNECTED_INDEX = intPreferencesKey("adaptive_trigger_controller_connected_index")
+        val SWAP_ADAPTIVE_TRIGGERS = booleanPreferencesKey("swap_adaptive_triggers")
         val AUTO_START_ENABLED = booleanPreferencesKey("auto_start_enabled")
         val GYRO_ENABLED = booleanPreferencesKey("gyro_enabled")
         val GYRO_SENSITIVITY_X = intPreferencesKey("gyro_sensitivity_x")
@@ -173,6 +180,19 @@ class SettingsRepository @Inject constructor(
             ),
             swapPhoneMotors = prefs[Keys.SWAP_PHONE_MOTORS] ?: false,
             swapControllerMotors = prefs[Keys.SWAP_CONTROLLER_MOTORS] ?: false,
+            adaptiveTriggerDevice = AdaptiveTriggerDevice(
+                type = AdaptiveTriggerTargetType.entries.getOrElse(
+                    prefs[Keys.ADAPTIVE_TRIGGER_DEVICE_TYPE] ?: AdaptiveTriggerTargetType.NONE.ordinal
+                ) { AdaptiveTriggerTargetType.NONE },
+                controllerIndex = prefs[Keys.ADAPTIVE_TRIGGER_CONTROLLER_INDEX] ?: 0,
+            ),
+            adaptiveTriggerDeviceConnected = AdaptiveTriggerDevice(
+                type = AdaptiveTriggerTargetType.entries.getOrElse(
+                    prefs[Keys.ADAPTIVE_TRIGGER_DEVICE_CONNECTED_TYPE] ?: AdaptiveTriggerTargetType.CONTROLLER_TRIGGER.ordinal
+                ) { AdaptiveTriggerTargetType.CONTROLLER_TRIGGER },
+                controllerIndex = prefs[Keys.ADAPTIVE_TRIGGER_CONTROLLER_CONNECTED_INDEX] ?: 0,
+            ),
+            swapAdaptiveTriggers = prefs[Keys.SWAP_ADAPTIVE_TRIGGERS] ?: false,
             autoStartEnabled = prefs[Keys.AUTO_START_ENABLED] ?: false,
             gyroEnabled = prefs[Keys.GYRO_ENABLED] ?: true,
             gyroSensitivityX = prefs[Keys.GYRO_SENSITIVITY_X] ?: 100,
@@ -282,6 +302,11 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.GAME_VIBRATION_CONTROLLER_CONNECTED_INDEX] = settings.gameVibrationDeviceConnected.controllerIndex
             prefs[Keys.SWAP_PHONE_MOTORS] = settings.swapPhoneMotors
             prefs[Keys.SWAP_CONTROLLER_MOTORS] = settings.swapControllerMotors
+            prefs[Keys.ADAPTIVE_TRIGGER_DEVICE_TYPE] = settings.adaptiveTriggerDevice.type.ordinal
+            prefs[Keys.ADAPTIVE_TRIGGER_CONTROLLER_INDEX] = settings.adaptiveTriggerDevice.controllerIndex
+            prefs[Keys.ADAPTIVE_TRIGGER_DEVICE_CONNECTED_TYPE] = settings.adaptiveTriggerDeviceConnected.type.ordinal
+            prefs[Keys.ADAPTIVE_TRIGGER_CONTROLLER_CONNECTED_INDEX] = settings.adaptiveTriggerDeviceConnected.controllerIndex
+            prefs[Keys.SWAP_ADAPTIVE_TRIGGERS] = settings.swapAdaptiveTriggers
             prefs[Keys.AUTO_START_ENABLED] = settings.autoStartEnabled
             prefs[Keys.GYRO_ENABLED] = settings.gyroEnabled
             prefs[Keys.GYRO_SENSITIVITY_X] = settings.gyroSensitivityX
