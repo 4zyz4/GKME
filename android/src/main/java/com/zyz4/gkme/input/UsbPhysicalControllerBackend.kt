@@ -390,9 +390,13 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
     @Volatile
     private var _voiceCoilRightAmp = 0
 
+    @Volatile
+    private var _lastVoiceCoilActivityNs = 0L
+
     override fun setVoiceCoilMotorOutput(leftAmp: Int, rightAmp: Int) {
         _voiceCoilLeftAmp = leftAmp
         _voiceCoilRightAmp = rightAmp
+        _lastVoiceCoilActivityNs = System.nanoTime()
     }
 
     override fun setControllerMotorsVibration(controllerIndex: Int, leftIntensity: Int, rightIntensity: Int) {
@@ -419,10 +423,14 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
                 // channels muted) base rumble is allowed to play through the
                 // HID report; otherwise the voice-coil path carries the
                 // vibration and HID rumble is skipped to avoid conflict.
+                // If no PCM activity has been seen for >200ms, the PC has
+                // likely stopped sending audio, so fall back to base rumble.
                 if (controller.hasAdvancedAudioHapticsSupport() && controller.isAdvancedAudioHapticsActive()) {
+                    val timeSinceLastActivity = System.nanoTime() - _lastVoiceCoilActivityNs
+                    val isStale = _lastVoiceCoilActivityNs == 0L || timeSinceLastActivity > VOICE_COIL_SILENCE_TIMEOUT_NS
                     val vcLeft = _voiceCoilLeftAmp
                     val vcRight = _voiceCoilRightAmp
-                    if (vcLeft > 1 || vcRight > 1) return
+                    if (!isStale && (vcLeft > 1 || vcRight > 1)) return
                 }
                 val motor0 = if (swapControllerMotors) high else low
                 val motor1 = if (swapControllerMotors) low else high
@@ -458,6 +466,7 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
         controllerSupportsVoiceCoilPcm(controllerIndex)
 
     override fun submitVoiceCoilFrame(controllerIndex: Int, frame: ByteArray): Boolean {
+        _lastVoiceCoilActivityNs = System.nanoTime()
         val controller = synchronized(lock) { controllerList.getOrNull(controllerIndex) } ?: return false
         return controller.submitNativeAudioHapticsFrame(frame)
     }
@@ -615,6 +624,7 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
 
     companion object {
         private const val TRIGGER_DIGITAL_THRESHOLD = 0.5f
+        private const val VOICE_COIL_SILENCE_TIMEOUT_NS = 200_000_000L // 200ms
 
         // Sunshine / Limelight button flags produced by the USB driver.
         private const val USB_UP = 0x0001
