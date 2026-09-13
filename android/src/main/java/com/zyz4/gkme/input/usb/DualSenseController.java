@@ -245,6 +245,11 @@ public class DualSenseController extends AbstractDualSenseController {
     }
 
    @Override
+   public boolean hasAdaptiveTriggerSupport() {
+      return true;
+   }
+
+   @Override
    public void setControllerLED(byte red, byte green, byte blue) {
       sendCommand(DualSenseOutputReport.lightbar(red, green, blue));
    }

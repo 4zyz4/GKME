@@ -81,6 +81,16 @@ public abstract class AbstractController {
     public abstract void rumbleTriggers(short leftTrigger, short rightTrigger);
 
     /**
+     * True when this controller exposes natively programmable adaptive triggers
+     * (e.g. DualSense). Used to list controller triggers in the adaptive-trigger UI.
+     *
+     * @return true when adaptive-trigger effects can be applied natively.
+     */
+    public boolean hasAdaptiveTriggerSupport() {
+        return false;
+    }
+
+    /**
      * Applies native adaptive-trigger effects when supported by this controller.
      *
      * @param eventFlags Bitmask identifying the triggers to update.

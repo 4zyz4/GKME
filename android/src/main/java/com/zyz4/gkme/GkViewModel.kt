@@ -513,6 +513,19 @@ class GkViewModel @Inject constructor(
         connectionManager.updateSettings(settings.value.copy(swapVoiceCoilMotors = enabled))
     }
 
+    fun updateAdaptiveTriggerDevice(device: com.zyz4.gkme.model.AdaptiveTriggerDevice) {
+        val updated = if (_physicalControllerConnected.value) {
+            settings.value.copy(adaptiveTriggerDeviceConnected = device)
+        } else {
+            settings.value.copy(adaptiveTriggerDevice = device)
+        }
+        connectionManager.updateSettings(updated)
+    }
+
+    fun updateSwapAdaptiveTriggers(enabled: Boolean) {
+        connectionManager.updateSettings(settings.value.copy(swapAdaptiveTriggers = enabled))
+    }
+
     fun updateControllerAudioOutput(output: AudioOutput) {
         connectionManager.updateSettings(settings.value.copy(controllerAudioOutput = output))
     }

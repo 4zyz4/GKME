@@ -29,12 +29,14 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import com.zyz4.gkme.model.AudioOutput
+import com.zyz4.gkme.model.AdaptiveTriggerDevice
 import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.model.AppSettings
 import com.zyz4.gkme.model.HapticEffect
 import com.zyz4.gkme.model.VibrationType
 import com.zyz4.gkme.view.FloatingEditorPanel
 import com.zyz4.gkme.view.GamepadLayout
+import com.zyz4.gkme.input.AdaptiveTriggerHandler
 import com.zyz4.gkme.input.PhysicalControllerHandler
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -55,6 +57,8 @@ class MainActivity : ComponentActivity() {
     internal var lastPresetCurrentName: String? = null
 
     internal var audioControllerOutputEntries: List<AudioOutput> = emptyList()
+    internal var adaptiveTriggerDeviceEntries: List<AdaptiveTriggerDevice> = emptyList()
+    internal var adaptiveTriggerUserSelecting = false
 
     private var mediaSession: MediaSession? = null
 
@@ -119,6 +123,12 @@ class MainActivity : ComponentActivity() {
     private val displayManager by lazy { getSystemService(DISPLAY_SERVICE) as DisplayManager }
 
     internal lateinit var physicalControllerHandler: PhysicalControllerHandler
+
+    internal val adaptiveTriggerHandler: AdaptiveTriggerHandler by lazy {
+        AdaptiveTriggerHandler(physicalControllerHandler) { left, right ->
+            vibratePhoneForAdaptive(left, right)
+        }
+    }
 
     internal val audioPlaybackService: com.zyz4.gkme.service.AudioPlaybackService
         get() = viewModel.connectionManager.audioPlaybackService
@@ -457,6 +467,35 @@ internal fun performHaptic(isPress: Boolean) {
             HapticEffect.VIRTUAL_KEY -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) HapticFeedbackConstants.VIRTUAL_KEY else fallback
             HapticEffect.VIRTUAL_KEY_RELEASE -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) HapticFeedbackConstants.VIRTUAL_KEY_RELEASE else fallback
         }
+    }
+
+    /** Drives the phone motors for adaptive-trigger conversion. Left/right map to the two
+     *  actuators when the device exposes multiple vibrators, otherwise the loudest side is used. */
+    internal fun vibratePhoneForAdaptive(left: Int, right: Int) {
+        val l = left.coerceIn(0, 255)
+        val r = right.coerceIn(0, 255)
+        if (l <= 0 && r <= 0) {
+            try { vibrator.cancel() } catch (_: Exception) {}
+            return
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vm = getSystemService(VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+            val ids = vm?.vibratorIds
+            if (vm != null && ids != null && ids.size >= 2) {
+                try {
+                    vm.cancel()
+                    val combo = android.os.CombinedVibration.startParallel()
+                    if (l > 0) combo.addVibrator(ids[0], VibrationEffect.createOneShot(60000, l))
+                    if (r > 0) combo.addVibrator(ids[1], VibrationEffect.createOneShot(60000, r))
+                    vm.vibrate(combo.combine())
+                } catch (_: Exception) {}
+                return
+            }
+        }
+        try {
+            vibrator.cancel()
+            vibrator.vibrate(VibrationEffect.createOneShot(60000, maxOf(l, r)))
+        } catch (_: Exception) {}
     }
 
     // ── Chip Group ─────────────────────────────────────────
