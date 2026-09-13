@@ -126,6 +126,9 @@ internal fun MainActivity.observeState() {
                     if (a.settingsInflated) a.syncAppearanceUI()
                 }
             }
+            // 启动时立即同步一次LED状态
+            val initialLed = a.viewModel.ledState.value
+            a.physicalControllerHandler.setLedColor(initialLed.color, initialLed.playerLed)
             launch {
                 a.viewModel.presetInfos.collect { _ ->
                     if (a.inSettings) a.refreshPresetList()
@@ -177,6 +180,9 @@ internal fun MainActivity.observeState() {
                         a.syncGyroSourceUI()
                     }
                     a.syncPhysicalControllerState()
+                    // 手柄连接时重新应用当前LED状态
+                    val led = a.viewModel.ledState.value
+                    a.physicalControllerHandler.setLedColor(led.color, led.playerLed)
                 }
             }
             launch {
@@ -186,12 +192,10 @@ internal fun MainActivity.observeState() {
             }
             launch {
                 a.physicalControllerHandler.gyroData.collect { gyro ->
-                    // Raw values are in deg/s for USB controllers; convert to rad/s for display
-                    // to match the phone gyro display units used elsewhere in the app.
-                    val dpsToRad = Math.PI / 180.0
-                    val x = gyro[0] * dpsToRad.toFloat()
-                    val y = gyro[1] * dpsToRad.toFloat()
-                    val z = gyro[2] * dpsToRad.toFloat()
+                    // 所有后端统一输出 rad/s
+                    val x = gyro[0]
+                    val y = gyro[1]
+                    val z = gyro[2]
                     if (a.settingsInflated) {
                         a.findViewById<TextView>(R.id.tvControllerGyroX).text = "X: %.2f".format(x)
                         a.findViewById<TextView>(R.id.tvControllerGyroY).text = "Y: %.2f".format(y)
@@ -210,13 +214,8 @@ internal fun MainActivity.observeState() {
                     }
                     if (actualGyroEnabled && a.physicalControllerHandler.controllerHasGyro) {
                         val accel = a.physicalControllerHandler.accelData.value
-                        // USB controller gyro data is in deg/s; convert to rad/s so the
-                        // sensitivity multipliers (designed for rad/s) produce correct values.
-                        val dpsToRad = Math.PI / 180.0
-                        val gxRad = gyro[0] * dpsToRad.toFloat()
-                        val gyRad = gyro[1] * dpsToRad.toFloat()
-                        val gzRad = gyro[2] * dpsToRad.toFloat()
-                        a.viewModel.onPhysicalControllerGyro(gxRad, gyRad, gzRad, accel[0], accel[1], accel[2])
+                        // 所有后端已统一输出 rad/s
+                        a.viewModel.onPhysicalControllerGyro(gyro[0], gyro[1], gyro[2], accel[0], accel[1], accel[2])
                     }
                 }
             }

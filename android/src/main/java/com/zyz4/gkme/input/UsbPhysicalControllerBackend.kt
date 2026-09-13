@@ -213,7 +213,15 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
         val active = activeInputController() ?: return
         if (active.getControllerId() != controllerId) return
         when (motionType) {
-            GkmeBridge.LI_MOTION_TYPE_GYRO -> gyro = floatArrayOf(motionX, motionY, motionZ)
+            // USB 驱动返回的 gyro 单位是 deg/s，统一转为 rad/s 后输出
+            GkmeBridge.LI_MOTION_TYPE_GYRO -> {
+                val degToRad = Math.PI / 180.0
+                gyro = floatArrayOf(
+                    motionX * degToRad.toFloat(),
+                    motionY * degToRad.toFloat(),
+                    motionZ * degToRad.toFloat()
+                )
+            }
             GkmeBridge.LI_MOTION_TYPE_ACCEL -> accel = floatArrayOf(motionX, motionY, motionZ)
         }
         if (controllerGyroEnabled) {

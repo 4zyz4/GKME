@@ -141,6 +141,13 @@ class GkViewModel @Inject constructor(
         if (settings.value.gyroEnabled) {
             startSensorDisplay()
         }
+        // 启动时如果外观颜色绑定了LED，立即同步初始LED颜色
+        if (settings.value.ledBoundColors.isNotEmpty()) {
+            val updated = LedAppearance.applyLedColor(settings.value, 0)
+            if (updated != settings.value) {
+                connectionManager.updateSettings(updated)
+            }
+        }
     }
 
     private fun initializeLayouts() {
