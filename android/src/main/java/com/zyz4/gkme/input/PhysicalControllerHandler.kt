@@ -219,6 +219,21 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
         backend?.setTriggerRumble(controllerIndex, leftTrigger, rightTrigger)
     }
 
+    override fun sendCompactFrame(
+        rumbleLow: Int, rumbleHigh: Int,
+        triggerTypeLeft: Byte, triggerTypeRight: Byte,
+        triggerDataLeft: ByteArray?, triggerDataRight: ByteArray?,
+        ledColor: Int, playerLed: Int,
+        eventFlags: Byte,
+    ) {
+        backend?.sendCompactFrame(
+            rumbleLow, rumbleHigh,
+            triggerTypeLeft, triggerTypeRight,
+            triggerDataLeft, triggerDataRight,
+            ledColor, playerLed, eventFlags,
+        )
+    }
+
     override fun playVoiceCoilTest(controllerIndex: Int) {
         backend?.playVoiceCoilTest(controllerIndex)
     }

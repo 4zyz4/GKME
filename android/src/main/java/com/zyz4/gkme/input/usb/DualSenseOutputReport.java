@@ -3,7 +3,7 @@ package com.zyz4.gkme.input.usb;
 /**
  * Builds USB output reports for a DualSense controller.
  */
-final class DualSenseOutputReport {
+public final class DualSenseOutputReport {
     static final int REPORT_SIZE = 48;
     static final int TRIGGER_PAYLOAD_SIZE = 10;
 
@@ -117,7 +117,7 @@ final class DualSenseOutputReport {
      * @param blue Blue component.
      * @return A USB DualSense output report.
      */
-    static byte[] lightbar(byte red, byte green, byte blue) {
+    public static byte[] lightbar(byte red, byte green, byte blue) {
         byte[] report = emptyReport();
         report[VALID_FLAG1_INDEX] = ENABLE_LIGHTBAR;
         report[LIGHTBAR_RED_INDEX] = red;
@@ -132,7 +132,7 @@ final class DualSenseOutputReport {
      * @param playerIndicator Five-bit player LED mask.
      * @return A USB DualSense output report.
      */
-    static byte[] playerIndicator(byte playerIndicator) {
+    public static byte[] playerIndicator(byte playerIndicator) {
         byte[] report = emptyReport();
         report[VALID_FLAG1_INDEX] = ENABLE_PLAYER_INDICATOR;
         report[PLAYER_INDICATOR_INDEX] = (byte) (playerIndicator & PLAYER_INDICATOR_MASK);
@@ -164,6 +164,50 @@ final class DualSenseOutputReport {
     private static byte[] emptyReport() {
         byte[] report = new byte[REPORT_SIZE];
         report[0] = 0x02;
+        return report;
+    }
+
+    /**
+     * Builds a combined rumble + trigger effects + lightbar + player indicator report.
+     * All fields are packed into a single 48-byte 0x02 HID output report, sent in one bulkTransfer.
+     * Caller is responsible for pre-scaling motor values (0-65535 range, ready for >> 8).
+     */
+    public static byte[] compactFrame(
+            int lowMotor, int highMotor,
+            byte triggerTypeLeft, byte triggerTypeRight,
+            byte[] triggerDataLeft, byte[] triggerDataRight,
+            boolean hasTriggers,
+            byte ledRed, byte ledGreen, byte ledBlue,
+            int playerLedPattern) {
+        byte[] report = emptyReport();
+        // Build VALID_FLAG0: rumble (0x03) + trigger flags
+        byte flag0 = ENABLE_RUMBLE;
+        if (hasTriggers) {
+            flag0 |= ENABLE_LEFT_TRIGGER;
+            flag0 |= ENABLE_RIGHT_TRIGGER;
+            if ((triggerTypeLeft & 0xFF) != 0) {
+                report[LEFT_TRIGGER_TYPE_INDEX] = triggerTypeLeft;
+                copyPayload(triggerDataLeft, 0, report, LEFT_TRIGGER_DATA_INDEX);
+            }
+            if ((triggerTypeRight & 0xFF) != 0) {
+                report[RIGHT_TRIGGER_TYPE_INDEX] = triggerTypeRight;
+                copyPayload(triggerDataRight, 0, report, RIGHT_TRIGGER_DATA_INDEX);
+            }
+        }
+        report[VALID_FLAG0_INDEX] = flag0;
+        // Motor intensities
+        report[RIGHT_MOTOR_INDEX] = (byte) (highMotor >> 8);
+        report[LEFT_MOTOR_INDEX] = (byte) (lowMotor >> 8);
+        // Lightbar (VALID_FLAG1 bit 0x04)
+        report[VALID_FLAG1_INDEX] = ENABLE_LIGHTBAR;
+        report[LIGHTBAR_RED_INDEX] = ledRed;
+        report[LIGHTBAR_GREEN_INDEX] = ledGreen;
+        report[LIGHTBAR_BLUE_INDEX] = ledBlue;
+        // Player LED (VALID_FLAG1 bit 0x10)
+        if (playerLedPattern != 0) {
+            report[VALID_FLAG1_INDEX] |= ENABLE_PLAYER_INDICATOR;
+            report[PLAYER_INDICATOR_INDEX] = (byte) (playerLedPattern & PLAYER_INDICATOR_MASK);
+        }
         return report;
     }
 
