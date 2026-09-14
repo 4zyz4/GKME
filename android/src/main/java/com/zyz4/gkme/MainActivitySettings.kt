@@ -335,6 +335,7 @@ internal fun MainActivity.setupSettings() {
                 if (a.effectiveAdaptiveTriggerDevice() != device) {
                     a.viewModel.updateAdaptiveTriggerDevice(device)
                 }
+                a.updateSwapAdaptiveTriggersUI(device)
                 a.applyAdaptiveTriggerSettings()
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {
@@ -716,6 +717,27 @@ internal fun MainActivity.updateAdaptiveTriggerDeviceAdapter(
     spinner.adapter = adapter
 }
 
+/** Left/right output channels available for the selected adaptive-trigger target. A controller
+ *  trigger target always has two triggers; motor targets need two motors to swap. */
+internal fun MainActivity.selectedAdaptiveTriggerMotorCount(device: AdaptiveTriggerDevice): Int {
+    val a = this
+    return when (device.type) {
+        AdaptiveTriggerTargetType.PHONE_MOTOR -> a.phoneMotorCount()
+        AdaptiveTriggerTargetType.CONTROLLER_MOTOR ->
+            a.physicalControllerHandler.connectedControllers.value.getOrNull(device.controllerIndex)?.motorCount ?: 0
+        AdaptiveTriggerTargetType.CONTROLLER_TRIGGER -> 2
+        AdaptiveTriggerTargetType.NONE -> 0
+    }
+}
+
+internal fun MainActivity.updateSwapAdaptiveTriggersUI(device: AdaptiveTriggerDevice) {
+    val a = this
+    val showSwap = a.selectedAdaptiveTriggerMotorCount(device) >= 2
+    a.findViewById<View>(R.id.layoutSwapAdaptiveTriggers).visibility = if (showSwap) View.VISIBLE else View.GONE
+    a.findViewById<Switch>(R.id.switchSwapAdaptiveTriggers).isChecked =
+        a.viewModel.settings.value.swapAdaptiveTriggers
+}
+
 internal fun MainActivity.syncAdaptiveTriggerUI() {
     val a = this
     if (!a.settingsInflated) return
@@ -734,8 +756,7 @@ internal fun MainActivity.syncAdaptiveTriggerUI() {
     }
     val pos = entries.indexOf(selected).let { if (it >= 0) it else entries.size - 1 }
     spinner.setSelection(pos)
-    a.findViewById<Switch>(R.id.switchSwapAdaptiveTriggers).isChecked =
-        a.viewModel.settings.value.swapAdaptiveTriggers
+    a.updateSwapAdaptiveTriggersUI(entries.getOrElse(pos) { AdaptiveTriggerDevice.NONE })
     a.applyAdaptiveTriggerSettings()
 }
 
@@ -1437,6 +1458,7 @@ internal fun MainActivity.syncSettingsUI() {
     }
     a.updateVibrationUI()
     a.syncGameVibrationUI()
+    a.syncAdaptiveTriggerUI()
     a.updateSettingsVisibility(s.connectionMode)
 
     a.findViewById<Switch>(R.id.switchAutoStart).isChecked = s.autoStartEnabled

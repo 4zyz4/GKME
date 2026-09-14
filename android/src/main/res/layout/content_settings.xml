@@ -1890,14 +1890,6 @@
                     android:fontFamily="sans-serif-medium"
                     android:layout_marginBottom="8dp" />
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="PC 自适应扳机效果的目标设备。普通马达会按扳机位置转换为对应力度的震动。"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="11sp"
-                    android:layout_marginBottom="8dp" />
-
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
