@@ -55,21 +55,6 @@ class AudioPlaybackService {
     @Volatile
     private var testToneRunning = false
 
-    // The local voice-coil test tone and the PC's audio stream share one USB
-    // endpoint (and one native sender queue), so while the test runs the PC
-    // stream must be dropped — otherwise the test frames are evicted and the
-    // tone stutters or never plays.
-    @Volatile
-    private var voiceCoilTestUntilNs = 0L
-
-    /** Lets the local voice-coil test own the controller endpoint for [durationMs]. */
-    fun beginVoiceCoilTest(durationMs: Long = 2500L) {
-        voiceCoilTestUntilNs = System.nanoTime() + durationMs * 1_000_000L
-    }
-
-    private fun isVoiceCoilTestActive(): Boolean =
-        System.nanoTime() < voiceCoilTestUntilNs
-
     private val _trackInfo = MutableStateFlow(AudioTrackInfo())
     val trackInfo: StateFlow<AudioTrackInfo> = _trackInfo.asStateFlow()
 
@@ -381,7 +366,7 @@ class AudioPlaybackService {
         if (vcPcmIndex >= 0 || caPcmIndex >= 0) {
             Log.i(TAG, "USB PCM path selected: vcIndex=$vcPcmIndex caIndex=$caPcmIndex rate=$sampleRate ch=$channels")
         }
-        if ((vcPcmIndex >= 0 || caPcmIndex >= 0) && !isVoiceCoilTestActive()) {
+        if (vcPcmIndex >= 0 || caPcmIndex >= 0) {
             // Both the voice-coil and controller-audio lanes go to the same
             // DualSense USB audio endpoint, which runs at 48 kHz, so resample once
             // per incoming frame and share the result across targets.

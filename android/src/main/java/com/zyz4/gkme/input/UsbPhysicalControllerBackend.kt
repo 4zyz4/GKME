@@ -21,8 +21,6 @@ import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.model.TouchPoint
 import com.zyz4.gkme.model.VibrationDevice
 import com.zyz4.gkme.model.VibrationDeviceType
-import com.zyz4.gkme.service.ControllerAudioDsp
-import com.zyz4.gkme.service.PcmToneGenerator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -543,57 +541,6 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
 
     override fun submitControllerAudioFrame(controllerIndex: Int, frame: ByteArray): Boolean =
         submitVoiceCoilFrame(controllerIndex, frame)
-
-    override fun playVoiceCoilTest(controllerIndex: Int) {
-        val controller = synchronized(lock) { controllerList.getOrNull(controllerIndex) }
-        android.util.Log.i(
-            "Axixi2233Usb",
-            "playVoiceCoilTest index=$controllerIndex controller=$controller " +
-                "hasHaptics=${controller?.hasAdvancedAudioHapticsSupport()} listSize=${controllerList.size}"
-        )
-        if (controller == null || !controller.hasAdvancedAudioHapticsSupport()) return
-        Thread({
-            val sampleRate = ControllerAudioDsp.USB_PCM_RATE
-            val framesPerChunk = 480
-            val totalFrames = sampleRate * 2
-            // Drive the voice-coil channels (ch2/ch3) only, so the test exercises
-            // the motors rather than the controller speaker.
-            val generator = PcmToneGenerator(
-                sampleRate = sampleRate,
-                frequencyHz = 220.0,
-                amplitude = 20000.0,
-                channels = 4,
-                activeChannels = intArrayOf(2, 3),
-            )
-
-            // The native sender submits one isochronous URB at a time and blocks
-            // until it completes, so it starves whenever the producer's queue is
-            // empty at a URB boundary. Pre-fill a few chunks, then pace against the
-            // audio clock (nanoTime) instead of Thread.sleep's ~10 ms granularity,
-            // which would otherwise feed slower than real time and drop out.
-            val leadFrames = framesPerChunk * 5
-            val startNs = System.nanoTime()
-            var written = 0
-            while (written < totalFrames) {
-                val count = minOf(framesPerChunk, totalFrames - written)
-                controller.submitNativeAudioHapticsFrame(generator.nextFrame(count))
-                written += count
-
-                val ahead = written - leadFrames
-                if (ahead > 0) {
-                    val targetNs = startNs + ahead.toLong() * 1_000_000_000L / sampleRate
-                    val waitNs = targetNs - System.nanoTime()
-                    if (waitNs > 0) {
-                        try {
-                            Thread.sleep(waitNs / 1_000_000L)
-                        } catch (_: InterruptedException) {
-                            break
-                        }
-                    }
-                }
-            }
-        }, "VoiceCoilTest").start()
-    }
 
     // ── Compact frame merging: rumble + triggers + LED in one HID report ─
 

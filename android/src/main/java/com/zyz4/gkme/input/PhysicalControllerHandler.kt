@@ -233,8 +233,4 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
             ledColor, playerLed, eventFlags,
         )
     }
-
-    override fun playVoiceCoilTest(controllerIndex: Int) {
-        backend?.playVoiceCoilTest(controllerIndex)
-    }
 }

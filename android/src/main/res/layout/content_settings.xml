@@ -1523,7 +1523,13 @@
                         <Button
                             android:id="@+id/btnTargetUniversalKm"
                             style="@style/GamepadChip"
+                            android:layout_marginEnd="6dp"
                             android:text="通用-键鼠" />
+
+                        <Button
+                            android:id="@+id/btnTargetWindowsGamepad"
+                            style="@style/GamepadChip"
+                            android:text="Windows-仅手柄" />
                     </LinearLayout>
                 </LinearLayout>
 
@@ -2178,14 +2184,6 @@
                             android:textSize="12sp" />
                     </LinearLayout>
                 </LinearLayout>
-
-                <Button
-                    android:id="@+id/btnVoiceCoilTest"
-                    style="@style/GamepadChip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
-                    android:text="音圈测试音" />
 
             </LinearLayout>
         </ScrollView>

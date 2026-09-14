@@ -2,7 +2,7 @@ package com.zyz4.gkme.model
 
 enum class ConnectionMode { WIFI, BLUETOOTH }
 
-enum class TargetPlatform { WINDOWS, ANDROID, LINUX, ANDROID_GAMEPAD_ONLY, UNIVERSAL_KM }
+enum class TargetPlatform { WINDOWS, ANDROID, LINUX, ANDROID_GAMEPAD_ONLY, UNIVERSAL_KM, WINDOWS_GAMEPAD_ONLY }
 
 enum class DisplayMode { XBOX, PLAYSTATION, SWITCH }
 
