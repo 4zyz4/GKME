@@ -261,26 +261,6 @@ internal fun MainActivity.setupSettings() {
         a.audioPlaybackService.resumeIfStopped()
     }
 
-    // Play a local test tone on the controller voice coil, independent of any audio
-    // coming from the PC (diagnostic for the USB audio path).
-    val voiceCoilTest = View.OnClickListener {
-        val device = a.effectiveVoiceCoilDevice()
-        if (device.type == AudioDeviceType.CONTROLLER) {
-            // The test and the PC audio stream share the USB endpoint, so mute the
-            // PC stream for the test's duration.
-            a.audioPlaybackService.beginVoiceCoilTest()
-            a.physicalControllerHandler.playVoiceCoilTest(device.controllerIndex)
-            a.showToast("已发送音圈测试音（220Hz，2秒）")
-        } else {
-            a.showToast("请先在「音圈马达」中选择手柄")
-        }
-    }
-    a.findViewById<Button>(R.id.btnVoiceCoilTest).setOnClickListener(voiceCoilTest)
-    a.findViewById<View>(R.id.layoutVoiceCoilStatus).setOnLongClickListener {
-        voiceCoilTest.onClick(it)
-        true
-    }
-
     // Audio VC indicator polling will be started in selectSettingsCategory when index == 6
 
     listOf(R.id.btnConnWifi to 0, R.id.btnConnBluetooth to 1).forEach { (id, idx) ->
@@ -298,7 +278,7 @@ internal fun MainActivity.setupSettings() {
 
     val targetChipIds = listOf(
         R.id.btnTargetWindows, R.id.btnTargetAndroid, R.id.btnTargetLinux,
-        R.id.btnTargetAndroidGamepad, R.id.btnTargetUniversalKm
+        R.id.btnTargetAndroidGamepad, R.id.btnTargetUniversalKm, R.id.btnTargetWindowsGamepad
     )
     targetChipIds.forEachIndexed { idx, id ->
         a.findViewById<Button>(id).setOnClickListener {
@@ -1448,7 +1428,7 @@ internal fun MainActivity.syncSettingsUI() {
         ConnectionMode.entries.indexOf(s.connectionMode).coerceAtLeast(0))
     a.selectChipGroup(listOf(
         R.id.btnTargetWindows, R.id.btnTargetAndroid, R.id.btnTargetLinux,
-        R.id.btnTargetAndroidGamepad, R.id.btnTargetUniversalKm
+        R.id.btnTargetAndroidGamepad, R.id.btnTargetUniversalKm, R.id.btnTargetWindowsGamepad
     ), TargetPlatform.entries.indexOf(s.targetPlatform).coerceAtLeast(0))
     val pollingRateOptions = listOf(30, 45, 60, 90, 100, 120, 200, 250, 300, 500, 750, 1000)
     val pollingRateIndex = pollingRateOptions.indexOf(s.pollingRate)

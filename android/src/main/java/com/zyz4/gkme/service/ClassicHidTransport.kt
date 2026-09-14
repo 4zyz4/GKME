@@ -402,6 +402,7 @@ class ClassicHidTransport(
             TargetPlatform.LINUX -> COMBO_LINUX_HID_DESCRIPTOR
             TargetPlatform.ANDROID_GAMEPAD_ONLY -> ANDROID_GAMEPAD_ONLY_HID_DESCRIPTOR
             TargetPlatform.UNIVERSAL_KM -> KEYBOARD_MOUSE_HID_DESCRIPTOR
+            TargetPlatform.WINDOWS_GAMEPAD_ONLY -> WINDOWS_GAMEPAD_ONLY_HID_DESCRIPTOR
             null -> COMBO_ANDROID_HID_DESCRIPTOR
         }
         val deviceName = getRealDeviceName()
@@ -1181,6 +1182,44 @@ class ClassicHidTransport(
             b(0x81), b(0x02),             //   Input (Data,Var,Abs)
 
             b(0xC0),                      // End Collection
+        )
+
+        /** Windows Gamepad only descriptor (no keyboard/mouse). Report ID 19, 11-byte layout. */
+        private val WINDOWS_GAMEPAD_ONLY_HID_DESCRIPTOR = byteArrayOf(
+            // GAMEPAD — Report ID 19 — using Windows 11-byte layout
+            // (18 buttons + 6 padding + 4 x 16-bit axes)
+            b(0x05), b(0x01),       // Usage Page (Generic Desktop)
+            b(0x09), b(0x05),       // Usage (Game Pad)
+            b(0xA1), b(0x01),       // Collection (Application)
+            b(0x85), b(0x13),       //   Report ID (19)
+
+            // Buttons (18 buttons + 6 padding = 24 bits / 3 bytes)
+            b(0x05), b(0x09),       //   Usage Page (Button)
+            b(0x19), b(0x01),       //   Usage Minimum (1)
+            b(0x29), b(0x12),       //   Usage Maximum (18)
+            b(0x15), b(0x00),       //   Logical Minimum (0)
+            b(0x25), b(0x01),       //   Logical Maximum (1)
+            b(0x75), b(0x01),       //   Report Size (1)
+            b(0x95), b(0x12),       //   Report Count (18)
+            b(0x81), b(0x02),       //   Input (Data,Var,Abs)
+
+            b(0x75), b(0x01),       //   Report Size (1)
+            b(0x95), b(0x06),       //   Report Count (6)
+            b(0x81), b(0x01),       //   Input (Const)
+
+            // Axes (LX, LY, RX, RY - 4 x 16-bit = 8 bytes)
+            b(0x05), b(0x01),       //   Usage Page (Generic Desktop)
+            b(0x09), b(0x30),       //   Usage (X)  → LX
+            b(0x09), b(0x31),       //   Usage (Y)  → LY
+            b(0x09), b(0x32),       //   Usage (Z)  → RX
+            b(0x09), b(0x33),       //   Usage (Ry) → RY
+            b(0x16), b(0x00), b(0x80),  // Logical Minimum (-32768)
+            b(0x26), b(0xFF), b(0x7F),  // Logical Maximum (32767)
+            b(0x75), b(0x10),       //   Report Size (16)
+            b(0x95), b(0x04),       //   Report Count (4)
+            b(0x81), b(0x02),       //   Input (Data,Var,Abs)
+
+            b(0xC0),                // End Collection
         )
 
     }

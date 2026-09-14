@@ -13,6 +13,7 @@ object GamepadStateMapper {
             TargetPlatform.LINUX -> mapLinux(input)
             TargetPlatform.ANDROID_GAMEPAD_ONLY -> mapAndroid(input)
             TargetPlatform.UNIVERSAL_KM -> mapWindows(input)
+            TargetPlatform.WINDOWS_GAMEPAD_ONLY -> mapWindows(input)
         }
     }
 

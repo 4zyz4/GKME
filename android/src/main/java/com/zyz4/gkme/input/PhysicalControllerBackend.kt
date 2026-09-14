@@ -81,9 +81,6 @@ interface PhysicalControllerBackend {
     /** Sends a 4-channel, 48 kHz, S16LE frame to the controller speaker. */
     fun submitControllerAudioFrame(controllerIndex: Int, frame: ByteArray): Boolean = false
 
-    /** Plays a short local test tone on the controller voice coil + speaker (diagnostic). */
-    fun playVoiceCoilTest(controllerIndex: Int) = Unit
-
     // ── Adaptive triggers / trigger rumble (reserved interfaces) ──
 
     fun setAdaptiveTriggerEffects(
