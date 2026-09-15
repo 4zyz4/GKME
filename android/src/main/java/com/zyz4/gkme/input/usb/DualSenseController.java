@@ -267,7 +267,12 @@ public class DualSenseController extends AbstractDualSenseController {
          Log.w("DualController", "Command transfer failed: expected=" + data.length +
                  " actual=" + res);
       }
-      else if (data.length > 0 && data[0] == 0x02) {
+      else if (data.length > 1 && data[0] == 0x02 &&
+              (data[1] & DualSenseOutputReport.ENABLE_RUMBLE) != 0) {
+         // Only a report that actually touches the main motors engages
+         // compatible-vibration mode. Trigger/lightbar reports leave the pad in
+         // audio-haptics mode, so they must keep the existing prime valid — else
+         // every such report forces a re-prime and the audio drops out.
          invalidateAdvancedAudioHapticsPrime();
       }
    }

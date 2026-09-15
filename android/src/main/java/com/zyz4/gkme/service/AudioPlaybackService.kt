@@ -45,6 +45,10 @@ class AudioPlaybackService {
         private const val TEST_TONE_RATE = 48000
         private const val TEST_TONE_CHANNELS = 4
         private const val TEST_TONE_FRAME_SAMPLES = 480 // 10 ms
+        // Target AudioTrack ring-buffer depth for the phone-speaker path. WiFi
+        // delivers the PC's audio in bursts, so the track must hold a few frames
+        // to ride out the jitter instead of underrunning between packets.
+        private const val AUDIO_BUFFER_TARGET_MS = 80
     }
 
     private var audioTrack: AudioTrack? = null
@@ -231,7 +235,7 @@ class AudioPlaybackService {
         if (sampleRate > 0 && this.sampleRate != oldRate ||
             channels > 0 && this.channels != oldCh ||
             bitsPerSample > 0 && this.bitsPerSample != oldBits) {
-            recreateTrackIfNeeded()
+            recreateTrackIfNeeded(force = true)
         }
 
         if (pcm.isEmpty()) {
@@ -383,7 +387,6 @@ class AudioPlaybackService {
             for (idx in targets) {
                 val isVoiceCoil = idx == vcPcmIndex
                 val chunker = usbChunkers.getOrPut(idx) { UsbFrameChunker() }
-                var accepted = false
                 for (chunk in chunker.submit(resampledPcm)) {
                     val frame = ControllerAudioDsp.buildUsbFrame(
                         chunk, channels, 0, chunk.size / ControllerAudioDsp.BYTES_PER_USB_FRAME,
@@ -397,21 +400,12 @@ class AudioPlaybackService {
                     } else {
                         onControllerAudioPcm?.invoke(idx, frame) ?: false
                     }
-                    if (ok) accepted = true
                     logUsbPcmDiag(frame, isVoiceCoil, idx == caPcmIndex, ok)
                 }
-                if (!accepted && isVoiceCoil) {
-                    val m0 = if (voiceCoilSwap) rightAmp else leftAmp
-                    val m1 = if (voiceCoilSwap) leftAmp else rightAmp
-                    if (m0 > 1 || m1 > 1) {
-                        onControllerMotorOutput?.invoke(idx, m0, m1)
-                        lastControllerMotorActive = true
-                        lastControllerMotorIndex = idx
-                    } else if (lastControllerMotorActive) {
-                        onControllerMotorOutput?.invoke(lastControllerMotorIndex, 0, 0)
-                        lastControllerMotorActive = false
-                    }
-                }
+                // Never fall back to the HID rumble report here: the target
+                // controller exposes the audio-haptics endpoint, and a HID motor
+                // report would switch it out of audio-haptics mode every time it
+                // briefly failed to accept a frame (audio/rumble ping-pong).
             }
             // Notify backend about voice-coil activity for rumble conflict resolution.
             onVoiceCoilAmplitudes?.invoke(leftAmp, rightAmp)
@@ -458,9 +452,18 @@ class AudioPlaybackService {
         recreateTrackIfNeeded()
         val track = audioTrack ?: return
 
-        val written = track.write(outBytes, 0, outBytes.size, AudioTrack.WRITE_NON_BLOCKING)
-        if (written <= 0) {
-            Log.e(TAG, "write failed: pcm=${pcm.size} stereo=$stereoSize written=$written")
+        // Blocking write: never drop PCM. A full ring buffer simply paces this
+        // thread to real time (the same back-pressure the reference moonlight
+        // renderer relies on). The old WRITE_NON_BLOCKING call silently discarded
+        // the tail of every frame once the buffer was full, which was heard as
+        // continuous stutter.
+        try {
+            val written = track.write(outBytes, 0, outBytes.size)
+            if (written < 0) {
+                Log.e(TAG, "write error: $written (pcm=${pcm.size} stereo=$stereoSize)")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "write failed: pcm=${pcm.size} stereo=$stereoSize", e)
         }
     }
 
@@ -517,16 +520,19 @@ class AudioPlaybackService {
         )
     }
 
-    private fun recreateTrackIfNeeded() {
+    private fun recreateTrackIfNeeded(force: Boolean = false) {
         synchronized(this) {
-            if (audioTrack != null && audioTrack?.state == AudioTrack.STATE_INITIALIZED) {
+            if (!force && audioTrack != null && audioTrack?.state == AudioTrack.STATE_INITIALIZED) {
                 return
             }
 
             try {
+                audioTrack?.pause()
+                audioTrack?.flush()
                 audioTrack?.stop()
                 audioTrack?.release()
             } catch (_: Exception) {}
+            audioTrack = null
 
             val attr = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_GAME)
@@ -546,10 +552,19 @@ class AudioPlaybackService {
                 return
             }
 
-            val bufSize = minBufSize
-            Log.d(TAG, "AudioTrack: rate=$sampleRate buf=$bufSize min=$minBufSize")
+            // Deep enough to absorb network jitter, never smaller than what the
+            // device requires. Buffering the equivalent of AUDIO_BUFFER_TARGET_MS
+            // of stereo audio keeps the blocking writer from underrunning.
+            val targetBufSize = sampleRate * 2 * 2 * AUDIO_BUFFER_TARGET_MS / 1000
+            val bufSize = maxOf(minBufSize, targetBufSize)
+            Log.d(TAG, "AudioTrack: rate=$sampleRate buf=$bufSize (min=$minBufSize)")
 
-            val track = AudioTrack(attr, format, bufSize, AudioTrack.MODE_STREAM, 0)
+            val track = AudioTrack.Builder()
+                .setAudioAttributes(attr)
+                .setAudioFormat(format)
+                .setTransferMode(AudioTrack.MODE_STREAM)
+                .setBufferSizeInBytes(bufSize)
+                .build()
             if (track.state != AudioTrack.STATE_INITIALIZED) {
                 Log.e(TAG, "AudioTrack init failed: ${track.state}")
                 track.release()
