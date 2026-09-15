@@ -592,6 +592,10 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
             _lastTriggerTypeL, _lastTriggerTypeR,
             _lastTriggerDataL, _lastTriggerDataR,
             _lastTriggerActive, r, g, b, playerPattern,
+            // While the voice coil is streaming, the report must not carry the
+            // motor flags: that would switch the DS5 back to compatible-vibration
+            // mode and cut off audio haptics (the audio/rumble ping-pong).
+            !voiceCoilActive,
         )
         controller.sendCommand(report)
     }

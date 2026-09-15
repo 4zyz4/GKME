@@ -171,6 +171,12 @@ public final class DualSenseOutputReport {
      * Builds a combined rumble + trigger effects + lightbar + player indicator report.
      * All fields are packed into a single 48-byte 0x02 HID output report, sent in one bulkTransfer.
      * Caller is responsible for pre-scaling motor values (0-65535 range, ready for >> 8).
+     *
+     * <p>[enableRumble] must be false while the controller's audio-haptics (voice-coil)
+     * endpoint is streaming. The DualSense treats a report carrying the motor flags
+     * (COMPATIBLE_VIBRATION / HAPTICS_SELECT) as a switch into compatible-vibration mode,
+     * which immediately stops audio haptics; omitting the flags lets trigger and lightbar
+     * updates through without disturbing the audio path.
      */
     public static byte[] compactFrame(
             int lowMotor, int highMotor,
@@ -178,10 +184,11 @@ public final class DualSenseOutputReport {
             byte[] triggerDataLeft, byte[] triggerDataRight,
             boolean hasTriggers,
             byte ledRed, byte ledGreen, byte ledBlue,
-            int playerLedPattern) {
+            int playerLedPattern,
+            boolean enableRumble) {
         byte[] report = emptyReport();
-        // Build VALID_FLAG0: rumble (0x03) + trigger flags
-        byte flag0 = ENABLE_RUMBLE;
+        // Build VALID_FLAG0: rumble (0x03, only when allowed) + trigger flags
+        byte flag0 = enableRumble ? ENABLE_RUMBLE : 0;
         if (hasTriggers) {
             flag0 |= ENABLE_LEFT_TRIGGER;
             flag0 |= ENABLE_RIGHT_TRIGGER;
@@ -195,7 +202,7 @@ public final class DualSenseOutputReport {
             }
         }
         report[VALID_FLAG0_INDEX] = flag0;
-        // Motor intensities
+        // Motor intensities (ignored by the pad unless flag0 carries ENABLE_RUMBLE)
         report[RIGHT_MOTOR_INDEX] = (byte) (highMotor >> 8);
         report[LEFT_MOTOR_INDEX] = (byte) (lowMotor >> 8);
         // Lightbar (VALID_FLAG1 bit 0x04)

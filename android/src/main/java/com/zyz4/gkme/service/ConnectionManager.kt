@@ -109,11 +109,12 @@ class ConnectionManager @Inject constructor(
 
     // Audio DSP runs on its own thread so a burst of audio frames can never block
     // the UDP receive loop (which also carries vibration/LED/control messages).
-    // The bounded queue drops the oldest frame when the producer outruns the DSP,
-    // which is the right trade-off for real-time audio.
+    // The write into AudioTrack is blocking, so this thread now paces itself to
+    // real time. The queue absorbs WiFi bursts; DiscardOldestPolicy stays as a
+    // last-resort latency bound (drop the stalest frame, not the newest).
     private val audioExecutor = ThreadPoolExecutor(
         1, 1, 0L, TimeUnit.MILLISECONDS,
-        ArrayBlockingQueue(8),
+        ArrayBlockingQueue(16),
         { r -> Thread(r, "GkmeAudioDsp").apply { isDaemon = true } },
         ThreadPoolExecutor.DiscardOldestPolicy(),
     )
