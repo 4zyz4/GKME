@@ -8,6 +8,7 @@ import android.os.BatteryManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.zyz4.gkme.data.LayoutRepository
+import com.zyz4.gkme.input.AccelSteeringMapper
 import com.zyz4.gkme.input.SensorHandler
 import com.zyz4.gkme.input.toProto
 import com.zyz4.gkme.model.AudioOutput
@@ -620,6 +621,11 @@ class GkViewModel @Inject constructor(
     private var _controllerWorldDx = 0f
     private var _controllerWorldDy = 0f
 
+    // Accelerometer -> stick (steering wheel) mappers; one per sensor source.
+    private val phoneAccelMapper = AccelSteeringMapper()
+    private val controllerAccelMapper = AccelSteeringMapper()
+    private var accelMapperKey: String? = null
+
     fun startServer() {
         connectionManager.startServer(viewModelScope)
         connectionManager.onMouseReport = { button, dx, dy, wheel, hWheel ->
@@ -777,7 +783,6 @@ class GkViewModel @Inject constructor(
                 // sensor.gyroX = 俯仰(Pitch), sensor.gyroY = 偏航(Yaw), sensor.gyroZ = 滚转(Roll)
                 // Original mapping: mouseX = -gyroY(Yaw→水平), mouseY = -gyroX(Pitch→垂直)
                 // mappedX = 最终输出到水平轴的值, mappedY = 最终输出到垂直轴的值
-                val baseDirection = s.gyroBaseDirection
                 val coordinateSystem = s.gyroCoordinateSystem
                 val (gx, gy, gz) = if (actualGyroEnabled) {
                     if (!useControllerGyro) {
@@ -861,35 +866,46 @@ class GkViewModel @Inject constructor(
                 }
 
                 val gyroMode = s.gyroMode
+                val accelMode = gyroMode == GyroMode.ACCELEROMETER_LEFT_STICK ||
+                    gyroMode == GyroMode.ACCELEROMETER_RIGHT_STICK
+
+                // Re-arm the wheel trackers whenever the hold/orientation/mode changes so the
+                // accumulated angle and low-pass state start from the current posture.
+                val accelKey = "${s.gyroBaseDirection}|${sensorHandler.gyroOrientation}|" +
+                    "${sensorHandler.isDeviceInverted}|$accelMode"
+                if (accelKey != accelMapperKey) {
+                    phoneAccelMapper.reset()
+                    controllerAccelMapper.reset()
+                    accelMapperKey = accelKey
+                }
 
                 var accelLx = 0f
                 var accelLy = 0f
                 var accelRx = 0f
                 var accelRy = 0f
-                if (actualGyroEnabled) {
-                    val accelSens = s.gyroModeSensitivity / 100f
+                if (actualGyroEnabled && accelMode) {
+                    val mapper = if (useControllerGyro) controllerAccelMapper else phoneAccelMapper
                     val (aX, aY, aZ) = if (useControllerGyro) {
                         Triple(_gamepadState.value.accelX, _gamepadState.value.accelY, _gamepadState.value.accelZ)
                     } else {
                         Triple(sensor.accelX, sensor.accelY, sensor.accelZ)
                     }
-                    val gravMag = sqrt(aX * aX + aY * aY + aZ * aZ)
-                    val baseDirection = s.gyroBaseDirection
-                    if (gravMag > 0.1f) {
-                        if (baseDirection == GyroBaseDirection.VERTICAL) {
-                            accelLx = -(aX / gravMag) * accelSens * 32767f
-                            accelLy = -(aY / gravMag) * accelSens * 32767f
-                            accelRx = -(aX / gravMag) * accelSens * 32767f
-                            accelRy = -(aY / gravMag) * accelSens * 32767f
-                        } else {
-                            val axisX = aX
-                            val axisY = aZ
-                            accelLx = -(axisX / gravMag) * accelSens * 32767f
-                            accelLy = -(axisY / gravMag) * accelSens * 32767f
-                            accelRx = -(axisX / gravMag) * accelSens * 32767f
-                            accelRy = -(axisY / gravMag) * accelSens * 32767f
-                        }
-                    }
+                    val stick = mapper.update(
+                        aX, aY, aZ,
+                        s.gyroBaseDirection,
+                        sensorHandler.gyroOrientation,
+                        sensorHandler.isDeviceInverted,
+                        s.gyroModeSensitivity,
+                    )
+                    val ix = (stick.x * 32767f).toInt().coerceIn(-32768, 32767)
+                    val iy = (stick.y * 32767f).toInt().coerceIn(-32768, 32767)
+                    accelLx = ix.toFloat()
+                    accelLy = iy.toFloat()
+                    accelRx = ix.toFloat()
+                    accelRy = iy.toFloat()
+                } else {
+                    phoneAccelMapper.reset()
+                    controllerAccelMapper.reset()
                 }
 
                 val combinedLx = when (gyroMode) {
