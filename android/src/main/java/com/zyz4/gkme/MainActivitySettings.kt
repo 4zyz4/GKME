@@ -73,6 +73,7 @@ internal fun MainActivity.ensureSettingsInflated() {
 
 internal fun MainActivity.showSettings() {
     val a = this
+    if (a.isScreenOff) return
     if (a.gamepadLayout.isEditModeActive()) return
     a.ensureSettingsInflated()
     a.inSettings = true
@@ -1129,6 +1130,10 @@ internal fun MainActivity.setupMiscPage() {
         } else {
             a.window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
+    }
+
+    listOf(R.id.rowScreenOff, R.id.btnScreenOff).forEach { id ->
+        a.findViewById<View>(id).setOnClickListener { a.enterScreenOffMode() }
     }
 
     a.findViewById<View>(R.id.btnAddVolumeUp).setOnClickListener {
