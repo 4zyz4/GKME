@@ -172,6 +172,7 @@ class MainActivity : ComponentActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when {
+                    isScreenOff -> exitScreenOffMode()
                     previewZoomVisible -> hidePreviewZoom()
                     gamepadLayout.isEditModeActive() -> {
                         CustomDialog.showConfirm(
@@ -263,6 +264,7 @@ class MainActivity : ComponentActivity() {
     internal var addDialog: Dialog? = null
     internal var addCounter = 0
     internal var inSettings = false
+    internal var isScreenOff = false
     internal var currentSettingsCategory = 0
     internal var settingsInflated = false
     internal var outputPickerDialog: Dialog? = null
@@ -428,6 +430,40 @@ class MainActivity : ComponentActivity() {
 
     internal fun showToast(msg: String) {
         CustomDialog.showToast(this, msg)
+    }
+
+    // ── Screen off mode ────────────────────────────────────
+
+    /** Enters screen-off mode: the screen is covered with pure black while the invisible
+     *  touch gamepad keeps working. The settings button is disabled until the user leaves
+     *  with the back key or back gesture. */
+    internal fun enterScreenOffMode() {
+        val a = this
+        if (a.isScreenOff || a.gamepadLayout.isEditModeActive()) return
+        if (a.inSettings) a.hideSettings()
+        a.isScreenOff = true
+        a.findViewById<View>(R.id.screenOffOverlay).visibility = View.VISIBLE
+        a.setSettingsButtonEnabled(false)
+        a.showToast("使用返回键或返回手势退出")
+    }
+
+    internal fun exitScreenOffMode() {
+        val a = this
+        if (!a.isScreenOff) return
+        a.isScreenOff = false
+        a.findViewById<View>(R.id.screenOffOverlay).visibility = View.GONE
+        a.setSettingsButtonEnabled(true)
+    }
+
+    internal fun setSettingsButtonEnabled(enabled: Boolean) {
+        val a = this
+        for (i in 0 until a.gamepadLayout.childCount) {
+            val child = a.gamepadLayout.getChildAt(i)
+            if (child.tag == GamepadLayout.SETTINGS_BUTTON_ID) {
+                child.isEnabled = enabled
+                child.isClickable = enabled
+            }
+        }
     }
 
     // ── Haptic ─────────────────────────────────────────────
