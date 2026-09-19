@@ -515,7 +515,6 @@ internal fun MainActivity.setupSettings() {
                 if (driver == a.viewModel.settings.value.controllerDriver) return
                 a.viewModel.updateControllerDriver(driver)
                 a.physicalControllerHandler.setDriver(driver)
-                a.showToast("已切换到「${driver.displayName}」，正在重新连接手柄")
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {
                 a.controllerDriverUserSelecting = false
