@@ -330,30 +330,18 @@ override fun dispatchEdit(
             val rs = state.childResizeStart
             val gx = (x / cellW).toInt().coerceAtLeast(0)
             val gy = (y / cellH).toInt().coerceAtLeast(0)
-            val dx = gx - rs.resizeStartGridX
-            val dy = gy - rs.resizeStartGridY
+            val screenDx = (gx - rs.resizeStartGridX).toFloat()
+            val screenDy = (gy - rs.resizeStartGridY).toFloat()
             val oldPos = buttons.find { it.id == rs.buttonId } ?: return EditDispatchResult(commands, state)
-            
-            val rot = oldPos.rotation % 360
-            val screenDx = dx.toFloat()
-            val screenDy = dy.toFloat()
-            val localDx = when (rot) {
-                90  ->  screenDy
-                180 -> -screenDx
-                270 -> -screenDy
-                else -> screenDx
-            }
-            val localDy = when (rot) {
-                90  -> -screenDx
-                180 -> -screenDy
-                270 -> screenDx
-                else -> screenDy
-            }
-            
-            val localCurrentX = rs.localStartX + localDx
-            val localCurrentY = rs.localStartY + localDy
-            var nw = localCurrentX.coerceAtLeast(1f)
-            var nh = localCurrentY.coerceAtLeast(1f)
+
+            // The visual top-left is always anchored at (pos.x, pos.y) and the handle sits at the
+            // visual bottom-right. Track the finger in screen space, then map back to local
+            // width/height (90/270 swap the on-screen width/height for non-aspect-locked buttons).
+            val isSwapped = !oldPos.lockAspect && (oldPos.rotation % 360 in listOf(90, 270))
+            val screenW = (rs.localStartX + screenDx).coerceAtLeast(1f)
+            val screenH = (rs.localStartY + screenDy).coerceAtLeast(1f)
+            var nw = if (isSwapped) screenH else screenW
+            var nh = if (isSwapped) screenW else screenH
             if (oldPos.lockAspect) {
                 val side = maxOf(nw, nh); nw = side; nh = side
             }

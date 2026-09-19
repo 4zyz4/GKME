@@ -108,7 +108,7 @@ object AppearanceApplier {
                     child.updateFromButton(pos)
                     applyToButtonWithColor(child, settings, false, density)
                 }
-                baseId == "touchpad" -> applyToTouchpad(child, settings)
+                baseId == "touchpad" || baseId == "mousepad" -> applyToTouchpad(child, settings)
                 else -> applyToButton(child, settings)
             }
         }

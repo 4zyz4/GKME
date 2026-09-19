@@ -879,6 +879,7 @@ class GamepadLayout @JvmOverloads constructor(
     fun exitEditMode() {
         gamepadEditGesture.reset()
         isEditMode = false
+        blockSelectionForGlobalSettings = false
         selectedButtonId = null
         isAdjustingFollowArea = false
         adjustingFollowAreaId = null
@@ -993,9 +994,7 @@ class GamepadLayout @JvmOverloads constructor(
             if (id != adjustingFollowAreaId) return
         }
         // Prevent selection during global gyro settings
-        if (blockSelectionForGlobalSettings) {
-            if (selectedButtonId != null) return
-        }
+        if (blockSelectionForGlobalSettings) return
         if (selectedButtonId != id) {
             selectedButtonId = id
             syncJoystickSelection()
