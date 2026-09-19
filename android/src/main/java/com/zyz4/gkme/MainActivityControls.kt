@@ -15,6 +15,7 @@ import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.model.ConnectionMode
 import com.zyz4.gkme.model.DisplayMode
 import com.zyz4.gkme.model.GamepadState
+import com.zyz4.gkme.model.MouseGestureAction
 import com.zyz4.gkme.model.TouchPoint
 import com.zyz4.gkme.view.CustomKeypadView
 import com.zyz4.gkme.view.DpadPadView
@@ -888,12 +889,17 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
  * (exactly like Mousedroid's GestureHandler on the touchpadSensor View).
  * Works regardless of pointer capture / connection mode.
  *
- * Gesture map:
- *   Single-finger slide  → cursor movement (Bluetooth HID)
- *   Two-finger slide    → vertical/horizontal scroll
- *   Single-finger tap    → left click (no highlight, no vibration)
- *   Double-tap           → left button hold-down (highlight + vibration, release on finger up)
- *   Two-finger tap       → right click
+ * 手势动作由布局中的“触摸板（鼠标）”控件配置（[ButtonPosition] 的
+ * singleTapAction / twoFingerTapAction / threeFingerTapAction /
+ * doubleTapDragAction / oneFingerSwipeAction / twoFingerSwipeAction /
+ * threeFingerSwipeAction），默认值为：
+ *   单击             → 左键点击
+ *   双指点击         → 右键点击
+ *   三指点击         → 中键点击
+ *   双击后滑动       → 左键拖拽
+ *   单指滑动         → 移动光标
+ *   双指滑动         → 滚动
+ *   三指滑动         → 滚动
  */
 @SuppressLint("ClickableViewAccessibility")
 internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
@@ -912,17 +918,15 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
 @SuppressLint("ClickableViewAccessibility")
 internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boolean): View.OnTouchListener {
     val a = this
-    var isDoubleTapPress = false     // 左键是否保持按下（双击按住）
-    var lastTapDownTime = 0L        // 第一击按下时刻，用于 150ms 双击窗口
-    var gestureMoved = false        // 本次单指手势是否明显移动
-    var singleClickUp: Runnable? = null  // 第一击单击的延迟释放（可被第二击取消）
     var heldButtons = 0             // 当前按住的鼠标键位（绝对状态）
-    var longPressFired = false      // 长按计时器是否已触发（开始按住拖拽）
-    var longPressRunnable: Runnable? = null  // 长按计时器
-    var multiTouch = false          // 本次手势是否涉及多指（双指滚动/右键）
-    var threeFingerGesture = false  // 是否处于三指手势状态（中键按下）
-    var twoFingerMoved = false      // 双指手势是否产生明显位移（滚动而非轻触）
-    var tracked = 0                 // 当前按在 mousepad 上的手指数（自有计数）
+    var activeDragBit = 0           // 当前拖拽动作按下的键位（0=无）
+    var gestureMaxPointers = 0      // 本次手势中同时按下的最大手指数
+    var gestureMoved = false        // 本次手势是否明显移动（区分点击与滑动）
+    var lastSingleTapUpTime = 0L    // 上一次单指轻点抬起时刻（双击判定）
+    var doubleTapArmed = false      // 第二击已按下，滑动时执行“双击后滑动”动作
+    var pendingClickRelease: Runnable? = null  // 单击后延迟释放（可被第二击取消以衔接拖拽）
+    var pendingClickBit = 0         // 待释放的单击键位（0=无）
+    val HOLD_FOR_DOUBLE_MS = 200L   // 可衔接拖拽时单击的按住时长
     val SCROLL_SENSITIVITY = 0.3f  // 滚动灵敏度默认值（像素 -> 滚轮单位，越小越慢）
     var wheelAccumX = 0f           // 双指滚动的水平/垂直累积量（传统滚动，降灵敏度用）
     var wheelAccumY = 0f
@@ -933,9 +937,16 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
     var scrollSens = SCROLL_SENSITIVITY // 滚动灵敏度（来自布局配置）
     var invertScrollV = false      // 反转纵向滚动方向（来自布局配置）
     var invertScrollH = false      // 反转横向滚动方向（来自布局配置）
-    var doubleTapEnabled = true    // 双击按下功能开关（来自布局配置）
+    // ── 手势动作（来自布局配置，默认值见 MouseGestureAction）──
+    var singleTapAction = MouseGestureAction.LEFT_CLICK
+    var twoFingerTapAction = MouseGestureAction.RIGHT_CLICK
+    var threeFingerTapAction = MouseGestureAction.MIDDLE_CLICK
+    var doubleTapDragAction = MouseGestureAction.LEFT_DRAG
+    var oneFingerSwipeAction = MouseGestureAction.MOVE_CURSOR
+    var twoFingerSwipeAction = MouseGestureAction.SCROLL
+    var threeFingerSwipeAction = MouseGestureAction.SCROLL
     val tapThreshold = 200L        // 单击判定阈值：手指按住小于此值算单击
-    var clickHoldTime = 200L       // 模拟点击的按住时长（按下→释放的间隔）
+    val clickHoldTime = 40L        // 模拟点击的按住时长（按下→释放的间隔）
 
     // per-pointer down times for right-click detection
     val pointerDownTimes = mutableMapOf<Int, Long>()
@@ -944,7 +955,7 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
     val prevY = mutableMapOf<Int, Float>()
 
     val DOUBLE_TAP_WINDOW = 200L   // 第一击按下后一定时间的再次轻点 -> 潜在双击/按住拖动
-    val MOVE_SLOP = 8f             // 区分点击与拖动的最小位移
+    val MOVE_SLOP = 4f             // 区分点击与拖动的最小位移
 
     fun readConfig() {
         if (!useConfig) return
@@ -957,8 +968,13 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
         scrollSens = pos.scrollSensitivity
         invertScrollV = pos.invertScrollV
         invertScrollH = pos.invertScrollH
-        doubleTapEnabled = pos.doubleClickEnable
-        clickHoldTime = if (doubleTapEnabled) 200L else 60L
+        singleTapAction = pos.singleTapAction
+        twoFingerTapAction = pos.twoFingerTapAction
+        threeFingerTapAction = pos.threeFingerTapAction
+        doubleTapDragAction = pos.doubleTapDragAction
+        oneFingerSwipeAction = pos.oneFingerSwipeAction
+        twoFingerSwipeAction = pos.twoFingerSwipeAction
+        threeFingerSwipeAction = pos.threeFingerSwipeAction
     }
 
     fun press(bit: Int) {
@@ -968,6 +984,34 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
     fun release(bit: Int) {
         heldButtons = heldButtons and bit.inv()
         a.sendMouseReportDirect(buttonDown = heldButtons, buttonUp = 0, dx = 0, dy = 0)
+    }
+    fun releaseAll() {
+        if (heldButtons != 0) {
+            heldButtons = 0
+            a.sendMouseReportAbsolute(0)
+        }
+        activeDragBit = 0
+    }
+    /**
+     * 发送一次点击（按下后延迟释放）。[trackForDouble] 为 true 时记录待释放
+     * 状态，第二击按下时可取消释放，使按键保持以无缝衔接“双击后滑动”。
+     */
+    fun click(bit: Int, holdMs: Long = clickHoldTime, trackForDouble: Boolean = false) {
+        press(bit)
+        val r = object : Runnable {
+            override fun run() {
+                release(bit)
+                if (pendingClickRelease === this) {
+                    pendingClickRelease = null
+                    pendingClickBit = 0
+                }
+            }
+        }
+        if (trackForDouble) {
+            pendingClickRelease = r
+            pendingClickBit = bit
+        }
+        _mainHandler.postDelayed(r, holdMs)
     }
     fun moveRaw(rawDx: Float, rawDy: Float) {
         var dx = rawDx
@@ -1016,9 +1060,89 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
             iy -= sy
         }
     }
-    fun cancelSingleClick() {
-        singleClickUp?.let { _mainHandler.removeCallbacks(it) }
-        singleClickUp = null
+    /** 双指/三指滑动的滚动处理（含布局旋转、反转与 WiFi 缩放）。 */
+    fun doScroll(rawDx: Float, rawDy: Float) {
+        var scrollDx = rawDx
+        var scrollDy = rawDy
+        if (useConfig) {
+            val id = mp.tag as? String
+            val pos = if (id != null) a.gamepadLayout.currentButtons.find { it.id == id } else null
+            if (pos != null) {
+                val rot = pos.rotation % 360
+                if (rot == 90) {
+                    val tmp = scrollDy
+                    scrollDy = -scrollDx
+                    scrollDx = tmp
+                } else if (rot == 180) {
+                    scrollDx = -scrollDx
+                    scrollDy = -scrollDy
+                } else if (rot == 270) {
+                    val tmp = scrollDy
+                    scrollDy = scrollDx
+                    scrollDx = -tmp
+                }
+            }
+        }
+        val sDy = if (invertScrollV) -scrollDy else scrollDy
+        val sDx = if (invertScrollH) scrollDx else -scrollDx
+        val wifiScrollFactor = if (a.viewModel.settings.value.connectionMode == ConnectionMode.WIFI) 33f else 1f
+        wheelAccumY += sDy * scrollSens * wifiScrollFactor
+        wheelAccumX += sDx * scrollSens * wifiScrollFactor
+        val wY = wheelAccumY.toInt().coerceIn(-127, 127)
+        val wX = wheelAccumX.toInt().coerceIn(-127, 127)
+        wheelAccumY -= wY
+        wheelAccumX -= wX
+        if (wX != 0 || wY != 0) {
+            a.sendMouseReportDirect(
+                buttonDown = 0, buttonUp = 0, dx = 0, dy = 0,
+                wheel = wY.toByte(), hWheel = wX.toByte()
+            )
+        }
+    }
+
+    /** 连续滑动手势：移动光标 / 拖拽 / 滚动。 */
+    fun applySwipe(action: MouseGestureAction, dx: Float, dy: Float) {
+        when (action) {
+            MouseGestureAction.MOVE_CURSOR -> moveRaw(dx, dy)
+            MouseGestureAction.SCROLL -> doScroll(dx, dy)
+            MouseGestureAction.LEFT_DRAG -> {
+                if (activeDragBit == 0) { activeDragBit = 1; press(1) }
+                moveRaw(dx, dy)
+            }
+            MouseGestureAction.RIGHT_DRAG -> {
+                if (activeDragBit == 0) { activeDragBit = 2; press(2) }
+                moveRaw(dx, dy)
+            }
+            MouseGestureAction.MIDDLE_DRAG -> {
+                if (activeDragBit == 0) { activeDragBit = 4; press(4) }
+                moveRaw(dx, dy)
+            }
+            else -> {}
+        }
+    }
+
+    /** 点击手势：左键 / 右键 / 中键。 */
+    fun applyTap(action: MouseGestureAction, holdMs: Long = clickHoldTime, trackForDouble: Boolean = false) {
+        when (action) {
+            MouseGestureAction.LEFT_CLICK -> click(1, holdMs, trackForDouble)
+            MouseGestureAction.RIGHT_CLICK -> click(2, holdMs, trackForDouble)
+            MouseGestureAction.MIDDLE_CLICK -> click(4, holdMs, trackForDouble)
+            else -> {}
+        }
+    }
+
+    fun swipeActionFor(count: Int): MouseGestureAction = when (count) {
+        1 -> if (doubleTapArmed) doubleTapDragAction else oneFingerSwipeAction
+        2 -> twoFingerSwipeAction
+        3 -> threeFingerSwipeAction
+        else -> MouseGestureAction.NONE
+    }
+
+    fun tapActionFor(count: Int): MouseGestureAction = when (count) {
+        1 -> singleTapAction
+        2 -> twoFingerTapAction
+        3 -> threeFingerTapAction
+        else -> MouseGestureAction.NONE
     }
 
     return View.OnTouchListener { _, event ->
@@ -1033,30 +1157,41 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                 prevX[pid] = event.getX(idx)
                 prevY[pid] = event.getY(idx)
                 gestureMoved = false
-                twoFingerMoved = false
-                multiTouch = false
-                tracked = 1
+                gestureMaxPointers = 1
+                wheelAccumX = 0f
+                wheelAccumY = 0f
                 cursorAccumX = 0f
                 cursorAccumY = 0f
-                longPressRunnable?.let { _mainHandler.removeCallbacks(it) }
-                longPressRunnable = null
-                longPressFired = false
                 readConfig()
 
-                val isPotentialDouble = doubleTapEnabled && lastTapDownTime > 0 &&
-                        (event.eventTime - lastTapDownTime) < DOUBLE_TAP_WINDOW
-                lastTapDownTime = event.eventTime
+                // 距上一次单指轻点足够近 -> 本次视为双击的第二击
+                doubleTapArmed = doubleTapDragAction != MouseGestureAction.NONE &&
+                        lastSingleTapUpTime > 0 &&
+                        (event.eventTime - lastSingleTapUpTime) < DOUBLE_TAP_WINDOW
+                lastSingleTapUpTime = 0L
 
-                if (isPotentialDouble) {
-                    cancelSingleClick()
-                    isDoubleTapPress = true
+                if (doubleTapArmed) {
+                    // 取消上一击的延迟释放，使按键保持，无缝衔接“双击后滑动”
+                    pendingClickRelease?.let { _mainHandler.removeCallbacks(it) }
+                    pendingClickRelease = null
+                    val dragBit = when (doubleTapDragAction) {
+                        MouseGestureAction.LEFT_DRAG -> 1
+                        MouseGestureAction.RIGHT_DRAG -> 2
+                        MouseGestureAction.MIDDLE_DRAG -> 4
+                        else -> 0
+                    }
+                    // 上一击按住的键位与拖拽键位不同则先释放
+                    if (pendingClickBit != 0 && pendingClickBit != dragBit) {
+                        release(pendingClickBit)
+                    }
+                    pendingClickBit = 0
+                    if (dragBit != 0) {
+                        activeDragBit = dragBit
+                        press(dragBit)
+                    }
                     mp.isPressed = true
                     mousepadHighlight(mp, true, a)
                     a.performHaptic(isPress = true)
-                    press(1)
-                } else {
-// 单指普通按下：不再启动长按计时器，单指长按不移动不触发任何操作
-                    longPressFired = false
                 }
             }
             MotionEvent.ACTION_POINTER_DOWN -> {
@@ -1065,43 +1200,23 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                 pointerDownTimes[pid] = event.eventTime
                 prevX[pid] = event.getX(idx)
                 prevY[pid] = event.getY(idx)
-                twoFingerMoved = false
-                multiTouch = true
-                gestureMoved = false
-                tracked = pointerCount
+                if (pointerCount > gestureMaxPointers) gestureMaxPointers = pointerCount
                 wheelAccumX = 0f
                 wheelAccumY = 0f
-                // 第二指落下 -> 不再是单指长按拖拽
-                longPressRunnable?.let { _mainHandler.removeCallbacks(it) }
-                longPressRunnable = null
-                longPressFired = false
-                if (singleClickUp != null) {
-                    cancelSingleClick()
-                    release(1)
-                }
-                if (isDoubleTapPress) {
-                    release(1)
-                    isDoubleTapPress = false
+                // 第二指落下：取消“双击后滑动”保持，避免按键卡住
+                if (doubleTapArmed) {
+                    if (activeDragBit != 0) { release(activeDragBit); activeDragBit = 0 }
+                    doubleTapArmed = false
                     mp.isPressed = false
                     mousepadHighlight(mp, false, a)
-                    a.performHaptic(isPress = false)
-                }
-                // 三指同时按下 -> 按下中键
-                if (tracked == 3 && !twoFingerMoved) {
-                    threeFingerGesture = true
                 }
             }
             MotionEvent.ACTION_POINTER_UP -> {
-                // 经 touchpad 派发后，抬指通常以 ACTION_UP（单指）送达，
-                // 这里仅做状态清理，右键判定放在 ACTION_UP 中按 tracked 处理。
                 val idx = event.actionIndex
                 val liftedPid = event.getPointerId(idx)
                 pointerDownTimes.remove(liftedPid)
                 prevX.remove(liftedPid)
                 prevY.remove(liftedPid)
-                // 三指抬起 -> 不做操作，中键点击由ACTION_UP处理
-                val newTracked = tracked - 1
-                if (tracked > 0) tracked = newTracked
             }
             MotionEvent.ACTION_MOVE -> {
                 var totalDx = 0f
@@ -1122,74 +1237,17 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                     totalDx /= count
                     totalDy /= count
                 }
+                if (count > gestureMaxPointers) gestureMaxPointers = count
 
                 if (!gestureMoved &&
                     (Math.abs(totalDx) + Math.abs(totalDy)) > MOVE_SLOP) {
                     gestureMoved = true
-                    // 滑动（非按住拖拽）：取消长按计时器
-                    longPressRunnable?.let { _mainHandler.removeCallbacks(it) }
-                    longPressRunnable = null
                 }
-
-                if (count == 2 || count == 3) {
-                    multiTouch = true
-                    tracked = pointerCount
-                    if (count == 3) {
-                        threeFingerGesture = true
-                    }
-                    if ((Math.abs(totalDx) + Math.abs(totalDy)) > MOVE_SLOP) {
-                        twoFingerMoved = true
-                    }
-                    var scrollDx = totalDx
-                    var scrollDy = totalDy
-                    if (useConfig) {
-                        val id = mp.tag as? String ?: ""
-                        val pos = a.gamepadLayout.currentButtons.find { it.id == id }
-                        if (pos != null) {
-                            val rot = pos.rotation % 360
-                            if (rot == 90) {
-                                val tmp = scrollDy
-                                scrollDy = (-scrollDx)
-                                scrollDx = tmp
-                            } else if (rot == 180) {
-                                scrollDx = -scrollDx
-                                scrollDy = -scrollDy
-                            } else if (rot == 270) {
-                                val tmp = scrollDy
-                                scrollDy = scrollDx
-                                scrollDx = -tmp
-                            }
-                        }
-                    }
-                    val sDy = if (invertScrollV) -scrollDy else scrollDy
-                    val sDx = if (invertScrollH) scrollDx else -scrollDx
-                    val wifiScrollFactor = if (a.viewModel.settings.value.connectionMode == ConnectionMode.WIFI) 33f else 1f
-                    wheelAccumY += sDy * scrollSens * wifiScrollFactor
-                    wheelAccumX += sDx * scrollSens * wifiScrollFactor
-                    val wY = wheelAccumY.toInt().coerceIn(-127, 127)
-                    val wX = wheelAccumX.toInt().coerceIn(-127, 127)
-                    wheelAccumY -= wY
-                    wheelAccumX -= wX
-                    if (wX != 0 || wY != 0) {
-                        twoFingerMoved = true
-                        a.sendMouseReportDirect(
-                            buttonDown = 0, buttonUp = 0, dx = 0, dy = 0,
-                            wheel = wY.toByte(), hWheel = wX.toByte()
-                        )
-                    }
-                } else if (isDoubleTapPress) {
-                    moveRaw(totalDx, totalDy)
-                } else if (count == 1) {
-                    moveRaw(totalDx, totalDy)
+                if (gestureMoved) {
+                    applySwipe(swipeActionFor(count), totalDx, totalDy)
                 }
             }
             MotionEvent.ACTION_UP -> {
-                cancelSingleClick()
-                // 强制释放所有按钮，防止状态残留
-                if (heldButtons != 0) {
-                    heldButtons = 0
-                    a.sendMouseReportAbsolute(0)
-                }
                 val pid = event.getPointerId(event.actionIndex)
                 val downTime = pointerDownTimes[pid] ?: event.downTime
                 val dur = event.eventTime - downTime
@@ -1197,93 +1255,64 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                 prevX.remove(pid)
                 prevY.remove(pid)
 
-                if (multiTouch) {
-                    if (threeFingerGesture) {
-                        // 三指手势：最后一指抬起 -> 中键点击
-                        if (!twoFingerMoved) {
-                            a.sendMouseTap(button = 2, currentHeldButtons = heldButtons)
-                        }
-                    } else if (tracked >= 2 && !twoFingerMoved) {
-                        // 双指手势：第一指抬起且未滚动 -> 右键
-                        a.sendMouseTap(button = 1, currentHeldButtons = heldButtons)
-                    }
-                    tracked -= 1
-                    if (tracked <= 0) {
-                        multiTouch = false
-                        threeFingerGesture = false
-                        twoFingerMoved = false
-                        gestureMoved = false
-                        tracked = 0
-                        wheelAccumX = 0f
-                        wheelAccumY = 0f
-                        cursorAccumX = 0f
-                        cursorAccumY = 0f
-                    }
-                } else if (isDoubleTapPress) {
-                    release(1)
-                    isDoubleTapPress = false
+                val wasTap = !gestureMoved && dur < tapThreshold
+
+                // 先结束拖拽保持（点击会重新按下）
+                if (activeDragBit != 0) {
+                    release(activeDragBit)
+                    activeDragBit = 0
+                }
+                if (doubleTapArmed) {
                     mp.isPressed = false
                     mousepadHighlight(mp, false, a)
                     a.performHaptic(isPress = false)
-                    // 第二次轻点很快抬起且无大范围滑动 -> 追加一次点击，模拟双击
-                    if (!gestureMoved && dur < tapThreshold) {
-                        press(1)
-                        release(1)
-                    }
-                } else {
-                    // 单指抬起（非双指、非双击按住）
-                    if (longPressFired) {
-                        // 长按拖拽结束 -> 释放按住的左键
-                        release(1)
-                        longPressFired = false
-                        mp.isPressed = false
-                        mousepadHighlight(mp, false, a)
-                    } else {
-                        // 长按计时器未触发：确保已取消
-                        longPressRunnable?.let { _mainHandler.removeCallbacks(it) }
-                        longPressRunnable = null
-                        if (!gestureMoved && dur < tapThreshold) {
-                            // 轻点 -> 点击（按下后短暂保持再释放，支持双击）
-                            press(1)
-                            lastTapDownTime = downTime
-                            val r = object : Runnable {
-                                override fun run() {
-                                    release(1)
-                                    singleClickUp = null
-                                }
-                            }
-                            singleClickUp = r
-                            _mainHandler.postDelayed(r, clickHoldTime)
+                }
+                if (wasTap) {
+                    if (gestureMaxPointers == 1) {
+                        if (doubleTapArmed) {
+                            // 第二击轻点：立即点击形成双击，不再衔接拖拽
+                            applyTap(singleTapAction)
+                        } else {
+                            lastSingleTapUpTime = event.eventTime
+                            // “双击后滑动”非“无”时，单击按住 200ms 并准备衔接拖拽
+                            val track = doubleTapDragAction != MouseGestureAction.NONE
+                            applyTap(
+                                singleTapAction,
+                                if (track) HOLD_FOR_DOUBLE_MS else clickHoldTime,
+                                track,
+                            )
                         }
+                    } else {
+                        applyTap(tapActionFor(gestureMaxPointers))
                     }
+                } else if (heldButtons != 0) {
+                    // 非点击手势的多余按键状态清理
+                    releaseAll()
                 }
-                if (!multiTouch) {
-                    tracked = 0
-                    twoFingerMoved = false
-                }
+                doubleTapArmed = false
+                gestureMoved = false
+                gestureMaxPointers = 0
+                wheelAccumX = 0f
+                wheelAccumY = 0f
+                cursorAccumX = 0f
+                cursorAccumY = 0f
             }
             MotionEvent.ACTION_CANCEL -> {
-                if (isDoubleTapPress) {
-                    release(1)
-                    isDoubleTapPress = false
+                if (doubleTapArmed) {
                     mp.isPressed = false
                     mousepadHighlight(mp, false, a)
                     a.performHaptic(isPress = false)
                 }
-                longPressRunnable?.let { _mainHandler.removeCallbacks(it) }
-                longPressRunnable = null
-                longPressFired = false
-                cancelSingleClick()
-                if (heldButtons != 0) {
-                    heldButtons = 0
-                    a.sendMouseReportDirect(buttonDown = 0, buttonUp = 0, dx = 0, dy = 0)
-                }
+                pendingClickRelease?.let { _mainHandler.removeCallbacks(it) }
+                pendingClickRelease = null
+                pendingClickBit = 0
+                releaseAll()
+                doubleTapArmed = false
+                gestureMoved = false
+                gestureMaxPointers = 0
                 pointerDownTimes.clear()
                 prevX.clear()
                 prevY.clear()
-                multiTouch = false
-                twoFingerMoved = false
-                tracked = 0
                 wheelAccumX = 0f
                 wheelAccumY = 0f
                 cursorAccumX = 0f
@@ -1299,19 +1328,6 @@ private fun mousepadHighlight(mp: FrameLayout, active: Boolean, a: MainActivity)
     val id = mp.tag as? String ?: return
     val pos = a.gamepadLayout.currentButtons.find { it.id == id } ?: return
     mp.alpha = 1f - ((if (active) pos.activeTransparency else pos.idleTransparency).coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
-}
-
-/** Send a mouse button tap (down then up). Works in both WiFi and Bluetooth. */
-private fun MainActivity.sendMouseTap(button: Int, currentHeldButtons: Int) {
-    val fullDown = currentHeldButtons or (1 shl button)
-    this.viewModel.connectionManager.sendMouseReport(
-        button = fullDown.toByte(), dx = 0, dy = 0, wheel = 0
-    )
-    _mainHandler.postDelayed(Runnable {
-        this.viewModel.connectionManager.sendMouseReport(
-            button = currentHeldButtons.toByte(), dx = 0, dy = 0, wheel = 0
-        )
-    }, 150)
 }
 
 /**

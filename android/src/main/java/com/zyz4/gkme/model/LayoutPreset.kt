@@ -89,6 +89,13 @@ data class LayoutPreset(
                     if (!btnObj.has("scrollSensitivity")) btnObj.addProperty("scrollSensitivity", 0.1)
                     if (!btnObj.has("invertScrollV")) btnObj.addProperty("invertScrollV", false)
                     if (!btnObj.has("invertScrollH")) btnObj.addProperty("invertScrollH", false)
+                    if (!btnObj.has("singleTapAction")) btnObj.addProperty("singleTapAction", MouseGestureAction.LEFT_CLICK.name)
+                    if (!btnObj.has("twoFingerTapAction")) btnObj.addProperty("twoFingerTapAction", MouseGestureAction.RIGHT_CLICK.name)
+                    if (!btnObj.has("threeFingerTapAction")) btnObj.addProperty("threeFingerTapAction", MouseGestureAction.MIDDLE_CLICK.name)
+                    if (!btnObj.has("doubleTapDragAction")) btnObj.addProperty("doubleTapDragAction", MouseGestureAction.LEFT_DRAG.name)
+                    if (!btnObj.has("oneFingerSwipeAction")) btnObj.addProperty("oneFingerSwipeAction", MouseGestureAction.MOVE_CURSOR.name)
+                    if (!btnObj.has("twoFingerSwipeAction")) btnObj.addProperty("twoFingerSwipeAction", MouseGestureAction.SCROLL.name)
+                    if (!btnObj.has("threeFingerSwipeAction")) btnObj.addProperty("threeFingerSwipeAction", MouseGestureAction.SCROLL.name)
                     if (!btnObj.has("keypadCenterDoubleClick")) btnObj.addProperty("keypadCenterDoubleClick", false)
                     if (!btnObj.has("keypadTexts")) {
                         val texts = com.google.gson.JsonArray()
@@ -203,6 +210,13 @@ data class LayoutPreset(
                 if (b.invertScrollV) m["invertScrollV"] = b.invertScrollV
                 if (b.invertScrollH) m["invertScrollH"] = b.invertScrollH
                 if (!b.doubleClickEnable) m["doubleClickEnable"] = b.doubleClickEnable
+                if (b.singleTapAction != MouseGestureAction.LEFT_CLICK) m["singleTapAction"] = b.singleTapAction.name
+                if (b.twoFingerTapAction != MouseGestureAction.RIGHT_CLICK) m["twoFingerTapAction"] = b.twoFingerTapAction.name
+                if (b.threeFingerTapAction != MouseGestureAction.MIDDLE_CLICK) m["threeFingerTapAction"] = b.threeFingerTapAction.name
+                if (b.doubleTapDragAction != MouseGestureAction.LEFT_DRAG) m["doubleTapDragAction"] = b.doubleTapDragAction.name
+                if (b.oneFingerSwipeAction != MouseGestureAction.MOVE_CURSOR) m["oneFingerSwipeAction"] = b.oneFingerSwipeAction.name
+                if (b.twoFingerSwipeAction != MouseGestureAction.SCROLL) m["twoFingerSwipeAction"] = b.twoFingerSwipeAction.name
+                if (b.threeFingerSwipeAction != MouseGestureAction.SCROLL) m["threeFingerSwipeAction"] = b.threeFingerSwipeAction.name
             }
             // linear trigger fields
             if (b.linearTriggerEnabled) {
