@@ -198,6 +198,11 @@ internal fun MainActivity.observeState() {
                 }
             }
             launch {
+                a.physicalControllerHandler.activeDriver.collect {
+                    if (a.settingsInflated) a.syncControllerDetailUI()
+                }
+            }
+            launch {
                 a.physicalControllerHandler.gyroData.collect { gyro ->
                     // 所有后端统一输出 rad/s
                     val x = gyro[0]

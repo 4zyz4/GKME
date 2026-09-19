@@ -42,6 +42,12 @@ object SdlNative {
     /** SDL_GamepadType value (0=unknown, 1=standard, 2=Xbox360, 3=XboxOne, 4=PS3, 5=PS4, 6=PS5, ...). */
     external fun nativeGetControllerType(index: Int): Int
 
+    /** USB vendor id the gamepad reports (0 when unknown). */
+    external fun nativeGetControllerVendor(index: Int): Int
+
+    /** USB product id the gamepad reports (0 when unknown). */
+    external fun nativeGetControllerProduct(index: Int): Int
+
     /**
      * Fills [out] (length >= 16) with the current state of the gamepad at [index]:
      * 0=buttons 1=leftX 2=leftY 3=rightX 4=rightY 5=leftTrigger 6=rightTrigger 7=dpad

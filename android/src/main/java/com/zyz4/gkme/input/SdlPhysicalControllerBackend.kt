@@ -162,6 +162,7 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
         pollThread = null
         SdlPlatform.shutdown()
         SdlNative.nativeShutdown()
+        cancelAllControllerVibration()
         _connectedControllers.value = emptyList()
         _isConnected.value = false
         controllerHasGyro = false
@@ -229,16 +230,25 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
 
     private fun refreshConnectedControllers() {
         val count = SdlNative.nativeGetControllerCount()
+        val androidMotorCounts = refreshControllerVibrators(count)
         val infos = (0 until count).map { i ->
+            val type = SdlNative.nativeGetControllerType(i)
+            // Prefer the actuator count Android exposes for this pad; SDL does not report a
+            // motor count (its native value is a placeholder), so only fall back to it when
+            // no Android InputDevice was matched.
+            val androidCount = androidMotorCounts.getOrElse(i) { 0 }
             ControllerInfo(
                 id = SdlNative.nativeGetControllerInstanceId(i),
                 name = SdlNative.nativeGetControllerName(i).ifBlank { "手柄${i + 1}" },
-                motorCount = SdlNative.nativeGetControllerMotorCount(i),
+                motorCount = if (androidCount > 0) androidCount else SdlNative.nativeGetControllerMotorCount(i),
                 hasTriggerRumble = SdlNative.nativeGetControllerHasTriggerRumble(i),
                 hasAdaptiveTrigger = false,
                 hasGyro = SdlNative.nativeGetControllerHasGyro(i),
                 hasAnalogTrigger = SdlNative.nativeGetControllerHasAnalogTriggers(i),
-                hasTouchpad = SdlNative.nativeGetControllerHasTouchpad(i),
+                // Bluetooth DualShock/DualSense touchpad input is forwarded through Android
+                // SOURCE_TOUCHPAD events, which SDL's Android driver does not expose. Fall back
+                // to the controller type so the touchpad is still reported as supported.
+                hasTouchpad = SdlNative.nativeGetControllerHasTouchpad(i) || isPlayStationTouchpad(type),
             )
         }
         // StateFlow conflates equal lists, so this only emits on real changes.
@@ -275,6 +285,150 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
     private fun refreshInputTriggerCapability() {
         inputHasAnalogTrigger =
             _connectedControllers.value.getOrNull(inputControllerIndex)?.hasAnalogTrigger ?: true
+    }
+
+    /** True for PlayStation controllers that always carry a touchpad (PS4 / PS5). */
+    private fun isPlayStationTouchpad(type: Int): Boolean =
+        type == SDL_GAMEPAD_TYPE_PS4 || type == SDL_GAMEPAD_TYPE_PS5
+
+    /**
+     * Caches the Android vibrators of the connected gamepads and returns the actuator count
+     * Android exposes for each SDL controller (matched by vendor/product id). SDL does not
+     * report a motor count, and its Android rumble path may collapse a dual-motor pad into a
+     * single actuator, so this drives the motor decision.
+     */
+    private fun refreshControllerVibrators(count: Int): List<Int> {
+        if (count == 0) cancelAllControllerVibration()
+        val managers = arrayOfNulls<VibratorManager>(count)
+        val legacy = arrayOfNulls<Vibrator>(count)
+        val counts = IntArray(count)
+        val pool = ArrayList<InputDevice>()
+        try {
+            for (id in InputDevice.getDeviceIds()) {
+                val device = InputDevice.getDevice(id) ?: continue
+                val sources = device.sources
+                if (sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
+                    sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK
+                ) {
+                    pool.add(device)
+                }
+            }
+        } catch (_: Exception) {
+        }
+
+        val used = BooleanArray(pool.size)
+        for (i in 0 until count) {
+            val vendor = SdlNative.nativeGetControllerVendor(i)
+            val product = SdlNative.nativeGetControllerProduct(i)
+            var chosen = -1
+            for (j in pool.indices) {
+                if (used[j]) continue
+                val device = pool[j]
+                if (device.vendorId == vendor && device.productId == product) {
+                    chosen = j
+                    break
+                }
+            }
+            if (chosen < 0) continue
+            used[chosen] = true
+            val device = pool[chosen]
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vm = device.vibratorManager
+                if (vm.vibratorIds.isNotEmpty()) {
+                    managers[i] = vm
+                    counts[i] = vm.vibratorIds.size
+                    continue
+                }
+            }
+            @Suppress("DEPRECATION")
+            if (device.vibrator.hasVibrator()) {
+                @Suppress("DEPRECATION")
+                legacy[i] = device.vibrator
+                counts[i] = 1
+            }
+        }
+        applyControllerVibrators(managers.toList(), legacy.toList())
+        return counts.toList()
+    }
+
+    /**
+     * Swaps in the freshly matched vibrators, cancelling any motor that is no longer tracked
+     * (its gamepad was removed) so a pending one-shot cannot keep it running for its full 60s.
+     */
+    private fun applyControllerVibrators(
+        newManagers: List<VibratorManager?>,
+        newLegacy: List<Vibrator?>,
+    ) {
+        for (i in controllerVibratorManagers.indices) {
+            if (newManagers.getOrNull(i) == null) {
+                try { controllerVibratorManagers[i]?.cancel() } catch (_: Exception) {}
+            }
+        }
+        for (i in controllerLegacyVibrators.indices) {
+            if (newLegacy.getOrNull(i) == null) {
+                try { controllerLegacyVibrators[i]?.cancel() } catch (_: Exception) {}
+            }
+        }
+        controllerVibratorManagers = newManagers
+        controllerLegacyVibrators = newLegacy
+    }
+
+    /**
+     * Drives the gamepad's motors with the best available path:
+     *  1. Android CombinedVibration when the pad exposes >= 2 vibrators. SDL's Android rumble
+     *     may merge a dual-motor pad into a single actuator, so this guarantees independent
+     *     left/right intensity.
+     *  2. SDL's low/high rumble otherwise (single-motor pads, API < 12).
+     *  3. The pad's Android vibrator when SDL cannot rumble it.
+     * The zero update is forwarded to the active path so the motors stop.
+     */
+    private fun driveControllerMotors(index: Int, low: Int, high: Int) {
+        val vm = controllerVibratorManagers.getOrNull(index)
+        if (vm != null && vm.vibratorIds.size >= 2) {
+            vibrateMultiMotor(vm, vm.vibratorIds, intArrayOf(low, high))
+            return
+        }
+        val active = low != 0 || high != 0
+        if (SdlNative.nativeRumble(index, low * 257, high * 257, if (active) RUMBLE_DURATION_MS else 0)) {
+            return
+        }
+        val legacy = controllerLegacyVibrators.getOrNull(index)
+        if (legacy != null) {
+            vibrateLegacy(legacy, maxOf(low, high))
+        } else if (vm != null) {
+            vibrateMultiMotor(vm, vm.vibratorIds, intArrayOf(low, high))
+        }
+    }
+
+    private fun cancelControllerVibration(index: Int) {
+        try { controllerVibratorManagers.getOrNull(index)?.cancel() } catch (_: Exception) {}
+        try { controllerLegacyVibrators.getOrNull(index)?.cancel() } catch (_: Exception) {}
+    }
+
+    private fun cancelAllControllerVibration() {
+        for (vm in controllerVibratorManagers) {
+            try { vm?.cancel() } catch (_: Exception) {}
+        }
+        for (v in controllerLegacyVibrators) {
+            try { v?.cancel() } catch (_: Exception) {}
+        }
+    }
+
+    private fun vibrateLegacy(vibrator: Vibrator, amp: Int) {
+        val clamped = amp.coerceIn(0, 255)
+        if (clamped < 1) {
+            try { vibrator.cancel() } catch (_: Exception) {}
+            return
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.cancel()
+                vibrator.vibrate(VibrationEffect.createOneShot(60000, clamped))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(60000)
+            }
+        } catch (_: Exception) {}
     }
 
     private fun resetInputState() {
@@ -629,15 +783,18 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
 
     // ── Vibration ──────────────────────────────────────────
 
+    // Android vibrators of the connected gamepads, aligned with connectedControllers.
+    private var controllerVibratorManagers: List<VibratorManager?> = emptyList()
+    private var controllerLegacyVibrators: List<Vibrator?> = emptyList()
+
     /** Drives the two motors of the given controller from the voice-coil left/right channels. */
     override fun setControllerMotorsVibration(controllerIndex: Int, leftIntensity: Int, rightIntensity: Int) {
         val count = SdlNative.nativeGetControllerCount()
         if (controllerIndex < 0 || controllerIndex >= count) return
-        SdlNative.nativeRumble(
+        driveControllerMotors(
             controllerIndex,
-            leftIntensity.coerceIn(0, 255) * 257,
-            rightIntensity.coerceIn(0, 255) * 257,
-            RUMBLE_DURATION_MS,
+            leftIntensity.coerceIn(0, 255),
+            rightIntensity.coerceIn(0, 255),
         )
     }
 
@@ -651,35 +808,22 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
         val low = lowFreqMotor.coerceIn(0, 255)
         val high = highFreqMotor.coerceIn(0, 255)
 
-        val wasActive = _lastRumbleLow != 0 || _lastRumbleHigh != 0
-        val isNowActive = low != 0 || high != 0
-
-        if (wasActive && !isNowActive) {
-            when (gameVibrationDevice.type) {
-                VibrationDeviceType.PHONE -> vibratePhone(0)
-                VibrationDeviceType.CONTROLLER -> {
-                    val index = gameVibrationDevice.controllerIndex
-                    if (index in 0 until SdlNative.nativeGetControllerCount()) {
-                        SdlNative.nativeRumble(index, 0, 0, 0)
-                    }
-                }
-                VibrationDeviceType.NONE -> {}
+        when (gameVibrationDevice.type) {
+            VibrationDeviceType.PHONE -> {
+                val wasActive = _lastRumbleLow != 0 || _lastRumbleHigh != 0
+                val isNowActive = low != 0 || high != 0
+                if (wasActive && !isNowActive) vibratePhone(0)
+                if (isNowActive) vibratePhoneMotors(low, high, swapPhoneMotors)
             }
-        }
-
-        if (isNowActive) {
-            when (gameVibrationDevice.type) {
-                VibrationDeviceType.PHONE -> vibratePhoneMotors(low, high, swapPhoneMotors)
-                VibrationDeviceType.CONTROLLER -> {
-                    val index = gameVibrationDevice.controllerIndex
-                    if (index in 0 until SdlNative.nativeGetControllerCount()) {
-                        val motor0 = if (swapControllerMotors) high else low
-                        val motor1 = if (swapControllerMotors) low else high
-                        SdlNative.nativeRumble(index, motor0 * 257, motor1 * 257, RUMBLE_DURATION_MS)
-                    }
+            VibrationDeviceType.CONTROLLER -> {
+                val index = gameVibrationDevice.controllerIndex
+                if (index in 0 until SdlNative.nativeGetControllerCount()) {
+                    val motor0 = if (swapControllerMotors) high else low
+                    val motor1 = if (swapControllerMotors) low else high
+                    driveControllerMotors(index, motor0, motor1)
                 }
-                VibrationDeviceType.NONE -> {}
             }
+            VibrationDeviceType.NONE -> {}
         }
 
         _lastRumbleLow = low
@@ -747,6 +891,7 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
             VibrationDeviceType.PHONE -> vibratePhone(0)
             VibrationDeviceType.CONTROLLER -> {
                 val index = device.controllerIndex
+                cancelControllerVibration(index)
                 if (index in 0 until SdlNative.nativeGetControllerCount()) {
                     SdlNative.nativeRumble(index, 0, 0, 0)
                 }
@@ -788,5 +933,9 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
 
     companion object {
         private const val RUMBLE_DURATION_MS = 1000
+
+        // SDL_GamepadType values (see SDL_gamepad.h).
+        private const val SDL_GAMEPAD_TYPE_PS4 = 5
+        private const val SDL_GAMEPAD_TYPE_PS5 = 6
     }
 }

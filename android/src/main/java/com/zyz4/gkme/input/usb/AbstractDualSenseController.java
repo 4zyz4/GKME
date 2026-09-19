@@ -56,7 +56,7 @@ public abstract class AbstractDualSenseController extends AbstractController {
         this.type = GkmeBridge.LI_CTYPE_PS;
         this.capabilities = GkmeBridge.LI_CCAP_GYRO | GkmeBridge.LI_CCAP_ACCEL |
                 GkmeBridge.LI_CCAP_RUMBLE | GkmeBridge.LI_CCAP_TOUCHPAD |
-                GkmeBridge.LI_CCAP_RGB_LED;
+                GkmeBridge.LI_CCAP_ANALOG_TRIGGERS | GkmeBridge.LI_CCAP_RGB_LED;
         this.supportedButtonFlags =
                 ControllerPacket.A_FLAG | ControllerPacket.B_FLAG | ControllerPacket.X_FLAG | ControllerPacket.Y_FLAG |
                         ControllerPacket.UP_FLAG | ControllerPacket.DOWN_FLAG | ControllerPacket.LEFT_FLAG | ControllerPacket.RIGHT_FLAG |
