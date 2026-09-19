@@ -14,8 +14,32 @@ class RotatableButton @JvmOverloads constructor(
     var textRotation: Int = 0
         set(value) {
             field = value
+            applyTextRotationFit()
             invalidate()
         }
+
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+        applyTextRotationFit()
+    }
+
+    private fun applyTextRotationFit() {
+        val r = textRotation % 360
+        if (r != 90 && r != 270) {
+            if (paddingLeft != 0 || paddingTop != 0 || paddingRight != 0 || paddingBottom != 0) {
+                setPadding(0, 0, 0, 0)
+            }
+            return
+        }
+        if (width <= 0 || height <= 0) return
+        val padH = (width - height) / 2
+        val padV = (height - width) / 2
+        if (paddingLeft != padH || paddingTop != padV ||
+            paddingRight != padH || paddingBottom != padV
+        ) {
+            setPadding(padH, padV, padH, padV)
+        }
+    }
 
     override fun onDraw(canvas: Canvas) {
         val r = textRotation % 360
