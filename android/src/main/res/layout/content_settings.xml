@@ -2251,7 +2251,7 @@
                         android:minWidth="140dp" />
                 </LinearLayout>
 
-                <!-- Trigger Analog Simulation -->
+                <!-- Redetect Controller -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
@@ -2260,6 +2260,31 @@
                     android:background="@color/bg_surface"
                     android:paddingHorizontal="12dp"
                     android:layout_marginBottom="8dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="重新检测手柄"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp" />
+
+                    <Button
+                        android:id="@+id/btnRedetectController"
+                        style="@style/GamepadChip"
+                        android:background="@drawable/bg_chip_selected"
+                        android:text="检测" />
+                </LinearLayout>
+
+                <!-- Trigger Analog Simulation -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:background="@color/bg_surface"
+                    android:paddingHorizontal="12dp"
+                    android:layout_marginBottom="16dp">
 
                     <TextView
                         android:layout_width="0dp"

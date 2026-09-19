@@ -120,6 +120,14 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
         }
     }
 
+    /** Reinitializes the current driver, immediately retrying connection. */
+    fun reconnect() {
+        if (started) {
+            stopBackend()
+            createAndStartBackend()
+        }
+    }
+
     private fun createAndStartBackend() {
         val newBackend: PhysicalControllerBackend = when (driver) {
             ControllerDriver.SDL3 -> SdlPhysicalControllerBackend(context)
