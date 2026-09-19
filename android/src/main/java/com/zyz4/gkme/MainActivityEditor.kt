@@ -548,7 +548,7 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
             val btn = if (!entry.lockAspect) RotatableButton(a) else Button(a)
             btn.apply {
                 this.id = View.generateViewId(); tag = id
-                text = BitNameMapper.getKeyboardPreviewText(entry.keyboardKeyCode)
+                text = BitNameMapper.getKeyboardPreviewText(entry.keyboardKeyCode, a.viewModel.keyboardShiftActive.value)
                 setAllCaps(false)
                 setTextColor(-0x333334); textSize = 12f
                 setTypeface(null, Typeface.BOLD)
@@ -966,7 +966,7 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
             val btn = if (!entry.lockAspect) RotatableButton(a) else Button(a)
             btn.apply {
                 id = View.generateViewId(); tag = pos.id
-                text = BitNameMapper.getKeyboardPreviewText(entry.keyboardKeyCode)
+                text = BitNameMapper.getKeyboardPreviewText(entry.keyboardKeyCode, a.viewModel.keyboardShiftActive.value)
                 setAllCaps(false)
                 setTextColor(-0x333334); textSize = 12f
                 setTypeface(null, Typeface.BOLD)
@@ -1324,7 +1324,7 @@ internal fun MainActivity.recreateViewForButton(buttonId: String, pos: ButtonPos
         val lockAspect = entry?.lockAspect ?: true
         val customText = pos.customText
         val buttonText = if (entry?.isKeyboard == true) {
-            BitNameMapper.getKeyboardPreviewText(entry.keyboardKeyCode)
+            BitNameMapper.getKeyboardPreviewText(entry.keyboardKeyCode, a.viewModel.keyboardShiftActive.value)
         } else if (entry?.baseId?.startsWith("btnMouse") == true) {
             when (entry.baseId) {
                 "btnMouseLMB" -> "LMB"

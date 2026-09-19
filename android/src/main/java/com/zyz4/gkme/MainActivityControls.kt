@@ -235,7 +235,32 @@ internal object BitNameMapper {
         }
     }
 
-    fun getKeyboardPreviewText(kbKeyCode: Int): String {
+    fun getKeyboardPreviewText(kbKeyCode: Int, shift: Boolean = false): String {
+        if (shift) {
+            when (kbKeyCode) {
+                Kb.Key1 -> return "!"
+                Kb.Key2 -> return "@"
+                Kb.Key3 -> return "#"
+                Kb.Key4 -> return "$"
+                Kb.Key5 -> return "%"
+                Kb.Key6 -> return "^"
+                Kb.Key7 -> return "&"
+                Kb.Key8 -> return "*"
+                Kb.Key9 -> return "("
+                Kb.Key0 -> return ")"
+                Kb.Minus -> return "_"
+                Kb.Equal -> return "+"
+                Kb.LBracket -> return "{"
+                Kb.RBracket -> return "}"
+                Kb.Backslash -> return "|"
+                Kb.Semicolon -> return ":"
+                Kb.Apostrophe -> return "\""
+                Kb.Comma -> return "<"
+                Kb.Dot -> return ">"
+                Kb.Slash -> return "?"
+                Kb.Grave -> return "~"
+            }
+        }
         return when (kbKeyCode) {
             Kb.LCtrl -> "LCtrl"; Kb.LShift -> "LShift"; Kb.LAlt -> "LAlt"; Kb.LGui -> "Win"
             Kb.RCtrl -> "RCtrl"; Kb.RShift -> "RShift"; Kb.RAlt -> "AltGr"; Kb.RGui -> "RWin"
@@ -1556,5 +1581,18 @@ internal fun MainActivity.updateButtonLabels(mode: DisplayMode) {
         a.findViewById<View>(R.id.previewContainer)?.post {
             a.updateAppearancePreview()
         }
+    }
+}
+
+// Shift 按下时，把数字/符号键的标签切换为上档字符
+internal fun MainActivity.updateKeyboardLabels(shiftActive: Boolean) {
+    val a = this
+    for (i in 0 until a.gamepadLayout.childCount) {
+        val child = a.gamepadLayout.getChildAt(i)
+        val tag = child.tag as? String ?: continue
+        val entry = allControls.find { it.baseId == tag.substringBefore("_") } ?: continue
+        if (!entry.isKeyboard) continue
+        (child as? TextView)?.text =
+            BitNameMapper.getKeyboardPreviewText(entry.keyboardKeyCode, shiftActive)
     }
 }
