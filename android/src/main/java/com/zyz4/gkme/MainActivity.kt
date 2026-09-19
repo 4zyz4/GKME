@@ -558,7 +558,7 @@ internal fun performHaptic(isPress: Boolean) {
     
 
     private fun rebuildVolumeChips(containerId: Int, bits: List<Int>, onRemove: (Int) -> Unit) {
-        val container = findViewById<LinearLayout>(containerId)
+        val container = findViewById<ViewGroup>(containerId)
         container.removeAllViews()
         val density = resources.displayMetrics.density
         if (bits.isEmpty()) {
@@ -571,37 +571,28 @@ internal fun performHaptic(isPress: Boolean) {
             container.addView(tv)
             return
         }
-        val chipsPerRow = 4
-        bits.chunked(chipsPerRow).forEach { rowBits ->
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        bits.forEach { bit ->
+            val chip = TextView(this).apply {
+                text = BitNameMapper.getBitName(bit)
+                setTextColor(-0x1)
+                textSize = 11f
+                gravity = android.view.Gravity.CENTER
+                setBackgroundResource(R.drawable.bg_chip)
+                setPadding((6f * density).toInt(), (2f * density).toInt(), (6f * density).toInt(), (2f * density).toInt())
+                setOnClickListener { onRemove(bit) }
             }
-            rowBits.forEach { bit ->
-                val chip = TextView(this).apply {
-                    text = BitNameMapper.getBitName(bit)
-                    setTextColor(-0x1)
-                    textSize = 11f
-                    gravity = android.view.Gravity.CENTER
-                    setBackgroundResource(R.drawable.bg_chip)
-                    setPadding((6f * density).toInt(), (2f * density).toInt(), (6f * density).toInt(), (2f * density).toInt())
-                    setOnClickListener { onRemove(bit) }
-                }
-                row.addView(chip, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { rightMargin = (4f * density).toInt() })
-            }
-            container.addView(row)
+            container.addView(chip, ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
     }
 
     internal fun updateVolumeMappingLabels() {
-        val s = viewModel.settings.value
-        rebuildVolumeChips(R.id.layoutVolumeUpChips, s.volumeUpBits) { bit ->
-            val newBits = s.volumeUpBits - bit
-            viewModel.updateVolumeUpBits(newBits)
+        rebuildVolumeChips(R.id.layoutVolumeUpChips, viewModel.settings.value.volumeUpBits) { bit ->
+            viewModel.updateVolumeUpBits(viewModel.settings.value.volumeUpBits - bit)
+            updateVolumeMappingLabels()
         }
-        rebuildVolumeChips(R.id.layoutVolumeDownChips, s.volumeDownBits) { bit ->
-            val newBits = s.volumeDownBits - bit
-            viewModel.updateVolumeDownBits(newBits)
+        rebuildVolumeChips(R.id.layoutVolumeDownChips, viewModel.settings.value.volumeDownBits) { bit ->
+            viewModel.updateVolumeDownBits(viewModel.settings.value.volumeDownBits - bit)
+            updateVolumeMappingLabels()
         }
     }
 }
