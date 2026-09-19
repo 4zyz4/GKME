@@ -527,6 +527,18 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
         }
     }
 
+    override fun stopAllVibration() {
+        val list: List<AbstractController>
+        synchronized(lock) { list = controllerList }
+        for (controller in list) {
+            try { controller.rumble(0, 0) } catch (_: Exception) {}
+            try { controller.rumbleTriggers(0, 0) } catch (_: Exception) {}
+        }
+        _lastRumbleLow = 0
+        _lastRumbleHigh = 0
+        vibratePhone(0)
+    }
+
     // ── Controller audio / voice coil ──────────────────────
 
     override fun controllerSupportsVoiceCoilPcm(controllerIndex: Int): Boolean {

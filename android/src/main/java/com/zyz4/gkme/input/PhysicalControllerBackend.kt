@@ -69,6 +69,15 @@ interface PhysicalControllerBackend {
     fun setControllerMotorsVibration(controllerIndex: Int, leftIntensity: Int, rightIntensity: Int)
     fun rumble(lowFreqMotor: Int, highFreqMotor: Int)
 
+    /**
+     * Commands every output (phone and all attached controllers) off. Called when the
+     * stream ends or the host disconnects, so a rumble latched on by the last packet
+     * cannot keep running after the host is gone.
+     */
+    fun stopAllVibration() {
+        rumble(0, 0)
+    }
+
     /** Updates the latest voice-coil motor amplitudes for rumble conflict resolution. */
     fun setVoiceCoilMotorOutput(leftAmp: Int, rightAmp: Int) = Unit
 

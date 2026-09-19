@@ -91,6 +91,10 @@ struct Entry {
     Uint16 product = 0;
     Uint64 removeTime = 0;
     bool pending = false;
+    // Last rumble we forwarded to SDL for this pad. SDL caches the value and skips the
+    // driver when it matches, so we force a fresh stop report on the transition to 0.
+    int lastRumbleLow = 0;
+    int lastRumbleHigh = 0;
     Snapshot snapshot;
 };
 
@@ -317,6 +321,12 @@ void reconcileLocked() {
         if (!found && !entry.pending) {
             LOGI("Gamepad removed: %s", entry.name.c_str());
             if (entry.handle) {
+                // Command the motors off before closing. SDL only auto-stops a
+                // rumble it tracks with an expiration, so a motor latched on by a
+                // dropped report (or driven through the Android vibrator path) could
+                // otherwise keep running until the pad is reset.
+                SDL_RumbleGamepad(entry.handle, 0, 0, 0);
+                SDL_RumbleGamepadTriggers(entry.handle, 0, 0, 0);
                 SDL_CloseGamepad(entry.handle);
                 entry.handle = nullptr;
             }
@@ -480,6 +490,10 @@ void pollLoop() {
         std::lock_guard<std::mutex> lock(g_mutex);
         for (auto &entry : g_gamepads) {
             if (entry.handle) {
+                // Explicit stop so a motor cannot be left latched on when the
+                // keyboard/stream-hold rumble outlives the SDL session.
+                SDL_RumbleGamepad(entry.handle, 0, 0, 0);
+                SDL_RumbleGamepadTriggers(entry.handle, 0, 0, 0);
                 SDL_CloseGamepad(entry.handle);
             }
         }
@@ -754,7 +768,18 @@ Java_com_zyz4_gkme_input_SdlNative_nativeRumble(JNIEnv *env, jobject thiz, jint 
     const Uint16 lowValue = static_cast<Uint16>(clampInt(low, 0, 65535));
     const Uint16 highValue = static_cast<Uint16>(clampInt(high, 0, 65535));
     const Uint32 duration = durationMs <= 0 ? 0 : static_cast<Uint32>(durationMs);
-    return SDL_RumbleGamepad(g_gamepads[index].handle, lowValue, highValue, duration)
+    Entry &entry = g_gamepads[index];
+    if (lowValue == 0 && highValue == 0 &&
+        (entry.lastRumbleLow != 0 || entry.lastRumbleHigh != 0)) {
+        // SDL skips the driver when the requested value matches its cached value, and
+        // its HIDAPI rumble thread ignores write failures. Nudging a (perceptually
+        // silent) 1-count first guarantees the following zero is actually written, so
+        // a stop whose first HID write was dropped cannot latch the motor.
+        SDL_RumbleGamepad(entry.handle, 1, 1, 1);
+    }
+    entry.lastRumbleLow = lowValue;
+    entry.lastRumbleHigh = highValue;
+    return SDL_RumbleGamepad(entry.handle, lowValue, highValue, duration)
                ? JNI_TRUE
                : JNI_FALSE;
 }

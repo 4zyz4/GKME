@@ -30,6 +30,7 @@ internal fun MainActivity.observeState() {
         a.repeatOnLifecycle(Lifecycle.State.STARTED) {
             launch {
                 var lastRestartToken = 0
+                var wasConnected = false
                 a.viewModel.connectionState.collect { st ->
                     for (label in a.touchpadLabels) label.text = st.statusText
                     for (label in a.mousepadLabels) label.text = st.statusText
@@ -69,6 +70,13 @@ internal fun MainActivity.observeState() {
                     if (st.phase == ConnectionPhase.IDLE) {
                         a.discoverableRequested = false
                     }
+                    if (wasConnected && !st.connected) {
+                        // The stream ended while a rumble may still be latched on the
+                        // pad (the host never got to send its zero). Command every
+                        // motor off so it cannot keep vibrating after the host is gone.
+                        a.physicalControllerHandler.stopAllVibration()
+                    }
+                    wasConnected = st.connected
                     if (st.phase == ConnectionPhase.IDLE || st.phase == ConnectionPhase.DISCONNECTED) {
                         a.viewModel.connectionManager.clearTriggerEffects()
                     }
