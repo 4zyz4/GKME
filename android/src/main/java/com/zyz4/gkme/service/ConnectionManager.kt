@@ -290,7 +290,7 @@ class ConnectionManager @Inject constructor(
                 }
                 return
             }
-            udpService.start(getRealDeviceName()) { msg ->
+            udpService.start(getRealDeviceName(), getMacAddress()) { msg ->
                 handleServerToClient(msg)
             }
             if (udpService.portInUse) {
@@ -434,6 +434,9 @@ class ConnectionManager @Inject constructor(
     }
 
     private fun handleServerToClient(msg: ServerToClient) {
+        // 电脑发来 Hello（或任何非断开消息）而手机尚未进入 WiFi 协议时，手机再次
+        // 发送带设备名和 MAC 的 Hello 完成握手；手动输入 IP 连接时电脑端就是从
+        // 这里读取设备名和 MAC。已连接后不再回应，避免与电脑的 Hello 应答形成循环。
         if (msg.payloadCase != ServerToClient.PayloadCase.DISCONNECT &&
             activeProtocol != ActiveProtocol.WIFI
         ) {
@@ -552,10 +555,18 @@ class ConnectionManager @Inject constructor(
             connected = true, phase = ConnectionPhase.CONNECTED,
             statusText = "已连接（WiFi）"
         )
+        sendDeviceHello()
+    }
+
+    /** Sends the ClientToServer Hello carrying the device name and MAC. Sent when
+     *  the PC's Hello establishes the connection (handshake) and on auto-reconnect,
+     *  so the PC can learn the phone identity even for manual IP connections. */
+    private fun sendDeviceHello() {
         CoroutineScope(Dispatchers.IO).launch {
             val hello = Hello.newBuilder()
                 .setProtocolVersion(1)
                 .setDeviceName(getRealDeviceName())
+                .setMacAddress(getMacAddress())
                 .build()
             val msg = ClientToServer.newBuilder()
                 .setHello(hello)
@@ -572,14 +583,7 @@ class ConnectionManager @Inject constructor(
                 udpService.refresh()
                 val addr = udpService.pcAddress
                 if (addr != null && activeProtocol != ActiveProtocol.WIFI) {
-                    val hello = Hello.newBuilder()
-                        .setProtocolVersion(1)
-                        .setDeviceName(getRealDeviceName())
-                        .build()
-                    val msg = ClientToServer.newBuilder()
-                        .setHello(hello)
-                        .build()
-                    udpService.sendClientToServer(msg)
+                    sendDeviceHello()
                 }
                 delay(2000)
             }
@@ -696,6 +700,19 @@ class ConnectionManager @Inject constructor(
         } else {
             @Suppress("DEPRECATION")
             android.bluetooth.BluetoothAdapter.getDefaultAdapter()?.name ?: Build.MODEL
+        }
+    }
+
+    /** Stable identity of the physical phone, broadcast to the PC (the "MAC"
+     *  field of `GKME|name|mac`). Uses ANDROID_ID, which survives reboots and app
+     *  updates and is unique per app-signing-key + user. */
+    fun getMacAddress(): String {
+        return try {
+            Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+                ?.uppercase()
+                ?: ""
+        } catch (_: Exception) {
+            ""
         }
     }
 
