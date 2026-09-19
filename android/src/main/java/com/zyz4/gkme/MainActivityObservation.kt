@@ -100,7 +100,7 @@ internal fun MainActivity.observeState() {
                             a.findViewById<Button>(id).alpha = 1.0f
                         }
                     }
-                    if (s.keepScreenOn) {
+                    if (s.keepScreenOn || a.isScreenOff) {
                         a.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     } else {
                         a.window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)

@@ -13,6 +13,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.view.HapticFeedbackConstants
+import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.Surface
@@ -332,7 +333,23 @@ class MainActivity : ComponentActivity() {
         code == KeyEvent.KEYCODE_BUTTON_MODE ||
         code == KeyEvent.KEYCODE_MEDIA_RECORD
 
+    /** True when [event] is a BACK key coming from a gamepad/joystick rather than the
+     *  system back key or back gesture. Some controllers report their B button as
+     *  KEYCODE_BACK, which would otherwise leave screen-off mode. */
+    private fun isGamepadBackEvent(event: KeyEvent): Boolean {
+        if (event.keyCode != KeyEvent.KEYCODE_BACK) return false
+        val source = event.source
+        if (source and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD) return true
+        if (source and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK) return true
+        val device = InputDevice.getDevice(event.deviceId) ?: return false
+        return device.sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
+            device.sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK
+    }
+
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // In screen-off mode the gamepad is meant for gameplay: swallow controller
+        // BACK events (e.g. the B button) so only the real back key/gesture exits.
+        if (isScreenOff && isGamepadBackEvent(event)) return true
         if (isPhysicalGamepadKey(event.keyCode) &&
             physicalControllerHandler.handleKeyEvent(event)) {
             syncPhysicalControllerState()
@@ -444,6 +461,8 @@ class MainActivity : ComponentActivity() {
         a.isScreenOff = true
         a.findViewById<View>(R.id.screenOffOverlay).visibility = View.VISIBLE
         a.setSettingsButtonEnabled(false)
+        // Force the screen on while in screen-off mode, regardless of the user setting.
+        a.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         a.showToast("使用返回键或返回手势退出")
     }
 
@@ -453,6 +472,12 @@ class MainActivity : ComponentActivity() {
         a.isScreenOff = false
         a.findViewById<View>(R.id.screenOffOverlay).visibility = View.GONE
         a.setSettingsButtonEnabled(true)
+        // Restore the user's own keep-screen-on preference.
+        if (a.viewModel.settings.value.keepScreenOn) {
+            a.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            a.window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
     }
 
     internal fun setSettingsButtonEnabled(enabled: Boolean) {
