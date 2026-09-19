@@ -133,6 +133,9 @@ class GkViewModel @Inject constructor(
     private var _keyboardModifier = 0u
     private var _keyboardKeys = UShortArray(6)
 
+    private val _keyboardShiftActive = MutableStateFlow(false)
+    val keyboardShiftActive: StateFlow<Boolean> = _keyboardShiftActive.asStateFlow()
+
     var onHapticFeedbackPress: (() -> Unit)? = null
     var onHapticFeedbackRelease: (() -> Unit)? = null
 
@@ -1275,6 +1278,7 @@ class GkViewModel @Inject constructor(
                 }
             }
         }
+        updateKeyboardShiftState()
         sendKeyboardReport()
     }
 
@@ -1304,12 +1308,19 @@ class GkViewModel @Inject constructor(
                 }
             }
         }
+        updateKeyboardShiftState()
         sendKeyboardReport()
+    }
+
+    private fun updateKeyboardShiftState() {
+        val shift = (_keyboardModifier and 0x02u) != 0u || (_keyboardModifier and 0x20u) != 0u
+        _keyboardShiftActive.value = shift
     }
 
     fun clearAllKeyboardKeys() {
         _keyboardModifier = 0u
         _keyboardKeys = UShortArray(6)
+        updateKeyboardShiftState()
         sendKeyboardReport()
     }
 

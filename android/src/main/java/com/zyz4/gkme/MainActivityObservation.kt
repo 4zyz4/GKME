@@ -88,6 +88,11 @@ internal fun MainActivity.observeState() {
                 }
             }
             launch {
+                a.viewModel.keyboardShiftActive.collect { shift ->
+                    a.updateKeyboardLabels(shift)
+                }
+            }
+            launch {
                 a.viewModel.settings.collect { s ->
                     a.controlViews["touchpad"]?.visibility = View.VISIBLE
                     if (a.settingsInflated) {
