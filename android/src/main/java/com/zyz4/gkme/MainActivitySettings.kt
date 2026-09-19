@@ -523,12 +523,6 @@ internal fun MainActivity.setupSettings() {
         }
     }
 
-    a.findViewById<Button>(R.id.btnGoVibration).setOnClickListener {
-        a.selectSettingsCategory(3)
-    }
-    a.findViewById<Button>(R.id.btnGoGyro).setOnClickListener {
-        a.selectSettingsCategory(4)
-    }
     a.findViewById<Button>(R.id.btnRedetectController).setOnClickListener {
         a.physicalControllerHandler.reconnect()
     }

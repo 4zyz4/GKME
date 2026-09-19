@@ -2412,26 +2412,7 @@
                         android:text="检测" />
                 </LinearLayout>
 
-                <!-- Shortcuts -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:gravity="center"
-                    android:layout_marginTop="16dp">
-
-                    <Button
-                        android:id="@+id/btnGoVibration"
-                        style="@style/GamepadChip"
-                        android:layout_marginBottom="8dp"
-                        android:text="震动设置" />
-
-                    <Button
-                        android:id="@+id/btnGoGyro"
-                        style="@style/GamepadChip"
-                        android:text="体感设置" />
-
-                </LinearLayout>
+                
 
             </LinearLayout>
         </ScrollView>
