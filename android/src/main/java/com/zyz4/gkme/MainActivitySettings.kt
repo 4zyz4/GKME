@@ -1,6 +1,10 @@
 package com.zyz4.gkme
 
 import android.Manifest
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.AnimatorSet
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.content.Intent
@@ -13,9 +17,12 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewAnimationUtils
 import android.view.ViewGroup
 import android.view.ViewStub
 import android.view.ViewTreeObserver
+import android.view.animation.Interpolator
+import android.view.animation.PathInterpolator
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import androidx.lifecycle.lifecycleScope
@@ -56,11 +63,41 @@ import com.zyz4.gkme.model.VibrationDeviceType
 import com.zyz4.gkme.model.VibrationType
 import com.zyz4.gkme.input.ControllerInfo
 import com.zyz4.gkme.service.ConnectionPhase
+import com.zyz4.gkme.view.CircularRevealLayout
+import com.zyz4.gkme.view.GamepadLayout
 import com.zyz4.gkme.view.WrapContentGridView
 import com.zyz4.gkme.view.PresetPreviewView
+import com.zyz4.gkme.view.SidebarItemDrawable
 import kotlin.time.Duration.Companion.milliseconds
 
 // ── Settings ─────────────────────────────────────────────
+
+private const val SETTINGS_OPEN_DURATION = 300L
+private const val SETTINGS_CLOSE_DURATION = 300L
+private const val CATEGORY_SWITCH_DURATION = 150L
+private const val PAGE_SWITCH_OFFSET_DP = 24f
+
+private val SETTINGS_PAGES = listOf(
+    R.id.pageConnection, R.id.pagePresets, R.id.pageAppearance, R.id.pagePhysicalController,
+    R.id.pageVibration, R.id.pageGyro, R.id.pageAudio, R.id.pageMisc, R.id.pageAbout
+)
+
+private val SETTINGS_CATEGORY_BUTTONS = listOf(
+    R.id.btnCategoryConnection, R.id.btnCategoryPresets, R.id.btnCategoryAppearance,
+    R.id.btnCategoryPhysicalController, R.id.btnCategoryVibration, R.id.btnCategoryGyro,
+    R.id.btnCategoryAudio, R.id.btnCategoryMisc, R.id.btnCategoryAbout
+)
+
+internal fun easeOutQuint(): Interpolator = PathInterpolator(0.22f, 1f, 0.36f, 1f)
+
+internal fun MainActivity.settingsButtonView(): View? {
+    val a = this
+    for (i in 0 until a.gamepadLayout.childCount) {
+        val child = a.gamepadLayout.getChildAt(i)
+        if (child.tag == GamepadLayout.SETTINGS_BUTTON_ID) return child
+    }
+    return null
+}
 
 /** Inflates the settings panel on first use and wires up its listeners. Safe to call
  *  repeatedly; the expensive inflation happens only once. */
@@ -78,18 +115,36 @@ internal fun MainActivity.showSettings() {
     if (a.gamepadLayout.isEditModeActive()) return
     a.ensureSettingsInflated()
     a.inSettings = true
-    a.findViewById<View>(R.id.gamepadPanel).visibility = View.INVISIBLE
-    a.findViewById<View>(R.id.settingsPanel).visibility = View.VISIBLE
-    a.selectSettingsCategory(0)
+    val gamepad = a.findViewById<View>(R.id.gamepadPanel)
+    val panel = a.findViewById<View>(R.id.settingsPanel)
+    a.settingsRevealAnimator?.cancel()
+    gamepad.visibility = View.VISIBLE
+    panel.animate().cancel()
+    panel.translationX = 0f
+    panel.alpha = 1f
+    panel.visibility = View.VISIBLE
+    a.selectSettingsCategory(0, animate = false)
     a.syncSettingsUI()
+    a.animateSettingsOpen(panel, gamepad)
 }
 
 internal fun MainActivity.hideSettings() {
     val a = this
+    if (!a.inSettings) return
     a.inSettings = false
     a.vibrationPollingJob?.cancel()
-    a.findViewById<View>(R.id.gamepadPanel).visibility = View.VISIBLE
-    a.findViewById<View>(R.id.settingsPanel).visibility = View.GONE
+    val gamepad = a.findViewById<View>(R.id.gamepadPanel)
+    val panel = a.findViewById<View>(R.id.settingsPanel)
+    a.settingsRevealAnimator?.end()
+    a.settingsRevealAnimator = null
+    gamepad.visibility = View.VISIBLE
+    panel.animate().cancel()
+    panel.translationX = 0f
+    panel.alpha = 1f
+    panel.visibility = View.VISIBLE
+    a.animateSettingsClose(panel) {
+        panel.visibility = View.GONE
+    }
     if (a.currentSettingsCategory == 2) {
         val gl = a.gamepadLayout
         val vto = gl.viewTreeObserver
@@ -104,23 +159,109 @@ internal fun MainActivity.hideSettings() {
     }
 }
 
-internal fun MainActivity.selectSettingsCategory(index: Int) {
+/** Center of the reveal, in the panel's coordinate space, and the radius needed to cover it. */
+private fun MainActivity.settingsRevealGeometry(panel: View): Triple<Float, Float, Float> {
+    val panelLoc = IntArray(2)
+    panel.getLocationInWindow(panelLoc)
+    var cx = panel.width / 2f
+    var cy = panel.height / 2f
+    val button = settingsButtonView()
+    if (button != null && button.width > 0 && button.height > 0) {
+        val btnLoc = IntArray(2)
+        button.getLocationInWindow(btnLoc)
+        cx = btnLoc[0] - panelLoc[0] + button.width / 2f
+        cy = btnLoc[1] - panelLoc[1] + button.height / 2f
+    }
+    val maxRadius = kotlin.math.hypot(
+        maxOf(cx, panel.width - cx),
+        maxOf(cy, panel.height - cy)
+    )
+    return Triple(cx, cy, maxRadius)
+}
+
+/** Expands the settings panel from the settings button as a circular reveal. */
+internal fun MainActivity.animateSettingsOpen(panel: View, gamepad: View) {
+    val a = this
+    val global = panel.viewTreeObserver
+    if (!global.isAlive) {
+        gamepad.visibility = View.INVISIBLE
+        return
+    }
+    global.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
+        override fun onPreDraw(): Boolean {
+            if (global.isAlive) global.removeOnPreDrawListener(this)
+            if (!a.inSettings || panel.width == 0 || panel.height == 0) {
+                gamepad.visibility = View.INVISIBLE
+                return true
+            }
+            val (cx, cy, maxRadius) = a.settingsRevealGeometry(panel)
+            val reveal = ViewAnimationUtils.createCircularReveal(
+                panel, cx.toInt(), cy.toInt(), 0f, maxRadius
+            )
+            reveal.duration = SETTINGS_OPEN_DURATION
+            reveal.interpolator = easeOutQuint()
+            reveal.addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    if (a.settingsRevealAnimator === animation) a.settingsRevealAnimator = null
+                    if (a.inSettings) gamepad.visibility = View.INVISIBLE
+                }
+            })
+            a.settingsRevealAnimator = reveal
+            reveal.start()
+            return true
+        }
+    })
+}
+
+/** Erases the settings panel outward from the settings button as a growing circular hole. */
+internal fun MainActivity.animateSettingsClose(panel: View, onEnd: () -> Unit) {
+    val a = this
+    if (panel !is CircularRevealLayout || !panel.isAttachedToWindow ||
+        panel.width == 0 || panel.height == 0
+    ) {
+        if (panel is CircularRevealLayout) panel.clearHole()
+        onEnd()
+        return
+    }
+    val (cx, cy, maxRadius) = a.settingsRevealGeometry(panel)
+    val animator = ValueAnimator.ofFloat(0f, maxRadius).apply {
+        addUpdateListener { anim -> panel.setHole(cx, cy, anim.animatedValue as Float) }
+    }
+    animator.duration = SETTINGS_CLOSE_DURATION
+    animator.interpolator = easeOutQuint()
+    animator.addListener(object : AnimatorListenerAdapter() {
+        override fun onAnimationEnd(animation: Animator) {
+            if (a.settingsRevealAnimator === animation) a.settingsRevealAnimator = null
+            panel.clearHole()
+            onEnd()
+        }
+    })
+    a.settingsRevealAnimator = animator
+    animator.start()
+}
+
+internal fun MainActivity.selectSettingsCategory(index: Int, animate: Boolean = true) {
     val a = this
     a.audioPollingJob?.cancel()
     a.audioPollingJob = null
+    val previous = a.currentSettingsCategory
     a.currentSettingsCategory = index
-    val pages = listOf(R.id.pageConnection, R.id.pagePresets, R.id.pageAppearance, R.id.pagePhysicalController, R.id.pageVibration, R.id.pageGyro, R.id.pageAudio, R.id.pageMisc, R.id.pageAbout)
-    val buttons = listOf(
-        R.id.btnCategoryConnection, R.id.btnCategoryPresets, R.id.btnCategoryAppearance, R.id.btnCategoryPhysicalController, R.id.btnCategoryVibration, R.id.btnCategoryGyro, R.id.btnCategoryAudio, R.id.btnCategoryMisc, R.id.btnCategoryAbout
-    )
-    pages.forEachIndexed { i, id ->
-        a.findViewById<View>(id).visibility = if (i == index) View.VISIBLE else View.GONE
+    val pages = SETTINGS_PAGES.map { a.findViewById<View>(it) }
+    val buttons = SETTINGS_CATEGORY_BUTTONS.map { a.findViewById<Button>(it) }
+    val newPage = pages[index]
+    if (animate && previous != index) {
+        a.animatePageSwitch(pages, pages.getOrNull(previous), newPage)
+    } else {
+        pages.forEach { p ->
+            p.animate().cancel()
+            p.translationY = 0f
+            p.alpha = 1f
+            p.visibility = if (p === newPage) View.VISIBLE else View.GONE
+        }
     }
-    buttons.forEachIndexed { i, id ->
-        a.findViewById<Button>(id).isSelected = i == index
-        a.findViewById<Button>(id).setTextColor(
-            if (i == index) -0x1 else -0x777778
-        )
+    buttons.forEachIndexed { i, btn ->
+        btn.isSelected = i == index
+        a.animateSidebarItem(btn, i == index, animate && previous != index)
     }
     a.vibrationPollingJob?.cancel()
     if (index == 2) {
@@ -145,6 +286,72 @@ internal fun MainActivity.selectSettingsCategory(index: Int) {
     }
 }
 
+/** Slides the old page up while fading it out, and the new page down while fading it in. */
+private fun MainActivity.animatePageSwitch(pages: List<View>, oldPage: View?, newPage: View) {
+    val a = this
+    val offset = PAGE_SWITCH_OFFSET_DP * a.resources.displayMetrics.density
+    pages.forEach { it.animate().cancel() }
+    pages.forEach { p ->
+        if (p !== oldPage && p !== newPage) {
+            p.visibility = View.GONE
+            p.translationY = 0f
+            p.alpha = 1f
+        }
+    }
+    if (oldPage != null && oldPage !== newPage && oldPage.visibility == View.VISIBLE) {
+        oldPage.animate()
+            .translationY(-offset)
+            .alpha(0f)
+            .setDuration(CATEGORY_SWITCH_DURATION)
+            .setInterpolator(easeOutQuint())
+            .withEndAction {
+                oldPage.visibility = View.GONE
+                oldPage.translationY = 0f
+                oldPage.alpha = 1f
+            }
+            .start()
+    }
+    newPage.visibility = View.VISIBLE
+    newPage.translationY = -offset
+    newPage.alpha = 0f
+    newPage.animate()
+        .translationY(0f)
+        .alpha(1f)
+        .setDuration(CATEGORY_SWITCH_DURATION)
+        .setInterpolator(easeOutQuint())
+        .start()
+}
+
+/** Wipes the sidebar item highlight from left to right while cross-fading its text color. */
+private fun MainActivity.animateSidebarItem(button: Button, selected: Boolean, animate: Boolean) {
+    val a = this
+    val drawable = a.sidebarItemDrawables[button.id] ?: return
+    val targetFill = if (selected) 1f else 0f
+    val targetColor = if (selected) 0xFFFFFFFF.toInt() else 0xFF888888.toInt()
+    a.sidebarAnimators.remove(button.id)?.cancel()
+    if (!animate) {
+        drawable.fill = targetFill
+        drawable.invalidateSelf()
+        button.setTextColor(targetColor)
+        return
+    }
+    val fillAnimator = ValueAnimator.ofFloat(drawable.fill, targetFill).apply {
+        addUpdateListener { anim ->
+            drawable.fill = anim.animatedValue as Float
+            drawable.invalidateSelf()
+        }
+    }
+    val colorAnimator = ValueAnimator.ofArgb(button.currentTextColor, targetColor).apply {
+        addUpdateListener { anim -> button.setTextColor(anim.animatedValue as Int) }
+    }
+    val set = AnimatorSet()
+    set.playTogether(fillAnimator, colorAnimator)
+    set.duration = CATEGORY_SWITCH_DURATION
+    set.interpolator = easeOutQuint()
+    set.start()
+    a.sidebarAnimators[button.id] = set
+}
+
 internal fun MainActivity.setupSettings() {
     val a = this
     a.findViewById<Button>(R.id.btnSettingsBack).setOnClickListener { a.hideSettings() }
@@ -159,6 +366,12 @@ internal fun MainActivity.setupSettings() {
     a.findViewById<Button>(R.id.btnCategoryAudio).setOnClickListener { a.selectSettingsCategory(6) }
     a.findViewById<Button>(R.id.btnCategoryMisc).setOnClickListener { a.selectSettingsCategory(7) }
     a.findViewById<Button>(R.id.btnCategoryAbout).setOnClickListener { a.selectSettingsCategory(8) }
+
+    // Sliding sidebar highlight
+    SETTINGS_CATEGORY_BUTTONS.forEach { id ->
+        a.sidebarItemDrawables[id] = SidebarItemDrawable()
+        a.findViewById<Button>(id).background = a.sidebarItemDrawables[id]
+    }
 
     // Sidebar scrollbar
     a.findViewById<ScrollView>(R.id.scrollSidebar).apply {

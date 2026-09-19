@@ -269,6 +269,9 @@ class MainActivity : ComponentActivity() {
     internal var currentSettingsCategory = 0
     internal var settingsInflated = false
     internal var outputPickerDialog: Dialog? = null
+    internal val sidebarItemDrawables = mutableMapOf<Int, com.zyz4.gkme.view.SidebarItemDrawable>()
+    internal val sidebarAnimators = mutableMapOf<Int, android.animation.AnimatorSet>()
+    internal var settingsRevealAnimator: android.animation.Animator? = null
 
     internal var gameVibrationDeviceEntries: List<com.zyz4.gkme.model.VibrationDevice> =
         listOf(com.zyz4.gkme.model.VibrationDevice.PHONE, com.zyz4.gkme.model.VibrationDevice.NONE)
