@@ -53,7 +53,6 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
 
     // Stored settings, re-applied to a freshly created backend after a switch.
     private var storedControllerGyroEnabled = false
-    private var storedNonLinearTriggerAdaptation = false
     private var storedInputControllerIndex = 0
     private var storedGyroControllerIndex = 0
     private var storedGameVibrationDevice = VibrationDevice.PHONE
@@ -63,10 +62,6 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
     override var controllerGyroEnabled: Boolean
         get() = storedControllerGyroEnabled
         set(value) { storedControllerGyroEnabled = value; backend?.controllerGyroEnabled = value }
-
-    override var nonLinearTriggerAdaptation: Boolean
-        get() = storedNonLinearTriggerAdaptation
-        set(value) { storedNonLinearTriggerAdaptation = value; backend?.nonLinearTriggerAdaptation = value }
 
     override var controllerHasGyro: Boolean
         get() = backend?.controllerHasGyro ?: false
@@ -134,7 +129,6 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
             ControllerDriver.AXIXI2233_USB -> UsbPhysicalControllerBackend(context)
         }
         newBackend.controllerGyroEnabled = storedControllerGyroEnabled
-        newBackend.nonLinearTriggerAdaptation = storedNonLinearTriggerAdaptation
         newBackend.inputControllerIndex = storedInputControllerIndex
         newBackend.gyroControllerIndex = storedGyroControllerIndex
         newBackend.gameVibrationDevice = storedGameVibrationDevice

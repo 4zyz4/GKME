@@ -15,6 +15,12 @@ data class ControllerInfo(
     val hasTriggerRumble: Boolean = false,
     /** True when the controller exposes natively programmable adaptive triggers (DualSense). */
     val hasAdaptiveTrigger: Boolean = false,
+    /** True when the controller exposes motion (gyro/accelerometer) sensors. */
+    val hasGyro: Boolean = false,
+    /** True when the controller exposes analog (linear) triggers. */
+    val hasAnalogTrigger: Boolean = false,
+    /** True when the controller exposes a touchpad. */
+    val hasTouchpad: Boolean = false,
 )
 
 /**
@@ -30,7 +36,6 @@ interface PhysicalControllerBackend {
     val accelData: StateFlow<FloatArray>
 
     var controllerGyroEnabled: Boolean
-    var nonLinearTriggerAdaptation: Boolean
     var controllerHasGyro: Boolean
 
     /** Index into [connectedControllers] used as the input source; -1 disables controller input. */

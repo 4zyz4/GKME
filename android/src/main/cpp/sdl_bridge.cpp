@@ -620,6 +620,33 @@ Java_com_zyz4_gkme_input_SdlNative_nativeGetControllerHasAccel(JNIEnv *env, jobj
     return g_gamepads[index].hasAccel ? JNI_TRUE : JNI_FALSE;
 }
 
+JNIEXPORT jboolean JNICALL
+Java_com_zyz4_gkme_input_SdlNative_nativeGetControllerHasAnalogTriggers(JNIEnv *env, jobject thiz,
+                                                                        jint index) {
+    (void) env;
+    (void) thiz;
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (!validIndex(index) || g_gamepads[index].handle == nullptr) {
+        return JNI_FALSE;
+    }
+    SDL_Gamepad *gp = g_gamepads[index].handle;
+    const bool hasLeft = SDL_GamepadHasAxis(gp, SDL_GAMEPAD_AXIS_LEFT_TRIGGER);
+    const bool hasRight = SDL_GamepadHasAxis(gp, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER);
+    return (hasLeft && hasRight) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_zyz4_gkme_input_SdlNative_nativeGetControllerHasTouchpad(JNIEnv *env, jobject thiz,
+                                                                  jint index) {
+    (void) env;
+    (void) thiz;
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (!validIndex(index) || g_gamepads[index].handle == nullptr) {
+        return JNI_FALSE;
+    }
+    return SDL_GetNumGamepadTouchpads(g_gamepads[index].handle) > 0 ? JNI_TRUE : JNI_FALSE;
+}
+
 JNIEXPORT jint JNICALL
 Java_com_zyz4_gkme_input_SdlNative_nativeGetControllerType(JNIEnv *env, jobject thiz, jint index) {
     (void) env;

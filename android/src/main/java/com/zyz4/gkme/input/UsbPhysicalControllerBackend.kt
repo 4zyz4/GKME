@@ -54,9 +54,6 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
     override var controllerGyroEnabled: Boolean = false
 
     @Volatile
-    override var nonLinearTriggerAdaptation: Boolean = false
-
-    @Volatile
     override var controllerHasGyro: Boolean = false
 
     @Volatile
@@ -294,8 +291,12 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
                 (if ((flags and USB_LEFT) != 0) GamepadState.DPAD_LEFT else 0) or
                 (if ((flags and USB_RIGHT) != 0) GamepadState.DPAD_RIGHT else 0)
 
-        val left = if (nonLinearTriggerAdaptation) (if (lt > 0.5f) 255 else 0) else (lt * 255f).toInt().coerceIn(0, 255)
-        val right = if (nonLinearTriggerAdaptation) (if (rt > 0.5f) 255 else 0) else (rt * 255f).toInt().coerceIn(0, 255)
+        // Digital (non-analog) triggers are thresholded to 0/255, analog ones stay continuous.
+        val analogTriggers = activeInputController()?.let {
+            (it.getCapabilities().toInt() and GkmeBridge.LI_CCAP_ANALOG_TRIGGERS.toInt()) != 0
+        } ?: true
+        val left = if (analogTriggers) (lt * 255f).toInt().coerceIn(0, 255) else (if (lt > 0.5f) 255 else 0)
+        val right = if (analogTriggers) (rt * 255f).toInt().coerceIn(0, 255) else (if (rt > 0.5f) 255 else 0)
 
         _controllerState.value = PhysicalControllerState(
             buttons = buttons,
@@ -367,6 +368,9 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
                 motorCount = if ((capabilities and GkmeBridge.LI_CCAP_RUMBLE.toInt()) != 0) 2 else 0,
                 hasTriggerRumble = (capabilities and GkmeBridge.LI_CCAP_TRIGGER_RUMBLE.toInt()) != 0,
                 hasAdaptiveTrigger = c.hasAdaptiveTriggerSupport(),
+                hasGyro = (capabilities and GkmeBridge.LI_CCAP_GYRO.toInt()) != 0,
+                hasAnalogTrigger = (capabilities and GkmeBridge.LI_CCAP_ANALOG_TRIGGERS.toInt()) != 0,
+                hasTouchpad = (capabilities and GkmeBridge.LI_CCAP_TOUCHPAD.toInt()) != 0,
             )
         }
         _connectedControllers.value = infos

@@ -489,10 +489,6 @@ class GkViewModel @Inject constructor(
         updateGyroOverrideFromCount()
     }
 
-    fun updateNonLinearTriggerAdaptation(enabled: Boolean) {
-        connectionManager.updateSettings(settings.value.copy(nonLinearTriggerAdaptation = enabled))
-    }
-
     fun updateInputControllerIndex(index: Int) {
         connectionManager.updateSettings(settings.value.copy(inputControllerIndex = index))
     }

@@ -68,10 +68,12 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
     override var controllerGyroEnabled: Boolean = false
 
     @Volatile
-    override var nonLinearTriggerAdaptation: Boolean = false
-
-    @Volatile
     override var controllerHasGyro: Boolean = false
+
+    /** True when the input controller exposes analog triggers; otherwise its triggers are
+     *  treated as digital (thresholded to 0/255). Updated from the detected capabilities. */
+    @Volatile
+    private var inputHasAnalogTrigger: Boolean = true
 
     /** Index into [connectedControllers] used as the input source; -1 disables controller input. */
     @Volatile
@@ -79,6 +81,7 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
         set(value) {
             if (field == value) return
             field = value
+            refreshInputTriggerCapability()
             resetInputState()
         }
 
@@ -233,11 +236,15 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
                 motorCount = SdlNative.nativeGetControllerMotorCount(i),
                 hasTriggerRumble = SdlNative.nativeGetControllerHasTriggerRumble(i),
                 hasAdaptiveTrigger = false,
+                hasGyro = SdlNative.nativeGetControllerHasGyro(i),
+                hasAnalogTrigger = SdlNative.nativeGetControllerHasAnalogTriggers(i),
+                hasTouchpad = SdlNative.nativeGetControllerHasTouchpad(i),
             )
         }
         // StateFlow conflates equal lists, so this only emits on real changes.
         _connectedControllers.value = infos
         _isConnected.value = count > 0
+        inputHasAnalogTrigger = infos.getOrNull(inputControllerIndex)?.hasAnalogTrigger ?: true
         if (count == 0) {
             resetInputState()
             _gyroData.value = floatArrayOf(0f, 0f, 0f)
@@ -262,6 +269,12 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
             lastPsPresent = psPresent
             mainHandler.post { onPointerCaptureNeeded?.invoke(psPresent) }
         }
+    }
+
+    /** Recomputes whether the input controller's triggers are analog from the current list. */
+    private fun refreshInputTriggerCapability() {
+        inputHasAnalogTrigger =
+            _connectedControllers.value.getOrNull(inputControllerIndex)?.hasAnalogTrigger ?: true
     }
 
     private fun resetInputState() {
@@ -362,15 +375,15 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
             sdlButtons and GamepadState.TOUCHPAD_CLICK.toUInt().inv()
         }
 
-        val lt = if (nonLinearTriggerAdaptation) {
-            if (v[5] > 128) 255 else 0
-        } else {
+        val lt = if (inputHasAnalogTrigger) {
             v[5]
-        }
-        val rt = if (nonLinearTriggerAdaptation) {
-            if (v[6] > 128) 255 else 0
         } else {
+            if (v[5] > 128) 255 else 0
+        }
+        val rt = if (inputHasAnalogTrigger) {
             v[6]
+        } else {
+            if (v[6] > 128) 255 else 0
         }
 
         _controllerState.value = PhysicalControllerState(
