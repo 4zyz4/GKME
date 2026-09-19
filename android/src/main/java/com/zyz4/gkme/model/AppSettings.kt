@@ -9,7 +9,7 @@ enum class DisplayMode { XBOX, PLAYSTATION, SWITCH }
 /** Which low-level stack drives the physical gamepads. */
 enum class ControllerDriver(val displayName: String) {
     SDL3("SDL3"),
-    AXIXI2233_USB("Axixi2233的USB驱动"),
+    AXIXI2233_USB("USB驱动·阿西西"),
 }
 
 enum class VibrationType { NONE, VIEW, VIBRATION_EFFECT }

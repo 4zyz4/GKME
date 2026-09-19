@@ -1493,18 +1493,18 @@
                             android:id="@+id/btnTargetWindows"
                             style="@style/GamepadChip"
                             android:layout_marginEnd="6dp"
-                            android:text="WINDOWS" />
+                            android:text="Windows" />
 
                         <Button
                             android:id="@+id/btnTargetAndroid"
                             style="@style/GamepadChip"
                             android:layout_marginEnd="6dp"
-                            android:text="ANDROID" />
+                            android:text="Android" />
 
                         <Button
                             android:id="@+id/btnTargetLinux"
                             style="@style/GamepadChip"
-                            android:text="LINUX" />
+                            android:text="Linux" />
                     </LinearLayout>
 
                     <LinearLayout
@@ -1515,21 +1515,21 @@
                         android:layout_marginBottom="16dp">
 
                         <Button
+                            android:id="@+id/btnTargetWindowsGamepad"
+                            style="@style/GamepadChip"
+                            android:layout_marginEnd="6dp"
+                            android:text="Windows仅手柄" />
+
+                        <Button
                             android:id="@+id/btnTargetAndroidGamepad"
                             style="@style/GamepadChip"
                             android:layout_marginEnd="6dp"
-                            android:text="Android-仅手柄" />
+                            android:text="Android仅手柄" />
 
                         <Button
                             android:id="@+id/btnTargetUniversalKm"
                             style="@style/GamepadChip"
-                            android:layout_marginEnd="6dp"
-                            android:text="通用-键鼠" />
-
-                        <Button
-                            android:id="@+id/btnTargetWindowsGamepad"
-                            style="@style/GamepadChip"
-                            android:text="Windows-仅手柄" />
+                            android:text="通用键鼠" />
                     </LinearLayout>
                 </LinearLayout>
 
