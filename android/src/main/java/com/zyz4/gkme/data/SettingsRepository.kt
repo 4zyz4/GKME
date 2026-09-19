@@ -88,7 +88,6 @@ class SettingsRepository @Inject constructor(
         val GYRO_CONTROLLER_INDEX_CONNECTED = intPreferencesKey("gyro_controller_index_connected")
         val VOLUME_UP_BITS = stringPreferencesKey("volume_up_bits")
         val VOLUME_DOWN_BITS = stringPreferencesKey("volume_down_bits")
-        val NON_LINEAR_TRIGGER_ADAPTATION = booleanPreferencesKey("non_linear_trigger_adaptation")
         val CONTROLLER_DRIVER = intPreferencesKey("controller_driver")
         val INPUT_CONTROLLER_INDEX = intPreferencesKey("input_controller_index")
         // Audio
@@ -224,7 +223,6 @@ class SettingsRepository @Inject constructor(
             gyroControllerIndexConnected = prefs[Keys.GYRO_CONTROLLER_INDEX_CONNECTED] ?: 0,
             volumeUpBits = parseBitList(prefs[Keys.VOLUME_UP_BITS]),
             volumeDownBits = parseBitList(prefs[Keys.VOLUME_DOWN_BITS]),
-            nonLinearTriggerAdaptation = prefs[Keys.NON_LINEAR_TRIGGER_ADAPTATION] ?: false,
             controllerDriver = ControllerDriver.entries.getOrElse(
                 prefs[Keys.CONTROLLER_DRIVER] ?: 0
             ) { ControllerDriver.SDL3 },
@@ -328,7 +326,6 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.GYRO_CONTROLLER_INDEX_CONNECTED] = settings.gyroControllerIndexConnected
             prefs[Keys.VOLUME_UP_BITS] = gson.toJson(settings.volumeUpBits)
             prefs[Keys.VOLUME_DOWN_BITS] = gson.toJson(settings.volumeDownBits)
-            prefs[Keys.NON_LINEAR_TRIGGER_ADAPTATION] = settings.nonLinearTriggerAdaptation
             prefs[Keys.CONTROLLER_DRIVER] = settings.controllerDriver.ordinal
             prefs[Keys.INPUT_CONTROLLER_INDEX] = settings.inputControllerIndex
             prefs[Keys.BG_FILL_TYPE] = settings.bgFillType.ordinal

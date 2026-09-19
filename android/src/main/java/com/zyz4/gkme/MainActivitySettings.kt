@@ -54,6 +54,7 @@ import com.zyz4.gkme.model.TargetPlatform
 import com.zyz4.gkme.model.VibrationDevice
 import com.zyz4.gkme.model.VibrationDeviceType
 import com.zyz4.gkme.model.VibrationType
+import com.zyz4.gkme.input.ControllerInfo
 import com.zyz4.gkme.service.ConnectionPhase
 import com.zyz4.gkme.view.WrapContentGridView
 import com.zyz4.gkme.view.PresetPreviewView
@@ -532,11 +533,6 @@ internal fun MainActivity.setupSettings() {
         a.physicalControllerHandler.reconnect()
     }
 
-    a.findViewById<Switch>(R.id.switchNonLinearTriggerAdaptation).setOnCheckedChangeListener { _, isChecked ->
-        a.viewModel.updateNonLinearTriggerAdaptation(isChecked)
-        a.physicalControllerHandler.nonLinearTriggerAdaptation = isChecked
-    }
-
     a.findViewById<Spinner>(R.id.spinnerPhysicalController).apply {
         setOnTouchListener { _, _ ->
             a.inputControllerUserSelecting = true
@@ -852,6 +848,60 @@ internal fun MainActivity.syncPhysicalControllerUI() {
     val pos = indices.indexOf(effective).let { if (it >= 0) it else indices.size - 1 }
     a.updateInputControllerAdapter(spinner, indices)
     spinner.setSelection(pos)
+    a.syncControllerDetailUI()
+}
+
+/** The controller currently selected as the input source, or null when none is active. */
+internal fun MainActivity.currentInputControllerInfo(): ControllerInfo? {
+    val a = this
+    val index = a.viewModel.settings.value.inputControllerIndex
+    if (index < 0) return null
+    return a.physicalControllerHandler.connectedControllers.value.getOrNull(index)
+}
+
+internal fun MainActivity.controllerDetailVibrationText(info: ControllerInfo?): String = when {
+    info == null -> "未连接"
+    info.motorCount <= 0 -> "不支持"
+    else -> "${info.motorCount}个马达"
+}
+
+internal fun MainActivity.controllerDetailGyroText(info: ControllerInfo?): String =
+    when {
+        info == null -> "未连接"
+        info.hasGyro -> "支持"
+        else -> "不支持"
+    }
+
+internal fun MainActivity.controllerDetailTouchpadText(info: ControllerInfo?): String =
+    when {
+        info == null -> "未连接"
+        info.hasTouchpad -> "支持"
+        else -> "不支持"
+    }
+
+internal fun MainActivity.controllerDetailTriggerText(info: ControllerInfo?): String = when {
+    info == null -> "未连接"
+    info.hasAdaptiveTrigger -> "自适应扳机"
+    info.hasTriggerRumble -> "带有震动的线性扳机"
+    info.hasAnalogTrigger -> "线性扳机"
+    else -> "非线性扳机"
+}
+
+/** Refreshes the read-only detail card for the controller selected as the input source. */
+internal fun MainActivity.syncControllerDetailUI() {
+    val a = this
+    if (!a.settingsInflated) return
+    val info = a.currentInputControllerInfo()
+    a.findViewById<TextView>(R.id.tvControllerDetailDriver).text =
+        a.viewModel.settings.value.controllerDriver.displayName
+    a.findViewById<TextView>(R.id.tvControllerDetailVibration).text =
+        a.controllerDetailVibrationText(info)
+    a.findViewById<TextView>(R.id.tvControllerDetailGyro).text =
+        a.controllerDetailGyroText(info)
+    a.findViewById<TextView>(R.id.tvControllerDetailTouchpad).text =
+        a.controllerDetailTouchpadText(info)
+    a.findViewById<TextView>(R.id.tvControllerDetailTrigger).text =
+        a.controllerDetailTriggerText(info)
 }
 
 internal fun MainActivity.currentGyroSource(): GyroSource {
@@ -1484,8 +1534,6 @@ internal fun MainActivity.syncSettingsUI() {
     a.updateGyroLandscapeInvertedNote(inverted)
 
     a.findViewById<Switch>(R.id.switchKeepScreenOn).isChecked = s.keepScreenOn
-    a.findViewById<Switch>(R.id.switchNonLinearTriggerAdaptation).isChecked = s.nonLinearTriggerAdaptation
-    a.physicalControllerHandler.nonLinearTriggerAdaptation = s.nonLinearTriggerAdaptation
     a.updateVolumeMappingLabels()
 
     a.syncAppearanceUI()
