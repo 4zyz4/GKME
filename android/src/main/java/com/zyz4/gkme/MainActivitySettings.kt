@@ -887,7 +887,7 @@ internal fun MainActivity.syncControllerDetailUI() {
     if (!a.settingsInflated) return
     val info = a.currentInputControllerInfo()
     a.findViewById<TextView>(R.id.tvControllerDetailDriver).text =
-        a.viewModel.settings.value.controllerDriver.displayName
+        if (info == null) "未连接" else a.physicalControllerHandler.activeDriver.value.displayName
     a.findViewById<TextView>(R.id.tvControllerDetailVibration).text =
         a.controllerDetailVibrationText(info)
     a.findViewById<TextView>(R.id.tvControllerDetailGyro).text =

@@ -1,8 +1,17 @@
 package com.zyz4.gkme.input
 
 import android.content.Context
+import android.hardware.usb.UsbManager
+import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
+import com.zyz4.gkme.input.usb.DualSenseController
+import com.zyz4.gkme.input.usb.Dualshock4Controller
+import com.zyz4.gkme.input.usb.ProCon2Controller
+import com.zyz4.gkme.input.usb.ProConController
+import com.zyz4.gkme.input.usb.Xbox360Controller
+import com.zyz4.gkme.input.usb.Xbox360WirelessDongle
+import com.zyz4.gkme.input.usb.XboxOneController
 import com.zyz4.gkme.model.ControllerDriver
 import com.zyz4.gkme.model.TouchPoint
 import com.zyz4.gkme.model.VibrationDevice
@@ -11,9 +20,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
@@ -31,9 +42,18 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
 
     private var started = false
     private var backend: PhysicalControllerBackend? = null
+    private var compatibilityJob: Job? = null
 
+    /** True while the USB driver cannot handle the attached gamepad and SDL3 is used instead. */
+    private var fallbackToSdl = false
+
+    /** The driver chosen by the user in the settings. */
     var driver: ControllerDriver = ControllerDriver.SDL3
         private set
+
+    /** The driver actually in use; differs from [driver] when a fallback to SDL3 is active. */
+    private val _activeDriver = MutableStateFlow(ControllerDriver.SDL3)
+    val activeDriver: StateFlow<ControllerDriver> = _activeDriver.asStateFlow()
 
     // Facade-owned flows so existing collectors stay valid across driver switches.
     private val _isConnected = MutableStateFlow(false)
@@ -97,11 +117,14 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
         if (started) return
         started = true
         createAndStartBackend()
+        startCompatibilityMonitor()
     }
 
     override fun stop() {
         if (!started) return
         started = false
+        compatibilityJob?.cancel()
+        compatibilityJob = null
         stopBackend()
     }
 
@@ -109,6 +132,7 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
     fun setDriver(newDriver: ControllerDriver) {
         if (newDriver == driver) return
         driver = newDriver
+        fallbackToSdl = false
         if (started) {
             stopBackend()
             createAndStartBackend()
@@ -124,7 +148,8 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
     }
 
     private fun createAndStartBackend() {
-        val newBackend: PhysicalControllerBackend = when (driver) {
+        val effectiveDriver = if (fallbackToSdl) ControllerDriver.SDL3 else driver
+        val newBackend: PhysicalControllerBackend = when (effectiveDriver) {
             ControllerDriver.SDL3 -> SdlPhysicalControllerBackend(context)
             ControllerDriver.AXIXI2233_USB -> UsbPhysicalControllerBackend(context)
         }
@@ -137,7 +162,63 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
         newBackend.onPointerCaptureNeeded = { enabled -> onPointerCaptureNeeded?.invoke(enabled) }
         newBackend.start()
         backend = newBackend
+        _activeDriver.value = effectiveDriver
         startMirroring(newBackend)
+    }
+
+    /**
+     * Watches for a gamepad that the USB driver cannot handle and transparently
+     * retries the connection through SDL3. The user's driver preference is kept, so
+     * once a supported controller is attached (or the current one is removed) the
+     * USB driver is brought back up automatically.
+     */
+    private fun startCompatibilityMonitor() {
+        compatibilityJob?.cancel()
+        compatibilityJob = scope.launch {
+            while (isActive) {
+                delay(COMPATIBILITY_CHECK_INTERVAL_MS)
+                if (driver != ControllerDriver.AXIXI2233_USB) continue
+                val shouldFallback = hasSystemGamepad() && !isUsbDriverCompatible()
+                if (shouldFallback == fallbackToSdl) continue
+                fallbackToSdl = shouldFallback
+                if (started) {
+                    stopBackend()
+                    createAndStartBackend()
+                }
+            }
+        }
+    }
+
+    /** True when an attached USB device matches one of the controllers the USB driver supports. */
+    private fun isUsbDriverCompatible(): Boolean {
+        val manager = context.getSystemService(Context.USB_SERVICE) as? UsbManager ?: return false
+        return try {
+            manager.deviceList.values.any { device ->
+                XboxOneController.canClaimDevice(device) ||
+                    Xbox360Controller.canClaimDevice(device) ||
+                    Xbox360WirelessDongle.canClaimDevice(device) ||
+                    ProCon2Controller.canClaimDevice(device) ||
+                    ProConController.canClaimDevice(device) ||
+                    DualSenseController.canClaimDevice(device) ||
+                    Dualshock4Controller.canClaimDevice(device)
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /** True when Android reports an attached gamepad or joystick (wired or wireless). */
+    private fun hasSystemGamepad(): Boolean {
+        return try {
+            InputDevice.getDeviceIds().any { id ->
+                val device = InputDevice.getDevice(id) ?: return@any false
+                val sources = device.sources
+                (sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD) ||
+                    (sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK)
+            }
+        } catch (_: Exception) {
+            false
+        }
     }
 
     private fun stopBackend() {
@@ -234,5 +315,9 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
             triggerDataLeft, triggerDataRight,
             ledColor, playerLed, eventFlags,
         )
+    }
+
+    companion object {
+        private const val COMPATIBILITY_CHECK_INTERVAL_MS = 1000L
     }
 }

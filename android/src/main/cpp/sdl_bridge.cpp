@@ -658,6 +658,28 @@ Java_com_zyz4_gkme_input_SdlNative_nativeGetControllerType(JNIEnv *env, jobject 
     return static_cast<jint>(SDL_GetGamepadType(g_gamepads[index].handle));
 }
 
+JNIEXPORT jint JNICALL
+Java_com_zyz4_gkme_input_SdlNative_nativeGetControllerVendor(JNIEnv *env, jobject thiz, jint index) {
+    (void) env;
+    (void) thiz;
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (!validIndex(index) || g_gamepads[index].handle == nullptr) {
+        return 0;
+    }
+    return static_cast<jint>(SDL_GetGamepadVendor(g_gamepads[index].handle));
+}
+
+JNIEXPORT jint JNICALL
+Java_com_zyz4_gkme_input_SdlNative_nativeGetControllerProduct(JNIEnv *env, jobject thiz, jint index) {
+    (void) env;
+    (void) thiz;
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (!validIndex(index) || g_gamepads[index].handle == nullptr) {
+        return 0;
+    }
+    return static_cast<jint>(SDL_GetGamepadProduct(g_gamepads[index].handle));
+}
+
 JNIEXPORT jboolean JNICALL
 Java_com_zyz4_gkme_input_SdlNative_nativePollState(JNIEnv *env, jobject thiz, jint index,
                                                    jintArray outArray) {
