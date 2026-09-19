@@ -26,6 +26,7 @@ import android.widget.TextView
 import com.zyz4.gkme.R
 import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.model.GamepadState
+import com.zyz4.gkme.model.MouseGestureAction
 import com.zyz4.gkme.model.GyroOrientation
 import com.zyz4.gkme.model.GyroBaseDirection
 import com.zyz4.gkme.model.GyroCoordinateSystem
@@ -1096,16 +1097,49 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             }
         }
         if (isMousepadId(buttonId)) {
-            val cbDoubleClick = CheckBox(context).apply {
-                text = "双击按下"
-                setTextColor(-0x444445)
-                textSize = 14f
-                isChecked = button.doubleClickEnable
-                setOnCheckedChangeListener { _, isChecked ->
-                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(doubleClickEnable = isChecked)) }
-                }
+            // ── 手势动作配置（多个下拉选框）──
+            addMouseActionSpinner(
+                buttonParamsInner, "单击", MouseGestureAction.TAP_ACTIONS, button.singleTapAction,
+            ) { action ->
+                currentButton = currentButton?.copy(singleTapAction = action)
+                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             }
-            buttonParamsInner.addView(cbDoubleClick, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+            addMouseActionSpinner(
+                buttonParamsInner, "双指点击", MouseGestureAction.TAP_ACTIONS, button.twoFingerTapAction,
+            ) { action ->
+                currentButton = currentButton?.copy(twoFingerTapAction = action)
+                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+            }
+            addMouseActionSpinner(
+                buttonParamsInner, "三指点击", MouseGestureAction.TAP_ACTIONS, button.threeFingerTapAction,
+            ) { action ->
+                currentButton = currentButton?.copy(threeFingerTapAction = action)
+                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+            }
+            addMouseActionSpinner(
+                buttonParamsInner, "双击后滑动", MouseGestureAction.SWIPE_ACTIONS, button.doubleTapDragAction,
+            ) { action ->
+                currentButton = currentButton?.copy(doubleTapDragAction = action)
+                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+            }
+            addMouseActionSpinner(
+                buttonParamsInner, "单指滑动", MouseGestureAction.SWIPE_ACTIONS, button.oneFingerSwipeAction,
+            ) { action ->
+                currentButton = currentButton?.copy(oneFingerSwipeAction = action)
+                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+            }
+            addMouseActionSpinner(
+                buttonParamsInner, "双指滑动", MouseGestureAction.SWIPE_ACTIONS, button.twoFingerSwipeAction,
+            ) { action ->
+                currentButton = currentButton?.copy(twoFingerSwipeAction = action)
+                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+            }
+            addMouseActionSpinner(
+                buttonParamsInner, "三指滑动", MouseGestureAction.SWIPE_ACTIONS, button.threeFingerSwipeAction,
+            ) { action ->
+                currentButton = currentButton?.copy(threeFingerSwipeAction = action)
+                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+            }
             addSeekbarFloat(buttonParamsInner, "鼠标灵敏度", button.mouseSensitivity, 0.1f, 3f, 0.05f) { v ->
                 currentButton = currentButton?.copy(mouseSensitivity = v)
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
@@ -1858,6 +1892,45 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         container.addView(row)
     }
 
+
+    /** 鼠标触控板手势动作下拉框：标签 + Spinner。 */
+    private fun addMouseActionSpinner(
+        container: LinearLayout,
+        label: String,
+        actions: List<MouseGestureAction>,
+        current: MouseGestureAction,
+        onChange: (MouseGestureAction) -> Unit,
+    ) {
+        val density = context.resources.displayMetrics.density
+        val tv = TextView(context).apply {
+            text = label
+            setTextColor(-0x1)
+            textSize = 14f
+            setPadding(0, (8f * density).toInt(), 0, 0)
+        }
+        container.addView(tv, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        val items = actions.map { it.displayName }
+        val spinner = Spinner(context).apply {
+            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, items).also {
+                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+            setSelection(actions.indexOf(current).coerceAtLeast(0))
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                    val action = actions.getOrNull(pos) ?: return
+                    onChange(action)
+                }
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
+        }
+        container.addView(spinner, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = (4f * density).toInt()
+            bottomMargin = (4f * density).toInt()
+        })
+    }
 
     private fun addSeekbar(container: LinearLayout, label: String, value: Int, min: Int, max: Int, onChange: (Int) -> Unit, onStartTracking: (() -> Unit)? = null, onStopTracking: (() -> Unit)? = null) {
         val density = context.resources.displayMetrics.density
