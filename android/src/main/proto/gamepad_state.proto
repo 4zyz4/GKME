@@ -6,22 +6,9 @@ option java_package = "com.zyz4.gkme.proto";
 option java_multiple_files = true;
 option csharp_namespace = "GKME.Protocol";
 
-enum Button {
-  A = 0; B = 1; X = 2; Y = 3;
-  LB = 4; RB = 5;
-  LT = 6; RT = 7;
-  SELECT = 8; START = 9;
-  L3 = 10; R3 = 11;
-  DPAD_UP = 12; DPAD_DOWN = 13;
-  DPAD_LEFT = 14; DPAD_RIGHT = 15;
-  HOME = 16; TOUCHPAD_CLICK = 17;
-  MIC_MUTE = 18;
-}
-
 message ClientToServer {
   oneof payload {
     Hello hello = 1;
-    GamepadInput gamepad_input = 2;
   }
 }
 
@@ -48,10 +35,6 @@ message GamepadInput {
   float accel_z = 14;
   uint32 battery_level = 16;
   bool is_charging = 17;
-  uint32 touchpad_x = 18;
-  uint32 touchpad_y = 19;
-  bool touchpad_touch = 20;
-  bool touchpad_click = 21;
   repeated TouchPoint touches = 22;
   // Mouse fields for high-precision scroll and relative movement
   sint32 mouse_dx = 23;
@@ -62,7 +45,6 @@ message GamepadInput {
 
   // Keyboard fields — scan codes in Microsoft Standard Scan Code (UTF)
   repeated uint32 pressed_scan_codes = 28;
-  repeated uint32 released_scan_codes = 29;
   uint32 keyboard_modifiers = 30;
 }
 
@@ -76,7 +58,6 @@ message TouchPoint {
 message ServerToClient {
   oneof payload {
     CompactFrame compact_frame = 11;
-    Vibration vibration = 1;
     TriggerEffects trigger_effects = 2;
     Disconnect disconnect = 3;
     ServerHello server_hello = 7;
@@ -136,6 +117,5 @@ message CompactFrame {
   Vibration vibration = 1;
   TriggerEffects trigger_effects = 2;
   LedState led_state = 3;
-  AudioFrame audio_frame = 4;
   TestTone test_tone = 5;
 }

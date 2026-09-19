@@ -469,18 +469,6 @@ class ConnectionManager @Inject constructor(
                     audioPlaybackService.setTestTone(cf.testTone.enabled)
                 }
             }
-            ServerToClient.PayloadCase.VIBRATION -> {
-                if (_settings.value.gameVibrationDeviceFor(physicalControllerConnected).type != VibrationDeviceType.NONE) {
-                    val v = msg.vibration
-                    onRumbleRequest?.invoke(v.largeMotor.toInt(), v.smallMotor.toInt())
-                }
-                if (msg.hasTriggerEffects() && msg.triggerEffects.leftTriggerEffect.size() > 0) {
-                    onTriggerEffectsRequest?.invoke(
-                        msg.triggerEffects.leftTriggerEffect.toByteArray(),
-                        msg.triggerEffects.rightTriggerEffect.toByteArray(),
-                    )
-                }
-            }
             ServerToClient.PayloadCase.AUDIO_FRAME -> {
                 val af = msg.audioFrame
                 val pcm = af.pcm.toByteArray()
@@ -628,10 +616,6 @@ class ConnectionManager @Inject constructor(
                             accelX = state.accelX,
                             accelY = state.accelY,
                             accelZ = state.accelZ,
-                            touchpadX = state.touchpadX,
-                            touchpadY = state.touchpadY,
-                            touchpadTouch = state.touchpadTouch,
-                            touchpadClick = state.touchpadClick,
                             batteryLevel = state.batteryLevel,
                             isCharging = state.isCharging,
                             touches = state.touchesList.map { tp ->
