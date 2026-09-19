@@ -16,6 +16,7 @@ message Hello {
   uint32 protocol_version = 1;
   string device_name = 2;
   uint32 controller_index = 4;
+  string mac_address = 5;
 }
 
 message GamepadInput {

@@ -36,6 +36,7 @@ class UdpService {
 
     private var onMessage: ((ServerToClient) -> Unit)? = null
     private var broadcastName: String? = null
+    private var broadcastMac: String? = null
 
     val isActive: Boolean get() = sockets.isNotEmpty()
 
@@ -48,9 +49,10 @@ class UdpService {
 
     fun resumeBroadcast() {
         val name = broadcastName ?: return
+        val mac = broadcastMac ?: return
         if (broadcastJobs.isNotEmpty()) return
         for (socket in sockets) {
-            startBroadcastForSocket(socket, name)
+            startBroadcastForSocket(socket, name, mac)
         }
     }
 
@@ -59,8 +61,8 @@ class UdpService {
         broadcastJobs.clear()
     }
 
-    fun start(deviceName: String, onMessage: (ServerToClient) -> Unit) {
-        rebind(deviceName, onMessage, keepPcAddress = false)
+    fun start(deviceName: String, macAddress: String, onMessage: (ServerToClient) -> Unit) {
+        rebind(deviceName, macAddress, onMessage, keepPcAddress = false)
     }
 
     /**
@@ -70,23 +72,31 @@ class UdpService {
      * keeps flowing even after the phone changed networks/IP.
      */
     fun refresh() {
-        rebind(broadcastName, onMessage, keepPcAddress = true)
+        rebind(broadcastName, broadcastMac, onMessage, keepPcAddress = true)
     }
 
     @Volatile var portInUse: Boolean = false
 
-    private fun rebind(deviceName: String?, onMessage: ((ServerToClient) -> Unit)?, keepPcAddress: Boolean) {
+    private fun rebind(
+        deviceName: String?,
+        macAddress: String?,
+        onMessage: ((ServerToClient) -> Unit)?,
+        keepPcAddress: Boolean,
+    ) {
         val savedPc = pcAddress
         stop()
         this.onMessage = onMessage
         this.broadcastName = deviceName
+        this.broadcastMac = macAddress
         val allIps = com.zyz4.gkme.service.ConnectionManager.getAllLocalIpAddressesInternal()
         for (localIp in allIps) {
             try {
                 val bindAddr = InetAddress.getByName(localIp)
                 val socket = DatagramSocket(PORT, bindAddr).also { it.broadcast = true }
                 sockets.add(socket)
-                startBroadcastForSocket(socket, deviceName ?: return)
+                if (deviceName != null && macAddress != null) {
+                    startBroadcastForSocket(socket, deviceName, macAddress)
+                }
                 startReceiveLoopForSocket(socket)
             } catch (e: java.net.BindException) {
                 portInUse = true
@@ -97,7 +107,9 @@ class UdpService {
             try {
                 val socket = DatagramSocket(PORT).also { it.broadcast = true }
                 sockets.add(socket)
-                startBroadcastForSocket(socket, deviceName ?: return)
+                if (deviceName != null && macAddress != null) {
+                    startBroadcastForSocket(socket, deviceName, macAddress)
+                }
                 startReceiveLoopForSocket(socket)
             } catch (e: java.net.BindException) {
                 portInUse = true
@@ -235,10 +247,10 @@ class UdpService {
         receiveJobs.add(job)
     }
 
-    private fun startBroadcastForSocket(socket: DatagramSocket, deviceName: String) {
+    private fun startBroadcastForSocket(socket: DatagramSocket, deviceName: String, macAddress: String) {
         val job = CoroutineScope(Dispatchers.IO).launch {
             try {
-                val msg = "GAMEPAD_SERVER:$deviceName".toByteArray()
+                val msg = "GKME|$deviceName|$macAddress".toByteArray()
                 val bcAddr = InetAddress.getByName("255.255.255.255")
                 while (isActive) {
                     try {
