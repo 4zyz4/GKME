@@ -1001,13 +1001,19 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
         dy *= finalSpeedMultiplier
         cursorAccumX += dx * mouseSens
         cursorAccumY += dy * mouseSens
-        val ix = cursorAccumX.toInt()
-        val iy = cursorAccumY.toInt()
-        if (ix != 0 || iy != 0) {
-            cursorAccumX -= ix
-            cursorAccumY -= iy
+        var ix = cursorAccumX.toInt()
+        var iy = cursorAccumY.toInt()
+        cursorAccumX -= ix
+        cursorAccumY -= iy
+        // HID/协议每帧只接受一个有符号字节（-127..127），位移超过该范围时拆成
+        // 多帧发送；否则 toByte() 按 8 位截断，正数会翻转为负数，指针反向乱跳。
+        while (ix != 0 || iy != 0) {
+            val sx = ix.coerceIn(-127, 127)
+            val sy = iy.coerceIn(-127, 127)
             a.sendMouseReportDirect(buttonDown = heldButtons, buttonUp = 0,
-                dx = ix.toByte(), dy = iy.toByte())
+                dx = sx.toByte(), dy = sy.toByte())
+            ix -= sx
+            iy -= sy
         }
     }
     fun cancelSingleClick() {
