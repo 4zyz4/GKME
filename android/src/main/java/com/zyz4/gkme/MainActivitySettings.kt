@@ -528,6 +528,9 @@ internal fun MainActivity.setupSettings() {
     a.findViewById<Button>(R.id.btnGoGyro).setOnClickListener {
         a.selectSettingsCategory(4)
     }
+    a.findViewById<Button>(R.id.btnRedetectController).setOnClickListener {
+        a.physicalControllerHandler.reconnect()
+    }
 
     a.findViewById<Switch>(R.id.switchNonLinearTriggerAdaptation).setOnCheckedChangeListener { _, isChecked ->
         a.viewModel.updateNonLinearTriggerAdaptation(isChecked)
