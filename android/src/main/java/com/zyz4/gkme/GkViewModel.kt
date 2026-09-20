@@ -620,6 +620,10 @@ class GkViewModel @Inject constructor(
     private var _controllerWorldDx = 0f
     private var _controllerWorldDy = 0f
 
+    // Fractional carry for gyro->mouse so slow rotation is not truncated to zero (no fixed dead zone).
+    private var gyroMouseAccumX = 0f
+    private var gyroMouseAccumY = 0f
+
     // Accelerometer -> stick (steering wheel) mappers; one per sensor source.
     private val phoneAccelMapper = AccelSteeringMapper()
     private val controllerAccelMapper = AccelSteeringMapper()
@@ -851,8 +855,14 @@ class GkViewModel @Inject constructor(
                 if (actualGyroEnabled) {
                     when (s.gyroMode) {
                         GyroMode.MOUSE -> {
-                            val gyroMx = (-mappedX * sens * 50f).toInt().coerceIn(-127, 127)
-                            val gyroMy = (-mappedY * sens * 50f).toInt().coerceIn(-127, 127)
+                            gyroMouseAccumX += -mappedX * sens * 50f
+                            gyroMouseAccumY += -mappedY * sens * 50f
+                            val rawMx = gyroMouseAccumX.toInt()
+                            val rawMy = gyroMouseAccumY.toInt()
+                            val gyroMx = rawMx.coerceIn(-127, 127)
+                            val gyroMy = rawMy.coerceIn(-127, 127)
+                            gyroMouseAccumX -= rawMx
+                            gyroMouseAccumY -= rawMy
                             val totalDx = (gyroMx + _gamepadState.value.mouseDx.toInt()).coerceIn(-127, 127).toShort()
                             val totalDy = (gyroMy + _gamepadState.value.mouseDy.toInt()).coerceIn(-127, 127).toShort()
                             _gamepadState.value = _gamepadState.value.copy(
