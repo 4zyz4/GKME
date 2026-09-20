@@ -1112,7 +1112,8 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
         }
         val sDy = if (invertScrollV) -scrollDy else scrollDy
         val sDx = if (invertScrollH) scrollDx else -scrollDx
-        val wifiScrollFactor = if (a.viewModel.settings.value.connectionMode == ConnectionMode.WIFI) 33f else 1f
+        val connMode = a.viewModel.settings.value.connectionMode
+        val wifiScrollFactor = if (connMode == ConnectionMode.WIFI || connMode == ConnectionMode.USB) 33f else 1f
         wheelAccumY += sDy * scrollSens * wifiScrollFactor
         wheelAccumX += sDx * scrollSens * wifiScrollFactor
         val wY = wheelAccumY.toInt().coerceIn(-127, 127)
