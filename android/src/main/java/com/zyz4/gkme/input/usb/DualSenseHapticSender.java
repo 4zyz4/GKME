@@ -19,6 +19,12 @@ public final class DualSenseHapticSender {
     // 10 ms of 48 kHz 4-channel S16LE silence. The PC drops all-zero windows, so
     // the worker fills idle gaps with this to keep the isochronous endpoint fed.
     private static final int SILENCE_FRAME_BYTES = 480 * 8;
+    // A silence frame already carries 10 ms of audio, so idle top-ups must be paced
+    // at that same cadence. Polling every 1 ms pushed a 10 ms URB roughly ten times
+    // faster than real time, keeping the isochronous pipeline perpetually saturated
+    // and the worker busy on the USB bus at URGENT_AUDIO priority, which starved the
+    // WiFi UDP receive path on OTG setups.
+    private static final long SILENCE_FRAME_MS = 10L;
 
     private static final class HapticFrame {
         final byte[] data;
@@ -65,7 +71,7 @@ public final class DualSenseHapticSender {
                     if (nativeMode) {
                         // The PC drops all-zero windows, so idle gaps must be filled
                         // locally to keep the isochronous endpoint from underrunning.
-                        frame = queue.poll(1, TimeUnit.MILLISECONDS);
+                        frame = queue.poll(SILENCE_FRAME_MS, TimeUnit.MILLISECONDS);
                         if (frame == null) {
                             HapticNative.nativeSendNativeHapticPcm(silenceBuffer, SILENCE_FRAME_BYTES);
                             continue;
