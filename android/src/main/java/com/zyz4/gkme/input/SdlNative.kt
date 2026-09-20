@@ -39,6 +39,12 @@ object SdlNative {
     /** True when the gamepad at [index] exposes a touchpad. */
     external fun nativeGetControllerHasTouchpad(index: Int): Boolean
 
+    /**
+     * Mask of the buttons the gamepad at [index] physically exposes, using the app's
+     * GamepadState bit layout plus the physical-only paddle bits (see PhysicalInputs).
+     */
+    external fun nativeGetControllerButtonMask(index: Int): Int
+
     /** SDL_GamepadType value (0=unknown, 1=standard, 2=Xbox360, 3=XboxOne, 4=PS3, 5=PS4, 6=PS5, ...). */
     external fun nativeGetControllerType(index: Int): Int
 

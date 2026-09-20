@@ -21,6 +21,8 @@ data class ControllerInfo(
     val hasAnalogTrigger: Boolean = false,
     /** True when the controller exposes a touchpad. */
     val hasTouchpad: Boolean = false,
+    /** Mask of buttons the controller physically exposes (see PhysicalInputs). 0 = unknown. */
+    val supportedButtons: Int = 0,
 )
 
 /**

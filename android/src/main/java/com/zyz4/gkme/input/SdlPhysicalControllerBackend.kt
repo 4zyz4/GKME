@@ -264,6 +264,7 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
                 // SOURCE_TOUCHPAD events, which SDL's Android driver does not expose. Fall back
                 // to the controller type so the touchpad is still reported as supported.
                 hasTouchpad = SdlNative.nativeGetControllerHasTouchpad(i) || isPlayStationTouchpad(type),
+                supportedButtons = SdlNative.nativeGetControllerButtonMask(i),
             )
         }
         // StateFlow conflates equal lists, so this only emits on real changes.

@@ -30,6 +30,8 @@ import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.model.HapticEffect
 import com.zyz4.gkme.model.LayoutPreset
 import com.zyz4.gkme.model.LedAppearance
+import com.zyz4.gkme.model.PhysicalInputMapping
+import com.zyz4.gkme.model.PhysicalInputs
 import com.zyz4.gkme.model.TargetPlatform
 import com.zyz4.gkme.model.VibrationDevice
 import com.zyz4.gkme.model.TouchPoint
@@ -131,6 +133,19 @@ class GkViewModel @Inject constructor(
     private var physicalRStickY: Short = 0
     private var _keyboardModifier = 0u
     private var _keyboardKeys = UShortArray(6)
+
+    // ── Physical-controller remapping ──
+    /** Output bits produced by the current physical button mappings. */
+    private var physicalMappedButtonBits: UInt = 0u
+    /** Analog trigger values routed through the physical trigger mappings. */
+    private var physicalLeftTriggerAnalog: Int = 0
+    private var physicalRightTriggerAnalog: Int = 0
+    /** Mouse buttons (bit0=LMB, bit1=RMB, bit2=MMB) produced by the physical mappings. */
+    private var physicalMappedMouseButtons: Int = 0
+    /** Keyboard scan codes currently emitted by the physical button mappings. */
+    private var physicalMappedKbCodes: List<Int> = emptyList()
+    /** Whether any physical input currently asks to activate the gyro. */
+    private var physicalGyroActive = false
 
     private val _keyboardShiftActive = MutableStateFlow(false)
     val keyboardShiftActive: StateFlow<Boolean> = _keyboardShiftActive.asStateFlow()
@@ -429,6 +444,38 @@ class GkViewModel @Inject constructor(
         connectionManager.updateSettings(settings.value.copy(volumeDownBits = bits))
     }
 
+    // ── Physical-controller remapping ──
+
+    /** Replaces the output mapping of [key] while keeping its gyro-activation flag. */
+    fun updatePhysicalInputOutputs(key: String, outputs: List<Int>) {
+        writePhysicalMapping(key, outputs, currentPhysicalGyroFlag(key))
+    }
+
+    /** Sets the gyro-activation flag of [key] while keeping its output mapping. */
+    fun updatePhysicalInputGyroActivate(key: String, enabled: Boolean) {
+        writePhysicalMapping(key, currentPhysicalOutputs(key), enabled)
+    }
+
+    /** Restores [key] to its default mapping (the button itself), keeping its gyro flag. */
+    fun resetPhysicalInputMapping(key: String) {
+        writePhysicalMapping(key, PhysicalInputs.defaultOutputsFor(key), currentPhysicalGyroFlag(key))
+    }
+
+    private fun currentPhysicalOutputs(key: String): List<Int> =
+        settings.value.physicalInputMappings[key]?.outputs
+            ?: PhysicalInputs.defaultOutputsFor(key)
+
+    private fun currentPhysicalGyroFlag(key: String): Boolean =
+        settings.value.physicalInputMappings[key]?.gyroActivate ?: false
+
+    private fun writePhysicalMapping(key: String, outputs: List<Int>, gyroActivate: Boolean) {
+        val updated = settings.value.physicalInputMappings.toMutableMap()
+        val isDefault = outputs == PhysicalInputs.defaultOutputsFor(key) && !gyroActivate
+        if (isDefault) updated.remove(key)
+        else updated[key] = PhysicalInputMapping(outputs = outputs, gyroActivate = gyroActivate)
+        connectionManager.updateSettings(settings.value.copy(physicalInputMappings = updated))
+    }
+
     fun updateGyroOrientation(orientation: GyroOrientation) {
         val updated = settings.value.copy(gyroOrientation = orientation)
         connectionManager.updateSettings(updated)
@@ -569,7 +616,27 @@ class GkViewModel @Inject constructor(
         val hasPhoneTouch = phoneTouches.any { it.active }
         val hasPhoneLT = phoneLT.toInt() > 0
         val hasPhoneRT = phoneRT.toInt() > 0
-        _physicalDpadBits = dpad and 0x0F
+        val previousPhysicalMouse = physicalMappedMouseButtons
+        applyPhysicalMappings(
+            buttons, leftTrigger, rightTrigger,
+            leftStickX, leftStickY, rightStickX, rightStickY, touchpadTouch,
+        )
+        val mouseButtonsChanged = physicalMappedMouseButtons != previousPhysicalMouse
+        val combinedMouseButtons =
+            (_gamepadState.value.mouseButtons and previousPhysicalMouse.inv()) or physicalMappedMouseButtons
+        _physicalDpadBits = 0
+        if ((physicalMappedButtonBits and GamepadState.DPAD_BIT_UP.toUInt()) != 0u) {
+            _physicalDpadBits = _physicalDpadBits or GamepadState.DPAD_UP
+        }
+        if ((physicalMappedButtonBits and GamepadState.DPAD_BIT_DOWN.toUInt()) != 0u) {
+            _physicalDpadBits = _physicalDpadBits or GamepadState.DPAD_DOWN
+        }
+        if ((physicalMappedButtonBits and GamepadState.DPAD_BIT_LEFT.toUInt()) != 0u) {
+            _physicalDpadBits = _physicalDpadBits or GamepadState.DPAD_LEFT
+        }
+        if ((physicalMappedButtonBits and GamepadState.DPAD_BIT_RIGHT.toUInt()) != 0u) {
+            _physicalDpadBits = _physicalDpadBits or GamepadState.DPAD_RIGHT
+        }
         val combinedBits = _dpadBits or _physicalDpadBits
         val hatValue = when (combinedBits) {
             0 -> 0
@@ -585,13 +652,14 @@ class GkViewModel @Inject constructor(
         }
         
         _gamepadState.value = _gamepadState.value.copy(
-            buttons = phoneButtons or buttons,
+            buttons = phoneButtons or physicalMappedButtonBits,
+            mouseButtons = combinedMouseButtons,
             leftStickX = (phoneStickX.toInt() + leftStickX.toInt()).coerceIn(-32768, 32767).toShort(),
             leftStickY = (phoneStickY.toInt() + leftStickY.toInt()).coerceIn(-32768, 32767).toShort(),
             rightStickX = (phoneRStickX.toInt() + rightStickX.toInt()).coerceIn(-32768, 32767).toShort(),
             rightStickY = (phoneRStickY.toInt() + rightStickY.toInt()).coerceIn(-32768, 32767).toShort(),
-            leftTrigger = if (hasPhoneLT) maxOf(phoneLT.toInt(), leftTrigger) else leftTrigger,
-            rightTrigger = if (hasPhoneRT) maxOf(phoneRT.toInt(), rightTrigger) else rightTrigger,
+            leftTrigger = if (hasPhoneLT) maxOf(phoneLT.toInt(), physicalLeftTriggerAnalog) else physicalLeftTriggerAnalog,
+            rightTrigger = if (hasPhoneRT) maxOf(phoneRT.toInt(), physicalRightTriggerAnalog) else physicalRightTriggerAnalog,
             dpad = hatValue,
             touchpadX = if (hasPhoneTouch) _gamepadState.value.touchpadX else tx,
             touchpadY = if (hasPhoneTouch) _gamepadState.value.touchpadY else ty,
@@ -603,6 +671,108 @@ class GkViewModel @Inject constructor(
         physicalStickY = leftStickY
         physicalRStickX = rightStickX
         physicalRStickY = rightStickY
+        if (mouseButtonsChanged && settings.value.connectionMode == ConnectionMode.BLUETOOTH) {
+            viewModelScope.launch {
+                connectionManager.sendMouseReport(
+                    button = combinedMouseButtons.toByte(),
+                    dx = 0, dy = 0, wheel = 0, hWheel = 0,
+                )
+            }
+        }
+    }
+
+    /**
+     * Recomputes the outputs produced by the physical-controller mappings for the current raw
+     * input, then applies the delta: the mapped bitmask replaces the raw physical buttons
+     * (so a remapped button no longer emits its original output), while mapped keyboard keys
+     * and the gyro-activation flag are toggled on the press/release edges.
+     */
+    private fun applyPhysicalMappings(
+        buttons: UInt,
+        leftTrigger: Int, rightTrigger: Int,
+        leftStickX: Short, leftStickY: Short,
+        rightStickX: Short, rightStickY: Short,
+        touchpadTouch: Boolean,
+    ) {
+        val mappings = settings.value.physicalInputMappings
+        var outputBits = 0u
+        val kbCodes = LinkedHashSet<Int>()
+        var gyroActive = false
+        // Analog trigger values are routed by the mapping: a trigger only drives the trigger
+        // axis it is mapped to. An unmapped/cleared trigger no longer moves its own axis.
+        var leftTriggerAnalog = 0
+        var rightTriggerAnalog = 0
+
+        for (input in PhysicalInputs.BUTTONS) {
+            val isTrigger = input.key == PhysicalInputs.KEY_LT || input.key == PhysicalInputs.KEY_RT
+            val rawTrigger = when (input.key) {
+                PhysicalInputs.KEY_LT -> leftTrigger
+                PhysicalInputs.KEY_RT -> rightTrigger
+                else -> 0
+            }
+            val mapping = mappings[input.key]
+            val outputs = mapping?.outputs ?: input.defaultOutputs
+
+            if (isTrigger) {
+                for (out in outputs) {
+                    if (out == GamepadState.LT) leftTriggerAnalog = maxOf(leftTriggerAnalog, rawTrigger)
+                    if (out == GamepadState.RT) rightTriggerAnalog = maxOf(rightTriggerAnalog, rawTrigger)
+                }
+            }
+
+            val pressed = when (input.key) {
+                PhysicalInputs.KEY_LT -> leftTrigger > PHYSICAL_TRIGGER_MAP_THRESHOLD
+                PhysicalInputs.KEY_RT -> rightTrigger > PHYSICAL_TRIGGER_MAP_THRESHOLD
+                else -> input.bitMask != 0 && (buttons.toInt() and input.bitMask) != 0
+            }
+            if (!pressed) continue
+            if (mapping?.gyroActivate == true) gyroActive = true
+            for (out in outputs) {
+                if (out < 0) kbCodes.add(-out) else outputBits = outputBits or out.toUInt()
+            }
+        }
+
+        for (input in PhysicalInputs.GYRO_ONLY) {
+            if (mappings[input.key]?.gyroActivate != true) continue
+            val active = when (input.key) {
+                PhysicalInputs.KEY_LEFT_JOYSTICK ->
+                    kotlin.math.abs(leftStickX.toInt()) > PHYSICAL_STICK_GYRO_THRESHOLD ||
+                        kotlin.math.abs(leftStickY.toInt()) > PHYSICAL_STICK_GYRO_THRESHOLD
+                PhysicalInputs.KEY_RIGHT_JOYSTICK ->
+                    kotlin.math.abs(rightStickX.toInt()) > PHYSICAL_STICK_GYRO_THRESHOLD ||
+                        kotlin.math.abs(rightStickY.toInt()) > PHYSICAL_STICK_GYRO_THRESHOLD
+                PhysicalInputs.KEY_TOUCHPAD -> touchpadTouch
+                else -> false
+            }
+            if (active) gyroActive = true
+        }
+
+        physicalMappedButtonBits = outputBits
+        physicalLeftTriggerAnalog = leftTriggerAnalog
+        physicalRightTriggerAnalog = rightTriggerAnalog
+        var mouseButtons = 0
+        val outputBitsInt = outputBits.toInt()
+        if ((outputBitsInt and GamepadState.MOUSE_LMB) != 0) mouseButtons = mouseButtons or 1
+        if ((outputBitsInt and GamepadState.MOUSE_RMB) != 0) mouseButtons = mouseButtons or 2
+        if ((outputBitsInt and GamepadState.MOUSE_MMB) != 0) mouseButtons = mouseButtons or 4
+        physicalMappedMouseButtons = mouseButtons
+        syncPhysicalMappedKeyboard(kbCodes.toList())
+        if (gyroActive != physicalGyroActive) {
+            physicalGyroActive = gyroActive
+            if (gyroActive) onGyroActivateButtonDown() else onGyroActivateButtonUp()
+        }
+    }
+
+    /** Applies the press/release delta of the keyboard keys produced by the physical mappings. */
+    private fun syncPhysicalMappedKeyboard(desired: List<Int>) {
+        val previous = physicalMappedKbCodes
+        for (code in previous) {
+            if (code !in desired) onKeyUp(code)
+        }
+        for (code in desired) {
+            if (code !in previous) onKeyDown(code)
+        }
+        physicalMappedKbCodes = desired
     }
 
     fun onPhysicalControllerGyro(gyroX: Float, gyroY: Float, gyroZ: Float, accelX: Float, accelY: Float, accelZ: Float) {
@@ -1365,3 +1535,9 @@ class GkViewModel @Inject constructor(
 
     
 }
+
+/** Trigger value (0..255) above which a remapped LT/RT counts as pressed. */
+private const val PHYSICAL_TRIGGER_MAP_THRESHOLD = 128
+
+/** Stick axis deviation above which a remapped joystick counts as active for the gyro. */
+private const val PHYSICAL_STICK_GYRO_THRESHOLD = 8000
