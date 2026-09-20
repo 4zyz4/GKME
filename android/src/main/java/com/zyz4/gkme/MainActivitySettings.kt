@@ -289,7 +289,7 @@ internal fun MainActivity.selectSettingsCategory(index: Int, animate: Boolean = 
     }
 }
 
-/** Slides the old page up while fading it out, and the new page down while fading it in. */
+/** Slides the old page up while fading it out, and the new page up while fading it in. */
 private fun MainActivity.animatePageSwitch(pages: List<View>, oldPage: View?, newPage: View) {
     val a = this
     val offset = PAGE_SWITCH_OFFSET_DP * a.resources.displayMetrics.density
@@ -315,7 +315,7 @@ private fun MainActivity.animatePageSwitch(pages: List<View>, oldPage: View?, ne
             .start()
     }
     newPage.visibility = View.VISIBLE
-    newPage.translationY = -offset
+    newPage.translationY = offset
     newPage.alpha = 0f
     newPage.animate()
         .translationY(0f)
