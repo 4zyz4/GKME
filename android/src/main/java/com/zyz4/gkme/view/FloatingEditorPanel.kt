@@ -1144,6 +1144,10 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 currentButton = currentButton?.copy(mouseSensitivity = v)
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             }
+            addSeekbar(buttonParamsInner, "滑动判定距离", button.mouseMoveSlop, 0, 20, onChange = { v ->
+                currentButton = currentButton?.copy(mouseMoveSlop = v)
+                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+            })
             addSeekbarFloat(buttonParamsInner, "滚动灵敏度", button.scrollSensitivity, 0.01f, 1f, 0.01f) { v ->
                 currentButton = currentButton?.copy(scrollSensitivity = v)
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
