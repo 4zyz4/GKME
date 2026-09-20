@@ -134,6 +134,30 @@ std::unordered_map<Uint32, Uint64> g_pendingHidapi;
 // from Kotlin). Used to tell that an Android-driver gamepad is really a USB device.
 std::unordered_set<Uint32> g_usbDeviceKeys;
 
+// ── SDL audio output (phone speaker / external sound devices) ──
+// The audio subsystem is initialised independently of the gamepad session, so the
+// phone-speaker path keeps working when the physical-controller driver is not SDL.
+std::mutex g_audioInitMutex;
+std::atomic<bool> g_audioInitialized{false};
+
+// Cached playback device list, refreshed from Kotlin before the UI reads it.
+std::mutex g_audioDeviceMutex;
+std::vector<SDL_AudioDeviceID> g_audioDevices;
+std::vector<std::string> g_audioDeviceNames;
+
+// Active playback sinks, keyed by an app-chosen handle (voice coil, controller
+// audio, ...). Each sink is one SDL_AudioStream bound to the selected device, so
+// the two lanes can play on different sound devices at the same time.
+struct AudioSink {
+    SDL_AudioStream *stream = nullptr;
+    int srcRate = 0;
+    int srcChannels = 0;
+    int maxQueuedBytes = 0;
+};
+
+std::mutex g_audioMutex;
+std::unordered_map<int, AudioSink> g_audioSinks;
+
 int clampInt(int v, int lo, int hi) {
     return v < lo ? lo : (v > hi ? hi : v);
 }
@@ -209,6 +233,13 @@ void applyHints() {
     SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_GAMECUBE, "1");
 
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
+
+    // Low-latency phone-speaker playback: keep the hardware buffer small and tag
+    // the stream so Android routes it as game audio. These must be set before any
+    // audio device is opened.
+    SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, "256");
+    SDL_SetHint(SDL_HINT_AUDIO_DEVICE_STREAM_NAME, "GKME");
+    SDL_SetHint(SDL_HINT_AUDIO_DEVICE_STREAM_ROLE, "Game");
 }
 
 void updateSnapshot(Entry &entry) {
@@ -447,8 +478,10 @@ void reconcileLocked() {
 }
 
 void pollLoop() {
-    // SDL is initialised and pumped on this dedicated thread.
-    const bool ok = SDL_Init(SDL_INIT_GAMEPAD | SDL_INIT_SENSOR);
+    // SDL is initialised and pumped on this dedicated thread. Only the gamepad and
+    // sensor subsystems are owned here; SDL_INIT_AUDIO is reference-counted
+    // separately so the audio output survives a controller-driver switch.
+    const bool ok = SDL_InitSubSystem(SDL_INIT_GAMEPAD | SDL_INIT_SENSOR);
     if (!ok) {
         LOGE("SDL_Init failed: %s", SDL_GetError());
     }
@@ -501,11 +534,58 @@ void pollLoop() {
         g_pendingHidapi.clear();
         g_usbDeviceKeys.clear();
     }
-    SDL_Quit();
+    // Do not call SDL_Quit() here: it would tear down the independently owned audio
+    // subsystem (and any open playback stream) as well.
+    SDL_QuitSubSystem(SDL_INIT_GAMEPAD | SDL_INIT_SENSOR);
 }
 
 bool validIndex(int index) {
     return index >= 0 && index < static_cast<int>(g_gamepads.size());
+}
+
+// ── SDL audio output helpers ──
+
+// Brings up SDL_INIT_AUDIO on demand. The Android AAudio backend registers its
+// device-hotplug callback here, which is what populates the playback device list.
+bool ensureAudioSubsystem() {
+    if (g_audioInitialized.load(std::memory_order_acquire)) {
+        return true;
+    }
+    std::lock_guard<std::mutex> lock(g_audioInitMutex);
+    if (g_audioInitialized.load(std::memory_order_relaxed)) {
+        return true;
+    }
+    applyHints();
+    if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
+        LOGE("SDL_InitSubSystem(AUDIO) failed: %s", SDL_GetError());
+        return false;
+    }
+    g_audioInitialized.store(true, std::memory_order_release);
+    LOGI("SDL3 audio subsystem initialised");
+    return true;
+}
+
+// Caller must hold g_audioMutex.
+void destroyAudioSinkLocked(int handle) {
+    auto it = g_audioSinks.find(handle);
+    if (it == g_audioSinks.end()) {
+        return;
+    }
+    // Destroys the bound logical device too (SDL_OpenAudioDeviceStream closes it).
+    if (it->second.stream != nullptr) {
+        SDL_DestroyAudioStream(it->second.stream);
+    }
+    g_audioSinks.erase(it);
+}
+
+// Caller must hold g_audioMutex.
+void destroyAllAudioSinksLocked() {
+    for (auto &entry : g_audioSinks) {
+        if (entry.second.stream != nullptr) {
+            SDL_DestroyAudioStream(entry.second.stream);
+        }
+    }
+    g_audioSinks.clear();
 }
 
 }  // namespace
@@ -893,6 +973,204 @@ Java_com_zyz4_gkme_input_SdlNative_nativeSetUsbDeviceIds(JNIEnv *env, jobject th
         g_usbDeviceKeys.insert(static_cast<Uint32>(values[i]));
     }
     env->ReleaseIntArrayElements(keys, values, JNI_ABORT);
+}
+
+// ── SDL audio output (phone speaker path) ──
+
+JNIEXPORT jboolean JNICALL
+Java_com_zyz4_gkme_input_SdlNative_nativeAudioInit(JNIEnv *env, jobject thiz) {
+    (void) env;
+    (void) thiz;
+    return ensureAudioSubsystem() ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT void JNICALL
+Java_com_zyz4_gkme_input_SdlNative_nativeAudioShutdown(JNIEnv *env, jobject thiz) {
+    (void) env;
+    (void) thiz;
+    {
+        std::lock_guard<std::mutex> lock(g_audioMutex);
+        destroyAllAudioSinksLocked();
+    }
+    if (g_audioInitialized.exchange(false)) {
+        SDL_QuitSubSystem(SDL_INIT_AUDIO);
+    }
+    std::lock_guard<std::mutex> lock(g_audioDeviceMutex);
+    g_audioDevices.clear();
+    g_audioDeviceNames.clear();
+}
+
+JNIEXPORT jint JNICALL
+Java_com_zyz4_gkme_input_SdlNative_nativeAudioRefreshDevices(JNIEnv *env, jobject thiz) {
+    (void) env;
+    (void) thiz;
+    std::lock_guard<std::mutex> lock(g_audioDeviceMutex);
+    g_audioDevices.clear();
+    g_audioDeviceNames.clear();
+    if (!ensureAudioSubsystem()) {
+        return 0;
+    }
+    int count = 0;
+    SDL_AudioDeviceID *ids = SDL_GetAudioPlaybackDevices(&count);
+    if (ids == nullptr) {
+        return 0;
+    }
+    for (int i = 0; i < count; ++i) {
+        const char *name = SDL_GetAudioDeviceName(ids[i]);
+        g_audioDevices.push_back(ids[i]);
+        g_audioDeviceNames.emplace_back(name != nullptr ? name : "");
+    }
+    SDL_free(ids);
+    return static_cast<jint>(g_audioDevices.size());
+}
+
+JNIEXPORT jint JNICALL
+Java_com_zyz4_gkme_input_SdlNative_nativeAudioDeviceIdAt(JNIEnv *env, jobject thiz, jint index) {
+    (void) env;
+    (void) thiz;
+    std::lock_guard<std::mutex> lock(g_audioDeviceMutex);
+    if (index < 0 || index >= static_cast<jint>(g_audioDevices.size())) {
+        return 0;
+    }
+    return static_cast<jint>(g_audioDevices[index]);
+}
+
+JNIEXPORT jstring JNICALL
+Java_com_zyz4_gkme_input_SdlNative_nativeAudioDeviceNameAt(JNIEnv *env, jobject thiz, jint index) {
+    (void) thiz;
+    std::lock_guard<std::mutex> lock(g_audioDeviceMutex);
+    if (index < 0 || index >= static_cast<jint>(g_audioDeviceNames.size())) {
+        return env->NewStringUTF("");
+    }
+    return env->NewStringUTF(g_audioDeviceNames[index].c_str());
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_zyz4_gkme_input_SdlNative_nativeAudioOpen(JNIEnv *env, jobject thiz, jint handle,
+                                                   jint deviceId, jint sampleRate, jint channels,
+                                                   jint maxQueuedMs) {
+    (void) env;
+    (void) thiz;
+    if (sampleRate <= 0 || channels <= 0) {
+        return JNI_FALSE;
+    }
+    if (!ensureAudioSubsystem()) {
+        return JNI_FALSE;
+    }
+
+    std::lock_guard<std::mutex> lock(g_audioMutex);
+    destroyAudioSinkLocked(handle);
+
+    SDL_AudioSpec spec;
+    SDL_zero(spec);
+    spec.format = SDL_AUDIO_S16;
+    spec.channels = static_cast<int>(channels);
+    spec.freq = static_cast<int>(sampleRate);
+
+    // -1 is SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK (0xFFFFFFFF): let the OS pick.
+    const SDL_AudioDeviceID dev = static_cast<SDL_AudioDeviceID>(static_cast<Uint32>(deviceId));
+    SDL_AudioStream *stream = SDL_OpenAudioDeviceStream(dev, &spec, nullptr, nullptr);
+    if (stream == nullptr) {
+        LOGE("SDL_OpenAudioDeviceStream(%u) failed: %s", static_cast<unsigned>(dev), SDL_GetError());
+        return JNI_FALSE;
+    }
+    // SDL_OpenAudioDeviceStream opens the device paused; start it now so queued PCM
+    // is played back with the smallest possible latency.
+    SDL_ResumeAudioStreamDevice(stream);
+
+    AudioSink sink;
+    sink.stream = stream;
+    sink.srcRate = static_cast<int>(sampleRate);
+    sink.srcChannels = static_cast<int>(channels);
+    sink.maxQueuedBytes = maxQueuedMs > 0
+                              ? static_cast<int>(maxQueuedMs) * sink.srcRate * sink.srcChannels * 2 / 1000
+                              : 0;
+    g_audioSinks[static_cast<int>(handle)] = sink;
+    LOGI("SDL audio sink %d opened: device=%u rate=%d ch=%d maxQueued=%dms",
+         static_cast<int>(handle), static_cast<unsigned>(dev), sink.srcRate, sink.srcChannels,
+         static_cast<int>(maxQueuedMs));
+    return JNI_TRUE;
+}
+
+JNIEXPORT jint JNICALL
+Java_com_zyz4_gkme_input_SdlNative_nativeAudioWrite(JNIEnv *env, jobject thiz, jint handle,
+                                                    jbyteArray data, jint waitBudgetMs) {
+    (void) thiz;
+    if (data == nullptr) {
+        return -1;
+    }
+    const jsize length = env->GetArrayLength(data);
+    if (length <= 0) {
+        return 0;
+    }
+    std::vector<Uint8> buffer(static_cast<size_t>(length));
+    env->GetByteArrayRegion(data, 0, length, reinterpret_cast<jbyte *>(buffer.data()));
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return -1;
+    }
+
+    std::lock_guard<std::mutex> lock(g_audioMutex);
+    auto it = g_audioSinks.find(static_cast<int>(handle));
+    if (it == g_audioSinks.end() || it->second.stream == nullptr) {
+        return -1;
+    }
+    AudioSink &sink = it->second;
+
+    // Pace the producer to real time: block while the stream holds more than the
+    // low-latency budget so a network burst cannot build up unbounded latency.
+    if (sink.maxQueuedBytes > 0 && waitBudgetMs > 0) {
+        const Uint64 start = SDL_GetTicks();
+        while (true) {
+            const int queued = SDL_GetAudioStreamQueued(sink.stream);
+            if (queued < 0 || queued <= sink.maxQueuedBytes) {
+                break;
+            }
+            if (SDL_GetTicks() - start >= static_cast<Uint64>(waitBudgetMs)) {
+                break;
+            }
+            SDL_Delay(1);
+        }
+    }
+    if (!SDL_PutAudioStreamData(sink.stream, buffer.data(), static_cast<int>(length))) {
+        LOGE("SDL_PutAudioStreamData(handle=%d) failed: %s", static_cast<int>(handle), SDL_GetError());
+        return -1;
+    }
+    return static_cast<jint>(length);
+}
+
+JNIEXPORT void JNICALL
+Java_com_zyz4_gkme_input_SdlNative_nativeAudioClose(JNIEnv *env, jobject thiz, jint handle) {
+    (void) env;
+    (void) thiz;
+    std::lock_guard<std::mutex> lock(g_audioMutex);
+    destroyAudioSinkLocked(handle);
+}
+
+JNIEXPORT void JNICALL
+Java_com_zyz4_gkme_input_SdlNative_nativeAudioCloseAll(JNIEnv *env, jobject thiz) {
+    (void) env;
+    (void) thiz;
+    std::lock_guard<std::mutex> lock(g_audioMutex);
+    destroyAllAudioSinksLocked();
+}
+
+JNIEXPORT jint JNICALL
+Java_com_zyz4_gkme_input_SdlNative_nativeAudioQueuedMs(JNIEnv *env, jobject thiz, jint handle) {
+    (void) env;
+    (void) thiz;
+    std::lock_guard<std::mutex> lock(g_audioMutex);
+    auto it = g_audioSinks.find(static_cast<int>(handle));
+    if (it == g_audioSinks.end() || it->second.stream == nullptr ||
+        it->second.srcRate <= 0 || it->second.srcChannels <= 0) {
+        return 0;
+    }
+    const int queued = SDL_GetAudioStreamQueued(it->second.stream);
+    if (queued <= 0) {
+        return 0;
+    }
+    const int bytesPerMs = it->second.srcRate * it->second.srcChannels * 2 / 1000;
+    return bytesPerMs > 0 ? queued / bytesPerMs : 0;
 }
 
 }  // extern "C"

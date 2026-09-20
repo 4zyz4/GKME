@@ -82,4 +82,48 @@ object SdlNative {
      * so the native bridge can prefer the HIDAPI driver for USB gamepads.
      */
     external fun nativeSetUsbDeviceIds(keys: IntArray)
+
+    // ── SDL audio output (phone speaker path) ──
+
+    /** Initialises (or reuses) the SDL audio subsystem. Safe to call repeatedly. */
+    external fun nativeAudioInit(): Boolean
+
+    /** Tears the audio subsystem down; only for process-level shutdown. */
+    external fun nativeAudioShutdown()
+
+    /**
+     * Refreshes the cached playback device list and returns its size. Use
+     * [nativeAudioDeviceIdAt] / [nativeAudioDeviceNameAt] to read the entries.
+     */
+    external fun nativeAudioRefreshDevices(): Int
+
+    /** SDL audio device id of the playback device at [index] (0 when invalid). */
+    external fun nativeAudioDeviceIdAt(index: Int): Int
+
+    /** Human-readable name of the playback device at [index]. */
+    external fun nativeAudioDeviceNameAt(index: Int): String
+
+    /**
+     * Opens a low-latency playback sink identified by [handle] on [deviceId] (use
+     * -1 for the system default) using interleaved S16 PCM at [sampleRate] and
+     * [channels]. [maxQueuedMs] bounds the queued audio latency. Replaces any sink
+     * already open on the same [handle].
+     */
+    external fun nativeAudioOpen(handle: Int, deviceId: Int, sampleRate: Int, channels: Int, maxQueuedMs: Int): Boolean
+
+    /**
+     * Queues [data] on the sink [handle], blocking up to [waitBudgetMs] while the
+     * stream is over its latency budget. Returns the number of bytes queued, 0 for
+     * an empty buffer or -1 when the sink is not open.
+     */
+    external fun nativeAudioWrite(handle: Int, data: ByteArray, waitBudgetMs: Int): Int
+
+    /** Stops and releases the sink [handle]. */
+    external fun nativeAudioClose(handle: Int)
+
+    /** Stops and releases every open sink. */
+    external fun nativeAudioCloseAll()
+
+    /** Approximate number of milliseconds of audio queued on sink [handle]. */
+    external fun nativeAudioQueuedMs(handle: Int): Int
 }

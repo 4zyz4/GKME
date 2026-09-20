@@ -33,7 +33,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
-import com.zyz4.gkme.model.AudioOutput
+import com.zyz4.gkme.model.AudioDevice
 import com.zyz4.gkme.model.AdaptiveTriggerDevice
 import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.model.AppSettings
@@ -44,6 +44,8 @@ import com.zyz4.gkme.view.FloatingEditorPanel
 import com.zyz4.gkme.view.GamepadLayout
 import com.zyz4.gkme.input.AdaptiveTriggerHandler
 import com.zyz4.gkme.input.PhysicalControllerHandler
+import com.zyz4.gkme.input.SdlAudio
+import com.zyz4.gkme.input.SdlPlatform
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -67,7 +69,7 @@ class MainActivity : ComponentActivity() {
     private var pendingFloatingStart = false
     private val FLOATING_RESUME_GUARD_MS = 2000L
 
-    internal var audioControllerOutputEntries: List<AudioOutput> = emptyList()
+    internal var audioControllerDeviceEntries: List<AudioDevice> = emptyList()
     internal var adaptiveTriggerDeviceEntries: List<AdaptiveTriggerDevice> = emptyList()
     internal var adaptiveTriggerUserSelecting = false
 
@@ -226,6 +228,12 @@ class MainActivity : ComponentActivity() {
         setupUsbAudioCallbacks()
         displayManager.registerDisplayListener(displayListener, null)
         checkDeviceRotation()
+        // Bring up the SDL Java glue (without claiming USB HID) and the SDL audio
+        // subsystem so the sound-device list is available even when the physical
+        // controller is handled by the non-SDL driver. Failure is non-fatal: the
+        // phone-speaker path then falls back to AudioTrack.
+        runCatching { SdlPlatform.ensureCore(this) }
+        SdlAudio.ensureInit()
         physicalControllerHandler.start()
     }
 
@@ -395,12 +403,15 @@ class MainActivity : ComponentActivity() {
     /** True while the user is picking a voice-coil device from the spinner. */
     internal var voiceCoilUserSelecting = false
 
+    /** True while the user is picking a controller-audio device from the spinner. */
+    internal var controllerAudioUserSelecting = false
+
     /** True while the user is picking a gyro source from the spinner. */
     internal var gyroSourceUserSelecting = false
 
     /** Devices backing the voice-coil spinner. */
     internal var voiceCoilDeviceEntries: List<com.zyz4.gkme.model.AudioDevice> =
-        listOf(com.zyz4.gkme.model.AudioDevice.PHONE_SPEAKER)
+        listOf(com.zyz4.gkme.model.AudioDevice.PHONE_MOTOR)
 
     /** Sources backing the gyro-source spinner. */
     internal var gyroSourceEntries: List<com.zyz4.gkme.model.GyroSource> =

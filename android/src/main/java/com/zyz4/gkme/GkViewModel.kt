@@ -11,7 +11,6 @@ import com.zyz4.gkme.data.LayoutRepository
 import com.zyz4.gkme.input.AccelSteeringMapper
 import com.zyz4.gkme.input.SensorHandler
 import com.zyz4.gkme.input.toProto
-import com.zyz4.gkme.model.AudioOutput
 import com.zyz4.gkme.model.AudioDevice
 import com.zyz4.gkme.model.AppSettings
 import com.zyz4.gkme.model.ConnectionMode
@@ -532,8 +531,8 @@ class GkViewModel @Inject constructor(
         connectionManager.updateSettings(settings.value.copy(swapAdaptiveTriggers = enabled))
     }
 
-    fun updateControllerAudioOutput(output: AudioOutput) {
-        connectionManager.updateSettings(settings.value.copy(controllerAudioOutput = output))
+    fun updateControllerAudioDevice(device: AudioDevice) {
+        connectionManager.updateSettings(settings.value.copy(controllerAudioDevice = device))
     }
 
     // ── Appearance updates ──

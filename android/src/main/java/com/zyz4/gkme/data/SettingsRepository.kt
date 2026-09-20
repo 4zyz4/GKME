@@ -21,7 +21,6 @@ import com.zyz4.gkme.model.GyroActivateMode
 import com.zyz4.gkme.model.HapticEffect
 import com.zyz4.gkme.model.LedAppearance
 import com.zyz4.gkme.model.TargetPlatform
-import com.zyz4.gkme.model.AudioOutput
 import com.zyz4.gkme.model.AudioDevice
 import com.zyz4.gkme.model.AudioDeviceType
 import com.zyz4.gkme.model.VibrationDevice
@@ -96,10 +95,18 @@ class SettingsRepository @Inject constructor(
         val RIGHT_VOICE_COIL_OUTPUT = intPreferencesKey("right_voice_coil_output")
         val VOICE_COIL_DEVICE_TYPE = intPreferencesKey("voice_coil_device_type")
         val VOICE_COIL_CONTROLLER_INDEX = intPreferencesKey("voice_coil_controller_index")
+        val VOICE_COIL_DEVICE_ID = intPreferencesKey("voice_coil_device_id")
+        val VOICE_COIL_DEVICE_NAME = stringPreferencesKey("voice_coil_device_name")
         val VOICE_COIL_DEVICE_CONNECTED_TYPE = intPreferencesKey("voice_coil_device_connected_type")
         val VOICE_COIL_CONTROLLER_CONNECTED_INDEX = intPreferencesKey("voice_coil_controller_connected_index")
+        val VOICE_COIL_DEVICE_CONNECTED_ID = intPreferencesKey("voice_coil_device_connected_id")
+        val VOICE_COIL_DEVICE_CONNECTED_NAME = stringPreferencesKey("voice_coil_device_connected_name")
         val SWAP_VOICE_COIL_MOTORS = booleanPreferencesKey("swap_voice_coil_motors")
         val CONTROLLER_AUDIO_OUTPUT = intPreferencesKey("controller_audio_output")
+        val CONTROLLER_AUDIO_DEVICE_TYPE = intPreferencesKey("controller_audio_device_type")
+        val CONTROLLER_AUDIO_DEVICE_CONTROLLER_INDEX = intPreferencesKey("controller_audio_device_controller_index")
+        val CONTROLLER_AUDIO_DEVICE_ID = intPreferencesKey("controller_audio_device_id")
+        val CONTROLLER_AUDIO_DEVICE_NAME = stringPreferencesKey("controller_audio_device_name")
         // Appearance
         val BG_FILL_TYPE = intPreferencesKey("bg_fill_type")
         val BG_COLOR = intPreferencesKey("bg_color")
@@ -262,21 +269,29 @@ class SettingsRepository @Inject constructor(
                 ?: LedAppearance.DEFAULT_BOUND_COLORS,
             voiceCoilDevice = prefs[Keys.VOICE_COIL_DEVICE_TYPE]?.let { typeOrdinal ->
                 AudioDevice(
-                    type = AudioDeviceType.entries.getOrElse(typeOrdinal) { AudioDeviceType.PHONE_SPEAKER },
+                    type = sanitizeVoiceCoilType(
+                        AudioDeviceType.entries.getOrElse(typeOrdinal) { AudioDeviceType.PHONE_MOTOR }
+                    ),
                     controllerIndex = prefs[Keys.VOICE_COIL_CONTROLLER_INDEX] ?: 0,
+                    deviceId = prefs[Keys.VOICE_COIL_DEVICE_ID] ?: AudioDevice.AUTO_SOUND_DEVICE_ID,
+                    deviceName = prefs[Keys.VOICE_COIL_DEVICE_NAME] ?: "",
                 )
             } ?: migrateVoiceCoilDevice(
                 prefs[Keys.LEFT_VOICE_COIL_OUTPUT],
                 prefs[Keys.RIGHT_VOICE_COIL_OUTPUT],
             ),
             voiceCoilDeviceConnected = AudioDevice(
-                type = AudioDeviceType.entries.getOrElse(
-                    prefs[Keys.VOICE_COIL_DEVICE_CONNECTED_TYPE] ?: AudioDeviceType.CONTROLLER.ordinal
-                ) { AudioDeviceType.CONTROLLER },
+                type = sanitizeVoiceCoilType(
+                    AudioDeviceType.entries.getOrElse(
+                        prefs[Keys.VOICE_COIL_DEVICE_CONNECTED_TYPE] ?: AudioDeviceType.CONTROLLER.ordinal
+                    ) { AudioDeviceType.CONTROLLER }
+                ),
                 controllerIndex = prefs[Keys.VOICE_COIL_CONTROLLER_CONNECTED_INDEX] ?: 0,
+                deviceId = prefs[Keys.VOICE_COIL_DEVICE_CONNECTED_ID] ?: AudioDevice.AUTO_SOUND_DEVICE_ID,
+                deviceName = prefs[Keys.VOICE_COIL_DEVICE_CONNECTED_NAME] ?: "",
             ),
             swapVoiceCoilMotors = prefs[Keys.SWAP_VOICE_COIL_MOTORS] ?: false,
-            controllerAudioOutput = restoreControllerAudioOutput(prefs[Keys.CONTROLLER_AUDIO_OUTPUT]),
+            controllerAudioDevice = restoreControllerAudioDevice(prefs),
         )
     }
 
@@ -362,35 +377,59 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.LED_BOUND_COLORS] = gson.toJson(settings.ledBoundColors)
             prefs[Keys.VOICE_COIL_DEVICE_TYPE] = settings.voiceCoilDevice.type.ordinal
             prefs[Keys.VOICE_COIL_CONTROLLER_INDEX] = settings.voiceCoilDevice.controllerIndex
+            prefs[Keys.VOICE_COIL_DEVICE_ID] = settings.voiceCoilDevice.deviceId
+            prefs[Keys.VOICE_COIL_DEVICE_NAME] = settings.voiceCoilDevice.deviceName
             prefs[Keys.VOICE_COIL_DEVICE_CONNECTED_TYPE] = settings.voiceCoilDeviceConnected.type.ordinal
             prefs[Keys.VOICE_COIL_CONTROLLER_CONNECTED_INDEX] = settings.voiceCoilDeviceConnected.controllerIndex
+            prefs[Keys.VOICE_COIL_DEVICE_CONNECTED_ID] = settings.voiceCoilDeviceConnected.deviceId
+            prefs[Keys.VOICE_COIL_DEVICE_CONNECTED_NAME] = settings.voiceCoilDeviceConnected.deviceName
             prefs[Keys.SWAP_VOICE_COIL_MOTORS] = settings.swapVoiceCoilMotors
-            prefs[Keys.CONTROLLER_AUDIO_OUTPUT] = settings.controllerAudioOutput.ordinal
+            prefs[Keys.CONTROLLER_AUDIO_DEVICE_TYPE] = settings.controllerAudioDevice.type.ordinal
+            prefs[Keys.CONTROLLER_AUDIO_DEVICE_CONTROLLER_INDEX] = settings.controllerAudioDevice.controllerIndex
+            prefs[Keys.CONTROLLER_AUDIO_DEVICE_ID] = settings.controllerAudioDevice.deviceId
+            prefs[Keys.CONTROLLER_AUDIO_DEVICE_NAME] = settings.controllerAudioDevice.deviceName
         }
     }
 
-    /** Restores the controller-audio target, including per-controller USB speaker outputs. */
-    private fun restoreControllerAudioOutput(ordinal: Int?): AudioOutput {
-        val o = ordinal ?: AudioOutput.ALL_SPEAKERS.ordinal
-        return when {
-            o == AudioOutput.NONE.ordinal -> AudioOutput.NONE
-            o >= AudioOutput.CONTROLLER_MOTOR_1.ordinal && o <= AudioOutput.CONTROLLER_MOTOR_4.ordinal ->
-                AudioOutput.controllerMotor(o - AudioOutput.CONTROLLER_MOTOR_1.ordinal)
-            else -> AudioOutput.ALL_SPEAKERS
+    /**
+     * The phone speaker is now an enumerated sound device, so a previously saved
+     * [AudioDeviceType.PHONE_SPEAKER] falls back to the phone motor default.
+     */
+    private fun sanitizeVoiceCoilType(type: AudioDeviceType): AudioDeviceType =
+        if (type == AudioDeviceType.PHONE_SPEAKER) AudioDeviceType.PHONE_MOTOR else type
+
+    /**
+     * Restores the controller-audio target. The device is stored as a full
+     * [AudioDevice] (sound device / controller USB speaker / none); a legacy
+     * `controller_audio_output` ordinal is migrated when the new keys are absent.
+     */
+    private fun restoreControllerAudioDevice(prefs: androidx.datastore.preferences.core.Preferences): AudioDevice {
+        val typeOrdinal = prefs[Keys.CONTROLLER_AUDIO_DEVICE_TYPE]
+        if (typeOrdinal != null) {
+            return AudioDevice(
+                type = AudioDeviceType.entries.getOrElse(typeOrdinal) { AudioDeviceType.SOUND_DEVICE },
+                controllerIndex = prefs[Keys.CONTROLLER_AUDIO_DEVICE_CONTROLLER_INDEX] ?: 0,
+                deviceId = prefs[Keys.CONTROLLER_AUDIO_DEVICE_ID] ?: AudioDevice.AUTO_SOUND_DEVICE_ID,
+                deviceName = prefs[Keys.CONTROLLER_AUDIO_DEVICE_NAME] ?: "",
+            )
+        }
+        // Legacy ordinals: 0 = none, 5 = all speakers (phone), 6..9 = controller USB.
+        return when (val o = prefs[Keys.CONTROLLER_AUDIO_OUTPUT] ?: 5) {
+            0 -> AudioDevice.NONE
+            in 6..9 -> AudioDevice.controller(o - 6)
+            else -> AudioDevice.AUTO_SOUND_DEVICE
         }
     }
 
     /** Maps the legacy left/right voice-coil outputs onto the new single-device model. */
     private fun migrateVoiceCoilDevice(leftOrdinal: Int?, rightOrdinal: Int?): AudioDevice {
-        val ordinal = leftOrdinal ?: rightOrdinal ?: AudioOutput.ALL_SPEAKERS.ordinal
+        val ordinal = leftOrdinal ?: rightOrdinal ?: 1
         return when (ordinal) {
-            AudioOutput.PHONE_MOTOR_1.ordinal, AudioOutput.PHONE_MOTOR_2.ordinal ->
-                AudioDevice.PHONE_MOTOR
-            AudioOutput.CONTROLLER_MOTOR_1.ordinal, AudioOutput.CONTROLLER_MOTOR_2.ordinal,
-            AudioOutput.CONTROLLER_MOTOR_3.ordinal, AudioOutput.CONTROLLER_MOTOR_4.ordinal ->
-                AudioDevice.controller(0)
-            AudioOutput.NONE.ordinal -> AudioDevice.NONE
-            else -> AudioDevice.PHONE_SPEAKER
+            0 -> AudioDevice.NONE
+            1, 2 -> AudioDevice.PHONE_MOTOR
+            3, 4, 5 -> AudioDevice.AUTO_SOUND_DEVICE
+            in 6..9 -> AudioDevice.controller(0)
+            else -> AudioDevice.PHONE_MOTOR
         }
     }
 

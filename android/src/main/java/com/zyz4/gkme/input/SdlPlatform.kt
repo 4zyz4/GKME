@@ -17,11 +17,17 @@ import org.libsdl.app.SDLControllerManager
 object SdlPlatform {
 
     private var hidDeviceManager: HIDDeviceManager? = null
-    private var initialized = false
+    private var coreInitialized = false
 
+    /**
+     * Initialises the SDL Java glue and stores the Activity context without
+     * touching USB/HID. This is enough for the SDL audio subsystem (device
+     * enumeration needs an Android context) and is safe to call with any
+     * controller driver selected.
+     */
     @Synchronized
-    fun setup(activity: Activity) {
-        if (initialized) return
+    fun ensureCore(activity: Activity) {
+        if (coreInitialized) return
         // Loading gkme_sdl pulls in libSDL3.so, whose JNI_OnLoad registers the
         // native methods on org.libsdl.app.*.
         SdlNative.nativeGetControllerCount()
@@ -29,16 +35,23 @@ object SdlPlatform {
         SDL.setupJNI()
         SDL.initialize()
         SDL.setContext(activity)
-        hidDeviceManager = HIDDeviceManager.acquire(activity)
-        initialized = true
+        coreInitialized = true
+    }
+
+    @Synchronized
+    fun setup(activity: Activity) {
+        ensureCore(activity)
+        if (hidDeviceManager == null) {
+            hidDeviceManager = HIDDeviceManager.acquire(activity)
+        }
     }
 
     @Synchronized
     fun shutdown() {
-        if (!initialized) return
+        // The SDL core/context stays initialised (the audio output may still use it);
+        // only the HID device manager is released with the gamepad backend.
         hidDeviceManager?.let { HIDDeviceManager.release(it) }
         hidDeviceManager = null
-        initialized = false
     }
 
     fun isJoystickDevice(deviceId: Int): Boolean =

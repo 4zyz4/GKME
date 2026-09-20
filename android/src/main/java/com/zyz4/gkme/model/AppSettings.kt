@@ -52,100 +52,34 @@ data class AdaptiveTriggerDevice(
 
 /** Target device for the DualSense voice-coil (left/right motor) channels. Controllers are
  *  addressed by their index in the list of currently connected gamepad devices. */
-enum class AudioDeviceType { NONE, PHONE_MOTOR, PHONE_SPEAKER, CONTROLLER }
+enum class AudioDeviceType { NONE, PHONE_MOTOR, PHONE_SPEAKER, CONTROLLER, SOUND_DEVICE }
 
+/**
+ * A selectable audio target. [PHONE_SPEAKER] is retained only so previously saved
+ * ordinals stay valid; the phone speaker is now an enumerated [SOUND_DEVICE] and the
+ * type is never offered in the UI.
+ */
 data class AudioDevice(
-    val type: AudioDeviceType = AudioDeviceType.PHONE_SPEAKER,
+    val type: AudioDeviceType = AudioDeviceType.PHONE_MOTOR,
     val controllerIndex: Int = 0,
+    /** SDL playback device id, only meaningful for [AudioDeviceType.SOUND_DEVICE]. */
+    val deviceId: Int = AUTO_SOUND_DEVICE_ID,
+    /** Cached SDL device name for display/persistence, only for [AudioDeviceType.SOUND_DEVICE]. */
+    val deviceName: String = "",
 ) {
     companion object {
+        /** Sentinel device id meaning "first enumerated SDL playback device". */
+        const val AUTO_SOUND_DEVICE_ID = 0
+
         val NONE = AudioDevice(AudioDeviceType.NONE, 0)
         val PHONE_MOTOR = AudioDevice(AudioDeviceType.PHONE_MOTOR, 0)
+        @Deprecated("Phone speaker is enumerated as a sound device now")
         val PHONE_SPEAKER = AudioDevice(AudioDeviceType.PHONE_SPEAKER, 0)
+        /** "First available / default" sound device, resolved when playback starts. */
+        val AUTO_SOUND_DEVICE = AudioDevice(AudioDeviceType.SOUND_DEVICE, 0, AUTO_SOUND_DEVICE_ID, "默认设备")
         fun controller(index: Int) = AudioDevice(AudioDeviceType.CONTROLLER, index)
-    }
-}
-
-sealed interface AudioOutput {
-    val displayName: String
-    val ordinal: Int
-    val outputType: OutputType
-    val index: Int
-    val isLeft: Boolean
-    
-    enum class OutputType { NONE, PHONE, LEFT_SPEAKER, RIGHT_SPEAKER, ALL_SPEAKERS, CONTROLLER }
-    
-    data class NoneOutput(
-        override val displayName: String = "无",
-        override val ordinal: Int = 0,
-    ) : AudioOutput {
-        override val outputType: OutputType get() = OutputType.NONE
-        override val index: Int get() = 0
-        override val isLeft: Boolean get() = false
-    }
-    
-    data class PhoneMotor(
-        val motorIndex: Int,
-        override val displayName: String,
-        override val ordinal: Int,
-    ) : AudioOutput {
-        override val outputType: OutputType get() = OutputType.PHONE
-        override val index: Int get() = motorIndex
-        override val isLeft: Boolean get() = false
-    }
-    
-    data class SpeakerOutput(
-        val speakerIndex: Int,
-        override val displayName: String,
-        override val ordinal: Int,
-        override val isLeft: Boolean,
-    ) : AudioOutput {
-        override val outputType: OutputType get() = OutputType.entries[speakerIndex + 2]
-        override val index: Int get() = 0
-    }
-    
-    data class ControllerMotor(
-        val motorIndex: Int,
-        override val displayName: String,
-        override val ordinal: Int,
-    ) : AudioOutput {
-        override val outputType: OutputType get() = OutputType.CONTROLLER
-        override val index: Int get() = motorIndex
-        override val isLeft: Boolean get() = false
-    }
-    
-    companion object {
-        val entries: List<AudioOutput> = mutableListOf<AudioOutput>().apply {
-            add(NoneOutput())
-            add(PhoneMotor(0, "手机马达1", 1))
-            add(PhoneMotor(1, "手机马达2", 2))
-            add(SpeakerOutput(0, "左扬声器", 3, true))
-            add(SpeakerOutput(1, "右扬声器", 4, false))
-            add(SpeakerOutput(2, "全部扬声器", 5, false))
-            add(ControllerMotor(0, "手柄马达1", 6))
-            add(ControllerMotor(1, "手柄马达2", 7))
-            add(ControllerMotor(2, "手柄马达3", 8))
-            add(ControllerMotor(3, "手柄马达4", 9))
-        }
-        
-        val NONE = NoneOutput()
-        val PHONE_MOTOR_1 = PhoneMotor(0, "手机马达1", 1)
-        val PHONE_MOTOR_2 = PhoneMotor(1, "手机马达2", 2)
-        val LEFT_SPEAKER = SpeakerOutput(0, "左扬声器", 3, true)
-        val RIGHT_SPEAKER = SpeakerOutput(1, "右扬声器", 4, false)
-        val ALL_SPEAKERS = SpeakerOutput(2, "全部扬声器", 5, false)
-        val CONTROLLER_MOTOR_1 = ControllerMotor(0, "手柄马达1", 6)
-        val CONTROLLER_MOTOR_2 = ControllerMotor(1, "手柄马达2", 7)
-        val CONTROLLER_MOTOR_3 = ControllerMotor(2, "手柄马达3", 8)
-        val CONTROLLER_MOTOR_4 = ControllerMotor(3, "手柄马达4", 9)
-        
-        fun fromOrdinalSafe(ordinal: Int, isLeft: Boolean = false): AudioOutput {
-            return entries.find { it.ordinal == ordinal } ?: NONE
-        }
-        
-        fun controllerMotor(index: Int): AudioOutput {
-            return ControllerMotor(index, "手柄马达${index + 1}", index + 6)
-        }
+        fun soundDevice(deviceId: Int, deviceName: String) =
+            AudioDevice(AudioDeviceType.SOUND_DEVICE, 0, deviceId, deviceName)
     }
 }
 
@@ -277,11 +211,12 @@ data class AppSettings(
      *  -1 means the physical controller input is disabled ("不使用手柄"). */
     val inputControllerIndex: Int = 0,
     // ── Audio (DualSense Voice Coil + Speaker) ──
-    val voiceCoilDevice: AudioDevice = AudioDevice.PHONE_SPEAKER,
+    val voiceCoilDevice: AudioDevice = AudioDevice.PHONE_MOTOR,
     /** Voice-coil target used while a physical controller is connected (defaults to it). */
     val voiceCoilDeviceConnected: AudioDevice = AudioDevice.controller(0),
     val swapVoiceCoilMotors: Boolean = false,
-    val controllerAudioOutput: AudioOutput = AudioOutput.ALL_SPEAKERS,
+    /** Controller-audio target; defaults to the first enumerated sound device. */
+    val controllerAudioDevice: AudioDevice = AudioDevice.AUTO_SOUND_DEVICE,
     // ── Appearance ──
     val bgFillType: FillType = FillType.SOLID_COLOR,
     val bgColor: Int = 0xFF000000.toInt(),
