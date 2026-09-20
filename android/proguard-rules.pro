@@ -1,94 +1,29 @@
--keepclassmembers class com.zyz4.gkme.proto.** { *; }
+# ============================================================
+# 真正常用的 keep 规则
+# Gson / Hilt / kotlinx.coroutines 均由各自 AAR 的 consumer rules
+# 自动处理，这里不再重复。SDL 例外，见文件末尾。
+# ============================================================
 
-# Gson - 完整保留所有 Gson 类和成员
--keep class com.google.gson.** { *; }
--keep class * implements com.google.gson.TypeAdapterFactory
--keep class * implements com.google.gson.JsonSerializer
--keep class * implements com.google.gson.JsonDeserializer
--keepclassmembers,allowobfuscation class * {
-    @com.google.gson.annotations.SerializedName <fields>;
-}
-
-# Gson TypeToken - 保留匿名子类
--keep class com.google.gson.reflect.TypeToken { *; }
--keep class * extends com.google.gson.reflect.TypeToken { *; }
-
-# Gson - 保留所有类的字段用于反射序列化/反序列化
--keepclassmembers class * {
-    @com.google.gson.annotations.* <fields>;
-}
-
-# Hilt - Dagger
--keep class dagger.hilt.** { *; }
--keep class jakarta.inject.** { *; }
--keep class javax.inject.** { *; }
--keep class hilt_aggregated_deps { *; }
-
-# Hilt 注解类 - 保留 @HiltAndroidApp, @HiltViewModel, @AndroidEntryPoint
--keep,allowobfuscation @dagger.hilt.android.HiltAndroidApp class *
--keep,allowobfuscation @dagger.hilt.android.lifecycle.HiltViewModel class *
--keep,allowobfuscation @dagger.hilt.android.AndroidEntryPoint class *
-
-# Hilt ViewModel 构造函数 - Hilt 通过反射调用 @Inject 构造函数
--keepclassmembers,allowobfuscation class * {
-    @javax.inject.Inject <init>(...);
-}
-
-# ViewModel - 保留所有 ViewModel 子类及默认构造函数
--keepclassmembers class * extends androidx.lifecycle.ViewModel {
-    <init>(...);
-}
--keepclassmembers class * extends androidx.lifecycle.AndroidViewModel {
-    <init>(android.app.Application);
-}
-
-# Repository - 保留所有 @Singleton 注入的 Repository
--keep class com.zyz4.gkme.data.** { *; }
-
-# Application 类 - 保留 @HiltAndroidApp 标记的 Application
--keep class com.zyz4.gkme.GamepadEmuApp { *; }
-
-# Module - 保留 Hilt @Module, @Provides
--keep class com.zyz4.gkme.di.** { *; }
--keepclassmembers,allowobfuscation class * {
-    @dagger.Provides <methods>;
-}
-
-# kotlinx Coroutines - 协程相关
--keep class kotlinx.** { *; }
--keep class kotlin.** { *; }
--keep class kotlinx.coroutines.android.** { *; }
-
-# DataStore - 保留 DataStore 相关
--keep class androidx.datastore.** { *; }
-
-# Model 类 - 所有 data class 和 enum（Gson 序列化/反序列化）
+# Gson 运行时反射（字段 / 实例化 / 枚举名）。
+# Signature、注解属性、TypeToken、@SerializedName 由 gson.pro 处理。
 -keep class com.zyz4.gkme.model.** { *; }
 
-# Kotlin - 保留数据类的所有合成方法和构造函数
--keepclassmembers class com.zyz4.gkme.model.** {
-    <init>(...);
+# UsbPhysicalControllerBackend.displayName 依赖 javaClass.simpleName 分支
+-keepnames class com.zyz4.gkme.input.usb.**
+
+# XML 中按类名 inflate 的自定义 View（LayoutInflater 反射实例化）。
+# 只保留类名与 View 构造，其余成员允许裁剪/混淆。
+-keep class com.zyz4.gkme.view.** {
+    public <init>(android.content.Context);
+    public <init>(android.content.Context, android.util.AttributeSet);
+    public <init>(android.content.Context, android.util.AttributeSet, int);
 }
 
-# Service 类 - 所有服务类（Hilt 注入 + 反射调用）
--keep class com.zyz4.gkme.service.** { *; }
-
-# Input 类 - 传感器和输入处理
--keep class com.zyz4.gkme.input.** { *; }
-
-# MainActivity - Activity 必须保留
--keep class com.zyz4.gkme.MainActivity { *; }
-
-# 保留 Proto 相关的嵌套类和 Builder
--keep class * extends com.google.protobuf.Message { *; }
+# protobuf-javalite 未附带 consumer rules，lite 运行时依赖反射。
+-keepclassmembers class com.zyz4.gkme.proto.** { *; }
 -keep class * extends com.google.protobuf.MessageLite { *; }
--keep class com.google.protobuf.** { *; }
 
-# View 相关 - 如果有自定义 View
--keep class com.zyz4.gkme.view.** { *; }
-
-# SDL3 Java 胶水层（AAR 自带 consumer 规则，这里再显式保留以确保 JNI 回调不被裁剪）
+# SDL：libSDL3.so 在 JNI_OnLoad 里用 RegisterNatives 动态注册
+# org.libsdl.app.* 的方法（如 onNativeDropFile），静态无法推断；
+# AAR 自带 proguard.txt 未覆盖本项目的原生构建，必须整包保留。
 -keep class org.libsdl.app.** { *; }
--keepclassmembers class org.libsdl.app.** {
-    native <methods>;
-}
