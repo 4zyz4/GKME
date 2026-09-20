@@ -261,6 +261,8 @@ internal class FloatingModeController(private val activity: MainActivity) {
             button,
             activity.viewModel.settings.value,
         )
+        // The hidden-state show button inherits the same floating opacity as the controls.
+        button.alpha = floatingOpacity()
         val params = WindowManager.LayoutParams(
             toggleSize,
             toggleSize,
@@ -385,7 +387,10 @@ internal class FloatingModeController(private val activity: MainActivity) {
         val maxCol = (GamepadLayout.GRID_COLS - pos.width).coerceAtLeast(0)
         val maxRow = ((lh / cell).toInt() - pos.height).coerceAtLeast(0)
         val gx = (lx / cell).roundToInt().coerceIn(0, maxCol)
-        val gy = (ly / cell).roundToInt().coerceIn(0, maxRow)
+        // In portrait `ly` is the rotated rect's screen-left edge, i.e. the local *bottom*;
+        // subtract the button height to get the top row back (otherwise the button lands a
+        // whole button-width to the left on the next show).
+        val gy = ((ly / cell) - pos.height).roundToInt().coerceIn(0, maxRow)
         activity.gamepadLayout.setButtonPositionQuiet(pos.id, pos.copy(x = gx, y = gy))
     }
 
@@ -393,7 +398,9 @@ internal class FloatingModeController(private val activity: MainActivity) {
 
     private fun settingsButtonChild(): View? {
         val gl = activity.gamepadLayout
-        for (i in 0 until gl.childCount) {
+        // Iterate top-down so this matches bringSettingsToFront(): the frontmost settings
+        // child is the one actually drawn (and hit-tested) on screen.
+        for (i in gl.childCount - 1 downTo 0) {
             val child = gl.getChildAt(i)
             if (child.tag == GamepadLayout.SETTINGS_BUTTON_ID) return child
         }
@@ -463,10 +470,12 @@ internal class FloatingModeController(private val activity: MainActivity) {
         val lw = if (portrait) sh else sw
         val cell = lw.toFloat() / GamepadLayout.GRID_COLS
         if (cell <= 0f) return null
-        val l = (pos.x * cell).roundToInt()
-        val t = (pos.y * cell).roundToInt()
-        val r = ((pos.x + pos.width) * cell).roundToInt()
-        val b = ((pos.y + pos.height) * cell).roundToInt()
+        // Mirror GamepadLayout's child layout math (truncation, width relative to left) so the
+        // toggle window lands exactly on the settings button instead of a rounded-off spot.
+        val l = (pos.x * cell).toInt()
+        val t = (pos.y * cell).toInt()
+        val r = l + (pos.width * cell).toInt()
+        val b = t + (pos.height * cell).toInt()
         return if (portrait) {
             android.graphics.Rect(sw - b, l, sw - t, r)
         } else {
@@ -516,7 +525,9 @@ internal class FloatingModeController(private val activity: MainActivity) {
             }
             launch {
                 activity.viewModel.settings.collect { settings ->
-                    if (isShown) activity.gamepadLayout.alpha = settings.floatingOpacity / 100f
+                    val opacity = settings.floatingOpacity.coerceIn(0, 100) / 100f
+                    if (isShown) activity.gamepadLayout.alpha = opacity
+                    toggleButton?.alpha = opacity
                 }
             }
             launch {
