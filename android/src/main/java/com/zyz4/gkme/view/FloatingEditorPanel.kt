@@ -879,7 +879,6 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     fun showParameters(buttonId: String, button: ButtonPosition) {
         currentButton = button
         val density = context.resources.displayMetrics.density
-        setCollapsed(false)
 
         buttonParamsInner.removeAllViews()
 
