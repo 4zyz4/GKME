@@ -8,8 +8,10 @@
 # Signature、注解属性、TypeToken、@SerializedName 由 gson.pro 处理。
 -keep class com.zyz4.gkme.model.** { *; }
 
-# UsbPhysicalControllerBackend.displayName 依赖 javaClass.simpleName 分支
--keepnames class com.zyz4.gkme.input.usb.**
+# Input 类：SdlNative 的 native 方法、native/SDL 回调与 UsbPhysicalControllerBackend
+# 的 javaClass.simpleName 分支都依赖原始类名与成员。必须整包完整保留，
+# 否则 release 混淆后 JNI 注册/回调失配导致崩溃。
+-keep class com.zyz4.gkme.input.** { *; }
 
 # XML 中按类名 inflate 的自定义 View（LayoutInflater 反射实例化）。
 # 只保留类名与 View 构造，其余成员允许裁剪/混淆。
