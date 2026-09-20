@@ -8,7 +8,6 @@ import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
-import android.widget.Spinner
 import android.widget.Switch
 import android.widget.TextView
 import androidx.lifecycle.Lifecycle
@@ -175,17 +174,12 @@ internal fun MainActivity.observeState() {
                     a.applyEffectivePhysicalControllerSettings()
 
                     if (!a.settingsInflated) return@collect
-                    val s = a.viewModel.settings.value
 
                     a.syncPhysicalControllerUI()
                     a.syncGyroSourceUI()
 
                     a.syncVoiceCoilUI()
-                    a.audioControllerOutputEntries = a.controllerAudioEntries()
-                    a.updateControllerAudioAdapter(a.findViewById(R.id.spinnerControllerAudio))
-                    val ctrlPos = a.audioControllerOutputEntries.indexOf(s.controllerAudioOutput)
-                        .let { if (it >= 0) it else 0 }
-                    a.findViewById<Spinner>(R.id.spinnerControllerAudio).setSelection(ctrlPos)
+                    a.syncControllerAudioUI()
                     a.syncGameVibrationUI()
                     a.syncAdaptiveTriggerUI()
                 }
@@ -197,6 +191,7 @@ internal fun MainActivity.observeState() {
                         a.syncAdaptiveTriggerUI()
                         a.syncPhysicalControllerUI()
                         a.syncVoiceCoilUI()
+                        a.syncControllerAudioUI()
                         a.syncGyroSourceUI()
                     }
                     a.syncPhysicalControllerState()

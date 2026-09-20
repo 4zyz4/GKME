@@ -170,8 +170,7 @@ class ConnectionManager @Inject constructor(
         audioPlaybackService.setSettings(
             voiceCoilDevice = s.voiceCoilDeviceFor(physicalControllerConnected),
             voiceCoilSwap = s.swapVoiceCoilMotors,
-            controllerAudio = s.controllerAudioOutput,
-            motorOutputEnabled = s.gameVibrationDeviceFor(physicalControllerConnected).type != VibrationDeviceType.NONE,
+            controllerAudioDevice = s.controllerAudioDevice,
         )
     }
 

@@ -40,7 +40,6 @@ import android.widget.Spinner
 import android.widget.Switch
 import android.widget.TextView
 import androidx.core.content.ContextCompat
-import com.zyz4.gkme.model.AudioOutput
 import com.zyz4.gkme.model.AudioDevice
 import com.zyz4.gkme.model.AudioDeviceType
 import com.zyz4.gkme.model.AdaptiveTriggerDevice
@@ -62,6 +61,7 @@ import com.zyz4.gkme.model.VibrationDevice
 import com.zyz4.gkme.model.VibrationDeviceType
 import com.zyz4.gkme.model.VibrationType
 import com.zyz4.gkme.input.ControllerInfo
+import com.zyz4.gkme.input.SdlAudio
 import com.zyz4.gkme.service.ConnectionPhase
 import com.zyz4.gkme.view.CircularRevealLayout
 import com.zyz4.gkme.view.GamepadLayout
@@ -277,6 +277,9 @@ internal fun MainActivity.selectSettingsCategory(index: Int, animate: Boolean = 
         }
     }
     if (index == 6) {
+        // Re-read the SDL sound device list so hotplugged outputs show up.
+        a.syncVoiceCoilUI()
+        a.syncControllerAudioUI()
         a.audioPollingJob = a.lifecycleScope.launch {
             while (true) {
                 delay(50.milliseconds)
@@ -471,8 +474,8 @@ internal fun MainActivity.setupSettings() {
         a.viewModel.updateSwapVoiceCoilMotors(isChecked)
         a.audioPlaybackService.resumeIfStopped()
     }
-    a.setupControllerAudioSpinner(controllerAudioEntries()) { output ->
-        a.viewModel.updateControllerAudioOutput(output)
+    a.setupControllerAudioSpinner(buildControllerAudioDeviceEntries()) { device ->
+        a.viewModel.updateControllerAudioDevice(device)
         a.audioPlaybackService.resumeIfStopped()
     }
 
@@ -1201,16 +1204,19 @@ internal fun MainActivity.syncGyroSourceUI() {
     a.updateGyroSourceVisibility(entries.getOrElse(pos) { GyroSource.PHONE })
 }
 
-internal fun MainActivity.controllerAudioEntries(): List<AudioOutput> {
+internal fun MainActivity.buildControllerAudioDeviceEntries(): List<AudioDevice> {
     val a = this
-    val entries = mutableListOf<AudioOutput>()
-    entries.add(AudioOutput.ALL_SPEAKERS)
+    val entries = mutableListOf<AudioDevice>()
+    // Sound devices come first so the "first enumerated device" default is index 0.
+    SdlAudio.devices().forEach { device ->
+        entries.add(AudioDevice.soundDevice(device.id, device.name))
+    }
     a.physicalControllerHandler.connectedControllers.value.forEachIndexed { index, _ ->
         if (a.physicalControllerHandler.controllerSupportsAudio(index)) {
-            entries.add(AudioOutput.controllerMotor(index))
+            entries.add(AudioDevice.controller(index))
         }
     }
-    entries.add(AudioOutput.NONE)
+    entries.add(AudioDevice.NONE)
     return entries
 }
 
@@ -1221,7 +1227,11 @@ internal fun MainActivity.buildVoiceCoilDeviceEntries(): List<AudioDevice> {
         entries.add(AudioDevice.controller(index))
     }
     entries.add(AudioDevice.PHONE_MOTOR)
-    entries.add(AudioDevice.PHONE_SPEAKER)
+    // SDL enumerates the system's sound devices, including the phone speaker as a
+    // regular device (built-in speaker, USB, Bluetooth...).
+    SdlAudio.devices().forEach { device ->
+        entries.add(AudioDevice.soundDevice(device.id, device.name))
+    }
     entries.add(AudioDevice.NONE)
     return entries
 }
@@ -1236,6 +1246,7 @@ internal fun MainActivity.updateVoiceCoilDeviceAdapter(spinner: Spinner, entries
                     ?: "手柄${device.controllerIndex + 1}"
             AudioDeviceType.PHONE_MOTOR -> "手机马达"
             AudioDeviceType.PHONE_SPEAKER -> "手机扬声器"
+            AudioDeviceType.SOUND_DEVICE -> device.deviceName.ifBlank { "声音设备" }
             AudioDeviceType.NONE -> "无"
         }
     }.toTypedArray()
@@ -1271,37 +1282,91 @@ internal fun MainActivity.syncVoiceCoilUI() {
     val connectedCount = a.physicalControllerHandler.connectedControllers.value.size
     var selected = a.effectiveVoiceCoilDevice()
     if (selected.type == AudioDeviceType.CONTROLLER && selected.controllerIndex >= connectedCount) {
-        selected = AudioDevice.PHONE_SPEAKER
+        selected = AudioDevice.PHONE_MOTOR
     }
-    val pos = entries.indexOf(selected).let { if (it >= 0) it else entries.size - 1 }
+    if (selected.type == AudioDeviceType.SOUND_DEVICE &&
+        selected.deviceId != AudioDevice.AUTO_SOUND_DEVICE_ID &&
+        entries.none { it.type == AudioDeviceType.SOUND_DEVICE && it.deviceId == selected.deviceId }
+    ) {
+        // The saved device is gone (unplugged / id changed): fall back to the default.
+        selected = AudioDevice.PHONE_MOTOR
+    }
+    val autoDevice = selected.deviceId == AudioDevice.AUTO_SOUND_DEVICE_ID
+    val pos = entries.indexOfFirst {
+        when (selected.type) {
+            AudioDeviceType.SOUND_DEVICE ->
+                it.type == AudioDeviceType.SOUND_DEVICE &&
+                    (autoDevice || it.deviceId == selected.deviceId)
+            else -> it.type == selected.type && it.controllerIndex == selected.controllerIndex
+        }
+    }.let { index ->
+        if (index >= 0) index
+        else entries.indexOfFirst { it.type == AudioDeviceType.PHONE_MOTOR }.coerceAtLeast(0)
+    }
     spinner.setSelection(pos)
-    a.updateVoiceCoilSwapUI(entries.getOrElse(pos) { AudioDevice.PHONE_SPEAKER })
+    a.updateVoiceCoilSwapUI(entries.getOrElse(pos) { AudioDevice.PHONE_MOTOR })
 }
 
-internal fun MainActivity.setupControllerAudioSpinner(entries: List<AudioOutput>, onChanged: (AudioOutput) -> Unit) {
+internal fun MainActivity.setupControllerAudioSpinner(
+    entries: List<AudioDevice>,
+    onChanged: (AudioDevice) -> Unit,
+) {
     val a = this
     val spinner = a.findViewById<Spinner>(R.id.spinnerControllerAudio)
-    a.audioControllerOutputEntries = entries
+    spinner.setOnTouchListener { _, _ ->
+        a.controllerAudioUserSelecting = true
+        false
+    }
+    a.audioControllerDeviceEntries = entries
     a.updateControllerAudioAdapter(spinner)
     spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
         override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
-            if (pos < a.audioControllerOutputEntries.size) onChanged(a.audioControllerOutputEntries[pos])
+            if (!a.controllerAudioUserSelecting) return
+            a.controllerAudioUserSelecting = false
+            if (pos < a.audioControllerDeviceEntries.size) onChanged(a.audioControllerDeviceEntries[pos])
         }
-        override fun onNothingSelected(parent: AdapterView<*>?) {}
+        override fun onNothingSelected(parent: AdapterView<*>?) {
+            a.controllerAudioUserSelecting = false
+        }
     }
+}
+
+/** Rebuilds the controller-audio list (sound devices + controller USB speakers) and syncs it. */
+internal fun MainActivity.syncControllerAudioUI() {
+    val a = this
+    if (!a.settingsInflated) return
+    val entries = a.buildControllerAudioDeviceEntries()
+    a.audioControllerDeviceEntries = entries
+    val spinner = a.findViewById<Spinner>(R.id.spinnerControllerAudio)
+    a.updateControllerAudioAdapter(spinner)
+    val selected = a.viewModel.settings.value.controllerAudioDevice
+    val autoDevice = selected.type == AudioDeviceType.SOUND_DEVICE &&
+        selected.deviceId == AudioDevice.AUTO_SOUND_DEVICE_ID
+    val pos = entries.indexOfFirst {
+        when (selected.type) {
+            AudioDeviceType.SOUND_DEVICE ->
+                it.type == AudioDeviceType.SOUND_DEVICE &&
+                    (autoDevice || it.deviceId == selected.deviceId)
+            AudioDeviceType.CONTROLLER ->
+                it.type == AudioDeviceType.CONTROLLER && it.controllerIndex == selected.controllerIndex
+            else -> it.type == selected.type
+        }
+    }.let { if (it >= 0) it else 0 }
+    spinner.setSelection(pos)
 }
 
 internal fun MainActivity.updateControllerAudioAdapter(spinner: Spinner) {
     val a = this
     val controllers = a.physicalControllerHandler.connectedControllers.value
-    val names = a.audioControllerOutputEntries.map { output ->
-        if (output.outputType == AudioOutput.OutputType.CONTROLLER) {
-            controllers.getOrNull(output.index)?.name?.takeIf { it.isNotBlank() }
-                ?: "手柄${output.index + 1}"
-        } else if (output == AudioOutput.ALL_SPEAKERS) {
-            "手机扬声器"
-        } else {
-            output.displayName
+    val names = a.audioControllerDeviceEntries.map { device ->
+        when (device.type) {
+            AudioDeviceType.CONTROLLER ->
+                controllers.getOrNull(device.controllerIndex)?.name?.takeIf { it.isNotBlank() }
+                    ?: "手柄${device.controllerIndex + 1}"
+            AudioDeviceType.SOUND_DEVICE -> device.deviceName.ifBlank { "声音设备" }
+            AudioDeviceType.PHONE_MOTOR,
+            AudioDeviceType.PHONE_SPEAKER -> "手机马达"
+            AudioDeviceType.NONE -> "无"
         }
     }.toTypedArray()
     val adapter = ArrayAdapter(a, android.R.layout.simple_spinner_item, names)
@@ -1785,12 +1850,7 @@ internal fun MainActivity.syncSettingsUI() {
 @SuppressLint("SetTextI18n")
 internal fun MainActivity.syncAudioUI() {
     val a = this
-    val s = a.viewModel.settings.value
 
     a.syncVoiceCoilUI()
-    a.audioControllerOutputEntries = a.controllerAudioEntries()
-    a.updateControllerAudioAdapter(a.findViewById(R.id.spinnerControllerAudio))
-    val ctrlPos = a.audioControllerOutputEntries.indexOf(s.controllerAudioOutput)
-        .let { if (it >= 0) it else 0 }
-    a.findViewById<Spinner>(R.id.spinnerControllerAudio).setSelection(ctrlPos)
+    a.syncControllerAudioUI()
 }

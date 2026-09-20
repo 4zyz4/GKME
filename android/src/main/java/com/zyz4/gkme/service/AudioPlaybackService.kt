@@ -1,17 +1,15 @@
 package com.zyz4.gkme.service
 
-import android.media.AudioAttributes
-import android.media.AudioFormat
-import android.media.AudioTrack
 import android.os.Build
 import android.os.CombinedVibration
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.util.Log
+import com.zyz4.gkme.input.SdlAudio
+import com.zyz4.gkme.input.SdlNative
 import com.zyz4.gkme.model.AudioDevice
 import com.zyz4.gkme.model.AudioDeviceType
-import com.zyz4.gkme.model.AudioOutput
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -45,13 +43,18 @@ class AudioPlaybackService {
         private const val TEST_TONE_RATE = 48000
         private const val TEST_TONE_CHANNELS = 4
         private const val TEST_TONE_FRAME_SAMPLES = 480 // 10 ms
-        // Target AudioTrack ring-buffer depth for the phone-speaker path. WiFi
-        // delivers the PC's audio in bursts, so the track must hold a few frames
-        // to ride out the jitter instead of underrunning between packets.
-        private const val AUDIO_BUFFER_TARGET_MS = 80
+        // SDL3 output: cap the queued audio at ~30 ms for low latency, and wait at
+        // most this long for the queue to drain before giving up (the producer
+        // thread is dedicated, so a bounded block is safe).
+        private const val SDL_MAX_QUEUE_MS = 30
+        private const val SDL_WRITE_WAIT_MS = 200
     }
 
-    private var audioTrack: AudioTrack? = null
+    /** One open SDL sink: the device it plays on and the sample rate it was opened at. */
+    private class SdlSinkState(val deviceId: Int, val sampleRate: Int)
+
+    // Open SDL sinks keyed by handle (voice coil / controller audio).
+    private val sdlSinks = HashMap<Int, SdlSinkState>()
 
     // Local 1 kHz test-tone generator state (see setTestTone).
     private var testToneThread: Thread? = null
@@ -74,10 +77,9 @@ class AudioPlaybackService {
     private var leftVoiceCoilAmplitude = 0
     private var rightVoiceCoilAmplitude = 0
 
-    private var voiceCoilDevice: AudioDevice = AudioDevice.PHONE_SPEAKER
+    private var voiceCoilDevice: AudioDevice = AudioDevice.PHONE_MOTOR
     private var voiceCoilSwap = false
-    private var controllerAudio: AudioOutput = AudioOutput.ALL_SPEAKERS
-    private var motorOutputEnabled = true
+    private var controllerAudioDevice: AudioDevice = AudioDevice.AUTO_SOUND_DEVICE
 
     // Phone motor vibration state
     private var lastVibrateTime = 0L
@@ -107,27 +109,93 @@ class AudioPlaybackService {
     fun setSettings(
         voiceCoilDevice: AudioDevice,
         voiceCoilSwap: Boolean,
-        controllerAudio: AudioOutput,
-        motorOutputEnabled: Boolean,
+        controllerAudioDevice: AudioDevice,
     ) {
         if (this.voiceCoilDevice != voiceCoilDevice && lastControllerMotorActive) {
             onControllerMotorOutput?.invoke(lastControllerMotorIndex, 0, 0)
             lastControllerMotorActive = false
         }
+        // A different SDL sound device (or no longer a sound device) was chosen for
+        // either lane: drop the old sink so the next frame opens a fresh one.
+        if (sdlSinkTarget(this.voiceCoilDevice) != sdlSinkTarget(voiceCoilDevice)) {
+            stopSdlSink(SdlAudio.HANDLE_VOICE_COIL)
+        }
+        if (sdlSinkTarget(this.controllerAudioDevice) != sdlSinkTarget(controllerAudioDevice)) {
+            stopSdlSink(SdlAudio.HANDLE_CONTROLLER_AUDIO)
+        }
         this.voiceCoilDevice = voiceCoilDevice
         this.voiceCoilSwap = voiceCoilSwap
-        this.controllerAudio = controllerAudio
-        this.motorOutputEnabled = motorOutputEnabled
+        this.controllerAudioDevice = controllerAudioDevice
     }
+
+    /** The stored SDL target of [device], or null when it is not an SDL sound device. */
+    private fun sdlSinkTarget(device: AudioDevice): Int? =
+        if (device.type == AudioDeviceType.SOUND_DEVICE) device.deviceId else null
 
     fun stop() {
         setTestTone(false)
-        try {
-            audioTrack?.stop()
-            audioTrack?.release()
-        } catch (_: Exception) {}
+        stopAllSdlSinks()
         _vibrator.cancel()
-        audioTrack = null
+    }
+
+    @Synchronized
+    private fun stopSdlSink(handle: Int) {
+        if (sdlSinks.remove(handle) != null) {
+            try {
+                SdlNative.nativeAudioClose(handle)
+            } catch (_: Throwable) {}
+        }
+    }
+
+    @Synchronized
+    private fun stopAllSdlSinks() {
+        if (sdlSinks.isNotEmpty()) {
+            try {
+                SdlNative.nativeAudioCloseAll()
+            } catch (_: Throwable) {}
+            sdlSinks.clear()
+        }
+    }
+
+    /**
+     * Opens (or reuses) the SDL sink [handle] for [device] at the current sample
+     * rate. Returns false when the device cannot be opened.
+     */
+    @Synchronized
+    private fun ensureSdlSink(handle: Int, device: AudioDevice): Boolean {
+        if (device.type != AudioDeviceType.SOUND_DEVICE) return false
+        val deviceId = SdlAudio.resolveDeviceId(device.deviceId)
+        val state = sdlSinks[handle]
+        if (state != null && state.deviceId == deviceId && state.sampleRate == sampleRate) {
+            return true
+        }
+        stopSdlSink(handle)
+        if (!SdlAudio.ensureInit()) return false
+        val ok = try {
+            SdlNative.nativeAudioOpen(handle, deviceId, sampleRate, 2, SDL_MAX_QUEUE_MS)
+        } catch (_: Throwable) {
+            false
+        }
+        if (ok) {
+            sdlSinks[handle] = SdlSinkState(deviceId, sampleRate)
+        }
+        return ok
+    }
+
+    /** Writes interleaved stereo S16 [data] to sink [handle]. False when it closed. */
+    private fun writeSdlSink(handle: Int, data: ByteArray): Boolean {
+        if (!sdlSinks.containsKey(handle)) return false
+        val written = try {
+            SdlNative.nativeAudioWrite(handle, data, SDL_WRITE_WAIT_MS)
+        } catch (_: Throwable) {
+            -1
+        }
+        if (written < 0) {
+            Log.e(TAG, "SDL audio write failed on handle=$handle, closing sink")
+            stopSdlSink(handle)
+            return false
+        }
+        return true
     }
 
     /**
@@ -235,7 +303,9 @@ class AudioPlaybackService {
         if (sampleRate > 0 && this.sampleRate != oldRate ||
             channels > 0 && this.channels != oldCh ||
             bitsPerSample > 0 && this.bitsPerSample != oldBits) {
-            recreateTrackIfNeeded(force = true)
+            // The PCM layout changed: drop the SDL sinks so they reopen with the new
+            // format on the next frame instead of replaying stale queued audio.
+            stopAllSdlSinks()
         }
 
         if (pcm.isEmpty()) {
@@ -314,7 +384,8 @@ class AudioPlaybackService {
 
         // ── Voice coil output routing ──
         when (voiceCoilDevice.type) {
-            AudioDeviceType.NONE, AudioDeviceType.PHONE_MOTOR, AudioDeviceType.PHONE_SPEAKER -> {
+            AudioDeviceType.NONE, AudioDeviceType.PHONE_MOTOR, AudioDeviceType.PHONE_SPEAKER,
+            AudioDeviceType.SOUND_DEVICE -> {
                 if (lastControllerMotorActive) {
                     onControllerMotorOutput?.invoke(lastControllerMotorIndex, 0, 0)
                     lastControllerMotorActive = false
@@ -364,9 +435,9 @@ class AudioPlaybackService {
         val vcPcmIndex = if (voiceCoilDevice.type == AudioDeviceType.CONTROLLER &&
             supportsVoiceCoilPcm?.invoke(voiceCoilDevice.controllerIndex) == true
         ) voiceCoilDevice.controllerIndex else -1
-        val caPcmIndex = if (controllerAudio.outputType == AudioOutput.OutputType.CONTROLLER &&
-            supportsControllerAudio?.invoke(controllerAudio.index) == true
-        ) controllerAudio.index else -1
+        val caPcmIndex = if (controllerAudioDevice.type == AudioDeviceType.CONTROLLER &&
+            supportsControllerAudio?.invoke(controllerAudioDevice.controllerIndex) == true
+        ) controllerAudioDevice.controllerIndex else -1
         if (vcPcmIndex >= 0 || caPcmIndex >= 0) {
             Log.i(TAG, "USB PCM path selected: vcIndex=$vcPcmIndex caIndex=$caPcmIndex rate=$sampleRate ch=$channels")
         }
@@ -411,60 +482,64 @@ class AudioPlaybackService {
             onVoiceCoilAmplitudes?.invoke(leftAmp, rightAmp)
         }
 
-        // ── Phone speaker output ──
-        val playVoiceCoil = voiceCoilDevice.type == AudioDeviceType.PHONE_SPEAKER
-        val playControllerAudio = motorOutputEnabled && controllerAudio == AudioOutput.ALL_SPEAKERS
-        if (!playVoiceCoil && !playControllerAudio) return
+        // ── SDL sound-device outputs (voice coil and controller audio) ──
+        // The two lanes are independent: each can target a different enumerated
+        // sound device (or none). They share the same 48 kHz resampled stream only
+        // on the USB controller path; here they are mixed down to stereo S16.
+        val playVoiceCoilSdl = voiceCoilDevice.type == AudioDeviceType.SOUND_DEVICE
+        val playControllerAudioSdl = controllerAudioDevice.type == AudioDeviceType.SOUND_DEVICE
+        if (!playVoiceCoilSdl && !playControllerAudioSdl) return
 
-        // Allocate output: numSamples stereo = numSamples * 2 channels * 2 bytes
-        val stereoSize = numSamples * 4
-        val stereoBuf = IntArray(stereoSize / 2)
+        if (playVoiceCoilSdl && ensureSdlSink(SdlAudio.HANDLE_VOICE_COIL, voiceCoilDevice)) {
+            val voiceCoilBytes = buildVoiceCoilStereo(
+                pcm, numSamples, bytesPerFrame, leftVcmCh, rightVcmCh, voiceCoilSwap,
+            )
+            writeSdlSink(SdlAudio.HANDLE_VOICE_COIL, voiceCoilBytes)
+        }
 
+        if (playControllerAudioSdl && ensureSdlSink(SdlAudio.HANDLE_CONTROLLER_AUDIO, controllerAudioDevice)) {
+            val controllerBytes = buildMonoToStereo(pcm, numSamples, bytesPerFrame, controllerCh)
+            writeSdlSink(SdlAudio.HANDLE_CONTROLLER_AUDIO, controllerBytes)
+        }
+    }
+
+    /** Voice-coil left/right channels as interleaved stereo S16, with optional swap. */
+    private fun buildVoiceCoilStereo(
+        pcm: ByteArray,
+        numSamples: Int,
+        bytesPerFrame: Int,
+        leftCh: Int,
+        rightCh: Int,
+        swap: Boolean,
+    ): ByteArray {
+        val out = ByteArray(numSamples * 4)
         for (s in 0 until numSamples) {
-            val outOff = s * 2
-
-            if (playControllerAudio) {
-                val ch1Off = s * bytesPerFrame + controllerCh * 2
-                if (ch1Off + 1 < pcm.size) {
-                    val s1 = ControllerAudioDsp.readShortLe(pcm, ch1Off)
-                    stereoBuf[outOff] += s1
-                    stereoBuf[outOff + 1] += s1
-                }
-            }
-
-            if (playVoiceCoil) {
-                val ch2Off = s * bytesPerFrame + leftVcmCh * 2
-                val s2 = if (ch2Off + 1 < pcm.size) ControllerAudioDsp.readShortLe(pcm, ch2Off) else 0
-                val ch3Off = s * bytesPerFrame + rightVcmCh * 2
-                val s3 = if (ch3Off + 1 < pcm.size) ControllerAudioDsp.readShortLe(pcm, ch3Off) else 0
-                stereoBuf[outOff] += if (voiceCoilSwap) s3 else s2
-                stereoBuf[outOff + 1] += if (voiceCoilSwap) s2 else s3
-            }
+            val base = s * bytesPerFrame
+            val l = if (base + leftCh * 2 + 1 < pcm.size) ControllerAudioDsp.readShortLe(pcm, base + leftCh * 2) else 0
+            val r = if (base + rightCh * 2 + 1 < pcm.size) ControllerAudioDsp.readShortLe(pcm, base + rightCh * 2) else 0
+            val left = if (swap) r else l
+            val right = if (swap) l else r
+            ControllerAudioDsp.writeShortLe(out, s * 4, left)
+            ControllerAudioDsp.writeShortLe(out, s * 4 + 2, right)
         }
+        return out
+    }
 
-        val outBytes = ByteArray(stereoSize)
-        for (i in stereoBuf.indices) {
-            val v = stereoBuf[i].coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
-            outBytes[i * 2] = v.toInt().toByte()
-            outBytes[i * 2 + 1] = (v.toInt() shr 8).toByte()
+    /** One PCM channel duplicated into interleaved stereo S16. */
+    private fun buildMonoToStereo(
+        pcm: ByteArray,
+        numSamples: Int,
+        bytesPerFrame: Int,
+        channel: Int,
+    ): ByteArray {
+        val out = ByteArray(numSamples * 4)
+        for (s in 0 until numSamples) {
+            val off = s * bytesPerFrame + channel * 2
+            val v = if (off + 1 < pcm.size) ControllerAudioDsp.readShortLe(pcm, off) else 0
+            ControllerAudioDsp.writeShortLe(out, s * 4, v)
+            ControllerAudioDsp.writeShortLe(out, s * 4 + 2, v)
         }
-
-        recreateTrackIfNeeded()
-        val track = audioTrack ?: return
-
-        // Blocking write: never drop PCM. A full ring buffer simply paces this
-        // thread to real time (the same back-pressure the reference moonlight
-        // renderer relies on). The old WRITE_NON_BLOCKING call silently discarded
-        // the tail of every frame once the buffer was full, which was heard as
-        // continuous stutter.
-        try {
-            val written = track.write(outBytes, 0, outBytes.size)
-            if (written < 0) {
-                Log.e(TAG, "write error: $written (pcm=${pcm.size} stereo=$stereoSize)")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "write failed: pcm=${pcm.size} stereo=$stereoSize", e)
-        }
+        return out
     }
 
     /** Drives the phone motors from the voice-coil channels; motor0 = left, motor1 = right. */
@@ -520,62 +595,7 @@ class AudioPlaybackService {
         )
     }
 
-    private fun recreateTrackIfNeeded(force: Boolean = false) {
-        synchronized(this) {
-            if (!force && audioTrack != null && audioTrack?.state == AudioTrack.STATE_INITIALIZED) {
-                return
-            }
 
-            try {
-                audioTrack?.pause()
-                audioTrack?.flush()
-                audioTrack?.stop()
-                audioTrack?.release()
-            } catch (_: Exception) {}
-            audioTrack = null
-
-            val attr = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_GAME)
-                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                .setFlags(0x2000000)
-                .build()
-
-            val format = AudioFormat.Builder()
-                .setSampleRate(sampleRate)
-                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
-                .build()
-
-            val minBufSize = AudioTrack.getMinBufferSize(sampleRate, format.channelMask, format.encoding)
-            if (minBufSize <= 0) {
-                Log.e(TAG, "Min buffer size too small: rate=$sampleRate")
-                return
-            }
-
-            // Deep enough to absorb network jitter, never smaller than what the
-            // device requires. Buffering the equivalent of AUDIO_BUFFER_TARGET_MS
-            // of stereo audio keeps the blocking writer from underrunning.
-            val targetBufSize = sampleRate * 2 * 2 * AUDIO_BUFFER_TARGET_MS / 1000
-            val bufSize = maxOf(minBufSize, targetBufSize)
-            Log.d(TAG, "AudioTrack: rate=$sampleRate buf=$bufSize (min=$minBufSize)")
-
-            val track = AudioTrack.Builder()
-                .setAudioAttributes(attr)
-                .setAudioFormat(format)
-                .setTransferMode(AudioTrack.MODE_STREAM)
-                .setBufferSizeInBytes(bufSize)
-                .build()
-            if (track.state != AudioTrack.STATE_INITIALIZED) {
-                Log.e(TAG, "AudioTrack init failed: ${track.state}")
-                track.release()
-                return
-            }
-
-            track.play()
-            audioTrack = track
-            Log.d(TAG, "AudioTrack created & playing")
-        }
-    }
 
     fun getVoiceCoilEnvelopeLeft(): Float {
         for (i in leftVoiceCoilData.indices) {
