@@ -1,16 +1,13 @@
 package com.zyz4.gkme.service
 
-import android.bluetooth.BluetoothAdapter
 import android.content.Context
 import android.os.Build
-import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.provider.Settings
 import com.zyz4.gkme.data.PairingStateRepository
 import com.zyz4.gkme.data.SettingsRepository
 import com.zyz4.gkme.model.AppSettings
-import com.zyz4.gkme.model.AudioOutput
 import com.zyz4.gkme.model.ConnectionMode
 import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.model.TargetPlatform
@@ -286,7 +283,7 @@ class ConnectionManager @Inject constructor(
                         activeProtocol = ActiveProtocol.NONE
                         _connectionState.value = _connectionState.value.copy(
                             connected = false, phase = ConnectionPhase.LISTENING,
-                            statusText = "USB 连接已断开，等待电脑连接..."
+                            statusText = "连接已断开"
                         )
                     }
                 }
@@ -375,7 +372,7 @@ class ConnectionManager @Inject constructor(
                     activeProtocol = ActiveProtocol.NONE
                     _connectionState.value = _connectionState.value.copy(
                         connected = false, phase = ConnectionPhase.LISTENING,
-                        statusText = "USB 连接已断开，等待电脑连接..."
+                        statusText = "连接已断开"
                     )
                 }
             },
@@ -383,14 +380,14 @@ class ConnectionManager @Inject constructor(
         if (!ok) {
             _connectionState.value = _connectionState.value.copy(
                 connected = false, phase = ConnectionPhase.ERROR,
-                statusText = "USB 服务启动失败：端口 ${UsbService.PORT} 被占用"
+                statusText = "端口 ${UsbService.PORT} 被占用，可能另一个实例已在运行"
             )
             return
         }
         if (activeProtocol == ActiveProtocol.NONE) {
             _connectionState.value = _connectionState.value.copy(
                 phase = ConnectionPhase.LISTENING,
-                statusText = "USB 服务已启动，等待电脑连接..."
+                statusText = "服务已启动，等待连接..."
             )
         }
     }
@@ -510,7 +507,7 @@ class ConnectionManager @Inject constructor(
             activeProtocol = ActiveProtocol.NONE
             _connectionState.value = _connectionState.value.copy(
                 connected = false, phase = ConnectionPhase.LISTENING,
-                statusText = "电脑已断开，等待连接..."
+                statusText = "连接已断开"
             )
             clearTriggerEffects()
             return
