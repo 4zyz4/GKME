@@ -33,8 +33,8 @@ class JoystickView @JvmOverloads constructor(
     var onGyroActivateUp: (() -> Unit)? = null
     var doubleClickEnable: Boolean = true
     var forceFollowFinger: Boolean = false
-    var idleTransparency: Int = 0
-    var activeTransparency: Int = 0
+    var idleOpacity: Int = 100
+    var activeOpacity: Int = 100
     var sensitivityCurve: List<Float>? = null
     var deadZone: Int = 0
     var reverseDeadZone: Int = 0
@@ -189,7 +189,7 @@ class JoystickView @JvmOverloads constructor(
                     }
                 }
                 isTouching = true
-                alpha = 1f - (activeTransparency.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
+                alpha = activeOpacity.coerceIn(0, 100) / 100f
                 if (forceFollowFinger) {
                     effectiveCenterX = event.x
                     effectiveCenterY = event.y
@@ -215,7 +215,7 @@ class JoystickView @JvmOverloads constructor(
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 isTouching = false
                 isClicking = false
-                alpha = 1f - (idleTransparency.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
+                alpha = idleOpacity.coerceIn(0, 100) / 100f
                 if (forceFollowFinger) {
                     effectiveCenterX = centerX
                     effectiveCenterY = centerY

@@ -17,7 +17,7 @@ object GamepadTouchpadUtils {
         maxRow: Int,
     ): ButtonPosition {
         var p = pos.copy(rotation = 0, swipeTrigger = false, overlapTrigger = true, lockAspect = true,
-            idleTransparency = 0, activeTransparency = 0)
+            idleOpacity = 100, activeOpacity = 100)
         p = p.copy(
             x = p.x.coerceIn(0, maxCol),
             y = p.y.coerceIn(0, maxRow)

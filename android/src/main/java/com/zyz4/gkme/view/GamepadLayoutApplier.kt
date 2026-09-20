@@ -13,11 +13,11 @@ import com.zyz4.gkme.model.GyroOrientation
  * - Measure and layout each child based on ButtonPosition grid coords
  * - Set visibility (VISIBLE/GONE) based on position.visible flag
  * - Apply rotation, scale aspect swap for 90/270 degree rotation
- * - Set transparency (alpha) for idle/active states
+ * - Set opacity (alpha) for idle/active states
  * - Configure JoystickView/DpadPadView/CustomKeypadView properties
  * - Set padding for adaptive content buttons
  * - Apply content text auto-fit cap
- * - Handle preview transparency mode in edit mode
+ * - Handle preview opacity mode in edit mode
  *
  * Interface: [applyLayout()] accepts layout params and child list,
  * mutates the children in place (standard ViewGroup pattern).
@@ -41,9 +41,9 @@ class GamepadLayoutApplier {
         cellH: Float,
         selectedButtonId: String?,
         isEditMode: Boolean,
-        previewTransparency: Boolean,
+        previewOpacity: Boolean,
         previewButtonId: String?,
-        previewIdleTransparency: Boolean,
+        previewIdleOpacity: Boolean,
         getPressedBits: () -> UInt,
         isAdaptiveContentButton: (String, View) -> Boolean,
         contentCapPx: (View, com.zyz4.gkme.model.AppSettings?) -> Int?,
@@ -72,9 +72,9 @@ class GamepadLayoutApplier {
                 // Note: child.width/height may be 0 at this point; caller handles this
             }
 
-            applyChildTransparency(
-                child, pos, ctrlEntryBitMap, pressedBits, isEditMode, previewTransparency,
-                previewButtonId, previewIdleTransparency, selectedButtonId,
+            applyChildOpacity(
+                child, pos, ctrlEntryBitMap, pressedBits, isEditMode, previewOpacity,
+                previewButtonId, previewIdleOpacity, selectedButtonId,
             )
 
             applyChildSpecialProperties(
@@ -122,28 +122,28 @@ class GamepadLayoutApplier {
         }
     }
 
-    private fun applyChildTransparency(
+    private fun applyChildOpacity(
         child: View,
         pos: ButtonPosition,
         ctrlEntryBitMap: Map<String, Int>,
         pressedBits: UInt,
         isEditMode: Boolean,
-        previewTransparency: Boolean,
+        previewOpacity: Boolean,
         previewButtonId: String?,
-        previewIdleTransparency: Boolean,
+        previewIdleOpacity: Boolean,
         selectedButtonId: String?,
     ) {
-        if (isEditMode && previewTransparency && previewButtonId == child.tag) {
-            val transVal = if (previewIdleTransparency) pos.idleTransparency else pos.activeTransparency
-            child.alpha = 1f - (transVal.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
+        if (isEditMode && previewOpacity && previewButtonId == child.tag) {
+            val opacityVal = if (previewIdleOpacity) pos.idleOpacity else pos.activeOpacity
+            child.alpha = opacityVal.coerceIn(0, 100) / 100f
         } else if (isEditMode) {
             child.alpha = 1f
         } else {
             val baseId = child.tag?.toString()?.substringBefore("_") ?: ""
             val bit = ctrlEntryBitMap[baseId] ?: 0
             val isDown = bit != 0 && (pressedBits and bit.toUInt()) != 0u
-            val transVal = if (isDown) pos.activeTransparency else pos.idleTransparency
-            child.alpha = 1f - (transVal.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
+            val opacityVal = if (isDown) pos.activeOpacity else pos.idleOpacity
+            child.alpha = opacityVal.coerceIn(0, 100) / 100f
         }
     }
 
@@ -159,16 +159,16 @@ class GamepadLayoutApplier {
             child.reverseDeadZone = pos.reverseDeadZone
             child.showDeadZoneIndicator = isEditMode && id == selectedButtonId
             child.forceFollowFinger = false
-            child.idleTransparency = pos.idleTransparency.coerceIn(0, 255)
-            child.activeTransparency = pos.activeTransparency.coerceIn(0, 255)
+            child.idleOpacity = pos.idleOpacity.coerceIn(0, 100)
+            child.activeOpacity = pos.activeOpacity.coerceIn(0, 100)
         } else if (child is DpadPadView) {
             child.forceFollowFinger = false
-            child.idleTransparency = pos.idleTransparency.coerceIn(0, 255)
-            child.activeTransparency = pos.activeTransparency.coerceIn(0, 255)
+            child.idleOpacity = pos.idleOpacity.coerceIn(0, 100)
+            child.activeOpacity = pos.activeOpacity.coerceIn(0, 100)
         } else if (child is CustomKeypadView) {
             child.forceFollowFinger = false
-            child.idleTransparency = pos.idleTransparency.coerceIn(0, 255)
-            child.activeTransparency = pos.activeTransparency.coerceIn(0, 255)
+            child.idleOpacity = pos.idleOpacity.coerceIn(0, 100)
+            child.activeOpacity = pos.activeOpacity.coerceIn(0, 100)
             val kpBits = ButtonPosition.keypadBitsOf(pos)
             child.validDirs = (0..3).filter { i ->
                 kpBits.getOrNull(i)?.isNotEmpty() == true

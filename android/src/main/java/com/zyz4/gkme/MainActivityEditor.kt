@@ -118,12 +118,12 @@ internal fun MainActivity.createFloatingEditor(): FloatingEditorPanel {
                 }
             }
 
-            override fun onTransparencyPreviewStart(buttonId: String, isIdle: Boolean) {
-                a.gamepadLayout.setTransparencyPreview(buttonId, isIdle, true)
+            override fun onOpacityPreviewStart(buttonId: String, isIdle: Boolean) {
+                a.gamepadLayout.setOpacityPreview(buttonId, isIdle, true)
             }
 
-override fun onTransparencyPreviewEnd(buttonId: String) {
-                    a.gamepadLayout.setTransparencyPreview(buttonId, true, false)
+override fun onOpacityPreviewEnd(buttonId: String) {
+                    a.gamepadLayout.setOpacityPreview(buttonId, true, false)
                 }
 
                 override fun onGyroBaseDirectionChanged(direction: com.zyz4.gkme.model.GyroBaseDirection) {
@@ -876,8 +876,8 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
                 }
                 this.slideDirection = pos.slideDirection
                 this.travelDistance = pos.travelDistance
-                this.idleTransparency = pos.idleTransparency
-                this.activeTransparency = pos.activeTransparency
+                this.idleOpacity = pos.idleOpacity
+                this.activeOpacity = pos.activeOpacity
                 onValueChange = { value ->
                     if (baseId == "btnLT") {
                         viewModel.onLeftTrigger(value)
@@ -1306,8 +1306,8 @@ internal fun MainActivity.recreateViewForButton(buttonId: String, pos: ButtonPos
             setTypeface(null, Typeface.BOLD)
             slideDirection = pos.slideDirection
             travelDistance = pos.travelDistance
-            idleTransparency = pos.idleTransparency
-            activeTransparency = pos.activeTransparency
+            idleOpacity = pos.idleOpacity
+            activeOpacity = pos.activeOpacity
             onValueChange = { value ->
                 val baseId = pos.id.substringBefore("_")
                 if (baseId == "btnLT") {

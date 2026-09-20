@@ -53,8 +53,8 @@ class CustomKeypadView @JvmOverloads constructor(
         }
     var padBorderColor: Int = 0xFF666666.toInt()
     var padBorderWidth: Float = 4f
-    var idleTransparency: Int = 0
-    var activeTransparency: Int = 0
+    var idleOpacity: Int = 100
+    var activeOpacity: Int = 100
 
     var keypadTexts: List<String> = ButtonPosition.KEYPAD_DEFAULT_TEXTS
 
@@ -300,7 +300,7 @@ class CustomKeypadView @JvmOverloads constructor(
 
     private fun handleDown(x: Float, y: Float) {
         isTouching = true
-        alpha = 1f - (activeTransparency.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
+        alpha = activeOpacity.coerceIn(0, 100) / 100f
         if (forceFollowFinger) {
             effectiveCenterX = x
             effectiveCenterY = y
@@ -332,7 +332,7 @@ class CustomKeypadView @JvmOverloads constructor(
 
     private fun handleUp() {
         isTouching = false
-        alpha = 1f - (idleTransparency.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
+        alpha = idleOpacity.coerceIn(0, 100) / 100f
         if (centerPressed) {
             centerPressed = false
             invalidate()

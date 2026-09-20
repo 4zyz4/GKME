@@ -777,7 +777,7 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
     fun touchpadAlpha(active: Boolean) {
         val id = tp.tag as? String ?: return
         val pos = a.gamepadLayout.currentButtons.find { it.id == id } ?: return
-        tp.alpha = 1f - ((if (active) pos.activeTransparency else pos.idleTransparency).coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
+        tp.alpha = (if (active) pos.activeOpacity else pos.idleOpacity).coerceIn(0, 100) / 100f
     }
 
     var touchpadGyroHeld = false
@@ -1357,7 +1357,7 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
 private fun mousepadHighlight(mp: FrameLayout, active: Boolean, a: MainActivity) {
     val id = mp.tag as? String ?: return
     val pos = a.gamepadLayout.currentButtons.find { it.id == id } ?: return
-    mp.alpha = 1f - ((if (active) pos.activeTransparency else pos.idleTransparency).coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
+    mp.alpha = (if (active) pos.activeOpacity else pos.idleOpacity).coerceIn(0, 100) / 100f
 }
 
 /**

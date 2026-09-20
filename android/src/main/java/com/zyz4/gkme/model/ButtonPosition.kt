@@ -22,9 +22,10 @@ data class ButtonPosition(
     val sensitivityCurve: List<Float>? = null,
     val deadZone: Int = 0,
     val reverseDeadZone: Int = 0,
-    val idleTransparency: Int = 0,
-    val activeTransparency: Int = 0,
-    val followAreaTransparency: Int = 0,
+    // 不透明度百分比 (0-100)，100 = 完全不透明
+    val idleOpacity: Int = 100,
+    val activeOpacity: Int = 100,
+    val followAreaOpacity: Int = 100,
     val followAreaEnabled: Boolean = false,
     val followAreaX: Int = 0,
     val followAreaY: Int = 0,

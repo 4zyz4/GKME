@@ -54,6 +54,19 @@ data class LayoutPreset(
         private fun isLockAspectFalse(baseId: String): Boolean = baseId in LOCK_ASPECT_FALSE_IDS
         private fun isKeyboard(baseId: String): Boolean = baseId in IS_KEYBOARD_IDS
 
+        /**
+         * 将旧版透明度字段 (0=不透明, 255=全透明) 迁移为不透明度字段 (100=不透明, 0=全透明)。
+         * 若已存在新字段则以新字段为准，并移除旧字段，保证保存后自动替换。
+         */
+        private fun migrateLegacyOpacity(obj: JsonObject, legacyKey: String, newKey: String) {
+            val legacy = obj.get(legacyKey) ?: return
+            if (!obj.has(newKey)) {
+                val opacity = (100 - legacy.asInt.coerceIn(0, 255) * 100 / 255).coerceIn(0, 100)
+                obj.addProperty(newKey, opacity)
+            }
+            obj.remove(legacyKey)
+        }
+
         fun fromJson(json: String): LayoutPreset {
             val root = gsonInstance.fromJson(json, JsonObject::class.java)
             val rawArray = root.getAsJsonArray("buttons")
@@ -76,9 +89,12 @@ data class LayoutPreset(
                     if (!btnObj.has("followAreaEnabled")) btnObj.addProperty("followAreaEnabled", false)
                     if (!btnObj.has("swipeTrigger")) btnObj.addProperty("swipeTrigger", false)
                     if (!btnObj.has("roundShape")) btnObj.addProperty("roundShape", true)
-                    if (!btnObj.has("idleTransparency")) btnObj.addProperty("idleTransparency", 0)
-                    if (!btnObj.has("activeTransparency")) btnObj.addProperty("activeTransparency", 0)
-                    if (!btnObj.has("followAreaTransparency")) btnObj.addProperty("followAreaTransparency", 0)
+                    migrateLegacyOpacity(btnObj, "idleTransparency", "idleOpacity")
+                    migrateLegacyOpacity(btnObj, "activeTransparency", "activeOpacity")
+                    migrateLegacyOpacity(btnObj, "followAreaTransparency", "followAreaOpacity")
+                    if (!btnObj.has("idleOpacity")) btnObj.addProperty("idleOpacity", 100)
+                    if (!btnObj.has("activeOpacity")) btnObj.addProperty("activeOpacity", 100)
+                    if (!btnObj.has("followAreaOpacity")) btnObj.addProperty("followAreaOpacity", 100)
                     if (!btnObj.has("followAreaX")) btnObj.addProperty("followAreaX", 0)
                     if (!btnObj.has("followAreaY")) btnObj.addProperty("followAreaY", 0)
                     if (!btnObj.has("followAreaW")) btnObj.addProperty("followAreaW", 0)
@@ -179,9 +195,9 @@ data class LayoutPreset(
                 m["customBits"] = (b.customBits ?: listOf<Int>())
             }
             if (b.roundShape != true) m["roundShape"] = b.roundShape
-            if (b.idleTransparency != 0) m["idleTransparency"] = b.idleTransparency
-            if (b.activeTransparency != 0) m["activeTransparency"] = b.activeTransparency
-            if (b.followAreaTransparency != 0) m["followAreaTransparency"] = b.followAreaTransparency
+            if (b.idleOpacity != 100) m["idleOpacity"] = b.idleOpacity
+            if (b.activeOpacity != 100) m["activeOpacity"] = b.activeOpacity
+            if (b.followAreaOpacity != 100) m["followAreaOpacity"] = b.followAreaOpacity
             if (b.overlapTrigger != true) m["overlapTrigger"] = b.overlapTrigger
             if (b.followAreaOverlapTrigger) m["followAreaOverlapTrigger"] = b.followAreaOverlapTrigger
             if (baseId in DOUBLE_CLICK_IDS) {
