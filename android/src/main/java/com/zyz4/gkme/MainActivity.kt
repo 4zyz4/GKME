@@ -2,9 +2,11 @@ package com.zyz4.gkme
 
 import android.annotation.SuppressLint
 import android.app.Dialog
+import android.content.Intent
 import android.hardware.display.DisplayManager
 import android.view.Display
 import android.media.session.MediaSession
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -12,6 +14,7 @@ import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.provider.Settings
 import android.view.HapticFeedbackConstants
 import android.view.InputDevice
 import android.view.KeyEvent
@@ -29,12 +32,14 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.core.content.ContextCompat
 import com.zyz4.gkme.model.AudioOutput
 import com.zyz4.gkme.model.AdaptiveTriggerDevice
 import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.model.AppSettings
 import com.zyz4.gkme.model.HapticEffect
 import com.zyz4.gkme.model.VibrationType
+import com.zyz4.gkme.service.FloatingOverlayService
 import com.zyz4.gkme.view.FloatingEditorPanel
 import com.zyz4.gkme.view.GamepadLayout
 import com.zyz4.gkme.input.AdaptiveTriggerHandler
@@ -46,6 +51,7 @@ class MainActivity : ComponentActivity() {
 
     internal val viewModel: GkViewModel by viewModels()
     internal lateinit var gamepadLayout: GamepadLayout
+    internal lateinit var floatingController: FloatingModeController
     internal val floatingEditor: FloatingEditorPanel by lazy { createFloatingEditor() }
     internal val controlViews = mutableMapOf<String, View>()
     internal val touchpadLabels = mutableListOf<TextView>()
@@ -56,6 +62,10 @@ class MainActivity : ComponentActivity() {
     internal var lastAppliedSettings: AppSettings? = null
     internal var lastPresetInfos: Any? = null
     internal var lastPresetCurrentName: String? = null
+
+    private var floatingStartedAt = 0L
+    private var pendingFloatingStart = false
+    private val FLOATING_RESUME_GUARD_MS = 2000L
 
     internal var audioControllerOutputEntries: List<AudioOutput> = emptyList()
     internal var adaptiveTriggerDeviceEntries: List<AdaptiveTriggerDevice> = emptyList()
@@ -121,6 +131,25 @@ class MainActivity : ComponentActivity() {
         uri?.let { importAppearanceFromUri(it) }
     }
 
+    internal val overlayPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (Settings.canDrawOverlays(this)) {
+            continueEnterFloating()
+        } else {
+            showToast("需要悬浮窗权限才能使用悬浮模式")
+        }
+    }
+
+    internal val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        if (pendingFloatingStart) {
+            pendingFloatingStart = false
+            startFloatingMode()
+        }
+    }
+
     private val displayManager by lazy { getSystemService(DISPLAY_SERVICE) as DisplayManager }
 
     internal lateinit var physicalControllerHandler: PhysicalControllerHandler
@@ -156,6 +185,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         hideSystemBars()
         gamepadLayout = findViewById(R.id.gamepadLayout)
+        floatingController = FloatingModeController(this)
         physicalControllerHandler = PhysicalControllerHandler(this)
         setupMediaSession()
         setupGamepadLayoutListener()
@@ -232,10 +262,80 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        if (::floatingController.isInitialized && floatingController.isActive) {
+            runCatching { floatingController.exit() }
+            stopService(Intent(this, FloatingOverlayService::class.java))
+        }
         physicalControllerHandler.stop()
         mediaSession?.release()
         displayManager.unregisterDisplayListener(displayListener)
         super.onDestroy()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::floatingController.isInitialized && floatingController.isActive &&
+            android.os.SystemClock.elapsedRealtime() - floatingStartedAt > FLOATING_RESUME_GUARD_MS
+        ) {
+            exitFloatingMode()
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(FloatingOverlayService.EXTRA_EXIT_FLOATING, false)) {
+            exitFloatingMode()
+        }
+    }
+
+    // ── Floating mode ──────────────────────────────────────
+
+    internal fun enterFloatingMode() {
+        if (::floatingController.isInitialized && floatingController.isActive) return
+        if (gamepadLayout.isEditModeActive()) {
+            showToast("请先退出编辑模式")
+            return
+        }
+        if (!Settings.canDrawOverlays(this)) {
+            val intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:$packageName"),
+            )
+            overlayPermissionLauncher.launch(intent)
+            return
+        }
+        continueEnterFloating()
+    }
+
+    private fun continueEnterFloating() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) !=
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            pendingFloatingStart = true
+            notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            return
+        }
+        startFloatingMode()
+    }
+
+    private fun startFloatingMode() {
+        if (floatingController.isActive) return
+        if (isScreenOff) exitScreenOffMode()
+        if (inSettings) hideSettings()
+        ContextCompat.startForegroundService(this, Intent(this, FloatingOverlayService::class.java))
+        floatingController.enter()
+        floatingStartedAt = android.os.SystemClock.elapsedRealtime()
+        moveTaskToBack(true)
+        showToast("悬浮模式已开启，点按悬浮按钮显示/隐藏")
+    }
+
+    internal fun exitFloatingMode() {
+        if (!::floatingController.isInitialized || !floatingController.isActive) return
+        runCatching { floatingController.exit() }
+        stopService(Intent(this, FloatingOverlayService::class.java))
+        showToast("已退出悬浮模式")
     }
 
     internal var pointerCaptureNeeded = false

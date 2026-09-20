@@ -417,6 +417,10 @@ class GkViewModel @Inject constructor(
         connectionManager.updateSettings(settings.value.copy(keepScreenOn = enabled))
     }
 
+    fun updateFloatingOpacity(opacity: Int) {
+        connectionManager.updateSettings(settings.value.copy(floatingOpacity = opacity.coerceIn(0, 100)))
+    }
+
     fun updateVolumeUpBits(bits: List<Int>) {
         connectionManager.updateSettings(settings.value.copy(volumeUpBits = bits))
     }
