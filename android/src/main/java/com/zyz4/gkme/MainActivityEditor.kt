@@ -830,12 +830,12 @@ internal fun MainActivity.ensureViewsForAllPresetButtons() {
     val buttons = a.gamepadLayout.currentButtons
     val triggerBaseIds = setOf("btnLT", "btnRT")
 
-    // Rebuild all views from scratch to ensure correct view types
+    // Rebuild all views from scratch to ensure correct view types. The settings button is
+    // removed and recreated too, otherwise every applyPreset would stack a duplicate
+    // settings button (the floating override would then only patch the hidden bottom copy).
     for (i in (a.gamepadLayout.childCount - 1) downTo 0) {
         val child = a.gamepadLayout.getChildAt(i)
-        val tag = child.tag as? String ?: continue
-        if (tag == GamepadLayout.SETTINGS_BUTTON_ID) continue
-        a.gamepadLayout.removeViewAt(i)
+        if (child.tag is String) a.gamepadLayout.removeViewAt(i)
     }
 
     for (pos in buttons) {
