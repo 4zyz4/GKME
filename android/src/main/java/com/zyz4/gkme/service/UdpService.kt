@@ -24,6 +24,12 @@ class UdpService {
         const val TYPE_CLIENT_TO_SERVER: Byte = 0x00
         const val TYPE_SERVER_TO_CLIENT: Byte = 0x01
         const val TYPE_GAMEPAD_INPUT: Byte = 0x02
+
+        // The kernel default is only a few hundred KB. When a USB/audio burst stalls
+        // the receive thread even briefly, a small queue overflows and silently drops
+        // packets. A larger SO_RCVBUF absorbs those bursts (requested value is capped
+        // by the device's net.core.rmem_max).
+        private const val UDP_SOCKET_BUFFER_SIZE = 4 * 1024 * 1024
     }
 
     private var sockets = mutableListOf<DatagramSocket>()
@@ -77,6 +83,12 @@ class UdpService {
 
     @Volatile var portInUse: Boolean = false
 
+    private fun configureSocket(socket: DatagramSocket) {
+        socket.broadcast = true
+        try { socket.receiveBufferSize = UDP_SOCKET_BUFFER_SIZE } catch (_: Exception) {}
+        try { socket.sendBufferSize = UDP_SOCKET_BUFFER_SIZE } catch (_: Exception) {}
+    }
+
     private fun rebind(
         deviceName: String?,
         macAddress: String?,
@@ -92,7 +104,7 @@ class UdpService {
         for (localIp in allIps) {
             try {
                 val bindAddr = InetAddress.getByName(localIp)
-                val socket = DatagramSocket(PORT, bindAddr).also { it.broadcast = true }
+                val socket = DatagramSocket(PORT, bindAddr).also { configureSocket(it) }
                 sockets.add(socket)
                 if (deviceName != null && macAddress != null) {
                     startBroadcastForSocket(socket, deviceName, macAddress)
@@ -105,7 +117,7 @@ class UdpService {
         }
         if (sockets.isEmpty()) {
             try {
-                val socket = DatagramSocket(PORT).also { it.broadcast = true }
+                val socket = DatagramSocket(PORT).also { configureSocket(it) }
                 sockets.add(socket)
                 if (deviceName != null && macAddress != null) {
                     startBroadcastForSocket(socket, deviceName, macAddress)
@@ -222,6 +234,12 @@ class UdpService {
 
     private fun startReceiveLoopForSocket(socket: DatagramSocket) {
         val job = CoroutineScope(Dispatchers.IO).launch {
+            // The receive loop blocks on socket.receive(), so it only consumes CPU when
+            // a packet arrives. Running it at audio priority keeps it from being starved
+            // by the USB haptics/input threads, which is what caused the OTG packet loss.
+            try {
+                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)
+            } catch (_: Exception) {}
             val buf = ByteArray(65535)
             while (isActive) {
                 try {
