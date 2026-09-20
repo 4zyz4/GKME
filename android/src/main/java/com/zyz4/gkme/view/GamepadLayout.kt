@@ -98,9 +98,9 @@ class GamepadLayout @JvmOverloads constructor(
     private var gridAlpha = 0f
     private var gridAnimator: ValueAnimator? = null
 
-    // Transparency preview
-    private var previewTransparency = false
-    private var previewIdleTransparency = true
+    // Opacity preview
+    private var previewOpacity = false
+    private var previewIdleOpacity = true
     private var previewButtonId: String? = null
 
 
@@ -131,7 +131,7 @@ class GamepadLayout @JvmOverloads constructor(
     var hasChanges = false
         private set
 
-    // Button pressed state for active/idle transparency
+    // Button pressed state for active/idle opacity
     var _gamepadButtons: UInt = 0u
     var ctrlEntryBitMap: Map<String, Int> = emptyMap()
 
@@ -176,9 +176,9 @@ class GamepadLayout @JvmOverloads constructor(
         }
     }
 
-    fun setTransparencyPreview(buttonId: String, isIdle: Boolean, previewing: Boolean) {
-        previewTransparency = previewing
-        previewIdleTransparency = isIdle
+    fun setOpacityPreview(buttonId: String, isIdle: Boolean, previewing: Boolean) {
+        previewOpacity = previewing
+        previewIdleOpacity = isIdle
         previewButtonId = if (previewing) buttonId else null
         requestLayout()
     }
@@ -797,7 +797,7 @@ class GamepadLayout @JvmOverloads constructor(
     /** Settings button: no rotation, swipe trigger always off, overlap trigger always on, fully visible on screen. */
     private fun sanitizeSettingsButton(pos: ButtonPosition): ButtonPosition {
         var p = pos.copy(rotation = 0, swipeTrigger = false, overlapTrigger = true, lockAspect = true,
-            idleTransparency = 0, activeTransparency = 0,
+            idleOpacity = 100, activeOpacity = 100,
             linearTriggerEnabled = false, slideDirection = com.zyz4.gkme.model.SlideDirection.DOWN)
         val maxCol = (GRID_COLS - p.width).coerceAtLeast(0)
         val maxRow = if (cellH > 0f) ((height / cellH).toInt() - p.height).coerceAtLeast(0) else Int.MAX_VALUE
@@ -868,7 +868,7 @@ class GamepadLayout @JvmOverloads constructor(
         editSnapshot = getPreset()
         isEditMode = true
         hasChanges = false
-        previewTransparency = false
+        previewOpacity = false
         previewButtonId = null
         animateGridTo(0f)
         listener?.onEditModeChanged(true)
@@ -887,7 +887,7 @@ class GamepadLayout @JvmOverloads constructor(
         draggingChild = null
         resizingChild = null
         editSnapshot = null
-        previewTransparency = false
+        previewOpacity = false
         previewButtonId = null
         animateGridTo(0f)
         listener?.onEditModeChanged(false)
@@ -1137,9 +1137,9 @@ class GamepadLayout @JvmOverloads constructor(
             cellH = cellH,
             selectedButtonId = selectedButtonId,
             isEditMode = isEditMode,
-            previewTransparency = previewTransparency,
+            previewOpacity = previewOpacity,
             previewButtonId = previewButtonId,
-            previewIdleTransparency = previewIdleTransparency,
+            previewIdleOpacity = previewIdleOpacity,
             getPressedBits = { _gamepadButtons },
             isAdaptiveContentButton = ::isAdaptiveContentButton,
             contentCapPx = { view, settings -> AppearanceApplier.contentCapPx(view, settings) },

@@ -57,8 +57,8 @@ class DpadPadView @JvmOverloads constructor(
     /** Adaptive arrow-size cap in px (from the global icon-size setting); null = sized relative to the region. */
     var arrowMaxSizePx: Float? = null
 
-    var idleTransparency: Int = 0
-    var activeTransparency: Int = 0
+    var idleOpacity: Int = 100
+    var activeOpacity: Int = 100
 
     private var appearanceBitmap: Bitmap? = null
     private var activeBits = 0
@@ -258,7 +258,7 @@ class DpadPadView @JvmOverloads constructor(
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 isTouching = true
-                alpha = 1f - (activeTransparency.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
+                alpha = activeOpacity.coerceIn(0, 100) / 100f
                 if (forceFollowFinger) {
                     effectiveCenterX = event.x
                     effectiveCenterY = event.y
@@ -275,7 +275,7 @@ class DpadPadView @JvmOverloads constructor(
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 isTouching = false
-                alpha = 1f - (idleTransparency.coerceIn(0, 255) / 255f).coerceIn(0f, 1f)
+                alpha = idleOpacity.coerceIn(0, 100) / 100f
                 if (forceFollowFinger) {
                     effectiveCenterX = centerX
                     effectiveCenterY = centerY

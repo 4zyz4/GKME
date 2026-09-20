@@ -48,7 +48,7 @@ fun shrinkTouchpadToArea(pos: ButtonPosition, oldPos: ButtonPosition): ButtonPos
  * Edit-mode commands. Pure data — applyTo returns a new list, no side effects.
  *
  * Only gesture-recognised operations become commands. UI-control-triggered
- * operations (rotation slider, transparency seekbar, curve editor, delete,
+ * operations (rotation slider, opacity seekbar, curve editor, delete,
  * duplicate) remain as onButtonUpdated callbacks in FloatingEditorPanel.
  *
  * Open-closed: new command types can be added without modifying existing code.

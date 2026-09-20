@@ -155,7 +155,7 @@ class GamepadRenderer(
             val fBottom = (pos.followAreaY + pos.followAreaH) * cellH
 
             if (areaPaint.strokeWidth > 0f) {
-                areaPaint.alpha = (255 - pos.followAreaTransparency.coerceIn(0, 255)).coerceIn(0, 255)
+                areaPaint.alpha = pos.followAreaOpacity.coerceIn(0, 100) * 255 / 100
                 canvas.drawRect(fLeft, fTop, fRight, fBottom, areaPaint)
                 areaPaint.alpha = 255
             }

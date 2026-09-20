@@ -32,11 +32,11 @@ class LinearTriggerView @JvmOverloads constructor(
             field = value
             invalidate()
         }
-    var idleTransparency: Int = 0
+    var idleOpacity: Int = 100
         set(value) {
             field = value
         }
-    var activeTransparency: Int = 0
+    var activeOpacity: Int = 100
         set(value) {
             field = value
         }
@@ -76,15 +76,10 @@ class LinearTriggerView @JvmOverloads constructor(
     }
 
     override fun onDraw(canvas: android.graphics.Canvas) {
-        // Apply transparency for idle/active states
-        val targetAlpha = if (isDragging) {
-            (255 - activeTransparency).coerceIn(0, 255)
-        } else {
-            (255 - idleTransparency).coerceIn(0, 255)
-        }
-        val currentAlpha = alpha.toInt()
-        if (currentAlpha != targetAlpha) {
-            alpha = targetAlpha.toFloat()
+        // Apply opacity for idle/active states
+        val targetAlpha = (if (isDragging) activeOpacity else idleOpacity).coerceIn(0, 100) / 100f
+        if (alpha != targetAlpha) {
+            alpha = targetAlpha
         }
 
         super.onDraw(canvas)
@@ -233,7 +228,7 @@ class LinearTriggerView @JvmOverloads constructor(
         text = button.customText ?: text
         slideDirection = button.slideDirection
         travelDistance = button.travelDistance
-        idleTransparency = button.idleTransparency
-        activeTransparency = button.activeTransparency
+        idleOpacity = button.idleOpacity
+        activeOpacity = button.activeOpacity
     }
 }

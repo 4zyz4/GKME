@@ -47,8 +47,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         fun onGyroOrientationChanged(orientation: GyroOrientation?)
         fun onEnterFollowAreaAdjust(buttonId: String)
         fun onExitFollowAreaAdjust()
-        fun onTransparencyPreviewStart(buttonId: String, isIdle: Boolean)
-        fun onTransparencyPreviewEnd(buttonId: String)
+        fun onOpacityPreviewStart(buttonId: String, isIdle: Boolean)
+        fun onOpacityPreviewEnd(buttonId: String)
         fun onGyroBaseDirectionChanged(direction: com.zyz4.gkme.model.GyroBaseDirection)
         fun onGyroCoordinateSystemChanged(coordinateSystem: com.zyz4.gkme.model.GyroCoordinateSystem)
         fun onGyroModeChanged(mode: com.zyz4.gkme.model.GyroMode)
@@ -897,7 +897,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         buttonParamsInner.addView(tvId, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
 
         if (isAdjustingFollowArea) {
-            // Only show follow area dimensions + follow area transparency
+            // Only show follow area dimensions + follow area opacity
             val touchpadAdjust = isTouchpadId(buttonId)
             val dpadPadAdjust = buttonId == "dpadPad"
             val keypadAdjust = ButtonPosition.isKeypad(buttonId)
@@ -915,14 +915,13 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 currentButton = updated
                 editorListener?.onButtonUpdated(buttonId, updated)
             })
-            addSeekbar(buttonParamsInner, "矩形区域透明度(%)", (button.followAreaTransparency * 100 / 255).coerceIn(0, 100), 0, 100,
+            addSeekbar(buttonParamsInner, "矩形区域不透明度(%)", button.followAreaOpacity.coerceIn(0, 100), 0, 100,
                 onChange = { value ->
-                    val transVal = (value * 255 / 100).coerceIn(0, 255)
-                    currentButton = currentButton?.copy(followAreaTransparency = transVal)
+                    currentButton = currentButton?.copy(followAreaOpacity = value.coerceIn(0, 100))
                     currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
                 },
-                onStartTracking = { editorListener?.onTransparencyPreviewStart(buttonId, true) },
-                onStopTracking = { editorListener?.onTransparencyPreviewEnd(buttonId) }
+                onStartTracking = { editorListener?.onOpacityPreviewStart(buttonId, true) },
+                onStopTracking = { editorListener?.onOpacityPreviewEnd(buttonId) }
             )
             if (!touchpadAdjust) {
                 val cbFollowOverlap = CheckBox(context).apply {
@@ -966,25 +965,23 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
         addRotationButtons(buttonParamsInner, buttonId, density, isSettingsButton(buttonId))
 
-        // ── Transparency (hidden for settings button) ──
+        // ── Opacity (hidden for settings button) ──
         if (!isSettingsButton(buttonId)) {
-            addSeekbar(buttonParamsInner, "空闲时透明度(%)", (button.idleTransparency * 100 / 255).coerceIn(0, 100), 0, 100,
+            addSeekbar(buttonParamsInner, "空闲时不透明度(%)", button.idleOpacity.coerceIn(0, 100), 0, 100,
                 onChange = { value ->
-                    val transVal = (value * 255 / 100).coerceIn(0, 255)
-                    currentButton = currentButton?.copy(idleTransparency = transVal)
+                    currentButton = currentButton?.copy(idleOpacity = value.coerceIn(0, 100))
                     currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
                 },
-                onStartTracking = { editorListener?.onTransparencyPreviewStart(buttonId, true) },
-                onStopTracking = { editorListener?.onTransparencyPreviewEnd(buttonId) }
+                onStartTracking = { editorListener?.onOpacityPreviewStart(buttonId, true) },
+                onStopTracking = { editorListener?.onOpacityPreviewEnd(buttonId) }
             )
-            addSeekbar(buttonParamsInner, "操作时透明度(%)", (button.activeTransparency * 100 / 255).coerceIn(0, 100), 0, 100,
+            addSeekbar(buttonParamsInner, "操作时不透明度(%)", button.activeOpacity.coerceIn(0, 100), 0, 100,
                 onChange = { value ->
-                    val transVal = (value * 255 / 100).coerceIn(0, 255)
-                    currentButton = currentButton?.copy(activeTransparency = transVal)
+                    currentButton = currentButton?.copy(activeOpacity = value.coerceIn(0, 100))
                     currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
                 },
-                onStartTracking = { editorListener?.onTransparencyPreviewStart(buttonId, false) },
-                onStopTracking = { editorListener?.onTransparencyPreviewEnd(buttonId) }
+                onStartTracking = { editorListener?.onOpacityPreviewStart(buttonId, false) },
+                onStopTracking = { editorListener?.onOpacityPreviewEnd(buttonId) }
             )
         }
 
