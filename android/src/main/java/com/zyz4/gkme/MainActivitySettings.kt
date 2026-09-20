@@ -269,6 +269,9 @@ internal fun MainActivity.selectSettingsCategory(index: Int, animate: Boolean = 
             a.updateAppearancePreview()
         }
     }
+    if (index == 3) {
+        a.rebuildPhysicalMappingRows()
+    }
     if (index == 4) {
         a.vibrationPollingJob = a.lifecycleScope.launch {
             while (true) {
@@ -1842,6 +1845,8 @@ internal fun MainActivity.syncSettingsUI() {
     a.findViewById<SeekBar>(R.id.seekControllerGyroZ).progress = 0
 
     a.syncPhysicalControllerUI()
+
+    a.rebuildPhysicalMappingRows()
 
     a.refreshPresetList()
     a.syncAudioUI()

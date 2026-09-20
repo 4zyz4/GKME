@@ -205,6 +205,8 @@ data class AppSettings(
     val gyroControllerIndexConnected: Int = 0,
     val volumeUpBits: List<Int> = emptyList(),
     val volumeDownBits: List<Int> = emptyList(),
+    /** Per-input remapping of the physical controller; a missing key means "default". */
+    val physicalInputMappings: Map<String, PhysicalInputMapping> = emptyMap(),
     /** Low-level driver used for physical gamepads (SDL3 or the Axixi2233 USB driver). */
     val controllerDriver: ControllerDriver = ControllerDriver.SDL3,
     /** Index into the list of currently connected gamepads used as the input source.

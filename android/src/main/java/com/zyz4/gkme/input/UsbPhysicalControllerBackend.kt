@@ -18,6 +18,7 @@ import com.zyz4.gkme.input.usb.GkmeBridge
 import com.zyz4.gkme.input.usb.UsbDriverListener
 import com.zyz4.gkme.input.usb.UsbDriverService
 import com.zyz4.gkme.model.GamepadState
+import com.zyz4.gkme.model.PhysicalInputs
 import com.zyz4.gkme.model.TouchPoint
 import com.zyz4.gkme.model.VibrationDevice
 import com.zyz4.gkme.model.VibrationDeviceType
@@ -371,6 +372,7 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
                 hasGyro = (capabilities and GkmeBridge.LI_CCAP_GYRO.toInt()) != 0,
                 hasAnalogTrigger = (capabilities and GkmeBridge.LI_CCAP_ANALOG_TRIGGERS.toInt()) != 0,
                 hasTouchpad = (capabilities and GkmeBridge.LI_CCAP_TOUCHPAD.toInt()) != 0,
+                supportedButtons = PhysicalInputs.STANDARD_BUTTON_MASK,
             )
         }
         _connectedControllers.value = infos

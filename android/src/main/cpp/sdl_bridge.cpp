@@ -47,6 +47,11 @@ constexpr int BIT_DPAD_RIGHT = 0x08000;
 constexpr int BIT_HOME = 0x10000;
 constexpr int BIT_TOUCHPAD_CLICK = 0x20000;
 constexpr int BIT_MIC_MUTE = 0x40000;
+// Physical-only back (paddle) bits, must match com.zyz4.gkme.model.PhysicalInputs.
+constexpr int BIT_PADDLE_R1 = 0x400000;
+constexpr int BIT_PADDLE_L1 = 0x800000;
+constexpr int BIT_PADDLE_R2 = 0x1000000;
+constexpr int BIT_PADDLE_L2 = 0x2000000;
 
 // Application D-pad hat values, must match com.zyz4.gkme.model.GamepadState.
 constexpr int DPAD_UP = 1;
@@ -242,6 +247,39 @@ void applyHints() {
     SDL_SetHint(SDL_HINT_AUDIO_DEVICE_STREAM_ROLE, "Game");
 }
 
+// Builds the mask of buttons the given gamepad physically exposes, using the same bit
+// layout as the application's GamepadState plus the physical-only paddle bits.
+int supportedButtonMask(SDL_Gamepad *gp) {
+    if (!gp) {
+        return 0;
+    }
+    int m = 0;
+    if (SDL_GamepadHasButton(gp, SDL_GAMEPAD_BUTTON_SOUTH)) m |= BIT_A;
+    if (SDL_GamepadHasButton(gp, SDL_GAMEPAD_BUTTON_EAST)) m |= BIT_B;
+    if (SDL_GamepadHasButton(gp, SDL_GAMEPAD_BUTTON_WEST)) m |= BIT_X;
+    if (SDL_GamepadHasButton(gp, SDL_GAMEPAD_BUTTON_NORTH)) m |= BIT_Y;
+    if (SDL_GamepadHasButton(gp, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER)) m |= BIT_LB;
+    if (SDL_GamepadHasButton(gp, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER)) m |= BIT_RB;
+    if (SDL_GamepadHasAxis(gp, SDL_GAMEPAD_AXIS_LEFT_TRIGGER)) m |= BIT_LT;
+    if (SDL_GamepadHasAxis(gp, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER)) m |= BIT_RT;
+    if (SDL_GamepadHasButton(gp, SDL_GAMEPAD_BUTTON_BACK)) m |= BIT_SELECT;
+    if (SDL_GamepadHasButton(gp, SDL_GAMEPAD_BUTTON_START)) m |= BIT_START;
+    if (SDL_GamepadHasButton(gp, SDL_GAMEPAD_BUTTON_LEFT_STICK)) m |= BIT_L3;
+    if (SDL_GamepadHasButton(gp, SDL_GAMEPAD_BUTTON_RIGHT_STICK)) m |= BIT_R3;
+    if (SDL_GamepadHasButton(gp, SDL_GAMEPAD_BUTTON_DPAD_UP)) m |= BIT_DPAD_UP;
+    if (SDL_GamepadHasButton(gp, SDL_GAMEPAD_BUTTON_DPAD_DOWN)) m |= BIT_DPAD_DOWN;
+    if (SDL_GamepadHasButton(gp, SDL_GAMEPAD_BUTTON_DPAD_LEFT)) m |= BIT_DPAD_LEFT;
+    if (SDL_GamepadHasButton(gp, SDL_GAMEPAD_BUTTON_DPAD_RIGHT)) m |= BIT_DPAD_RIGHT;
+    if (SDL_GamepadHasButton(gp, SDL_GAMEPAD_BUTTON_GUIDE)) m |= BIT_HOME;
+    if (SDL_GamepadHasButton(gp, SDL_GAMEPAD_BUTTON_TOUCHPAD)) m |= BIT_TOUCHPAD_CLICK;
+    if (SDL_GamepadHasButton(gp, SDL_GAMEPAD_BUTTON_MISC1)) m |= BIT_MIC_MUTE;
+    if (SDL_GamepadHasButton(gp, SDL_GAMEPAD_BUTTON_RIGHT_PADDLE1)) m |= BIT_PADDLE_R1;
+    if (SDL_GamepadHasButton(gp, SDL_GAMEPAD_BUTTON_LEFT_PADDLE1)) m |= BIT_PADDLE_L1;
+    if (SDL_GamepadHasButton(gp, SDL_GAMEPAD_BUTTON_RIGHT_PADDLE2)) m |= BIT_PADDLE_R2;
+    if (SDL_GamepadHasButton(gp, SDL_GAMEPAD_BUTTON_LEFT_PADDLE2)) m |= BIT_PADDLE_L2;
+    return m;
+}
+
 void updateSnapshot(Entry &entry) {
     SDL_Gamepad *gp = entry.handle;
     if (!gp) {
@@ -263,6 +301,10 @@ void updateSnapshot(Entry &entry) {
     if (SDL_GetGamepadButton(gp, SDL_GAMEPAD_BUTTON_GUIDE)) buttons |= BIT_HOME;
     if (SDL_GetGamepadButton(gp, SDL_GAMEPAD_BUTTON_TOUCHPAD)) buttons |= BIT_TOUCHPAD_CLICK;
     if (SDL_GetGamepadButton(gp, SDL_GAMEPAD_BUTTON_MISC1)) buttons |= BIT_MIC_MUTE;
+    if (SDL_GetGamepadButton(gp, SDL_GAMEPAD_BUTTON_RIGHT_PADDLE1)) buttons |= BIT_PADDLE_R1;
+    if (SDL_GetGamepadButton(gp, SDL_GAMEPAD_BUTTON_LEFT_PADDLE1)) buttons |= BIT_PADDLE_L1;
+    if (SDL_GetGamepadButton(gp, SDL_GAMEPAD_BUTTON_RIGHT_PADDLE2)) buttons |= BIT_PADDLE_R2;
+    if (SDL_GetGamepadButton(gp, SDL_GAMEPAD_BUTTON_LEFT_PADDLE2)) buttons |= BIT_PADDLE_L2;
 
     int dpad = 0;
     if (SDL_GetGamepadButton(gp, SDL_GAMEPAD_BUTTON_DPAD_UP)) dpad |= DPAD_UP;
@@ -750,6 +792,18 @@ Java_com_zyz4_gkme_input_SdlNative_nativeGetControllerType(JNIEnv *env, jobject 
         return 0;
     }
     return static_cast<jint>(SDL_GetGamepadType(g_gamepads[index].handle));
+}
+
+JNIEXPORT jint JNICALL
+Java_com_zyz4_gkme_input_SdlNative_nativeGetControllerButtonMask(JNIEnv *env, jobject thiz,
+                                                                 jint index) {
+    (void) env;
+    (void) thiz;
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (!validIndex(index)) {
+        return 0;
+    }
+    return static_cast<jint>(supportedButtonMask(g_gamepads[index].handle));
 }
 
 JNIEXPORT jint JNICALL

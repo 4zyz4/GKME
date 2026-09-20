@@ -23,6 +23,7 @@ import com.zyz4.gkme.model.LedAppearance
 import com.zyz4.gkme.model.TargetPlatform
 import com.zyz4.gkme.model.AudioDevice
 import com.zyz4.gkme.model.AudioDeviceType
+import com.zyz4.gkme.model.PhysicalInputMapping
 import com.zyz4.gkme.model.VibrationDevice
 import com.zyz4.gkme.model.VibrationDeviceType
 import com.zyz4.gkme.model.VibrationType
@@ -88,6 +89,7 @@ class SettingsRepository @Inject constructor(
         val GYRO_CONTROLLER_INDEX_CONNECTED = intPreferencesKey("gyro_controller_index_connected")
         val VOLUME_UP_BITS = stringPreferencesKey("volume_up_bits")
         val VOLUME_DOWN_BITS = stringPreferencesKey("volume_down_bits")
+        val PHYSICAL_INPUT_MAPPINGS = stringPreferencesKey("physical_input_mappings")
         val CONTROLLER_DRIVER = intPreferencesKey("controller_driver")
         val INPUT_CONTROLLER_INDEX = intPreferencesKey("input_controller_index")
         // Audio
@@ -142,6 +144,7 @@ class SettingsRepository @Inject constructor(
     private val gson = Gson()
     private val listIntType = object : TypeToken<List<Int>>() {}.type
     private val stringSetType = object : TypeToken<Set<String>>() {}.type
+    private val physicalMappingType = object : TypeToken<Map<String, PhysicalInputMapping>>() {}.type
 
     val settings: Flow<AppSettings> = context.settingsDataStore.data.map { prefs ->
         AppSettings(
@@ -232,6 +235,7 @@ class SettingsRepository @Inject constructor(
             gyroControllerIndexConnected = prefs[Keys.GYRO_CONTROLLER_INDEX_CONNECTED] ?: 0,
             volumeUpBits = parseBitList(prefs[Keys.VOLUME_UP_BITS]),
             volumeDownBits = parseBitList(prefs[Keys.VOLUME_DOWN_BITS]),
+            physicalInputMappings = parsePhysicalMappings(prefs[Keys.PHYSICAL_INPUT_MAPPINGS]),
             controllerDriver = ControllerDriver.entries.getOrElse(
                 prefs[Keys.CONTROLLER_DRIVER] ?: 0
             ) { ControllerDriver.SDL3 },
@@ -344,6 +348,7 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.GYRO_CONTROLLER_INDEX_CONNECTED] = settings.gyroControllerIndexConnected
             prefs[Keys.VOLUME_UP_BITS] = gson.toJson(settings.volumeUpBits)
             prefs[Keys.VOLUME_DOWN_BITS] = gson.toJson(settings.volumeDownBits)
+            prefs[Keys.PHYSICAL_INPUT_MAPPINGS] = gson.toJson(settings.physicalInputMappings)
             prefs[Keys.CONTROLLER_DRIVER] = settings.controllerDriver.ordinal
             prefs[Keys.INPUT_CONTROLLER_INDEX] = settings.inputControllerIndex
             prefs[Keys.BG_FILL_TYPE] = settings.bgFillType.ordinal
@@ -445,5 +450,18 @@ class SettingsRepository @Inject constructor(
         return try {
             gson.fromJson<Set<String>>(json, stringSetType) ?: emptySet()
         } catch (_: Exception) { emptySet() }
+    }
+
+    private fun parsePhysicalMappings(json: String?): Map<String, PhysicalInputMapping> {
+        if (json.isNullOrEmpty()) return emptyMap()
+        return try {
+            val parsed: Map<String, PhysicalInputMapping>? = gson.fromJson(json, physicalMappingType)
+            parsed?.mapValues { (_, mapping) ->
+                PhysicalInputMapping(
+                    outputs = mapping.outputs,
+                    gyroActivate = mapping.gyroActivate,
+                )
+            } ?: emptyMap()
+        } catch (_: Exception) { emptyMap() }
     }
 }
