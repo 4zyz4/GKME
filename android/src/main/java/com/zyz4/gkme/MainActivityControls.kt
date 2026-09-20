@@ -959,6 +959,8 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
     var cursorAccumY = 0f
     var mouseSens = 1f             // 鼠标灵敏度（来自布局配置）
     var mouseAccel = 0f            // 鼠标加速度（来自布局配置，0=无加速度）
+    var moveSlop = 4f              // 滑动判定距离（来自布局配置，累计位移超过它才判定为滑动）
+    var gestureTravel = 0f         // 本次手势累计位移
     var scrollSens = SCROLL_SENSITIVITY // 滚动灵敏度（来自布局配置）
     var invertScrollV = false      // 反转纵向滚动方向（来自布局配置）
     var invertScrollH = false      // 反转横向滚动方向（来自布局配置）
@@ -980,7 +982,6 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
     val prevY = mutableMapOf<Int, Float>()
 
     val DOUBLE_TAP_WINDOW = 200L   // 第一击按下后一定时间的再次轻点 -> 潜在双击/按住拖动
-    val MOVE_SLOP = 4f             // 区分点击与拖动的最小位移
 
     fun readConfig() {
         if (!useConfig) return
@@ -990,6 +991,7 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
         mouseAccel = pos.mouseAcceleration?.let {
             if (it.isEmpty() || it.size < 2) 0f else it[1]
         } ?: 0f
+        moveSlop = pos.mouseMoveSlop.toFloat()
         scrollSens = pos.scrollSensitivity
         invertScrollV = pos.invertScrollV
         invertScrollH = pos.invertScrollH
@@ -1183,6 +1185,7 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                 prevY[pid] = event.getY(idx)
                 gestureMoved = false
                 gestureMaxPointers = 1
+                gestureTravel = 0f
                 wheelAccumX = 0f
                 wheelAccumY = 0f
                 cursorAccumX = 0f
@@ -1264,8 +1267,9 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                 }
                 if (count > gestureMaxPointers) gestureMaxPointers = count
 
-                if (!gestureMoved &&
-                    (Math.abs(totalDx) + Math.abs(totalDy)) > MOVE_SLOP) {
+                // 累计位移超过阈值即判定为滑动，之后即使单次位移减小也保持滑动
+                gestureTravel += Math.abs(totalDx) + Math.abs(totalDy)
+                if (!gestureMoved && gestureTravel > moveSlop) {
                     gestureMoved = true
                 }
                 if (gestureMoved) {
@@ -1317,6 +1321,7 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                 doubleTapArmed = false
                 gestureMoved = false
                 gestureMaxPointers = 0
+                gestureTravel = 0f
                 wheelAccumX = 0f
                 wheelAccumY = 0f
                 cursorAccumX = 0f

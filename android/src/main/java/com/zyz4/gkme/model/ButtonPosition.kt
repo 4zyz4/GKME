@@ -35,6 +35,7 @@ data class ButtonPosition(
     val mouseSensitivity: Float = 1f,
     val mouseAcceleration: List<Float>? = null,
     val scrollSensitivity: Float = 0.1f,
+    val mouseMoveSlop: Int = 4,
     val invertScrollV: Boolean = false,
     val invertScrollH: Boolean = false,
     // ── 鼠标触控板手势动作 ──

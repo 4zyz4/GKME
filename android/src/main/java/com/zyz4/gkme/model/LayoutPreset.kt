@@ -86,6 +86,7 @@ data class LayoutPreset(
                     if (!btnObj.has("deadZone")) btnObj.addProperty("deadZone", 0)
                     if (!btnObj.has("reverseDeadZone")) btnObj.addProperty("reverseDeadZone", 0)
                     if (!btnObj.has("mouseSensitivity")) btnObj.addProperty("mouseSensitivity", 1.0)
+                    if (!btnObj.has("mouseMoveSlop")) btnObj.addProperty("mouseMoveSlop", 4)
                     if (!btnObj.has("scrollSensitivity")) btnObj.addProperty("scrollSensitivity", 0.1)
                     if (!btnObj.has("invertScrollV")) btnObj.addProperty("invertScrollV", false)
                     if (!btnObj.has("invertScrollH")) btnObj.addProperty("invertScrollH", false)
@@ -207,6 +208,7 @@ data class LayoutPreset(
                 if (b.mouseAcceleration != null && b.mouseAcceleration.isNotEmpty()) m["mouseAcceleration"] = b.mouseAcceleration
                 else if (b.mouseAcceleration != null && b.mouseAcceleration.isEmpty()) m.remove("mouseAcceleration")
                 if (b.scrollSensitivity != 0.1f) m["scrollSensitivity"] = b.scrollSensitivity
+                if (b.mouseMoveSlop != 4) m["mouseMoveSlop"] = b.mouseMoveSlop
                 if (b.invertScrollV) m["invertScrollV"] = b.invertScrollV
                 if (b.invertScrollH) m["invertScrollH"] = b.invertScrollH
                 if (!b.doubleClickEnable) m["doubleClickEnable"] = b.doubleClickEnable
