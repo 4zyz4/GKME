@@ -41,7 +41,7 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private enum class ActiveProtocol { NONE, WIFI, EMOTION }
+private enum class ActiveProtocol { NONE, WIFI, EMOTION, USB }
 
 data class ConnectionState(
     val connected: Boolean = false,
@@ -74,6 +74,7 @@ class ConnectionManager @Inject constructor(
     val pairedDeviceName: StateFlow<String?> = pairingStateRepository.pairedDeviceName
         .stateIn(scope, SharingStarted.Eagerly, null)
     private val udpService = UdpService()
+    private val usbService = UsbService()
     private var bluetoothService: BluetoothHidService? = null
     val isBluetoothRunning: Boolean get() = bluetoothService != null
     private var dsuService: DsuService? = null
@@ -217,6 +218,12 @@ class ConnectionManager @Inject constructor(
             ConnectionMode.BLUETOOTH -> {
                 startBluetooth(scope, s)
             }
+            ConnectionMode.USB -> {
+                serverJob = scope.launch {
+                    startUsbServer()
+                    watchdogJob = launch { watchdogLoop() }
+                }
+            }
         }
     }
 
@@ -270,6 +277,16 @@ class ConnectionManager @Inject constructor(
                         _connectionState.value = _connectionState.value.copy(
                             connected = false, phase = ConnectionPhase.LISTENING,
                             statusText = "连接已断开，等待重连..."
+                        )
+                    }
+                }
+                ActiveProtocol.USB -> {
+                    if (usbService.peerConnected && usbService.lastReceiveTime != 0L &&
+                        System.currentTimeMillis() - usbService.lastReceiveTime > CONNECTION_TIMEOUT_MS) {
+                        activeProtocol = ActiveProtocol.NONE
+                        _connectionState.value = _connectionState.value.copy(
+                            connected = false, phase = ConnectionPhase.LISTENING,
+                            statusText = "USB 连接已断开，等待电脑连接..."
                         )
                     }
                 }
@@ -350,6 +367,34 @@ class ConnectionManager @Inject constructor(
         }
     }
 
+    private suspend fun startUsbServer() {
+        val ok = usbService.start(
+            onMessage = { msg -> handleUsbServerToClient(msg) },
+            onPeerClosed = {
+                if (activeProtocol == ActiveProtocol.USB) {
+                    activeProtocol = ActiveProtocol.NONE
+                    _connectionState.value = _connectionState.value.copy(
+                        connected = false, phase = ConnectionPhase.LISTENING,
+                        statusText = "USB 连接已断开，等待电脑连接..."
+                    )
+                }
+            },
+        )
+        if (!ok) {
+            _connectionState.value = _connectionState.value.copy(
+                connected = false, phase = ConnectionPhase.ERROR,
+                statusText = "USB 服务启动失败：端口 ${UsbService.PORT} 被占用"
+            )
+            return
+        }
+        if (activeProtocol == ActiveProtocol.NONE) {
+            _connectionState.value = _connectionState.value.copy(
+                phase = ConnectionPhase.LISTENING,
+                statusText = "USB 服务已启动，等待电脑连接..."
+            )
+        }
+    }
+
     private fun startBluetooth(scope: CoroutineScope, settings: AppSettings) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
             _connectionState.value = _connectionState.value.copy(
@@ -415,6 +460,7 @@ class ConnectionManager @Inject constructor(
         btPhaseJob = null
         stopAutoReconnect()
         udpService.stop()
+        usbService.stop()
         stopBluetooth()
         dsuService?.stop()
         dsuService = null
@@ -442,6 +488,37 @@ class ConnectionManager @Inject constructor(
         ) {
             doReconnect()
         }
+        if (msg.payloadCase == ServerToClient.PayloadCase.DISCONNECT) {
+            stopAutoReconnect()
+            udpService.clearPcAddress()
+            udpService.resumeBroadcast()
+            activeProtocol = ActiveProtocol.NONE
+            _connectionState.value = ConnectionState(statusText = "已断开")
+            clearTriggerEffects()
+            return
+        }
+        processServerToClientPayload(msg)
+    }
+
+    private fun handleUsbServerToClient(msg: ServerToClient) {
+        if (msg.payloadCase != ServerToClient.PayloadCase.DISCONNECT &&
+            activeProtocol != ActiveProtocol.USB
+        ) {
+            doUsbConnect()
+        }
+        if (msg.payloadCase == ServerToClient.PayloadCase.DISCONNECT) {
+            activeProtocol = ActiveProtocol.NONE
+            _connectionState.value = _connectionState.value.copy(
+                connected = false, phase = ConnectionPhase.LISTENING,
+                statusText = "电脑已断开，等待连接..."
+            )
+            clearTriggerEffects()
+            return
+        }
+        processServerToClientPayload(msg)
+    }
+
+    private fun processServerToClientPayload(msg: ServerToClient) {
         when (msg.payloadCase) {
             ServerToClient.PayloadCase.COMPACT_FRAME -> {
                 val cf = msg.compactFrame
@@ -503,14 +580,6 @@ class ConnectionManager @Inject constructor(
                     te.rightTriggerEffect.toByteArray(),
                 )
             }
-            ServerToClient.PayloadCase.DISCONNECT -> {
-                stopAutoReconnect()
-                udpService.clearPcAddress()
-                udpService.resumeBroadcast()
-                activeProtocol = ActiveProtocol.NONE
-                _connectionState.value = ConnectionState(statusText = "已断开")
-                clearTriggerEffects()
-            }
             else -> {}
         }
     }
@@ -558,21 +627,39 @@ class ConnectionManager @Inject constructor(
         sendDeviceHello()
     }
 
+    private fun doUsbConnect() {
+        activeProtocol = ActiveProtocol.USB
+        _connectionState.value = _connectionState.value.copy(
+            connected = true, phase = ConnectionPhase.CONNECTED,
+            statusText = "已连接（USB）"
+        )
+        sendDeviceHelloUsb()
+    }
+
     /** Sends the ClientToServer Hello carrying the device name and MAC. Sent when
      *  the PC's Hello establishes the connection (handshake) and on auto-reconnect,
      *  so the PC can learn the phone identity even for manual IP connections. */
     private fun sendDeviceHello() {
         CoroutineScope(Dispatchers.IO).launch {
-            val hello = Hello.newBuilder()
-                .setProtocolVersion(1)
-                .setDeviceName(getRealDeviceName())
-                .setMacAddress(getMacAddress())
-                .build()
-            val msg = ClientToServer.newBuilder()
-                .setHello(hello)
-                .build()
-            udpService.sendClientToServer(msg)
+            udpService.sendClientToServer(buildDeviceHello())
         }
+    }
+
+    private fun sendDeviceHelloUsb() {
+        CoroutineScope(Dispatchers.IO).launch {
+            usbService.sendClientToServer(buildDeviceHello())
+        }
+    }
+
+    private fun buildDeviceHello(): ClientToServer {
+        val hello = Hello.newBuilder()
+            .setProtocolVersion(1)
+            .setDeviceName(getRealDeviceName())
+            .setMacAddress(getMacAddress())
+            .build()
+        return ClientToServer.newBuilder()
+            .setHello(hello)
+            .build()
     }
 
     private fun startAutoReconnect() {
@@ -648,10 +735,15 @@ class ConnectionManager @Inject constructor(
                 val report = GamepadStateMapper.map(state, target)
                 bluetoothService?.sendReport(report)
             }
+            ConnectionMode.USB -> {
+                if (activeProtocol != ActiveProtocol.USB) return
+                if (!usbService.peerConnected) return
+                usbService.sendGamepadInput(state)
+            }
         }
     }
 
-    /** Send a mouse report for WiFi/UDP mode. */
+    /** Send a mouse report for WiFi/UDP or USB mode. */
     fun sendMouseReport(
         button: Byte, dx: Byte, dy: Byte, wheel: Byte, hWheel: Byte = 0
     ) {
@@ -675,6 +767,12 @@ class ConnectionManager @Inject constructor(
                     button.toInt(), dx.toInt(), dy.toInt(), wheel.toInt(), hWheel.toInt()
                 )
             }
+            ConnectionMode.USB -> {
+                if (activeProtocol != ActiveProtocol.USB) return
+                onMouseReport?.invoke(
+                    button.toInt(), dx.toInt(), dy.toInt(), wheel.toInt(), hWheel.toInt()
+                )
+            }
         }
     }
 
@@ -690,6 +788,9 @@ class ConnectionManager @Inject constructor(
                     udpService.sendKeyboardReport(modifier, keys)
                 }
             }
+            // USB carries the keyboard inside the regular GamepadInput frame
+            // (see GkViewModel); no separate HID report is needed.
+            ConnectionMode.USB -> {}
         }
     }
 

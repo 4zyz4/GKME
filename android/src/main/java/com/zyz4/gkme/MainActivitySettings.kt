@@ -478,13 +478,14 @@ internal fun MainActivity.setupSettings() {
 
     // Audio VC indicator polling will be started in selectSettingsCategory when index == 6
 
-    listOf(R.id.btnConnWifi to 0, R.id.btnConnBluetooth to 1).forEach { (id, idx) ->
+    val connectionChipIds = listOf(R.id.btnConnWifi, R.id.btnConnBluetooth, R.id.btnConnUsb)
+    listOf(R.id.btnConnWifi to 0, R.id.btnConnBluetooth to 1, R.id.btnConnUsb to 2).forEach { (id, idx) ->
         a.findViewById<Button>(id).setOnClickListener {
             if (a.viewModel.connectionState.value.phase != ConnectionPhase.IDLE) {
                 a.showToast("请先停止服务")
                 return@setOnClickListener
             }
-            a.selectChipGroup(listOf(R.id.btnConnWifi, R.id.btnConnBluetooth), idx)
+            a.selectChipGroup(connectionChipIds, idx)
             val mode = ConnectionMode.entries[idx]
             a.viewModel.updateConnectionMode(mode)
             a.updateSettingsVisibility(mode)
@@ -1492,6 +1493,8 @@ internal fun MainActivity.setupConnectionPage() {
                         )
                     )
                 }
+            } else if (s.connectionMode == ConnectionMode.USB) {
+                a.checkUsbAdbAndStart()
             } else {
                 a.viewModel.startServer()
             }
@@ -1543,6 +1546,8 @@ internal fun MainActivity.autoStartService() {
             if (!connectGranted || !advertiseGranted) return
         }
         a.checkBluetoothOnAndStart()
+    } else if (s.connectionMode == ConnectionMode.USB) {
+        a.checkUsbAdbAndStart()
     } else {
         a.viewModel.startServer()
     }
@@ -1725,7 +1730,7 @@ internal fun MainActivity.syncSettingsUI() {
 
     a.selectChipGroup(listOf(R.id.btnDisplayXbox, R.id.btnDisplayPlaystation, R.id.btnDisplaySwitch),
         DisplayMode.entries.indexOf(s.displayMode).coerceAtLeast(0))
-    a.selectChipGroup(listOf(R.id.btnConnWifi, R.id.btnConnBluetooth),
+    a.selectChipGroup(listOf(R.id.btnConnWifi, R.id.btnConnBluetooth, R.id.btnConnUsb),
         ConnectionMode.entries.indexOf(s.connectionMode).coerceAtLeast(0))
     a.selectChipGroup(listOf(
         R.id.btnTargetWindows, R.id.btnTargetAndroid, R.id.btnTargetLinux,

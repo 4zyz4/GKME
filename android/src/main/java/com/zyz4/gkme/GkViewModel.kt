@@ -398,7 +398,8 @@ class GkViewModel @Inject constructor(
         if (s.gyroMasterEnabledFor(connected) || s.gyroMode != GyroMode.NONE) {
             startSensorDisplay()
             if (s.connectionMode == ConnectionMode.WIFI ||
-                s.connectionMode == ConnectionMode.BLUETOOTH
+                s.connectionMode == ConnectionMode.BLUETOOTH ||
+                s.connectionMode == ConnectionMode.USB
             ) {
                 startSensorSendLoop()
             }
@@ -441,7 +442,8 @@ class GkViewModel @Inject constructor(
         val updated = settings.value.copy(gyroMode = mode)
         connectionManager.updateSettings(updated)
         if (settings.value.connectionMode == ConnectionMode.WIFI ||
-            settings.value.connectionMode == ConnectionMode.BLUETOOTH
+            settings.value.connectionMode == ConnectionMode.BLUETOOTH ||
+            settings.value.connectionMode == ConnectionMode.USB
         ) {
             if (mode != GyroMode.NONE || settings.value.gyroMasterEnabledFor(_physicalControllerConnected.value)) {
                 startSensorSendLoop()
@@ -646,7 +648,8 @@ class GkViewModel @Inject constructor(
         }
         val gyroOn = settings.value.gyroMasterEnabledFor(_physicalControllerConnected.value)
         if (settings.value.connectionMode == ConnectionMode.WIFI ||
-            settings.value.connectionMode == ConnectionMode.BLUETOOTH
+            settings.value.connectionMode == ConnectionMode.BLUETOOTH ||
+            settings.value.connectionMode == ConnectionMode.USB
         ) {
             if (gyroOn || settings.value.gyroMode != GyroMode.NONE) {
                 startSensorSendLoop()
