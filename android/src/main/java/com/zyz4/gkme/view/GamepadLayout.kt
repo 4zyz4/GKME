@@ -418,6 +418,15 @@ class GamepadLayout @JvmOverloads constructor(
         return super.dispatchTouchEvent(event)
     }
 
+    /** Cancels any in-progress touch so child buttons release their pressed state.
+     *  Used when the gamepad is detached from one window and moved to another. */
+    fun cancelAllTouches() {
+        val now = android.os.SystemClock.uptimeMillis()
+        val ev = MotionEvent.obtain(now, now, MotionEvent.ACTION_CANCEL, 0f, 0f, 0)
+        dispatchTouchEvent(ev)
+        ev.recycle()
+    }
+
     // ── Swipe-trigger touch handling ─────────────────────────
     //
     // Phase 3: Delegates swipe press/release logic to SwipeTriggerStrategy
@@ -958,6 +967,17 @@ class GamepadLayout @JvmOverloads constructor(
             requestLayout()
             invalidate()
         }
+    }
+
+    /** Replaces a button position without touching the edit-mode dirty flag or gesture state.
+     *  Used by floating mode to move the show/hide button. */
+    internal fun setButtonPositionQuiet(id: String, updated: ButtonPosition) {
+        val idx = currentButtons.indexOfFirst { it.id == id }
+        if (idx < 0) return
+        currentButtons = currentButtons.toMutableList().also { it[idx] = updated }
+        refreshSwipeTriggers()
+        requestLayout()
+        invalidate()
     }
 
     fun addButtonPosition(pos: ButtonPosition) {

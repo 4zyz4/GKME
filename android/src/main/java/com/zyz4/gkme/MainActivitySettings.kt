@@ -1395,6 +1395,22 @@ internal fun MainActivity.setupMiscPage() {
         a.findViewById<View>(id).setOnClickListener { a.enterScreenOffMode() }
     }
 
+    a.findViewById<SeekBar>(R.id.seekFloatingOpacity).setOnSeekBarChangeListener(
+        object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                a.findViewById<TextView>(R.id.tvFloatingOpacity).text = "$progress%"
+                if (fromUser) a.viewModel.updateFloatingOpacity(progress)
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        }
+    )
+
+    listOf(R.id.rowFloatingMode, R.id.btnFloatingMode).forEach { id ->
+        a.findViewById<View>(id).setOnClickListener { a.enterFloatingMode() }
+    }
+
     a.findViewById<View>(R.id.btnAddVolumeUp).setOnClickListener {
         a.showOutputValuePicker(a.viewModel.settings.value.volumeUpBits) { newBits ->
             a.viewModel.updateVolumeUpBits(newBits)
@@ -1741,6 +1757,8 @@ internal fun MainActivity.syncSettingsUI() {
     a.updateGyroLandscapeInvertedNote(inverted)
 
     a.findViewById<Switch>(R.id.switchKeepScreenOn).isChecked = s.keepScreenOn
+    a.findViewById<SeekBar>(R.id.seekFloatingOpacity).progress = s.floatingOpacity
+    a.findViewById<TextView>(R.id.tvFloatingOpacity).text = "${s.floatingOpacity}%"
     a.updateVolumeMappingLabels()
 
     a.syncAppearanceUI()

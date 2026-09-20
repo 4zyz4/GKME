@@ -78,6 +78,19 @@ object AppearanceApplier {
         cachedBitmapPath = null
     }
 
+    /** Applies the standard button fill/outline appearance to an arbitrary view
+     *  (used by the floating-mode show/hide button so it matches the settings button). */
+    fun applyButtonAppearance(view: View, settings: AppSettings) {
+        val density = view.resources.displayMetrics.density
+        val tag = view.tag as? String
+        val isCircle = tag != null && isCircleButton(tag)
+        if (settings.btnFillType == FillType.SOLID_COLOR) {
+            applyToButtonWithColor(view, settings, isCircle, density)
+        } else if (settings.btnFillType == FillType.IMAGE) {
+            applyToButtonWithImage(view, settings, isCircle, density)
+        }
+    }
+
     fun applyToGamepadLayout(layout: GamepadLayout, settings: AppSettings) {
         if (settings.bgFillType == FillType.SOLID_COLOR) {
             layout.setBackgroundColor(settings.bgColor)

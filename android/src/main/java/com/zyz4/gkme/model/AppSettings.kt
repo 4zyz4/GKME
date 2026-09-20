@@ -255,6 +255,9 @@ data class AppSettings(
     val gyroDeadZone: Int = 0,
     val gyroReverseDeadZone: Int = 0,
     val keepScreenOn: Boolean = false,
+    /** Opacity (0-100) applied to all floating-mode buttons (multiplied with each button's
+     *  own idle/active opacity). */
+    val floatingOpacity: Int = 50,
     // Disconnected state
     val controllerGyroEnabled: Boolean = false,
     // Connected state
