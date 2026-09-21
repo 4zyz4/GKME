@@ -958,8 +958,12 @@ class GamepadLayout @JvmOverloads constructor(
             }
             hasChanges = true
             refreshSwipeTriggers()
-            // Reset edit gesture state to prevent stale drag state when position is updated externally
-            gamepadEditGesture.reset()
+            // Reset edit gesture state to prevent stale drag state when position is updated
+            // externally. Skipped while adjusting a follow-area so an in-panel seekbar edit
+            // doesn't wipe the active adjust session.
+            if (!isAdjustingFollowArea) {
+                gamepadEditGesture.reset()
+            }
             draggingChild = null
             resizingChild = null
             draggingFollowArea = false
@@ -1371,6 +1375,11 @@ class GamepadLayout @JvmOverloads constructor(
                 val id = adjustingFollowAreaId
                 if (id != null) {
                     setSelectedButton(id)
+                    // A follow-area drag/resize changed its geometry directly in the layout;
+                    // force-refresh the panel so the seekbars/values don't send a stale copy.
+                    if (draggingFollowArea || resizingFollowArea) {
+                        listener?.onButtonSelected(id)
+                    }
                 }
             }
             if (resizingChild != null) {

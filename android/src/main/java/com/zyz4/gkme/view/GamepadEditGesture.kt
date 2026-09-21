@@ -153,6 +153,8 @@ class GamepadEditGesture {
         resizingFollowArea = false
         _editState = EditModeState()
         _lastSelectedButtonId = null
+        isAdjustingFollowArea = false
+        adjustingFollowAreaId = null
     }
 
     // ── Internal handlers ──────────────────────────────────
@@ -286,6 +288,10 @@ class GamepadEditGesture {
             _editState, cellW, cellH, density, _lastSelectedButtonId,
         )
         _editState = result.newState
+        // Keep the follow-area adjust session alive across gestures: lifting the finger
+        // must only end the current drag/resize, not exit adjust mode (that is done via
+        // exitFollowAreaAdjust / the panel's return button).
+        syncFromEditState()
 
         var selectDragging: String? = null
         var selectResizing: String? = null
@@ -307,8 +313,8 @@ class GamepadEditGesture {
         return DispatchOutput(
             commands = emptyList(),
             commandsNoMove = emptyList(),
-            syncIsAdjustingFollowArea = false,
-            syncAdjustingFollowAreaId = null,
+            syncIsAdjustingFollowArea = isAdjustingFollowArea,
+            syncAdjustingFollowAreaId = adjustingFollowAreaId,
             syncDraggingChild = null,
             syncResizingChild = null,
             syncDraggingFollowArea = false,

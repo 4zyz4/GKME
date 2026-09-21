@@ -73,14 +73,24 @@ internal fun MainActivity.createFloatingEditor(): FloatingEditorPanel {
             override fun onButtonUpdated(buttonId: String, updated: ButtonPosition) {
                 val current = a.gamepadLayout.currentButtons.find { it.id == buttonId }
                 val merged = current?.let { cur ->
-                    updated.copy(
-                        x = cur.x,
-                        y = cur.y,
-                        followAreaX = cur.followAreaX,
-                        followAreaY = cur.followAreaY,
-                        followAreaW = cur.followAreaW,
-                        followAreaH = cur.followAreaH,
-                    )
+                    // While adjusting the follow-area the panel owns those values (seekbars,
+                    // drag refresh). Otherwise the layout is authoritative for an already
+                    // initialized area so a stale panel copy can't clobber in-canvas edits.
+                    // When the area is still uninitialized we must accept the panel's init.
+                    val keepArea = !a.gamepadLayout.isAdjustingFollowArea &&
+                        cur.followAreaW > 0 && cur.followAreaH > 0
+                    if (keepArea) {
+                        updated.copy(
+                            x = cur.x,
+                            y = cur.y,
+                            followAreaX = cur.followAreaX,
+                            followAreaY = cur.followAreaY,
+                            followAreaW = cur.followAreaW,
+                            followAreaH = cur.followAreaH,
+                        )
+                    } else {
+                        updated.copy(x = cur.x, y = cur.y)
+                    }
                 } ?: updated
                 a.gamepadLayout.updateButtonPosition(buttonId, merged)
                 val wasLinearTrigger = current?.linearTriggerEnabled == true
