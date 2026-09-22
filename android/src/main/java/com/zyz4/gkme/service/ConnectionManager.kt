@@ -559,6 +559,13 @@ class ConnectionManager @Inject constructor(
                     }
                 }
             }
+            ServerToClient.PayloadCase.HD_RUMBLE -> {
+                val hr = msg.hdRumble
+                audioPlaybackService.setHdRumble(
+                    hr.leftHighFreqHz, hr.leftHighAmp, hr.leftLowFreqHz, hr.leftLowAmp,
+                    hr.rightHighFreqHz, hr.rightHighAmp, hr.rightLowFreqHz, hr.rightLowAmp,
+                )
+            }
             ServerToClient.PayloadCase.LED_STATE -> {
                 val led = msg.ledState
                 _ledState.value = LedState(

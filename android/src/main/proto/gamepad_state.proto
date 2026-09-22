@@ -65,7 +65,21 @@ message ServerToClient {
     AudioFrame audio_frame = 8;
     LedState led_state = 9;
     TestTone test_tone = 10;
+    HdRumble hd_rumble = 12;
   }
+}
+
+/// Switch Pro HD 震动的解码参数（左右各高低频 + 幅度）。PC 只低频下发这些参数，
+/// 手机端本地连续合成触觉波形，网络卡顿只会延迟参数更新，而不会在音频流里撕出空洞。
+message HdRumble {
+  float left_high_freq_hz = 1;
+  float left_high_amp = 2;
+  float left_low_freq_hz = 3;
+  float left_low_amp = 4;
+  float right_high_freq_hz = 5;
+  float right_high_amp = 6;
+  float right_low_freq_hz = 7;
+  float right_low_amp = 8;
 }
 
 message TriggerEffects {
