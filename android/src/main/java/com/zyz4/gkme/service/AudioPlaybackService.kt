@@ -48,6 +48,15 @@ class AudioPlaybackService {
         // thread is dedicated, so a bounded block is safe).
         private const val SDL_MAX_QUEUE_MS = 30
         private const val SDL_WRITE_WAIT_MS = 200
+        // Locally synthesised Switch Pro HD rumble. The PC sends only the
+        // decoded band parameters, so network jitter delays an update instead
+        // of tearing a hole in the PCM stream (heard as a pop).
+        private const val HD_RUMBLE_RATE = 48000
+        private const val HD_RUMBLE_BLOCK_FRAMES = 480 // 10 ms, one USB URB
+        private const val HD_RUMBLE_RAMP_SECONDS = 0.003
+        // The PC sends a 50 ms keep-alive while a Switch Pro is emulated, so
+        // this only elapses when the mode changed or the link dropped.
+        private const val HD_RUMBLE_TIMEOUT_NS = 1_000_000_000L
     }
 
     /** One open SDL sink: the device it plays on and the sample rate it was opened at. */
@@ -61,6 +70,26 @@ class AudioPlaybackService {
 
     @Volatile
     private var testToneRunning = false
+
+    // Switch Pro HD-rumble local synthesis state. Targets are written by the
+    // network thread and read by the synthesis thread; the last update stamp
+    // lets the thread fade out and stop if the PC goes away.
+    private var hdRumbleThread: Thread? = null
+
+    @Volatile
+    private var hdRumbleRunning = false
+
+    @Volatile private var hdTargetLhf = 0f
+    @Volatile private var hdTargetLha = 0f
+    @Volatile private var hdTargetLlf = 0f
+    @Volatile private var hdTargetLla = 0f
+    @Volatile private var hdTargetRhf = 0f
+    @Volatile private var hdTargetRha = 0f
+    @Volatile private var hdTargetRlf = 0f
+    @Volatile private var hdTargetRla = 0f
+
+    @Volatile
+    private var hdLastUpdateNs = 0L
 
     private val _trackInfo = MutableStateFlow(AudioTrackInfo())
     val trackInfo: StateFlow<AudioTrackInfo> = _trackInfo.asStateFlow()
@@ -134,6 +163,7 @@ class AudioPlaybackService {
 
     fun stop() {
         setTestTone(false)
+        stopHdRumble()
         stopAllSdlSinks()
         _vibrator.cancel()
     }
@@ -266,6 +296,134 @@ class AudioPlaybackService {
         synchronized(this) {
             if (!testToneRunning) resetTrackInfo()
         }
+    }
+
+    // ── Switch Pro HD rumble: PC sends band params, phone synthesises ──
+
+    /**
+     * Updates the HD-rumble targets from the PC. The synthesis thread keeps
+     * rendering continuously from these targets, so a dropped or late packet
+     * only delays an update instead of breaking the waveform.
+     */
+    fun setHdRumble(
+        lhf: Float, lha: Float, llf: Float, lla: Float,
+        rhf: Float, rha: Float, rlf: Float, rla: Float,
+    ) {
+        hdTargetLhf = lhf; hdTargetLha = lha; hdTargetLlf = llf; hdTargetLla = lla
+        hdTargetRhf = rhf; hdTargetRha = rha; hdTargetRlf = rlf; hdTargetRla = rla
+        hdLastUpdateNs = System.nanoTime()
+        synchronized(this) {
+            if (hdRumbleRunning) return
+            hdRumbleRunning = true
+            hdRumbleThread = Thread { runHdRumble() }.apply {
+                name = "GkmeHdRumble"
+                isDaemon = true
+                start()
+            }
+        }
+    }
+
+    fun stopHdRumble() {
+        hdRumbleRunning = false
+        hdRumbleThread?.interrupt()
+        hdRumbleThread = null
+    }
+
+    private fun runHdRumble() {
+        val rate = HD_RUMBLE_RATE
+        val channels = 4
+        val framesPerBlock = HD_RUMBLE_BLOCK_FRAMES
+        val blockPeriodNs = framesPerBlock.toLong() * 1_000_000_000L / rate
+        val frameBytes = channels * 2
+        val dt = 1.0 / rate
+        val twoPi = Math.PI * 2.0
+        val gain = 0.6
+        val rampStep = (dt / HD_RUMBLE_RAMP_SECONDS).toFloat()
+
+        var phaseHl = 0.0
+        var phaseLl = 0.0
+        var phaseHr = 0.0
+        var phaseLr = 0.0
+        var curLha = 0f
+        var curLla = 0f
+        var curRha = 0f
+        var curRla = 0f
+
+        var nextNs = System.nanoTime()
+        while (hdRumbleRunning) {
+            // While the PC keeps a Switch Pro emulated it re-sends the state
+            // (including silence) every 50 ms, so the thread stays resident and
+            // its output device never stops — that is what keeps each rumble
+            // onset from clicking. Only a genuine update gap or a mode change
+            // lets `stale` go true and end the thread.
+            val stale = System.nanoTime() - hdLastUpdateNs > HD_RUMBLE_TIMEOUT_NS
+            val lhf = hdTargetLhf
+            val llf = hdTargetLlf
+            val rhf = hdTargetRhf
+            val rlf = hdTargetRlf
+            val lha = if (stale) 0f else hdTargetLha
+            val lla = if (stale) 0f else hdTargetLla
+            val rha = if (stale) 0f else hdTargetRha
+            val rla = if (stale) 0f else hdTargetRla
+
+            val pcm = ByteArray(framesPerBlock * frameBytes)
+            for (n in 0 until framesPerBlock) {
+                curLha = approach(curLha, lha, rampStep)
+                curLla = approach(curLla, lla, rampStep)
+                curRha = approach(curRha, rha, rampStep)
+                curRla = approach(curRla, rla, rampStep)
+
+                val sl = curLha * Math.sin(phaseHl) + curLla * Math.sin(phaseLl)
+                val sr = curRha * Math.sin(phaseHr) + curRla * Math.sin(phaseLr)
+                val l = (softLimit(sl * gain) * 32767.0).toInt()
+                val r = (softLimit(sr * gain) * 32767.0).toInt()
+
+                val off = n * frameBytes
+                ControllerAudioDsp.writeShortLe(pcm, off + 4, l) // ch2: left LRA
+                ControllerAudioDsp.writeShortLe(pcm, off + 6, r) // ch3: right LRA
+
+                phaseHl += twoPi * lhf * dt
+                phaseLl += twoPi * llf * dt
+                phaseHr += twoPi * rhf * dt
+                phaseLr += twoPi * rlf * dt
+            }
+            phaseHl %= twoPi; phaseLl %= twoPi; phaseHr %= twoPi; phaseLr %= twoPi
+
+            submitAudio(pcm, rate, channels, 16)
+
+            val envelopesIdle = curLha < 0.001f && curLla < 0.001f &&
+                curRha < 0.001f && curRla < 0.001f
+            if (stale && envelopesIdle) break
+
+            nextNs += blockPeriodNs
+            val sleepMs = (nextNs - System.nanoTime()) / 1_000_000L
+            if (sleepMs > 0) {
+                try {
+                    Thread.sleep(sleepMs)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    break
+                }
+            } else {
+                nextNs = System.nanoTime()
+            }
+        }
+        synchronized(this) { hdRumbleRunning = false }
+    }
+
+    private fun approach(current: Float, target: Float, step: Float): Float = when {
+        current < target -> Math.min(current + step, target)
+        current > target -> Math.max(current - step, target)
+        else -> current
+    }
+
+    /** Soft-knee limiter with a unity ceiling (twin of the PC-side synth). */
+    private fun softLimit(x: Double): Double {
+        val knee = 0.8
+        val a = Math.abs(x)
+        if (a <= knee) return x
+        val limited = knee + (1.0 - knee) * Math.tanh((a - knee) / (1.0 - knee))
+        return if (x < 0) -limited else limited
     }
 
     fun resumeIfStopped() {}
