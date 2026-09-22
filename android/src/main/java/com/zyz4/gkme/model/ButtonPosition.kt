@@ -18,7 +18,6 @@ data class ButtonPosition(
     val isKeypad: Boolean = false,
     val keypadTexts: List<String>? = null,
     val keypadBits: List<List<Int>>? = null,
-    val keypadCenterDoubleClick: Boolean = false,
     val sensitivityCurve: List<Float>? = null,
     val deadZone: Int = 0,
     val reverseDeadZone: Int = 0,

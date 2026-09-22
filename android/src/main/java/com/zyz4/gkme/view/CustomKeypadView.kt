@@ -33,7 +33,6 @@ class CustomKeypadView @JvmOverloads constructor(
 
     var onRegionPress: ((region: Int) -> Unit)? = null
     var onRegionRelease: ((region: Int) -> Unit)? = null
-    var keypadCenterDoubleClick: Boolean = false
     var validDirs: Set<Int> = setOf(0, 1, 2, 3)
 
     /** When true, the effective center tracks the touch position (follow-area mode) */
@@ -306,7 +305,7 @@ class CustomKeypadView @JvmOverloads constructor(
             effectiveCenterY = y
         }
         val dir = directionAt(x, y)
-        if (dir == -1 && keypadCenterDoubleClick) {
+        if (dir == -1) {
             val density = resources.displayMetrics.density
             val now = System.currentTimeMillis()
             val dx = (x - firstTapX) / density

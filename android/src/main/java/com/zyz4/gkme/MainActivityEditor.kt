@@ -631,7 +631,6 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
             isKeypad = entry.isKeypad,
             keypadTexts = ButtonPosition.KEYPAD_DEFAULT_TEXTS,
             keypadBits = ButtonPosition.KEYPAD_DEFAULT_BITS,
-            keypadCenterDoubleClick = true,
             roundShape = false,
         )
     } else if (entry.isKeyboard) {

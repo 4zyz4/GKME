@@ -1657,13 +1657,21 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         val cb = currentButton ?: return
         val texts = ButtonPosition.keypadTextsOf(cb)
         val bits = ButtonPosition.keypadBitsOf(cb)
-        val dirs = listOf("上方向" to 0, "下方向" to 1, "左方向" to 2, "右方向" to 3, "中心" to 4)
+        val dirs = listOf("上方向" to 0, "下方向" to 1, "左方向" to 2, "右方向" to 3, "双击中心" to 4)
 
         for ((name, idx) in dirs) {
             buildKeypadRegionParam(density, name, idx, texts[idx], bits[idx])
         }
 
-        addKeypadCenterDoubleClickParams(density, cb)
+        // Center region output editor (center double-click is always enabled)
+        buildKeypadBitsEditor(density, bits[4]) { newBits ->
+            val cb2 = currentButton ?: return@buildKeypadBitsEditor
+            val b = cb2.keypadBits ?: ButtonPosition.KEYPAD_DEFAULT_BITS
+            val updated = b.toMutableList()
+            updated[4] = newBits
+            currentButton = cb2.copy(keypadBits = updated)
+            currentButton?.let { editorListener?.onButtonUpdated(id, it) }
+        }
     }
 
     @Suppress("SameParameterValue")
@@ -1714,35 +1722,6 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 var b = cb2.keypadBits ?: ButtonPosition.KEYPAD_DEFAULT_BITS
                 val updated = b.toMutableList()
                 updated[regionIdx] = newBits
-                currentButton = cb2.copy(keypadBits = updated)
-                currentButton?.let { editorListener?.onButtonUpdated(id, it) }
-            }
-        }
-    }
-
-    private fun addKeypadCenterDoubleClickParams(density: Float, cb: ButtonPosition) {
-        val id = cb.id
-        // Center double-click toggle + its output value editor
-        val cbDC = CheckBox(context).apply {
-            text = "中心双击按下"
-            setTextColor(-0x444445)
-            textSize = 14f
-            isChecked = cb.keypadCenterDoubleClick
-            setOnCheckedChangeListener { _, isChecked ->
-                currentButton = cb.copy(keypadCenterDoubleClick = isChecked)
-                currentButton?.let { editorListener?.onButtonUpdated(id, it) }
-                showParameters(id, currentButton!!)
-            }
-        }
-        buttonParamsInner.addView(cbDC, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (16f * density).toInt() })
-
-        if (cb.keypadCenterDoubleClick) {
-            val centerBits = ButtonPosition.keypadBitsOf(cb)[4]
-            buildKeypadBitsEditor(density, centerBits) { newBits ->
-                val cb2 = currentButton ?: return@buildKeypadBitsEditor
-                var b = cb2.keypadBits ?: ButtonPosition.KEYPAD_DEFAULT_BITS
-                val updated = b.toMutableList()
-                updated[4] = newBits
                 currentButton = cb2.copy(keypadBits = updated)
                 currentButton?.let { editorListener?.onButtonUpdated(id, it) }
             }
