@@ -113,7 +113,6 @@ data class LayoutPreset(
                     if (!btnObj.has("oneFingerSwipeAction")) btnObj.addProperty("oneFingerSwipeAction", MouseGestureAction.MOVE_CURSOR.name)
                     if (!btnObj.has("twoFingerSwipeAction")) btnObj.addProperty("twoFingerSwipeAction", MouseGestureAction.SCROLL.name)
                     if (!btnObj.has("threeFingerSwipeAction")) btnObj.addProperty("threeFingerSwipeAction", MouseGestureAction.SCROLL.name)
-                    if (!btnObj.has("keypadCenterDoubleClick")) btnObj.addProperty("keypadCenterDoubleClick", false)
                     if (!btnObj.has("keypadTexts")) {
                         val texts = com.google.gson.JsonArray()
                         listOf("上", "下", "左", "右", "中").forEach { texts.add(it) }
@@ -245,7 +244,6 @@ data class LayoutPreset(
             if (ButtonPosition.isKeypad(b.id)) {
                 m["keypadTexts"] = b.keypadTexts ?: ButtonPosition.KEYPAD_DEFAULT_TEXTS
                 m["keypadBits"] = b.keypadBits ?: ButtonPosition.KEYPAD_DEFAULT_BITS
-                if (!b.keypadCenterDoubleClick) m["keypadCenterDoubleClick"] = b.keypadCenterDoubleClick
             }
             if (b.gyroActivate) m["gyroActivate"] = b.gyroActivate
             if (b.autoHold) m["autoHold"] = b.autoHold
