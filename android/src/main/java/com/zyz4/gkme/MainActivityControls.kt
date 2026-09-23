@@ -943,8 +943,7 @@ internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
 @SuppressLint("ClickableViewAccessibility")
 internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boolean): View.OnTouchListener {
     val a = this
-    var heldButtons = 0             // 当前按住的鼠标键位（绝对状态）
-    var activeDragBit = 0           // 当前拖拽动作按下的键位（0=无）
+    var activeDragBit = 0           // 鼠标板自身拖拽动作按下的键位（0=无）
     var gestureMaxPointers = 0      // 本次手势中同时按下的最大手指数
     var gestureMoved = false        // 本次手势是否明显移动（区分点击与滑动）
     var lastSingleTapUpTime = 0L    // 上一次单指轻点抬起时刻（双击判定）
@@ -1004,20 +1003,19 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
         threeFingerSwipeAction = pos.threeFingerSwipeAction
     }
 
+    // 鼠标板手势只写 ViewModel 的“手势键位”，与屏幕 LMB/RMB/MMB 按钮分开保存，
+    // 上报时并集；这样按住屏幕按钮再点/滑鼠标板不会把它松开。
     fun press(bit: Int) {
-        heldButtons = heldButtons or bit
-        a.sendMouseReportDirect(buttonDown = heldButtons, buttonUp = 0, dx = 0, dy = 0)
+        a.viewModel.onMouseGestureButton(bit, true)
     }
     fun release(bit: Int) {
-        heldButtons = heldButtons and bit.inv()
-        a.sendMouseReportDirect(buttonDown = heldButtons, buttonUp = 0, dx = 0, dy = 0)
+        a.viewModel.onMouseGestureButton(bit, false)
     }
     fun releaseAll() {
-        if (heldButtons != 0) {
-            heldButtons = 0
-            a.sendMouseReportAbsolute(0)
+        if (activeDragBit != 0) {
+            release(activeDragBit)
+            activeDragBit = 0
         }
-        activeDragBit = 0
     }
     /**
      * 发送一次点击（按下后延迟释放）。[trackForDouble] 为 true 时记录待释放
@@ -1078,10 +1076,11 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
         cursorAccumY -= iy
         // HID/协议每帧只接受一个有符号字节（-127..127），位移超过该范围时拆成
         // 多帧发送；否则 toByte() 按 8 位截断，正数会翻转为负数，指针反向乱跳。
+        val btnNow = a.viewModel.effectiveMouseButtons()
         while (ix != 0 || iy != 0) {
             val sx = ix.coerceIn(-127, 127)
             val sy = iy.coerceIn(-127, 127)
-            a.sendMouseReportDirect(buttonDown = heldButtons, buttonUp = 0,
+            a.sendMouseReportDirect(buttonDown = btnNow, buttonUp = 0,
                 dx = sx.toByte(), dy = sy.toByte())
             ix -= sx
             iy -= sy
@@ -1122,7 +1121,7 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
         wheelAccumX -= wX
         if (wX != 0 || wY != 0) {
             a.sendMouseReportDirect(
-                buttonDown = 0, buttonUp = 0, dx = 0, dy = 0,
+                buttonDown = a.viewModel.effectiveMouseButtons(), buttonUp = 0, dx = 0, dy = 0,
                 wheel = wY.toByte(), hWheel = wX.toByte()
             )
         }
@@ -1315,8 +1314,8 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                     } else {
                         applyTap(tapActionFor(gestureMaxPointers))
                     }
-                } else if (heldButtons != 0) {
-                    // 非点击手势的多余按键状态清理
+                } else {
+                    // 结束本次手势可能遗留的拖拽键位
                     releaseAll()
                 }
                 doubleTapArmed = false
@@ -1380,13 +1379,6 @@ private fun MainActivity.sendMouseReportDirect(
         wheel = wheel,
         hWheel = hWheel
 )
-}
-
-/** Send a mouse report with absolute button state. */
-private fun MainActivity.sendMouseReportAbsolute(button: Int) {
-    this.viewModel.connectionManager.sendMouseReport(
-        button = button.toByte(), dx = 0, dy = 0, wheel = 0
-    )
 }
 
 @SuppressLint("ClickableViewAccessibility")

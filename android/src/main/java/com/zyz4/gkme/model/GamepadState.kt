@@ -24,6 +24,9 @@ data class GamepadState(
     val isCharging: Boolean = false,
     // Mouse fields for WiFi/UDP mode
     val mouseButtons: Int = 0,
+    // 鼠标板手势/拖拽产生的鼠标键位，与 [mouseButtons]（屏幕按钮、物理映射）分开保存，
+    // 上报时取并集，避免任一来源释放时把另一方按住的键一起清掉。
+    val mouseGestureButtons: Int = 0,
     val mouseDx: Short = 0,
     val mouseDy: Short = 0,
     val mouseWheel: Short = 0,

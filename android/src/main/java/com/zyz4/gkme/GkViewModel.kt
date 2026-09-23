@@ -674,7 +674,7 @@ class GkViewModel @Inject constructor(
         if (mouseButtonsChanged && settings.value.connectionMode == ConnectionMode.BLUETOOTH) {
             viewModelScope.launch {
                 connectionManager.sendMouseReport(
-                    button = combinedMouseButtons.toByte(),
+                    button = effectiveMouseButtons(combinedMouseButtons).toByte(),
                     dx = 0, dy = 0, wheel = 0, hWheel = 0,
                 )
             }
@@ -806,13 +806,17 @@ class GkViewModel @Inject constructor(
 
     fun startServer() {
         connectionManager.startServer(viewModelScope)
-        connectionManager.onMouseReport = { button, dx, dy, wheel, hWheel ->
+        connectionManager.onMouseReport = { _, dx, dy, wheel, hWheel ->
+            // 累加值不再截断到 ±127：快速滑动会在一个发送周期内累计出上百像素，
+            // 旧的 ±127 截断会丢弃溢出部分，导致“滑得越快转得越少”。协议字段是
+            // sint32，按 Short 范围保留即可，由每个发送周期整体下发。
+            // 注意：这里不再写入 mouseButtons，鼠标键位只由 onButtonDown/onButtonUp
+            // 与 onMouseGestureButton 维护，避免移动/滚轮包覆盖按住的键。
             _gamepadState.value = _gamepadState.value.copy(
-                mouseButtons = button,
-                mouseDx = (dx.toInt() + _gamepadState.value.mouseDx.toInt()).coerceIn(-127, 127).toShort(),
-                mouseDy = (dy.toInt() + _gamepadState.value.mouseDy.toInt()).coerceIn(-127, 127).toShort(),
-                mouseWheel = (wheel.toInt() + _gamepadState.value.mouseWheel.toInt()).coerceIn(-127, 127).toShort(),
-                mousePan = (hWheel.toInt() + _gamepadState.value.mousePan.toInt()).coerceIn(-127, 127).toShort(),
+                mouseDx = (dx.toInt() + _gamepadState.value.mouseDx.toInt()).coerceIn(-32768, 32767).toShort(),
+                mouseDy = (dy.toInt() + _gamepadState.value.mouseDy.toInt()).coerceIn(-32768, 32767).toShort(),
+                mouseWheel = (wheel.toInt() + _gamepadState.value.mouseWheel.toInt()).coerceIn(-32768, 32767).toShort(),
+                mousePan = (hWheel.toInt() + _gamepadState.value.mousePan.toInt()).coerceIn(-32768, 32767).toShort(),
             )
         }
         val gyroOn = settings.value.gyroMasterEnabledFor(_physicalControllerConnected.value)
@@ -877,7 +881,7 @@ class GkViewModel @Inject constructor(
                 if (settings.value.connectionMode == ConnectionMode.BLUETOOTH && (pMx != 0.toShort() || pMy != 0.toShort() || pMw != 0.toShort() || pMp != 0.toShort() || _gamepadState.value.mouseButtons != 0)) {
                     viewModelScope.launch {
                         connectionManager.sendMouseReport(
-                            button = _gamepadState.value.mouseButtons.toByte(),
+                            button = effectiveMouseButtons().toByte(),
                             dx = pMx.toByte(),
                             dy = pMy.toByte(),
                             wheel = pMw.toByte(),
@@ -1039,8 +1043,8 @@ class GkViewModel @Inject constructor(
                             val gyroMy = rawMy.coerceIn(-127, 127)
                             gyroMouseAccumX -= rawMx
                             gyroMouseAccumY -= rawMy
-                            val totalDx = (gyroMx + _gamepadState.value.mouseDx.toInt()).coerceIn(-127, 127).toShort()
-                            val totalDy = (gyroMy + _gamepadState.value.mouseDy.toInt()).coerceIn(-127, 127).toShort()
+                            val totalDx = (gyroMx + _gamepadState.value.mouseDx.toInt()).coerceIn(-32768, 32767).toShort()
+                            val totalDy = (gyroMy + _gamepadState.value.mouseDy.toInt()).coerceIn(-32768, 32767).toShort()
                             _gamepadState.value = _gamepadState.value.copy(
                                 mouseDx = totalDx,
                                 mouseDy = totalDy,
@@ -1155,7 +1159,7 @@ class GkViewModel @Inject constructor(
                 if (s.connectionMode == ConnectionMode.BLUETOOTH && (mDx != 0.toShort() || mDy != 0.toShort() || mWheel != 0.toShort() || mPan != 0.toShort() || _gamepadState.value.mouseButtons != 0)) {
                     viewModelScope.launch {
                         connectionManager.sendMouseReport(
-                            button = _gamepadState.value.mouseButtons.toByte(),
+                            button = effectiveMouseButtons().toByte(),
                             dx = mDx.toByte(),
                             dy = mDy.toByte(),
                             wheel = mWheel.toByte(),
@@ -1199,7 +1203,7 @@ class GkViewModel @Inject constructor(
         if (settings.value.connectionMode == ConnectionMode.BLUETOOTH && isMouseButton) {
             viewModelScope.launch {
                 connectionManager.sendMouseReport(
-                    button = newMouseButtons.toByte(),
+                    button = effectiveMouseButtons(newMouseButtons).toByte(),
                     dx = 0, dy = 0, wheel = 0, hWheel = 0,
                 )
             }
@@ -1224,7 +1228,28 @@ class GkViewModel @Inject constructor(
         if (settings.value.connectionMode == ConnectionMode.BLUETOOTH && isMouseButton) {
             viewModelScope.launch {
                 connectionManager.sendMouseReport(
-                    button = newMouseButtons.toByte(),
+                    button = effectiveMouseButtons(newMouseButtons).toByte(),
+                    dx = 0, dy = 0, wheel = 0, hWheel = 0,
+                )
+            }
+        }
+    }
+
+    /** 上报用的鼠标键位：屏幕按钮/物理映射（[GamepadState.mouseButtons]）与鼠标板
+     *  手势键位（[GamepadState.mouseGestureButtons]）取并集。 */
+    fun effectiveMouseButtons(userButtons: Int = _gamepadState.value.mouseButtons): Int =
+        userButtons or _gamepadState.value.mouseGestureButtons
+
+    /** 鼠标板手势/拖拽键位（bit0=LMB, bit1=RMB, bit2=MMB）的按下/抬起。 */
+    fun onMouseGestureButton(bit: Int, down: Boolean) {
+        val cur = _gamepadState.value.mouseGestureButtons
+        val next = if (down) cur or bit else cur and bit.inv()
+        if (next == cur) return
+        _gamepadState.value = _gamepadState.value.copy(mouseGestureButtons = next)
+        if (settings.value.connectionMode == ConnectionMode.BLUETOOTH) {
+            viewModelScope.launch {
+                connectionManager.sendMouseReport(
+                    button = effectiveMouseButtons().toByte(),
                     dx = 0, dy = 0, wheel = 0, hWheel = 0,
                 )
             }
