@@ -18,7 +18,7 @@ fun GamepadState.toProto(
         .setDpad(dpad)
         .setBatteryLevel(batteryLevel)
         .setIsCharging(isCharging)
-        .setMouseButtons(mouseButtons)
+        .setMouseButtons(mouseButtons or mouseGestureButtons)
         .setMouseDx(mouseDx.toInt())
         .setMouseDy(mouseDy.toInt())
         .setMouseWheel(mouseWheel.toInt())
