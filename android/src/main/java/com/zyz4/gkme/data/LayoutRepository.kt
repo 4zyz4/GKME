@@ -7,7 +7,7 @@ import com.zyz4.gkme.R
 import com.zyz4.gkme.model.LayoutPreset
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
-import java.security.MessageDigest
+import java.util.zip.CRC32
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,16 +25,17 @@ class LayoutRepository @Inject constructor(
         private const val CACHE_DIR_NAME = "preset_cache"
         private const val CACHE_INDEX_FILE = "cache_index.json"
 
-        fun computeSha256(content: String): String {
-            val bytes = MessageDigest.getInstance("SHA-256").digest(content.toByteArray(Charsets.UTF_8))
-            return bytes.joinToString("") { "%02x".format(it) }
+        fun computeChecksum(content: String): String {
+            val crc = CRC32()
+            crc.update(content.toByteArray(Charsets.UTF_8))
+            return "%08x".format(crc.value)
         }
     }
 
     // Memory cache: name -> LayoutPreset
     private val memoryCache = mutableMapOf<String, LayoutPreset>()
 
-    // Disk cache index: name -> cached SHA-256
+    // Disk cache index: name -> cached checksum
     private var diskCacheIndex: Map<String, String> = emptyMap()
 
     private val layoutsDir: File
@@ -54,9 +55,9 @@ class LayoutRepository @Inject constructor(
     private val cacheIndexFile: File
         get() = File(cacheDir, CACHE_INDEX_FILE)
 
-    private fun computeRawSha256(rawId: Int): String {
+    private fun computeRawChecksum(rawId: Int): String {
             val content = context.resources.openRawResource(rawId).bufferedReader().use { it.readText() }
-            return computeSha256(content)
+            return computeChecksum(content)
         }
 
     init {
@@ -103,10 +104,10 @@ class LayoutRepository @Inject constructor(
             return null
         }
 
-        // For built-in presets, compute current SHA-256 and compare
+        // For built-in presets, compute current checksum and compare
         val rawId = BUILT_IN_PRESETS[name]
         if (rawId != null) {
-            val currentHash = computeRawSha256(rawId)
+            val currentHash = computeRawChecksum(rawId)
             if (currentHash != cachedHash) {
                 // Resource changed (e.g. app upgrade), invalidate cache
                 invalidateCache(name)
@@ -118,7 +119,7 @@ class LayoutRepository @Inject constructor(
         val sourceFile = File(layoutsDir, "$name.json")
         if (sourceFile.exists() && rawId == null) {
             val sourceContent = sourceFile.readText()
-            val currentHash = computeSha256(sourceContent)
+            val currentHash = computeChecksum(sourceContent)
             if (currentHash != cachedHash) {
                 invalidateCache(name)
                 return null
@@ -188,7 +189,7 @@ class LayoutRepository @Inject constructor(
             return try {
                 val json = file.readText()
                 val preset = LayoutPreset.fromJson(json)
-                val hash = computeSha256(json)
+                val hash = computeChecksum(json)
                 saveToDiskCache(name, preset, json, hash)
                 preset
             } catch (e: Exception) {
@@ -253,7 +254,7 @@ class LayoutRepository @Inject constructor(
 
         try {
             val json = context.resources.openRawResource(rawId).bufferedReader().use { it.readText() }
-            val hash = computeSha256(json)
+            val hash = computeChecksum(json)
             val preset = LayoutPreset.fromJson(json)
             saveToDiskCache(name, preset, json, hash)
             memoryCache[name] = preset
