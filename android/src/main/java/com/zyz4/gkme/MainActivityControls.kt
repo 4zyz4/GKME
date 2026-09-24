@@ -485,16 +485,16 @@ internal fun MainActivity.setupGamepadLayoutListener() {
             } else if (buttonId != null) {
                 val pos = a.gamepadLayout.currentButtons.find { it.id == buttonId }
                 if (pos != null) {
-                    a.floatingEditor.showParameters(buttonId, pos)
+                    a.floatingEditor.showParametersAnimated(buttonId, pos)
                 }
             } else {
-                a.floatingEditor.clearParameters()
+                a.floatingEditor.clearParametersAnimated()
             }
         }
 
         override fun onEditModeChanged(isEditMode: Boolean) {
-            a.floatingEditor.visibility = if (isEditMode) View.VISIBLE else View.GONE
             if (isEditMode) {
+                a.floatingEditor.showAnimated()
                 a.floatingEditor.restoreFromSettings(a.viewModel.settings.value)
                 val preset = a.gamepadLayout.currentGyroPreset
                 preset.gyroActivateMode?.let { a.floatingEditor.presetGyroActivateMode = it }
@@ -502,6 +502,8 @@ internal fun MainActivity.setupGamepadLayoutListener() {
                 preset.gyroModeSensitivity?.let { a.floatingEditor.presetGyroModeSensitivity = it }
                 preset.gyroDeadZone?.let { a.floatingEditor.presetGyroDeadZone = it }
                 preset.gyroReverseDeadZone?.let { a.floatingEditor.presetGyroReverseDeadZone = it }
+            } else {
+                a.floatingEditor.hideAnimated()
             }
         }
 

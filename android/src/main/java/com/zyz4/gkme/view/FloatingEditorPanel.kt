@@ -1,6 +1,7 @@
 package com.zyz4.gkme.view
 
 import android.content.Context
+import android.animation.ValueAnimator
 import android.graphics.drawable.GradientDrawable
 import android.text.Editable
 import android.text.InputType
@@ -24,6 +25,7 @@ import androidx.core.widget.NestedScrollView
 import android.widget.SeekBar
 import android.widget.TextView
 import com.zyz4.gkme.R
+import com.zyz4.gkme.easeOutQuint
 import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.model.MouseGestureAction
@@ -221,6 +223,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     private var isDragging = false
 
     private lateinit var paramsContainer: LinearLayout
+    private lateinit var buttonParamsHost: FrameLayout
     private lateinit var buttonParamsInner: LinearLayout
     private var actionBtnRow: LinearLayout? = null
     var btnSave: Button? = null
@@ -231,6 +234,21 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     private var adjustingReturnButtonText: String? = null
     private var contentW = 0
     private var panelW = 0
+
+    /** True while a hide animation is pending; guards the end-action against a quick re-show. */
+    private var hidingPanel = false
+
+    /** Runs the collapse/expand height animation; cancelled when toggled again. */
+    private var collapseAnimator: ValueAnimator? = null
+
+    private companion object {
+        const val PANEL_FADE_IN_MS = 200L
+        const val PANEL_FADE_OUT_MS = 160L
+        const val CONTENT_OUT_MS = 120L
+        const val CONTENT_FADE_MS = 150L
+        const val CONTENT_SLIDE_DP = 16f
+        const val COLLAPSE_DURATION_MS = 200L
+    }
 
     private fun isButton(id: String): Boolean {
         val base = id.substringBefore("_")
@@ -564,15 +582,24 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         separatorLine = sep
         paramsContainer.addView(sep)
 
-        // Button-specific params
-        buttonParamsInner = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-        }
-        paramsContainer.addView(buttonParamsInner)
+        // Button-specific params. The host stays put; each rebuild swaps in a fresh content
+        // view so an outgoing view can be animated at the same time as the incoming one.
+        buttonParamsHost = FrameLayout(context)
+        buttonParamsInner = createParamsContent()
+        buttonParamsHost.addView(buttonParamsInner)
+        paramsContainer.addView(buttonParamsHost)
 
         scroll.addView(paramsContainer)
         root.addView(scroll)
         addView(root)
+    }
+
+    private fun createParamsContent(): LinearLayout = LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
+        layoutParams = FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        )
     }
 
     private fun buildGyroSelector(density: Float, container: LinearLayout) {
@@ -854,33 +881,147 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         setCollapsed(!collapsed)
     }
 
+    /** Fades the whole panel in. Used when entering layout edit mode. */
+    fun showAnimated() {
+        hidingPanel = false
+        animate().cancel()
+        alpha = 0f
+        visibility = View.VISIBLE
+        animate()
+            .alpha(1f)
+            .setDuration(PANEL_FADE_IN_MS)
+            .setInterpolator(easeOutQuint())
+            .start()
+    }
+
+    /** Fades the whole panel out, then hides it. Used when exiting layout edit mode. */
+    fun hideAnimated() {
+        hidingPanel = true
+        animate().cancel()
+        animate()
+            .alpha(0f)
+            .setDuration(PANEL_FADE_OUT_MS)
+            .setInterpolator(easeOutQuint())
+            .withEndAction {
+                if (hidingPanel) {
+                    visibility = View.GONE
+                    alpha = 1f
+                }
+            }
+            .start()
+    }
+
     /** Collapses the panel to show only the drag handle + toggle button. */
     fun setCollapsed(collapsed: Boolean) {
         if (this.collapsed == collapsed) return
         this.collapsed = collapsed
         val lp = layoutParams as? FrameLayout.LayoutParams ?: return
-        scrollView?.visibility = if (collapsed) View.GONE else View.VISIBLE
         toggleBtn?.setImageResource(if (collapsed) R.drawable.ic_arrow_down else R.drawable.ic_arrow_up)
-        lp.height = if (collapsed) {
-            val headerH = headerView?.height ?: 0
-            (if (headerH > 0) headerH else (36f * resources.displayMetrics.density).toInt()) +
-                paddingTop + paddingBottom
-        } else {
-            expandedHeight
+        // Content itself does not animate; it is clipped by the shrinking/growing panel.
+        // GONE is only applied after a collapse finishes so the measurement stays stable.
+        if (!collapsed) scrollView?.visibility = View.VISIBLE
+        collapseAnimator?.cancel()
+        val animator = ValueAnimator.ofInt(lp.height, if (collapsed) collapsedHeight() else expandedHeight)
+        animator.duration = COLLAPSE_DURATION_MS
+        animator.interpolator = easeOutQuint()
+        animator.addUpdateListener {
+            lp.height = it.animatedValue as Int
+            requestLayout()
         }
-        requestLayout()
+        animator.addListener(object : android.animation.AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: android.animation.Animator) {
+                if (collapsed && collapseAnimator === animation) {
+                    scrollView?.visibility = View.GONE
+                }
+            }
+        })
+        collapseAnimator = animator
+        animator.start()
         onToggleCollapsed?.invoke(collapsed)
     }
 
+    private fun collapsedHeight(): Int {
+        val headerH = headerView?.height ?: 0
+        return (if (headerH > 0) headerH else (36f * resources.displayMetrics.density).toInt()) +
+            paddingTop + paddingBottom
+    }
+
     fun clearParameters() {
-        buttonParamsInner.removeAllViews()
+        swapToEmptyParameters()
+    }
+
+    private fun swapToEmptyParameters() {
+        val old = buttonParamsInner
+        val fresh = createParamsContent()
+        buttonParamsInner = fresh
+        buttonParamsHost.addView(fresh)
+        if (old !== fresh && old.parent === buttonParamsHost) buttonParamsHost.removeView(old)
+    }
+
+    /** Slides the parameters area up and fades it out. Used on deselect. */
+    fun clearParametersAnimated() {
+        val old = buttonParamsInner
+        val fresh = createParamsContent()
+        buttonParamsInner = fresh
+        buttonParamsHost.addView(fresh)
+        if (old.childCount == 0) {
+            buttonParamsHost.removeView(old)
+            return
+        }
+        val offset = CONTENT_SLIDE_DP * resources.displayMetrics.density
+        old.animate()
+            .translationY(-offset)
+            .alpha(0f)
+            .setDuration(CONTENT_OUT_MS)
+            .setInterpolator(easeOutQuint())
+            .withEndAction { if (old.parent === buttonParamsHost) buttonParamsHost.removeView(old) }
+            .start()
+    }
+
+    /** Slides the old parameters up/out and the new ones up/in at the same time. Used when switching control. */
+    fun showParametersAnimated(buttonId: String, button: ButtonPosition) {
+        val old = buttonParamsInner
+        val fresh = createParamsContent()
+        buttonParamsInner = fresh
+        buttonParamsHost.addView(fresh)
+        populateParameterViews(buttonId, button)
+        val offset = CONTENT_SLIDE_DP * resources.displayMetrics.density
+        // Draw the outgoing content on top: for same-type controls the two layouts are nearly
+        // identical, so otherwise the incoming view would cover the outgoing animation.
+        if (old.childCount > 0) buttonParamsHost.bringChildToFront(old)
+        fresh.translationY = offset
+        fresh.alpha = 0f
+        fresh.animate()
+            .translationY(0f)
+            .alpha(1f)
+            .setDuration(CONTENT_FADE_MS)
+            .setInterpolator(easeOutQuint())
+            .start()
+        if (old.childCount == 0) {
+            buttonParamsHost.removeView(old)
+        } else {
+            old.animate()
+                .translationY(-offset)
+                .alpha(0f)
+                .setDuration(CONTENT_FADE_MS)
+                .setInterpolator(easeOutQuint())
+                .withEndAction { if (old.parent === buttonParamsHost) buttonParamsHost.removeView(old) }
+                .start()
+        }
     }
 
     fun showParameters(buttonId: String, button: ButtonPosition) {
+        val old = buttonParamsInner
+        val fresh = createParamsContent()
+        buttonParamsInner = fresh
+        buttonParamsHost.addView(fresh)
+        populateParameterViews(buttonId, button)
+        if (old !== fresh && old.parent === buttonParamsHost) buttonParamsHost.removeView(old)
+    }
+
+    private fun populateParameterViews(buttonId: String, button: ButtonPosition) {
         currentButton = button
         val density = context.resources.displayMetrics.density
-
-        buttonParamsInner.removeAllViews()
 
         // Restore visibility when in follow area adjust mode
         if (isAdjustingFollowArea) {
