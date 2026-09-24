@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <include
+        android:id="@+id/gamepadPanel"
+        layout="@layout/content_gamepad"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <ViewStub
+        android:id="@+id/settingsStub"
+        android:layout="@layout/content_settings"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+        <FrameLayout
+            android:id="@+id/previewZoomOverlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#CC000000"
+            android:clickable="true"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/zoomImage"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="fitCenter" />
+
+        </FrameLayout>
+
+        <View
+            android:id="@+id/screenOffOverlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#FF000000"
+            android:clickable="false"
+            android:focusable="false"
+            android:visibility="gone" />
+
+</FrameLayout>

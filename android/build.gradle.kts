@@ -1,0 +1,98 @@
+plugins {
+    id("com.android.application")
+    id("com.google.protobuf")
+    id("com.google.devtools.ksp")
+    id("com.google.dagger.hilt.android")
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
+}
+
+android {
+    namespace = "com.zyz4.gkme"
+    //noinspection GradleDependency
+    compileSdk = 36
+
+    ndkVersion = "30.0.16248370"
+
+    defaultConfig {
+        applicationId = "com.zyz4.gkme"
+        minSdk = 26
+        //noinspection OldTargetApi
+        targetSdk = 36
+        versionCode = 4209
+        versionName = "4.2.0"
+
+        externalNativeBuild {
+            cmake {
+                arguments += "-DANDROID_STL=c++_shared"
+            }
+        }
+    }
+
+    buildFeatures {
+        prefab = true
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "4.4.3"
+        }
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation(files("libs/SDL3-3.4.16.aar"))
+
+    implementation("androidx.activity:activity-ktx:1.9.3")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+
+    implementation("com.google.dagger:hilt-android:2.60.1")
+    ksp("com.google.dagger:hilt-android-compiler:2.60.1")
+
+    implementation("com.google.protobuf:protobuf-javalite:3.25.5")
+
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+    implementation("com.google.code.gson:gson:2.11.0")
+
+    implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.constraintlayout:constraintlayout:2.2.0")
+
+    testImplementation("junit:junit:4.13.2")
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:3.25.5"
+    }
+    generateProtoTasks {
+        all().forEach { task ->
+            task.builtins {
+                create("java") {
+                    option("lite")
+                }
+            }
+        }
+    }
+}

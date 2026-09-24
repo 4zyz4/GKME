@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <!-- ring fill (circle minus center square), no stroke -->
+    <path
+        android:fillType="evenOdd"
+        android:pathData="M12,2 A10,10 0 1 1 12,22 A10,10 0 1 1 12,2 Z M8,8 L16,8 L16,16 L8,16 Z"
+        android:fillColor="#FF2A2A2A" />
+    <!-- outer circle stroke -->
+    <path
+        android:pathData="M12,2 A10,10 0 1 1 12,22 A10,10 0 1 1 12,2 Z"
+        android:fillColor="#00000000"
+        android:strokeColor="#FF666666"
+        android:strokeWidth="1.6" />
+    <!-- diagonal separators: square corners to circle -->
+    <path
+        android:pathData="M8,8 L5.66,5.66"
+        android:strokeColor="#FF666666"
+        android:strokeWidth="1.6" />
+    <path
+        android:pathData="M16,8 L18.34,5.66"
+        android:strokeColor="#FF666666"
+        android:strokeWidth="1.6" />
+    <path
+        android:pathData="M8,16 L5.66,18.34"
+        android:strokeColor="#FF666666"
+        android:strokeWidth="1.6" />
+    <path
+        android:pathData="M16,16 L18.34,18.34"
+        android:strokeColor="#FF666666"
+        android:strokeWidth="1.6" />
+    <!-- center square stroke -->
+    <path
+        android:pathData="M8,8 L16,8 L16,16 L8,16 Z"
+        android:fillColor="#00000000"
+        android:strokeColor="#FF666666"
+        android:strokeWidth="1.6" />
+</vector>

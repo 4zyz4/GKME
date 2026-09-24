@@ -1,0 +1,67 @@
+# Gradle build folders
+.gradle/
+/build/
+**/build/
+
+# Local configuration files
+/local.properties
+**/local.properties
+
+# Android Studio and IntelliJ
+/.idea/
+*.iml
+*.ipr
+*.iws
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/**/usage.statistics.xml
+.idea/**/dictionaries
+.idea/**/shelf
+
+# Kotlin/Native
+.cxx/
+.externalNativeBuild/
+
+# Build output
+captures/
+output.json
+*.apk
+*.ap_ 
+*.aab
+*.hprof
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*~
+
+# Generated JetBrains files
+out/
+
+# NDK
+obj/
+
+# Generated Visual Studio files
+.vs/
+
+# Firebase
+/firebase-debug.log
+
+# Other
+*.keystore
+/sign/
+*.pem
+*.p12
+
+# Proto generated sources
+**/generated/
+/sign
+/android/release/
