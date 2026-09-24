@@ -775,7 +775,13 @@ class GkViewModel @Inject constructor(
         physicalMappedKbCodes = desired
     }
 
+    // Raw (unscaled) controller gyro in rad/s, kept for accelerometer->stick gyro fusion.
+    private val controllerGyroRaw = FloatArray(3)
+
     fun onPhysicalControllerGyro(gyroX: Float, gyroY: Float, gyroZ: Float, accelX: Float, accelY: Float, accelZ: Float) {
+        controllerGyroRaw[0] = gyroX
+        controllerGyroRaw[1] = gyroY
+        controllerGyroRaw[2] = gyroZ
         val s = settings.value
         val (worldDx, worldDy) = SensorHandler.computeWorldDelta(gyroX, gyroY, gyroZ, accelX, accelY, accelZ)
         _gamepadState.value = _gamepadState.value.copy(
@@ -936,6 +942,7 @@ class GkViewModel @Inject constructor(
         var lastBatteryRead = 0L
         sendJob = CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             var nextSendTime = System.currentTimeMillis()
+            var lastAccelNanos = System.nanoTime()
             while (true) {
                 if (System.currentTimeMillis() - lastBatteryRead > 2000) {
                     readBattery()
@@ -1079,12 +1086,27 @@ class GkViewModel @Inject constructor(
                     } else {
                         Triple(sensor.accelX, sensor.accelY, sensor.accelZ)
                     }
+                    // Raw gyro in the same (for the phone: remapped) frame as the accel above,
+                    // so translation-only motion is rejected instead of steering the stick.
+                    val (accelGyroX, accelGyroY, accelGyroZ) = if (useControllerGyro) {
+                        Triple(controllerGyroRaw[0], controllerGyroRaw[1], controllerGyroRaw[2])
+                    } else {
+                        Triple(sensor.gyroX, sensor.gyroY, sensor.gyroZ)
+                    }
+                    val nowNanos = System.nanoTime()
+                    val dtSec = ((nowNanos - lastAccelNanos) / 1_000_000_000.0)
+                        .toFloat().coerceIn(0f, 0.05f)
+                    lastAccelNanos = nowNanos
                     val stick = mapper.update(
                         aX, aY, aZ,
                         s.gyroBaseDirection,
                         sensorHandler.gyroOrientation,
                         sensorHandler.isDeviceInverted,
                         s.gyroModeSensitivity,
+                        gyroX = accelGyroX,
+                        gyroY = accelGyroY,
+                        gyroZ = accelGyroZ,
+                        dt = dtSec,
                     )
                     val ix = (stick.x * 32767f).toInt().coerceIn(-32768, 32767)
                     val iy = (stick.y * 32767f).toInt().coerceIn(-32768, 32767)

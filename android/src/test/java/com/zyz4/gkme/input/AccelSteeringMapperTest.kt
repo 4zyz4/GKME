@@ -25,7 +25,11 @@ class AccelSteeringMapperTest {
         orientation: GyroOrientation = GyroOrientation.LANDSCAPE,
         inverted: Boolean = false,
         sensitivity: Int = 100,
-    ): AccelStick = mapper.update(aX, aY, aZ, base, orientation, inverted, sensitivity)
+        gyroX: Float = 0f,
+        gyroY: Float = 0f,
+        gyroZ: Float = 0f,
+        dt: Float = 0.02f,
+    ): AccelStick = mapper.update(aX, aY, aZ, base, orientation, inverted, sensitivity, gyroX, gyroY, gyroZ, dt)
 
     private fun settle(
         mapper: AccelSteeringMapper,
@@ -79,7 +83,7 @@ class AccelSteeringMapperTest {
         var step = 0
         while (step <= 190) {
             val phi = (step.toDouble() * PI / 180.0).toFloat()
-            repeat(30) { update(mapper, -g * sin(phi), 0f, -g * cos(phi), sensitivity = 20) }
+            repeat(150) { update(mapper, -g * sin(phi), 0f, -g * cos(phi), sensitivity = 20) }
             step += 10
         }
         val stick = update(
@@ -135,5 +139,44 @@ class AccelSteeringMapperTest {
         mapper.reset()
         val stick = settle(mapper, 0f, 0f, -g)
         assertClose(0f, stick.x)
+    }
+
+    // ── 陀螺仪融合 (translation must not steer) ─────────────────────────
+
+    @Test
+    fun translationImpulse_isRejected() {
+        val mapper = AccelSteeringMapper()
+        // At rest, upright (gravity along -z).
+        repeat(60) { update(mapper, 0f, 0f, -g) }
+
+        // 0.2s of sideways translation: the gyro reads ~0 while linear acceleration tilts the
+        // measured vector by ~25°. Steering should stay near center instead of tracking the tilt.
+        val phi = (25.0 * PI / 180.0).toFloat()
+        var stick = AccelStick(0f, 0f)
+        repeat(10) { stick = update(mapper, -g * sin(phi), 0f, -g * cos(phi)) }
+
+        assertTrue("translation steered the stick: ${stick.x}", abs(stick.x) < 0.15f)
+    }
+
+    @Test
+    fun gyroRotation_tracksTilt() {
+        val mapper = AccelSteeringMapper()
+        repeat(60) { update(mapper, 0f, 0f, -g) }
+
+        // Roll the phone about the screen normal at 1 rad/s for 0.5s (phi -> 0.5rad ≈ 28.6°).
+        // gyroY = -dphi/dt for this rotation direction; accel is fed consistently.
+        val dt = 0.02f
+        val phiDot = 1f
+        var phi = 0f
+        var stick = AccelStick(0f, 0f)
+        repeat(25) {
+            phi += phiDot * dt
+            stick = update(
+                mapper,
+                -g * sin(phi), 0f, -g * cos(phi),
+                gyroY = -phiDot, dt = dt,
+            )
+        }
+        assertClose(sin(0.5f), stick.x, tolerance = 0.05f, msg = "gyro-tracked steering")
     }
 }
