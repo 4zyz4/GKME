@@ -295,6 +295,21 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
     override fun submitControllerAudioFrame(controllerIndex: Int, frame: ByteArray): Boolean =
         backend?.submitControllerAudioFrame(controllerIndex, frame) ?: false
 
+    override fun controllerSupportsHdRumble(controllerIndex: Int): Boolean =
+        backend?.controllerSupportsHdRumble(controllerIndex) ?: false
+
+    override fun setControllerHdRumble(
+        controllerIndex: Int,
+        leftHighFreq: Float, leftHighAmp: Float, leftLowFreq: Float, leftLowAmp: Float,
+        rightHighFreq: Float, rightHighAmp: Float, rightLowFreq: Float, rightLowAmp: Float,
+    ) {
+        backend?.setControllerHdRumble(
+            controllerIndex,
+            leftHighFreq, leftHighAmp, leftLowFreq, leftLowAmp,
+            rightHighFreq, rightHighAmp, rightLowFreq, rightLowAmp,
+        )
+    }
+
     override fun setAdaptiveTriggerEffects(
         controllerIndex: Int, eventFlags: Byte, typeLeft: Byte, typeRight: Byte,
         left: ByteArray?, right: ByteArray?,

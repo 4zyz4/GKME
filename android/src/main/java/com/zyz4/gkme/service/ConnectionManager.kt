@@ -561,10 +561,14 @@ class ConnectionManager @Inject constructor(
             }
             ServerToClient.PayloadCase.HD_RUMBLE -> {
                 val hr = msg.hdRumble
-                audioPlaybackService.setHdRumble(
-                    hr.leftHighFreqHz, hr.leftHighAmp, hr.leftLowFreqHz, hr.leftLowAmp,
-                    hr.rightHighFreqHz, hr.rightHighAmp, hr.rightLowFreqHz, hr.rightLowAmp,
-                )
+                // Run on the audio thread so it is serialised with the PCM frames
+                // and never blocks the UDP receive loop on a HID write.
+                audioExecutor.execute {
+                    audioPlaybackService.setHdRumble(
+                        hr.leftHighFreqHz, hr.leftHighAmp, hr.leftLowFreqHz, hr.leftLowAmp,
+                        hr.rightHighFreqHz, hr.rightHighAmp, hr.rightLowFreqHz, hr.rightLowAmp,
+                    )
+                }
             }
             ServerToClient.PayloadCase.LED_STATE -> {
                 val led = msg.ledState

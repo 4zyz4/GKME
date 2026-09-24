@@ -209,6 +209,44 @@ public class ProCon2Controller extends AbstractController {
         // Switch 2 Pro exposes digital trigger buttons only.
     }
 
+    @Override
+    public boolean hasHdRumbleSupport() {
+        return true;
+    }
+
+    @Override
+    public void setHdRumble(float leftHighFreq, float leftHighAmp,
+                            float leftLowFreq, float leftLowAmp,
+                            float rightHighFreq, float rightHighAmp,
+                            float rightLowFreq, float rightLowAmp) {
+        if (hidOutEndpoint == null) {
+            return;
+        }
+
+        byte[] packet = new byte[USB_PACKET_SIZE];
+        int seq;
+        synchronized (this) {
+            seq = rumbleSeq;
+            rumbleSeq = (rumbleSeq + 1) & 0x0F;
+        }
+        packet[0] = 0x02;
+        packet[1] = (byte) (0x50 | (seq & 0x0F));
+        packet[0x11] = packet[1];
+        encodeHdRumble(
+                HdRumbleCodec.proCon2Freq(leftHighFreq), HdRumbleCodec.proCon2Amp(leftHighAmp),
+                HdRumbleCodec.proCon2Freq(leftLowFreq), HdRumbleCodec.proCon2Amp(leftLowAmp),
+                packet, 2);
+        encodeHdRumble(
+                HdRumbleCodec.proCon2Freq(rightHighFreq), HdRumbleCodec.proCon2Amp(rightHighAmp),
+                HdRumbleCodec.proCon2Freq(rightLowFreq), HdRumbleCodec.proCon2Amp(rightLowAmp),
+                packet, 0x12);
+
+        int sent = connection.bulkTransfer(hidOutEndpoint, packet, packet.length, 100);
+        if (sent != packet.length) {
+            LimeLog.warning("ProCon2: Failed to send HD rumble packet, sent=" + sent);
+        }
+    }
+
     private void findBulkEndpoints(UsbInterface iface) {
         UsbEndpoint foundIn = null;
         UsbEndpoint foundOut = null;

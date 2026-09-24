@@ -305,6 +305,28 @@ public class ProConController extends AbstractController {
         // ProCon does not support trigger-specific rumble
     }
 
+    @Override
+    public boolean hasHdRumbleSupport() {
+        return true;
+    }
+
+    @Override
+    public void setHdRumble(float leftHighFreq, float leftHighAmp,
+                            float leftLowFreq, float leftLowAmp,
+                            float rightHighFreq, float rightHighAmp,
+                            float rightLowFreq, float rightLowAmp) {
+        // Rumble-only output report 0x10: counter + two classic 4-byte HD sides.
+        byte[] data = new byte[10];
+        data[0] = 0x10;
+        data[1] = sendPacketCount++;
+        if (sendPacketCount > 0xF) {
+            sendPacketCount = 0;
+        }
+        HdRumbleCodec.writeClassicSide(data, 2, leftHighFreq, leftHighAmp, leftLowFreq, leftLowAmp);
+        HdRumbleCodec.writeClassicSide(data, 6, rightHighFreq, rightHighAmp, rightLowFreq, rightLowAmp);
+        sendData(data, data.length);
+    }
+
     protected boolean handleRead(ByteBuffer buffer) {
         if (buffer.remaining() < PACKET_SIZE) {
             return false;

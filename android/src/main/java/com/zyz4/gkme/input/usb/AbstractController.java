@@ -121,6 +121,33 @@ public abstract class AbstractController {
     public void setPlayerIndicator(byte playerIndicator) {
     }
 
+    /**
+     * True when this controller exposes native HD rumble (Nintendo Switch family).
+     * When set, {@link #setHdRumble} drives the linear actuators with per-band
+     * frequency and amplitude instead of the amplitude-only {@link #rumble} path.
+     */
+    public boolean hasHdRumbleSupport() {
+        return false;
+    }
+
+    /**
+     * Drives both linear actuators with HD rumble bands.
+     *
+     * @param leftHighFreq  left high-band frequency in Hz.
+     * @param leftHighAmp   left high-band amplitude, 0..1.
+     * @param leftLowFreq   left low-band frequency in Hz.
+     * @param leftLowAmp    left low-band amplitude, 0..1.
+     * @param rightHighFreq right high-band frequency in Hz.
+     * @param rightHighAmp  right high-band amplitude, 0..1.
+     * @param rightLowFreq  right low-band frequency in Hz.
+     * @param rightLowAmp   right low-band amplitude, 0..1.
+     */
+    public void setHdRumble(float leftHighFreq, float leftHighAmp,
+                            float leftLowFreq, float leftLowAmp,
+                            float rightHighFreq, float rightHighAmp,
+                            float rightLowFreq, float rightLowAmp) {
+    }
+
     public boolean hasAdvancedAudioHapticsSupport() {
         return false;
     }
