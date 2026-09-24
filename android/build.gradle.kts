@@ -23,7 +23,7 @@ android {
         minSdk = 26
         //noinspection OldTargetApi
         targetSdk = 36
-        versionCode = 4201
+        versionCode = 4209
         versionName = "4.2.0"
 
         externalNativeBuild {
