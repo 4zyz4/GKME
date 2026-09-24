@@ -251,6 +251,16 @@ class MainActivity : ComponentActivity() {
         a.audioPlaybackService.onControllerAudioPcm = { index, frame ->
             a.physicalControllerHandler.submitControllerAudioFrame(index, frame)
         }
+        a.audioPlaybackService.supportsHdRumble = { index ->
+            a.physicalControllerHandler.controllerSupportsHdRumble(index)
+        }
+        a.audioPlaybackService.onHdRumble = { index, bands ->
+            a.physicalControllerHandler.setControllerHdRumble(
+                index,
+                bands.leftHighFreq, bands.leftHighAmp, bands.leftLowFreq, bands.leftLowAmp,
+                bands.rightHighFreq, bands.rightHighAmp, bands.rightLowFreq, bands.rightLowAmp,
+            )
+        }
     }
 
     @SuppressLint("ObsoleteSdkInt")

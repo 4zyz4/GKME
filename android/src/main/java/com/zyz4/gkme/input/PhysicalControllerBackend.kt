@@ -97,6 +97,21 @@ interface PhysicalControllerBackend {
     /** Sends a 4-channel, 48 kHz, S16LE frame to the controller speaker. */
     fun submitControllerAudioFrame(controllerIndex: Int, frame: ByteArray): Boolean = false
 
+    // ── HD rumble (Nintendo Switch family, USB driver) ─────
+
+    /** True when the controller at [controllerIndex] can play native HD rumble. */
+    fun controllerSupportsHdRumble(controllerIndex: Int): Boolean = false
+
+    /**
+     * Drives the controller's two linear actuators with HD rumble bands.
+     * Frequencies are in Hz and amplitudes in 0..1.
+     */
+    fun setControllerHdRumble(
+        controllerIndex: Int,
+        leftHighFreq: Float, leftHighAmp: Float, leftLowFreq: Float, leftLowAmp: Float,
+        rightHighFreq: Float, rightHighAmp: Float, rightLowFreq: Float, rightLowAmp: Float,
+    ) = Unit
+
     // ── Adaptive triggers / trigger rumble (reserved interfaces) ──
 
     fun setAdaptiveTriggerEffects(

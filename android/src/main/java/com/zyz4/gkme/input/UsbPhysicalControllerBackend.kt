@@ -560,6 +560,23 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
     override fun submitControllerAudioFrame(controllerIndex: Int, frame: ByteArray): Boolean =
         submitVoiceCoilFrame(controllerIndex, frame)
 
+    override fun controllerSupportsHdRumble(controllerIndex: Int): Boolean {
+        val controller = synchronized(lock) { controllerList.getOrNull(controllerIndex) } ?: return false
+        return controller.hasHdRumbleSupport()
+    }
+
+    override fun setControllerHdRumble(
+        controllerIndex: Int,
+        leftHighFreq: Float, leftHighAmp: Float, leftLowFreq: Float, leftLowAmp: Float,
+        rightHighFreq: Float, rightHighAmp: Float, rightLowFreq: Float, rightLowAmp: Float,
+    ) {
+        val controller = synchronized(lock) { controllerList.getOrNull(controllerIndex) } ?: return
+        controller.setHdRumble(
+            leftHighFreq, leftHighAmp, leftLowFreq, leftLowAmp,
+            rightHighFreq, rightHighAmp, rightLowFreq, rightLowAmp,
+        )
+    }
+
     // ── Compact frame merging: rumble + triggers + LED in one HID report ─
 
     // Last-known state, always merged into a single 0x02 HID report so that a

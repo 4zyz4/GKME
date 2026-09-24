@@ -57,6 +57,11 @@ class AudioPlaybackService {
         // The PC sends a 50 ms keep-alive while a Switch Pro is emulated, so
         // this only elapses when the mode changed or the link dropped.
         private const val HD_RUMBLE_TIMEOUT_NS = 1_000_000_000L
+        // While the PC keeps sending HD band parameters, an audio haptics PCM
+        // stream for the same controller is ignored: the HD representation is
+        // the authoritative one and the PCM is only analyzed when no HD updates
+        // have arrived for this long.
+        private const val HD_RUMBLE_SUPPRESS_NS = 200_000_000L
     }
 
     /** One open SDL sink: the device it plays on and the sample rate it was opened at. */
@@ -90,6 +95,23 @@ class AudioPlaybackService {
 
     @Volatile
     private var hdLastUpdateNs = 0L
+
+    // Switch HD rumble output (USB driver). When the selected voice-coil device
+    // is a Switch family controller, the PCM band parameters or the incoming
+    // audio haptics are encoded and sent as native HD rumble instead of being
+    // collapsed onto the amplitude-only motor path.
+    private val pcmHdAnalyzer = PcmHdRumbleAnalyzer()
+    private var hdOutputActive = false
+    private var hdOutputIndex = -1
+
+    @Volatile
+    private var lastHdRumbleUpdateNs = 0L
+
+    /** True when the controller at [controllerIndex] can play native HD rumble. */
+    var supportsHdRumble: ((controllerIndex: Int) -> Boolean)? = null
+
+    /** Sends encoded HD rumble bands to a Switch controller (Hz + 0..1 amplitudes). */
+    var onHdRumble: ((controllerIndex: Int, bands: HdBands) -> Unit)? = null
 
     private val _trackInfo = MutableStateFlow(AudioTrackInfo())
     val trackInfo: StateFlow<AudioTrackInfo> = _trackInfo.asStateFlow()
@@ -144,6 +166,9 @@ class AudioPlaybackService {
             onControllerMotorOutput?.invoke(lastControllerMotorIndex, 0, 0)
             lastControllerMotorActive = false
         }
+        if (this.voiceCoilDevice != voiceCoilDevice) {
+            stopHdOutput()
+        }
         // A different SDL sound device (or no longer a sound device) was chosen for
         // either lane: drop the old sink so the next frame opens a fresh one.
         if (sdlSinkTarget(this.voiceCoilDevice) != sdlSinkTarget(voiceCoilDevice)) {
@@ -164,6 +189,7 @@ class AudioPlaybackService {
     fun stop() {
         setTestTone(false)
         stopHdRumble()
+        stopHdOutput()
         stopAllSdlSinks()
         _vibrator.cancel()
     }
@@ -312,6 +338,20 @@ class AudioPlaybackService {
         hdTargetLhf = lhf; hdTargetLha = lha; hdTargetLlf = llf; hdTargetLla = lla
         hdTargetRhf = rhf; hdTargetRha = rha; hdTargetRlf = rlf; hdTargetRla = rla
         hdLastUpdateNs = System.nanoTime()
+        lastHdRumbleUpdateNs = System.nanoTime()
+
+        // Switch family target: encode the band parameters straight to HD rumble
+        // instead of synthesising a PCM waveform that would be collapsed onto the
+        // amplitude-only motor path.
+        val hdIndex = hdTargetIndex()
+        if (hdIndex >= 0) {
+            stopHdRumble()
+            hdOutputActive = true
+            hdOutputIndex = hdIndex
+            onHdRumble?.invoke(hdIndex, HdBands(lhf, lha, llf, lla, rhf, rha, rlf, rla))
+            return
+        }
+
         synchronized(this) {
             if (hdRumbleRunning) return
             hdRumbleRunning = true
@@ -327,6 +367,25 @@ class AudioPlaybackService {
         hdRumbleRunning = false
         hdRumbleThread?.interrupt()
         hdRumbleThread = null
+    }
+
+    /** Index of the selected voice-coil controller when it can play HD rumble, else -1. */
+    private fun hdTargetIndex(): Int {
+        val device = voiceCoilDevice
+        if (device.type != AudioDeviceType.CONTROLLER) return -1
+        val index = device.controllerIndex
+        return if (supportsHdRumble?.invoke(index) == true) index else -1
+    }
+
+    /** Silences and clears the HD rumble output for the selected controller. */
+    private fun stopHdOutput() {
+        if (hdOutputActive && hdOutputIndex >= 0) {
+            onHdRumble?.invoke(hdOutputIndex, HdBands.SILENT)
+        }
+        hdOutputActive = false
+        hdOutputIndex = -1
+        pcmHdAnalyzer.reset()
+        lastHdRumbleUpdateNs = 0L
     }
 
     private fun runHdRumble() {
@@ -566,6 +625,25 @@ class AudioPlaybackService {
                     if (lastControllerMotorActive) {
                         onControllerMotorOutput?.invoke(lastControllerMotorIndex, 0, 0)
                         lastControllerMotorActive = false
+                    }
+                } else if (supportsHdRumble?.invoke(index) == true) {
+                    // Switch family controller: turn the audio haptics PCM into the
+                    // two-band HD rumble the actuator expects instead of collapsing
+                    // it onto the amplitude-only motor path. While the PC is still
+                    // streaming HD band parameters the analysis is skipped so the two
+                    // representations do not fight over the actuator.
+                    if (lastControllerMotorActive) {
+                        onControllerMotorOutput?.invoke(lastControllerMotorIndex, 0, 0)
+                        lastControllerMotorActive = false
+                    }
+                    val sinceHd = System.nanoTime() - lastHdRumbleUpdateNs
+                    if (sinceHd > HD_RUMBLE_SUPPRESS_NS) {
+                        val bands = pcmHdAnalyzer.process(pcm, channels, sampleRate)
+                        if (bands != null) {
+                            hdOutputActive = true
+                            hdOutputIndex = index
+                            onHdRumble?.invoke(index, bands)
+                        }
                     }
                 } else {
                     val m0 = if (voiceCoilSwap) rightAmp else leftAmp
