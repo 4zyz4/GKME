@@ -698,10 +698,11 @@ internal fun MainActivity.setupCustomKeypadTouch(view: CustomKeypadView, initial
             a.viewModel.onCustomButtonUp(bits)
         }
     }
-    view.validDirs = (0..3).filter { i ->
-        val kpBits = findKeypadPos()?.let { ButtonPosition.keypadBitsOf(it) } ?: listOf()
-        kpBits.getOrNull(i)?.isNotEmpty() == true
-    }.toSet()
+    view.eightWay = findKeypadPos()?.keypadEightWay == true
+    val kpBits = findKeypadPos()?.let { ButtonPosition.keypadBitsOf(it) } ?: listOf()
+    view.validDirs = ButtonPosition.keypadDirectionIndices(view.eightWay)
+        .filter { kpBits.getOrNull(it)?.isNotEmpty() == true }
+        .toSet()
 }
 
 @SuppressLint("ClickableViewAccessibility")

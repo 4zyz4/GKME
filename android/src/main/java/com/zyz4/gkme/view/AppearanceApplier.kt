@@ -301,6 +301,7 @@ object AppearanceApplier {
         pad.padColor = settings.dpadPadColor
         pad.padBorderColor = settings.dpadPadOutlineColor
         pad.padBorderWidth = settings.dpadPadOutlineWidth.toFloat()
+        pad.textMaxSizePx = contentCapPx(pad, settings)?.toFloat()
         pad.invalidate()
     }
 

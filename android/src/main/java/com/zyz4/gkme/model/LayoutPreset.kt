@@ -115,14 +115,15 @@ data class LayoutPreset(
                     if (!btnObj.has("threeFingerSwipeAction")) btnObj.addProperty("threeFingerSwipeAction", MouseGestureAction.SCROLL.name)
                     if (!btnObj.has("keypadTexts")) {
                         val texts = com.google.gson.JsonArray()
-                        listOf("上", "下", "左", "右", "中").forEach { texts.add(it) }
+                        com.zyz4.gkme.model.ButtonPosition.KEYPAD_DEFAULT_TEXTS.forEach { texts.add(it) }
                         btnObj.add("keypadTexts", texts)
                     }
                     if (!btnObj.has("keypadBits")) {
                         val bitsArr = com.google.gson.JsonArray()
-                        repeat(5) { bitsArr.add(com.google.gson.JsonArray()) }
+                        repeat(com.zyz4.gkme.model.ButtonPosition.KEYPAD_EIGHT_WAY_COUNT) { bitsArr.add(com.google.gson.JsonArray()) }
                         btnObj.add("keypadBits", bitsArr)
                     }
+                    if (!btnObj.has("keypadEightWay")) btnObj.addProperty("keypadEightWay", false)
                     if (!btnObj.has("customBits")) {
                         btnObj.add("customBits", com.google.gson.JsonArray())
                     }
@@ -242,8 +243,9 @@ data class LayoutPreset(
                 if (b.travelDistance != 10) m["travelDistance"] = b.travelDistance
             }
             if (ButtonPosition.isKeypad(b.id)) {
-                m["keypadTexts"] = b.keypadTexts ?: ButtonPosition.KEYPAD_DEFAULT_TEXTS
-                m["keypadBits"] = b.keypadBits ?: ButtonPosition.KEYPAD_DEFAULT_BITS
+                m["keypadTexts"] = ButtonPosition.keypadTextsOf(b)
+                m["keypadBits"] = ButtonPosition.keypadBitsOf(b)
+                if (b.keypadEightWay) m["keypadEightWay"] = true
             }
             if (b.gyroActivate) m["gyroActivate"] = b.gyroActivate
             if (b.autoHold) m["autoHold"] = b.autoHold
