@@ -1828,10 +1828,12 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
         buttonParamsInner.addView(modeSpinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
 
-        val dirs = mutableListOf("上方向" to 0, "下方向" to 1, "左方向" to 2, "右方向" to 3, "双击中心" to 4)
+        val dirs = mutableListOf("上方向" to 0, "下方向" to 1, "左方向" to 2, "右方向" to 3)
         if (cb.keypadEightWay) {
             dirs += listOf("左上方向" to 5, "右上方向" to 6, "左下方向" to 7, "右下方向" to 8)
         }
+        // 双击中心固定放最后，保证其文本输入框与下方映射编辑器相邻。
+        dirs += "双击中心" to 4
 
         for ((name, idx) in dirs) {
             buildKeypadRegionParam(density, name, idx, texts[idx], bits[idx])
