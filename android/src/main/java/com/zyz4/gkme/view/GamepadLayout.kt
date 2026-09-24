@@ -1208,6 +1208,8 @@ class GamepadLayout @JvmOverloads constructor(
             // CustomKeypadView-specific properties
             if (child is CustomKeypadView) {
                 child.keypadTexts = ButtonPosition.keypadTextsOf(pos)
+                child.eightWay = pos.keypadEightWay
+                child.textMaxSizePx = AppearanceApplier.contentCapPx(child, appearanceSettings)?.toFloat()
             }
         }
     }

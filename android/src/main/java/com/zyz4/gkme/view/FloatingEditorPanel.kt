@@ -1657,7 +1657,40 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         val cb = currentButton ?: return
         val texts = ButtonPosition.keypadTextsOf(cb)
         val bits = ButtonPosition.keypadBitsOf(cb)
-        val dirs = listOf("上方向" to 0, "下方向" to 1, "左方向" to 2, "右方向" to 3, "双击中心" to 4)
+
+        // ── 方向模式下拉框 ──
+        val modeLabel = TextView(context).apply {
+            text = "方向模式"
+            setTextColor(-0x1)
+            textSize = 14f
+        }
+        buttonParamsInner.addView(modeLabel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+
+        val modeItems = listOf("4方向", "8方向")
+        val modeSpinner = Spinner(context).apply {
+            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, modeItems).also {
+                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+            setSelection(if (cb.keypadEightWay) 1 else 0)
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id2: Long) {
+                    val eight = pos == 1
+                    val current = currentButton ?: return
+                    if (eight == current.keypadEightWay) return
+                    val updated = current.copy(keypadEightWay = eight)
+                    currentButton = updated
+                    editorListener?.onButtonUpdated(id, updated)
+                    showParameters(id, updated)
+                }
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
+        }
+        buttonParamsInner.addView(modeSpinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
+
+        val dirs = mutableListOf("上方向" to 0, "下方向" to 1, "左方向" to 2, "右方向" to 3, "双击中心" to 4)
+        if (cb.keypadEightWay) {
+            dirs += listOf("左上方向" to 5, "右上方向" to 6, "左下方向" to 7, "右下方向" to 8)
+        }
 
         for ((name, idx) in dirs) {
             buildKeypadRegionParam(density, name, idx, texts[idx], bits[idx])
@@ -1666,10 +1699,9 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         // Center region output editor (center double-click is always enabled)
         buildKeypadBitsEditor(density, bits[4]) { newBits ->
             val cb2 = currentButton ?: return@buildKeypadBitsEditor
-            val b = cb2.keypadBits ?: ButtonPosition.KEYPAD_DEFAULT_BITS
-            val updated = b.toMutableList()
-            updated[4] = newBits
-            currentButton = cb2.copy(keypadBits = updated)
+            val b = ButtonPosition.keypadBitsOf(cb2).toMutableList()
+            b[4] = newBits
+            currentButton = cb2.copy(keypadBits = b)
             currentButton?.let { editorListener?.onButtonUpdated(id, it) }
         }
     }
@@ -1719,10 +1751,9 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         if (regionIdx != 4) {
             buildKeypadBitsEditor(density, currentBits) { newBits ->
                 val cb2 = currentButton ?: return@buildKeypadBitsEditor
-                var b = cb2.keypadBits ?: ButtonPosition.KEYPAD_DEFAULT_BITS
-                val updated = b.toMutableList()
-                updated[regionIdx] = newBits
-                currentButton = cb2.copy(keypadBits = updated)
+                val b = ButtonPosition.keypadBitsOf(cb2).toMutableList()
+                b[regionIdx] = newBits
+                currentButton = cb2.copy(keypadBits = b)
                 currentButton?.let { editorListener?.onButtonUpdated(id, it) }
             }
         }

@@ -169,10 +169,11 @@ class GamepadLayoutApplier {
             child.forceFollowFinger = false
             child.idleOpacity = pos.idleOpacity.coerceIn(0, 100)
             child.activeOpacity = pos.activeOpacity.coerceIn(0, 100)
+            child.eightWay = pos.keypadEightWay
             val kpBits = ButtonPosition.keypadBitsOf(pos)
-            child.validDirs = (0..3).filter { i ->
-                kpBits.getOrNull(i)?.isNotEmpty() == true
-            }.toSet()
+            child.validDirs = ButtonPosition.keypadDirectionIndices(pos.keypadEightWay)
+                .filter { kpBits.getOrNull(it)?.isNotEmpty() == true }
+                .toSet()
         }
     }
 
