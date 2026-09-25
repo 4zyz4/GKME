@@ -496,12 +496,6 @@ internal fun MainActivity.setupGamepadLayoutListener() {
             if (isEditMode) {
                 a.floatingEditor.showAnimated()
                 a.floatingEditor.restoreFromSettings(a.viewModel.settings.value)
-                val preset = a.gamepadLayout.currentGyroPreset
-                preset.gyroActivateMode?.let { a.floatingEditor.presetGyroActivateMode = it }
-                preset.gyroMode?.let { a.floatingEditor.presetGyroMode = it }
-                preset.gyroModeSensitivity?.let { a.floatingEditor.presetGyroModeSensitivity = it }
-                preset.gyroDeadZone?.let { a.floatingEditor.presetGyroDeadZone = it }
-                preset.gyroReverseDeadZone?.let { a.floatingEditor.presetGyroReverseDeadZone = it }
             } else {
                 a.floatingEditor.hideAnimated()
             }

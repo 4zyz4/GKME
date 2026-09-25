@@ -401,7 +401,6 @@ internal fun MainActivity.setupSettings() {
         a.hideSettings()
         a.applyPreset(a.viewModel.currentPreset.value)
         a.gamepadLayout.enterEditMode()
-        a.floatingEditor.presetGyroOrientation = a.gamepadLayout.currentGyroOrientation
     }
 
     val gridView = a.findViewById<WrapContentGridView>(R.id.gridPresets)

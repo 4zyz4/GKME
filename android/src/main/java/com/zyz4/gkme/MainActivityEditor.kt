@@ -18,7 +18,13 @@ import androidx.core.widget.NestedScrollView
 import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.model.DisplayMode
 import com.zyz4.gkme.model.GamepadState
+import com.zyz4.gkme.model.GyroActivateMode
+import com.zyz4.gkme.model.GyroBaseDirection
+import com.zyz4.gkme.model.GyroCoordinateSystem
+import com.zyz4.gkme.model.GyroMode
+import com.zyz4.gkme.model.GyroOrientation
 import com.zyz4.gkme.view.FloatingEditorPanel
+import com.zyz4.gkme.view.LayoutGlobalSettingsPanel
 import com.zyz4.gkme.view.GamepadLayout
 import com.zyz4.gkme.view.JoystickView
 import com.zyz4.gkme.view.RotatableButton
@@ -105,14 +111,6 @@ internal fun MainActivity.createFloatingEditor(): FloatingEditorPanel {
             override fun onPickOutputValues(buttonId: String, currentBits: List<Int>, onResult: (List<Int>) -> Unit) {
                 a.showOutputValuePicker(currentBits, onResult)
             }
-            override fun onGyroOrientationChanged(orientation: com.zyz4.gkme.model.GyroOrientation?) {
-                val updated = a.gamepadLayout.getPreset().copy(gyroOrientation = orientation)
-                a.gamepadLayout.loadPreset(updated)
-                a.viewModel.updatePresetButtons(updated)
-                a.viewModel.currentPresetGyroOrientation = orientation
-                a.floatingEditor.presetGyroOrientation = orientation
-            }
-
             override fun onEnterFollowAreaAdjust(buttonId: String) {
                 a.floatingEditor.isAdjustingFollowArea = true
                 a.gamepadLayout.enterFollowAreaAdjust(buttonId)
@@ -136,72 +134,12 @@ override fun onOpacityPreviewEnd(buttonId: String) {
                     a.gamepadLayout.setOpacityPreview(buttonId, true, false)
                 }
 
-                override fun onGyroBaseDirectionChanged(direction: com.zyz4.gkme.model.GyroBaseDirection) {
-                    a.viewModel.updateGyroBaseDirection(direction)
-                }
-
-                override fun onGyroCoordinateSystemChanged(coordinateSystem: com.zyz4.gkme.model.GyroCoordinateSystem) {
-                    a.viewModel.updateGyroCoordinateSystem(coordinateSystem)
-                }
-
-                override fun onGyroModeChanged(mode: com.zyz4.gkme.model.GyroMode) {
-                    val preset = a.gamepadLayout.currentGyroPreset.copy(gyroMode = mode)
-                    a.gamepadLayout.loadPreset(preset)
-                    a.viewModel.updatePresetButtons(preset)
-                    a.viewModel.updateGyroMode(mode)
-                }
-
-override fun onGyroModeSensitivityChanged(value: Int) {
-                        val preset = a.gamepadLayout.currentGyroPreset.copy(gyroModeSensitivity = value)
-                        a.gamepadLayout.loadPreset(preset)
-                        a.viewModel.updatePresetButtons(preset)
-                        a.viewModel.updateGyroModeSensitivity(value)
-                    }
-
-                override fun onGyroDeadZoneChanged(value: Int) {
-                    val preset = a.gamepadLayout.currentGyroPreset.copy(gyroDeadZone = value)
-                    a.gamepadLayout.loadPreset(preset)
-                    a.viewModel.updatePresetButtons(preset)
-                    a.viewModel.updateGyroDeadZone(value)
-                }
-
-                override fun onGyroReverseDeadZoneChanged(value: Int) {
-                    val preset = a.gamepadLayout.currentGyroPreset.copy(gyroReverseDeadZone = value)
-                    a.gamepadLayout.loadPreset(preset)
-                    a.viewModel.updatePresetButtons(preset)
-                    a.viewModel.updateGyroReverseDeadZone(value)
-                }
-
-                override fun onGyroActivateModeChanged(mode: com.zyz4.gkme.model.GyroActivateMode) {
-                        val preset = a.gamepadLayout.currentGyroPreset.copy(gyroActivateMode = mode)
-                        a.gamepadLayout.loadPreset(preset)
-                        a.viewModel.updatePresetButtons(preset)
-                        a.viewModel.updateGyroActivateMode(mode)
-                    }
-
             override fun onEnterGlobalGyroSettings() {
-                a.gamepadLayout.deselectButton()
-                a.gamepadLayout.blockSelectionForGlobalSettings = true
-                val preset = a.gamepadLayout.currentGyroPreset
-                preset.gyroActivateMode?.let {
-                    a.floatingEditor.presetGyroActivateMode = it
-                }
-                preset.gyroMode?.let {
-                    a.floatingEditor.presetGyroMode = it
-                }
-                preset.gyroModeSensitivity?.let {
-                    a.floatingEditor.presetGyroModeSensitivity = it
-                }
-                preset.gyroDeadZone?.let {
-                    a.floatingEditor.presetGyroDeadZone = it
-                }
-                preset.gyroReverseDeadZone?.let {
-                    a.floatingEditor.presetGyroReverseDeadZone = it
-                }
+                a.showLayoutGlobalSettings()
             }
 
             override fun onExitGlobalGyroSettings() {
-                a.gamepadLayout.blockSelectionForGlobalSettings = false
+                a.hideLayoutGlobalSettings()
             }
         }
     }.also { panel ->
@@ -212,6 +150,107 @@ override fun onGyroModeSensitivityChanged(value: Int) {
                 (a.resources.displayMetrics.heightPixels * 0.8f).toInt()
             )
         )
+    }
+}
+
+// ── Layout global settings (full-screen page) ────────────
+
+internal fun MainActivity.createGlobalSettingsPanel(): LayoutGlobalSettingsPanel {
+    val a = this
+    return LayoutGlobalSettingsPanel(a).apply {
+        visibility = View.GONE
+        listener = object : LayoutGlobalSettingsPanel.Listener {
+            override fun onClose() {
+                a.hideLayoutGlobalSettings()
+            }
+
+            override fun onGyroOrientationChanged(orientation: GyroOrientation?) {
+                val updated = a.gamepadLayout.getPreset().copy(gyroOrientation = orientation)
+                a.gamepadLayout.loadPreset(updated)
+                a.viewModel.updatePresetButtons(updated)
+                a.viewModel.currentPresetGyroOrientation = orientation
+            }
+
+            override fun onGyroBaseDirectionChanged(direction: GyroBaseDirection) {
+                a.viewModel.updateGyroBaseDirection(direction)
+            }
+
+            override fun onGyroCoordinateSystemChanged(coordinateSystem: GyroCoordinateSystem) {
+                a.viewModel.updateGyroCoordinateSystem(coordinateSystem)
+            }
+
+            override fun onGyroModeChanged(mode: GyroMode) {
+                val preset = a.gamepadLayout.currentGyroPreset.copy(gyroMode = mode)
+                a.gamepadLayout.loadPreset(preset)
+                a.viewModel.updatePresetButtons(preset)
+                a.viewModel.updateGyroMode(mode)
+            }
+
+            override fun onGyroModeSensitivityChanged(value: Int) {
+                val preset = a.gamepadLayout.currentGyroPreset.copy(gyroModeSensitivity = value)
+                a.gamepadLayout.loadPreset(preset)
+                a.viewModel.updatePresetButtons(preset)
+                a.viewModel.updateGyroModeSensitivity(value)
+            }
+
+            override fun onGyroDeadZoneChanged(value: Int) {
+                val preset = a.gamepadLayout.currentGyroPreset.copy(gyroDeadZone = value)
+                a.gamepadLayout.loadPreset(preset)
+                a.viewModel.updatePresetButtons(preset)
+                a.viewModel.updateGyroDeadZone(value)
+            }
+
+            override fun onGyroReverseDeadZoneChanged(value: Int) {
+                val preset = a.gamepadLayout.currentGyroPreset.copy(gyroReverseDeadZone = value)
+                a.gamepadLayout.loadPreset(preset)
+                a.viewModel.updatePresetButtons(preset)
+                a.viewModel.updateGyroReverseDeadZone(value)
+            }
+
+            override fun onGyroActivateModeChanged(mode: GyroActivateMode) {
+                val preset = a.gamepadLayout.currentGyroPreset.copy(gyroActivateMode = mode)
+                a.gamepadLayout.loadPreset(preset)
+                a.viewModel.updatePresetButtons(preset)
+                a.viewModel.updateGyroActivateMode(mode)
+            }
+        }
+    }.also { panel ->
+        (a.findViewById<View>(android.R.id.content) as ViewGroup).addView(
+            panel,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+    }
+}
+
+internal fun MainActivity.isLayoutGlobalSettingsVisible(): Boolean =
+    layoutGlobalSettingsPanel?.visibility == View.VISIBLE
+
+internal fun MainActivity.showLayoutGlobalSettings() {
+    val a = this
+    val panel = a.layoutGlobalSettingsPanel ?: createGlobalSettingsPanel().also { a.layoutGlobalSettingsPanel = it }
+    a.floatingEditor.showingGlobalSettings = true
+    a.floatingEditor.updateActionButtonsVisibility()
+    a.floatingEditor.hideAnimated()
+    a.gamepadLayout.deselectButton()
+    a.gamepadLayout.blockSelectionForGlobalSettings = true
+    val settings = a.viewModel.settings.value
+    panel.showForPreset(
+        a.gamepadLayout.currentGyroPreset,
+        settings.gyroBaseDirection,
+        settings.gyroCoordinateSystem,
+    )
+}
+
+internal fun MainActivity.hideLayoutGlobalSettings() {
+    val a = this
+    a.layoutGlobalSettingsPanel?.hide {
+        a.gamepadLayout.blockSelectionForGlobalSettings = false
+        a.floatingEditor.showingGlobalSettings = false
+        a.floatingEditor.updateActionButtonsVisibility()
+        a.floatingEditor.showAnimated()
     }
 }
 
