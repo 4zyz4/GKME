@@ -29,10 +29,6 @@ import com.zyz4.gkme.easeOutQuint
 import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.model.MouseGestureAction
-import com.zyz4.gkme.model.GyroOrientation
-import com.zyz4.gkme.model.GyroBaseDirection
-import com.zyz4.gkme.model.GyroCoordinateSystem
-import com.zyz4.gkme.model.GyroMode
 import com.zyz4.gkme.model.SlideDirection
 import com.zyz4.gkme.Kb
 import com.zyz4.gkme.BitNameMapper
@@ -46,18 +42,10 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         fun onDeleteButton(buttonId: String)
         fun onButtonUpdated(buttonId: String, updated: ButtonPosition)
         fun onPickOutputValues(buttonId: String, currentBits: List<Int>, onResult: (List<Int>) -> Unit)
-        fun onGyroOrientationChanged(orientation: GyroOrientation?)
         fun onEnterFollowAreaAdjust(buttonId: String)
         fun onExitFollowAreaAdjust()
         fun onOpacityPreviewStart(buttonId: String, isIdle: Boolean)
         fun onOpacityPreviewEnd(buttonId: String)
-        fun onGyroBaseDirectionChanged(direction: com.zyz4.gkme.model.GyroBaseDirection)
-        fun onGyroCoordinateSystemChanged(coordinateSystem: com.zyz4.gkme.model.GyroCoordinateSystem)
-        fun onGyroModeChanged(mode: com.zyz4.gkme.model.GyroMode)
-        fun onGyroModeSensitivityChanged(value: Int)
-        fun onGyroDeadZoneChanged(value: Int)
-        fun onGyroReverseDeadZoneChanged(value: Int)
-        fun onGyroActivateModeChanged(mode: com.zyz4.gkme.model.GyroActivateMode)
         fun onEnterGlobalGyroSettings()
         fun onExitGlobalGyroSettings()
     }
@@ -73,106 +61,14 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     private var scrollView: View? = null
     private var toggleBtn: ImageButton? = null
 
-    var presetGyroOrientation: GyroOrientation? = null
-        set(value) {
-            field = value
-            if (!showingGlobalSettings) {
-                gyroSpinner?.setSelection((value?.ordinal?.plus(1)) ?: 0)
-            }
-        }
-
-    var presetGyroBaseDirection: com.zyz4.gkme.model.GyroBaseDirection = com.zyz4.gkme.model.GyroBaseDirection.VERTICAL
-        set(value) {
-            field = value
-            if (!showingGlobalSettings) {
-                val idx = baseDirectionValues.indexOf(value)
-                if (idx >= 0) gyroBaseDirectionSpinner?.setSelection(idx)
-            }
-        }
-
-    var presetGyroCoordinateSystem: com.zyz4.gkme.model.GyroCoordinateSystem = com.zyz4.gkme.model.GyroCoordinateSystem.YAW_ROLL
-        set(value) {
-            field = value
-            if (!showingGlobalSettings) {
-                val idx = coordinateSystemValues.indexOf(value)
-                if (idx >= 0) gyroCoordinateSystemSpinner?.setSelection(idx)
-            }
-        }
-
-    var presetGyroMode: com.zyz4.gkme.model.GyroMode = com.zyz4.gkme.model.GyroMode.HANDHELD
-        set(value) {
-            field = value
-            if (!showingGlobalSettings) {
-                val idx = mappingModeValues.indexOf(value)
-                if (idx >= 0) gyroModeSpinner?.setSelection(idx)
-            }
-        }
-
-    var presetGyroModeSensitivity: Int = 20
-        set(value) {
-            field = value
-        }
-
-    var presetGyroDeadZone: Int = 0
-        set(value) {
-            field = value
-        }
-
-    var presetGyroReverseDeadZone: Int = 0
-        set(value) {
-            field = value
-        }
-
-    var presetGyroActivateMode: com.zyz4.gkme.model.GyroActivateMode = com.zyz4.gkme.model.GyroActivateMode.ALWAYS
-        set(value) {
-            field = value
-            gyroActivateSpinnerRef?.setSelection(value.ordinal)
-        }
-
-    private var gyroSpinner: Spinner? = null
-    private var gyroBaseDirectionSpinner: Spinner? = null
-    private var gyroBaseDirectionLabel: TextView? = null
-    private var gyroCoordinateSystemSpinner: Spinner? = null
-    private var gyroModeSpinner: Spinner? = null
-    private var gyroActivateSpinnerRef: Spinner? = null
-    private var globalSettingsContainer: LinearLayout? = null
-    private var gyroAdvancedContainer: LinearLayout? = null
+    /** True while the full-screen layout global settings page is open. */
     var showingGlobalSettings = false
 
     var currentSettings: com.zyz4.gkme.model.AppSettings? = null
 
     fun restoreFromSettings(settings: com.zyz4.gkme.model.AppSettings) {
         currentSettings = settings
-        presetGyroOrientation = settings.gyroOrientation
-        presetGyroBaseDirection = settings.gyroBaseDirection
-        presetGyroCoordinateSystem = settings.gyroCoordinateSystem
-        presetGyroMode = settings.gyroMode
-        presetGyroModeSensitivity = settings.gyroModeSensitivity
-        presetGyroDeadZone = settings.gyroDeadZone
-        presetGyroReverseDeadZone = settings.gyroReverseDeadZone
-        presetGyroActivateMode = settings.gyroActivateMode
     }
-
-    private val baseDirectionValues = listOf(
-        com.zyz4.gkme.model.GyroBaseDirection.VERTICAL,
-        com.zyz4.gkme.model.GyroBaseDirection.HORIZONTAL,
-    )
-
-    private val coordinateSystemValues = listOf(
-        com.zyz4.gkme.model.GyroCoordinateSystem.YAW,
-        com.zyz4.gkme.model.GyroCoordinateSystem.ROLL,
-        com.zyz4.gkme.model.GyroCoordinateSystem.YAW_ROLL,
-        com.zyz4.gkme.model.GyroCoordinateSystem.WORLD,
-    )
-
-    private val mappingModeValues = listOf(
-        com.zyz4.gkme.model.GyroMode.HANDHELD,
-        com.zyz4.gkme.model.GyroMode.MOUSE,
-        com.zyz4.gkme.model.GyroMode.LEFT_STICK,
-        com.zyz4.gkme.model.GyroMode.RIGHT_STICK,
-        com.zyz4.gkme.model.GyroMode.ACCELEROMETER_LEFT_STICK,
-        com.zyz4.gkme.model.GyroMode.ACCELEROMETER_RIGHT_STICK,
-    )
 
     private val BUTTON_IDS = setOf(
         "btnDpadUp", "btnDpadDown", "btnDpadLeft", "btnDpadRight",
@@ -213,7 +109,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 btnGlobalSettings?.text = "返回"
             } else {
                 adjustingReturnButtonText = null
-                btnGlobalSettings?.text = if (showingGlobalSettings) "返回" else "陀螺仪设置"
+                btnGlobalSettings?.text = "全局设置"
             }
         }
     private var panelX = 0f
@@ -261,7 +157,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     private fun isMousepadId(id: String): Boolean = id.substringBefore("_") == "mousepad"
     private fun isKeyboardId(id: String): Boolean = id.substringBefore("_") in KEYBOARD_IDS
 
-    private fun updateActionButtonsVisibility() {
+    fun updateActionButtonsVisibility() {
         val hideSaveDiscardAdd = showingGlobalSettings || isAdjustingFollowArea
         btnSave?.visibility = if (hideSaveDiscardAdd) View.GONE else View.VISIBLE
         btnDiscard?.visibility = if (hideSaveDiscardAdd) View.GONE else View.VISIBLE
@@ -539,7 +435,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         this.btnDiscard = btnDiscard
         this.btnAdd = btnAdd
         btnGlobalSettings = Button(context).apply {
-            text = "陀螺仪设置"
+            text = "全局设置"
             setTextColor(-0x1)
             textSize = 13f
             setBackgroundResource(R.drawable.button_flat)
@@ -548,20 +444,9 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                     // Return from follow area adjust
                     editorListener?.onExitFollowAreaAdjust()
                 } else {
-                    showingGlobalSettings = !showingGlobalSettings
-                    if (showingGlobalSettings) {
-                        text = "返回"
-                        setTextColor(-0x1)
-                        currentButton = null
-                        editorListener?.onEnterGlobalGyroSettings()
-                        updateActionButtonsVisibility()
-                        buildGlobalSettingsPanel(density)
-                    } else {
-                        text = "陀螺仪设置"
-                        clearGlobalSettingsPanel()
-                        editorListener?.onExitGlobalGyroSettings()
-                        updateActionButtonsVisibility()
-                    }
+                    currentButton = null
+                    editorListener?.onEnterGlobalGyroSettings()
+                    updateActionButtonsVisibility()
                 }
             }
         }
@@ -600,229 +485,6 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT,
         )
-    }
-
-    private fun buildGyroSelector(density: Float, container: LinearLayout) {
-        val tv = TextView(context).apply {
-            text = "体感握持方向"
-            setTextColor(-0x1)
-            textSize = 14f
-        }
-        container.addView(tv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (6f * density).toInt() })
-
-        val items = listOf("不指定", "横屏", "竖屏", "倒置竖屏")
-        val currentOrientation = presetGyroOrientation
-        val spinner = Spinner(context).apply {
-            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, items).also {
-                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            }
-            setSelection((currentOrientation?.ordinal?.plus(1)) ?: 0)
-            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
-                    val orientation = when (pos) {
-                        1 -> GyroOrientation.LANDSCAPE
-                        2 -> GyroOrientation.PORTRAIT
-                        3 -> GyroOrientation.PORTRAIT_INVERTED
-                        else -> null
-                    }
-                    editorListener?.onGyroOrientationChanged(orientation)
-                }
-                override fun onNothingSelected(parent: AdapterView<*>?) {}
-            }
-        }
-        gyroSpinner = spinner
-        container.addView(spinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
-    }
-
-    private fun buildGlobalSettingsPanel(density: Float) {
-        buttonParamsInner.removeAllViews()
-        gyroAdvancedContainer?.removeAllViews()
-        globalSettingsContainer = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding((8f * density).toInt(), (8f * density).toInt(), (8f * density).toInt(), (8f * density).toInt())
-        }
-        val container = globalSettingsContainer!!
-
-        // ── Gyro orientation (top) ──
-        buildGyroSelector(density, container)
-
-        // Separator
-        val sep = View(context).apply {
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (1f * density).toInt()).apply {
-                topMargin = (4f * density).toInt()
-                bottomMargin = (8f * density).toInt()
-            }
-            background = GradientDrawable().apply { setColor(-0x444445) }
-        }
-        container.addView(sep)
-
-        // ── Gyro activation mode ──
-        val tvGyroActivate = TextView(context).apply {
-            text = "陀螺仪激活方式"
-            setTextColor(-0x1)
-            textSize = 15f
-            setPadding(0, (8f * density).toInt(), 0, 0)
-        }
-        container.addView(tvGyroActivate)
-
-        val gyroActivateItems = listOf("始终开启", "按下特定按钮开启")
-        val gyroActivateSpinner = Spinner(context).apply {
-            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, gyroActivateItems).also {
-                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            }
-            setSelection(presetGyroActivateMode.ordinal)
-            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
-                    val mode = when (pos) {
-                        1 -> com.zyz4.gkme.model.GyroActivateMode.BUTTON
-                        else -> com.zyz4.gkme.model.GyroActivateMode.ALWAYS
-                    }
-                    presetGyroActivateMode = mode
-                    editorListener?.onGyroActivateModeChanged(mode)
-                }
-                override fun onNothingSelected(parent: AdapterView<*>?) {}
-            }
-        }
-        gyroActivateSpinnerRef = gyroActivateSpinner
-        container.addView(gyroActivateSpinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt(); bottomMargin = (12f * density).toInt() })
-
-        // ── Gyro mapping mode ──
-        val tvGyroMode = TextView(context).apply {
-            text = "陀螺仪行为"
-            setTextColor(-0x1)
-            textSize = 15f
-            setPadding(0, (8f * density).toInt(), 0, 0)
-        }
-        container.addView(tvGyroMode)
-
-        val gyroModeItems = listOf("手柄陀螺仪", "陀螺仪转鼠标", "陀螺仪转左摇杆", "陀螺仪转右摇杆", "加速度计转左摇杆", "加速度计转右摇杆")
-        val modeSpinner = Spinner(context).apply {
-            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, gyroModeItems).also {
-                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            }
-            setSelection(mappingModeValues.indexOf(presetGyroMode).coerceAtLeast(0))
-            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
-                    val mode = mappingModeValues.getOrNull(pos) ?: GyroMode.HANDHELD
-                    presetGyroMode = mode
-                    editorListener?.onGyroModeChanged(mode)
-                    updateGyroModeVisibility()
-                }
-                override fun onNothingSelected(parent: AdapterView<*>?) {}
-            }
-        }
-        gyroModeSpinner = modeSpinner
-        container.addView(modeSpinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt(); bottomMargin = (12f * density).toInt() })
-
-        // ── Advanced settings: coordinate system, sensitivity, dead zones ──
-        // Only shown when the gyro mode is not HANDHELD (手柄陀螺仪).
-        gyroAdvancedContainer = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-        }
-        val advanced = gyroAdvancedContainer!!
-
-        // ── Gyro base direction ──
-        val tvGyroBaseDirection = TextView(context).apply {
-            text = "基准方向"
-            setTextColor(-0x1)
-            textSize = 15f
-            setPadding(0, (8f * density).toInt(), 0, 0)
-        }
-
-        val baseDirectionItems = listOf("竖放", "平放")
-        val baseDirectionSpinner = Spinner(context).apply {
-            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, baseDirectionItems).also {
-                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            }
-            setSelection(baseDirectionValues.indexOf(presetGyroBaseDirection).coerceAtLeast(0))
-            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
-                    val direction = baseDirectionValues.getOrNull(pos) ?: GyroBaseDirection.VERTICAL
-                    presetGyroBaseDirection = direction
-                    editorListener?.onGyroBaseDirectionChanged(direction)
-                }
-                override fun onNothingSelected(parent: AdapterView<*>?) {}
-            }
-        }
-        gyroBaseDirectionSpinner = baseDirectionSpinner
-        gyroBaseDirectionLabel = tvGyroBaseDirection
-        advanced.addView(tvGyroBaseDirection, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt(); bottomMargin = (2f * density).toInt() })
-        advanced.addView(baseDirectionSpinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt(); bottomMargin = (12f * density).toInt() })
-
-        // ── Gyro coordinate system ──
-        val tvGyroCoordinateSystem = TextView(context).apply {
-            text = "坐标系"
-            setTextColor(-0x1)
-            textSize = 15f
-            setPadding(0, (8f * density).toInt(), 0, 0)
-        }
-        advanced.addView(tvGyroCoordinateSystem)
-
-        val gyroCoordinateSystemItems = listOf("偏航", "滚转", "偏航+滚转", "世界空间")
-        val coordinateSystemSpinner = Spinner(context).apply {
-            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, gyroCoordinateSystemItems).also {
-                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            }
-            setSelection(coordinateSystemValues.indexOf(presetGyroCoordinateSystem).coerceAtLeast(0))
-            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
-                    val coordinateSystem = coordinateSystemValues.getOrNull(pos) ?: GyroCoordinateSystem.YAW_ROLL
-                    presetGyroCoordinateSystem = coordinateSystem
-                    editorListener?.onGyroCoordinateSystemChanged(coordinateSystem)
-                }
-                override fun onNothingSelected(parent: AdapterView<*>?) {}
-            }
-        }
-        gyroCoordinateSystemSpinner = coordinateSystemSpinner
-        advanced.addView(coordinateSystemSpinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt(); bottomMargin = (12f * density).toInt() })
-
-        // ── Gyro sensitivity (only for mouse/stick mapping) ──
-        addSeekbar(advanced, "灵敏度", presetGyroModeSensitivity, 1, 100, onChange = {
-            presetGyroModeSensitivity = it
-            editorListener?.onGyroModeSensitivityChanged(it)
-        })
-
-        // ── Gyro dead zone ──
-        addSeekbar(advanced, "陀螺仪死区(%)", presetGyroDeadZone, 0, 100, onChange = {
-            presetGyroDeadZone = it
-            editorListener?.onGyroDeadZoneChanged(it)
-        })
-
-        // ── Gyro reverse dead zone ──
-        addSeekbar(advanced, "陀螺仪反死区(%)", presetGyroReverseDeadZone, 0, 100, onChange = {
-            presetGyroReverseDeadZone = it
-            editorListener?.onGyroReverseDeadZoneChanged(it)
-        })
-
-        container.addView(advanced)
-
-        updateGyroModeVisibility()
-
-        buttonParamsInner.addView(container)
-    }
-
-    private fun clearGlobalSettingsPanel() {
-        globalSettingsContainer?.removeAllViews()
-        globalSettingsContainer = null
-        gyroAdvancedContainer = null
-    }
-
-    private fun updateGyroModeVisibility() {
-        val needAdvanced = presetGyroMode != com.zyz4.gkme.model.GyroMode.HANDHELD
-        val vis = if (needAdvanced) View.VISIBLE else View.GONE
-        gyroAdvancedContainer?.visibility = vis
-
-        // Coordinate system only visible for gyro mouse/stick modes (not accelerometer)
-        val needCoordSystem = presetGyroMode == com.zyz4.gkme.model.GyroMode.MOUSE ||
-                presetGyroMode == com.zyz4.gkme.model.GyroMode.LEFT_STICK ||
-                presetGyroMode == com.zyz4.gkme.model.GyroMode.RIGHT_STICK
-        gyroCoordinateSystemSpinner?.visibility = if (needCoordSystem) View.VISIBLE else View.GONE
-
-        // Base direction only visible for accelerometer stick modes
-        val needBaseDirection = presetGyroMode == com.zyz4.gkme.model.GyroMode.ACCELEROMETER_LEFT_STICK ||
-                presetGyroMode == com.zyz4.gkme.model.GyroMode.ACCELEROMETER_RIGHT_STICK
-        gyroBaseDirectionSpinner?.visibility = if (needBaseDirection) View.VISIBLE else View.GONE
-        gyroBaseDirectionLabel?.visibility = if (needBaseDirection) View.VISIBLE else View.GONE
     }
 
     private fun buildGripBar(density: Float): View {

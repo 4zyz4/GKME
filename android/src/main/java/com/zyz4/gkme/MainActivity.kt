@@ -42,6 +42,7 @@ import com.zyz4.gkme.model.VibrationType
 import com.zyz4.gkme.service.FloatingOverlayService
 import com.zyz4.gkme.view.FloatingEditorPanel
 import com.zyz4.gkme.view.GamepadLayout
+import com.zyz4.gkme.view.LayoutGlobalSettingsPanel
 import com.zyz4.gkme.input.AdaptiveTriggerHandler
 import com.zyz4.gkme.input.PhysicalControllerHandler
 import com.zyz4.gkme.input.SdlAudio
@@ -55,6 +56,7 @@ class MainActivity : ComponentActivity() {
     internal lateinit var gamepadLayout: GamepadLayout
     internal lateinit var floatingController: FloatingModeController
     internal val floatingEditor: FloatingEditorPanel by lazy { createFloatingEditor() }
+    internal var layoutGlobalSettingsPanel: LayoutGlobalSettingsPanel? = null
     internal val controlViews = mutableMapOf<String, View>()
     internal val touchpadLabels = mutableListOf<TextView>()
     internal val mousepadLabels = mutableListOf<TextView>()
@@ -207,6 +209,7 @@ class MainActivity : ComponentActivity() {
                 when {
                     isScreenOff -> exitScreenOffMode()
                     previewZoomVisible -> hidePreviewZoom()
+                    isLayoutGlobalSettingsVisible() -> hideLayoutGlobalSettings()
                     gamepadLayout.isEditModeActive() -> {
                         CustomDialog.showConfirm(
                             context = this@MainActivity,
