@@ -30,7 +30,6 @@ import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.model.HapticEffect
 import com.zyz4.gkme.model.LayoutPreset
 import com.zyz4.gkme.model.LedAppearance
-import com.zyz4.gkme.model.PhysicalInputMapping
 import com.zyz4.gkme.model.PhysicalInputs
 import com.zyz4.gkme.model.TargetPlatform
 import com.zyz4.gkme.model.VibrationDevice
@@ -436,45 +435,7 @@ class GkViewModel @Inject constructor(
         connectionManager.updateSettings(settings.value.copy(floatingOpacity = opacity.coerceIn(0, 100)))
     }
 
-    fun updateVolumeUpBits(bits: List<Int>) {
-        connectionManager.updateSettings(settings.value.copy(volumeUpBits = bits))
-    }
-
-    fun updateVolumeDownBits(bits: List<Int>) {
-        connectionManager.updateSettings(settings.value.copy(volumeDownBits = bits))
-    }
-
     // ── Physical-controller remapping ──
-
-    /** Replaces the output mapping of [key] while keeping its gyro-activation flag. */
-    fun updatePhysicalInputOutputs(key: String, outputs: List<Int>) {
-        writePhysicalMapping(key, outputs, currentPhysicalGyroFlag(key))
-    }
-
-    /** Sets the gyro-activation flag of [key] while keeping its output mapping. */
-    fun updatePhysicalInputGyroActivate(key: String, enabled: Boolean) {
-        writePhysicalMapping(key, currentPhysicalOutputs(key), enabled)
-    }
-
-    /** Restores [key] to its default mapping (the button itself), keeping its gyro flag. */
-    fun resetPhysicalInputMapping(key: String) {
-        writePhysicalMapping(key, PhysicalInputs.defaultOutputsFor(key), currentPhysicalGyroFlag(key))
-    }
-
-    private fun currentPhysicalOutputs(key: String): List<Int> =
-        settings.value.physicalInputMappings[key]?.outputs
-            ?: PhysicalInputs.defaultOutputsFor(key)
-
-    private fun currentPhysicalGyroFlag(key: String): Boolean =
-        settings.value.physicalInputMappings[key]?.gyroActivate ?: false
-
-    private fun writePhysicalMapping(key: String, outputs: List<Int>, gyroActivate: Boolean) {
-        val updated = settings.value.physicalInputMappings.toMutableMap()
-        val isDefault = outputs == PhysicalInputs.defaultOutputsFor(key) && !gyroActivate
-        if (isDefault) updated.remove(key)
-        else updated[key] = PhysicalInputMapping(outputs = outputs, gyroActivate = gyroActivate)
-        connectionManager.updateSettings(settings.value.copy(physicalInputMappings = updated))
-    }
 
     fun updateGyroOrientation(orientation: GyroOrientation) {
         val updated = settings.value.copy(gyroOrientation = orientation)
@@ -694,7 +655,7 @@ class GkViewModel @Inject constructor(
         rightStickX: Short, rightStickY: Short,
         touchpadTouch: Boolean,
     ) {
-        val mappings = settings.value.physicalInputMappings
+        val mappings = _currentPreset.value.physicalInputMappings
         var outputBits = 0u
         val kbCodes = LinkedHashSet<Int>()
         var gyroActive = false

@@ -23,7 +23,7 @@ data class PhysicalInput(
 /**
  * The user-configurable mapping of one physical input.
  *
- * An absent key in [AppSettings.physicalInputMappings] means "use the default": the input's
+ * An absent key in [LayoutPreset.physicalInputMappings] means "use the default": the input's
  * own [PhysicalInput.defaultOutputs] and gyro activation off. A stored mapping always wins,
  * so an empty [outputs] explicitly disables the input.
  */

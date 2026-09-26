@@ -490,17 +490,17 @@ class MainActivity : ComponentActivity() {
             syncPhysicalControllerState()
             return true
         }
-        val s = viewModel.settings.value
+        val preset = viewModel.currentPreset.value
         when (keyCode) {
             KeyEvent.KEYCODE_VOLUME_UP -> {
-                if (s.volumeUpBits.isNotEmpty()) {
-                    viewModel.onVolumeKeyDown(s.volumeUpBits)
+                if (preset.volumeUpBits.isNotEmpty()) {
+                    viewModel.onVolumeKeyDown(preset.volumeUpBits)
                     return true
                 }
             }
             KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                if (s.volumeDownBits.isNotEmpty()) {
-                    viewModel.onVolumeKeyDown(s.volumeDownBits)
+                if (preset.volumeDownBits.isNotEmpty()) {
+                    viewModel.onVolumeKeyDown(preset.volumeDownBits)
                     return true
                 }
             }
@@ -513,17 +513,17 @@ class MainActivity : ComponentActivity() {
             syncPhysicalControllerState()
             return true
         }
-        val s = viewModel.settings.value
+        val preset = viewModel.currentPreset.value
         when (keyCode) {
             KeyEvent.KEYCODE_VOLUME_UP -> {
-                if (s.volumeUpBits.isNotEmpty()) {
-                    viewModel.onVolumeKeyUp(s.volumeUpBits)
+                if (preset.volumeUpBits.isNotEmpty()) {
+                    viewModel.onVolumeKeyUp(preset.volumeUpBits)
                     return true
                 }
             }
             KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                if (s.volumeDownBits.isNotEmpty()) {
-                    viewModel.onVolumeKeyUp(s.volumeDownBits)
+                if (preset.volumeDownBits.isNotEmpty()) {
+                    viewModel.onVolumeKeyUp(preset.volumeDownBits)
                     return true
                 }
             }
@@ -707,24 +707,139 @@ internal fun performHaptic(isPress: Boolean) {
 
     // ── Volume mapping helpers ─────────────────────────────
 
-    
+    /** Persists the volume-key remapping into the layout being edited. */
+    internal fun updateVolumeBits(volumeUp: List<Int>, volumeDown: List<Int>) {
+        gamepadLayout.setVolumeBits(volumeUp, volumeDown)
+        viewModel.updatePresetButtons(gamepadLayout.getPreset())
+    }
 
-    private fun rebuildVolumeChips(containerId: Int, bits: List<Int>, onRemove: (Int) -> Unit) {
-        val container = findViewById<ViewGroup>(containerId)
-        container.removeAllViews()
+    internal fun populateVolumeMapping(container: LinearLayout) {
         val density = resources.displayMetrics.density
+        fun dp(v: Int) = (v * density).toInt()
+        container.removeAllViews()
+
+        container.addView(TextView(this).apply {
+            text = "音量键映射"
+            setTextColor(ContextCompat.getColor(context, R.color.text_primary))
+            textSize = 15f
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = dp(12)
+        })
+
+        fun currentUp() = gamepadLayout.currentVolumeUpBits
+        fun currentDown() = gamepadLayout.currentVolumeDownBits
+
+        container.addView(
+            buildVolumeMappingRow(
+                label = "音量 +",
+                bits = currentUp(),
+                density = density,
+                onAdd = {
+                    showOutputValuePicker(currentUp()) { newBits ->
+                        updateVolumeBits(newBits, currentDown())
+                        populateVolumeMapping(container)
+                    }
+                },
+                onClear = {
+                    updateVolumeBits(emptyList(), currentDown())
+                    populateVolumeMapping(container)
+                },
+                onRemove = { bit ->
+                    updateVolumeBits(currentUp() - bit, currentDown())
+                    populateVolumeMapping(container)
+                },
+            ),
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = dp(12)
+            },
+        )
+
+        container.addView(
+            buildVolumeMappingRow(
+                label = "音量 -",
+                bits = currentDown(),
+                density = density,
+                onAdd = {
+                    showOutputValuePicker(currentDown()) { newBits ->
+                        updateVolumeBits(currentUp(), newBits)
+                        populateVolumeMapping(container)
+                    }
+                },
+                onClear = {
+                    updateVolumeBits(currentUp(), emptyList())
+                    populateVolumeMapping(container)
+                },
+                onRemove = { bit ->
+                    updateVolumeBits(currentUp(), currentDown() - bit)
+                    populateVolumeMapping(container)
+                },
+            ),
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
+        )
+    }
+
+    private fun buildVolumeMappingRow(
+        label: String,
+        bits: List<Int>,
+        density: Float,
+        onAdd: () -> Unit,
+        onClear: () -> Unit,
+        onRemove: (Int) -> Unit,
+    ): View {
+        fun dp(v: Int) = (v * density).toInt()
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+        }
+        row.addView(TextView(this).apply {
+            text = label
+            setTextColor(ContextCompat.getColor(context, R.color.text_primary))
+            textSize = 14f
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            rightMargin = dp(8)
+        })
+
+        val chips = com.zyz4.gkme.view.FlowLayout(this)
+        row.addView(chips, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+            rightMargin = dp(8)
+        })
+        fillVolumeChips(chips, bits, density, onRemove)
+
+        row.addView(Button(this, null, 0, R.style.GamepadChip).apply {
+            text = "添加"
+            setOnClickListener { onAdd() }
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(36)).apply {
+            rightMargin = dp(4)
+        })
+
+        row.addView(Button(this, null, 0, R.style.GamepadChip).apply {
+            text = "清空"
+            setOnClickListener { onClear() }
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(36)))
+
+        return row
+    }
+
+    private fun fillVolumeChips(
+        container: com.zyz4.gkme.view.FlowLayout,
+        bits: List<Int>,
+        density: Float,
+        onRemove: (Int) -> Unit,
+    ) {
+        container.removeAllViews()
         if (bits.isEmpty()) {
-            val tv = TextView(this).apply {
+            container.addView(TextView(this).apply {
                 text = "未映射"
                 setTextColor(-0x777778)
                 textSize = 13f
                 setPadding(0, (4f * density).toInt(), 0, (4f * density).toInt())
-            }
-            container.addView(tv)
+            })
             return
         }
         bits.forEach { bit ->
-            val chip = TextView(this).apply {
+            container.addView(TextView(this).apply {
                 text = BitNameMapper.getBitName(bit)
                 setTextColor(-0x1)
                 textSize = 11f
@@ -732,19 +847,7 @@ internal fun performHaptic(isPress: Boolean) {
                 setBackgroundResource(R.drawable.bg_chip)
                 setPadding((6f * density).toInt(), (2f * density).toInt(), (6f * density).toInt(), (2f * density).toInt())
                 setOnClickListener { onRemove(bit) }
-            }
-            container.addView(chip, ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        }
-    }
-
-    internal fun updateVolumeMappingLabels() {
-        rebuildVolumeChips(R.id.layoutVolumeUpChips, viewModel.settings.value.volumeUpBits) { bit ->
-            viewModel.updateVolumeUpBits(viewModel.settings.value.volumeUpBits - bit)
-            updateVolumeMappingLabels()
-        }
-        rebuildVolumeChips(R.id.layoutVolumeDownChips, viewModel.settings.value.volumeDownBits) { bit ->
-            viewModel.updateVolumeDownBits(viewModel.settings.value.volumeDownBits - bit)
-            updateVolumeMappingLabels()
+            }, ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
     }
 }

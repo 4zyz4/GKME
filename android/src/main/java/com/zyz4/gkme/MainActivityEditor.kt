@@ -213,6 +213,14 @@ internal fun MainActivity.createGlobalSettingsPanel(): LayoutGlobalSettingsPanel
                 a.viewModel.updatePresetButtons(preset)
                 a.viewModel.updateGyroActivateMode(mode)
             }
+
+            override fun onPopulatePhysicalMapping(container: LinearLayout) {
+                a.populatePhysicalMapping(container)
+            }
+
+            override fun onPopulateVolumeMapping(container: LinearLayout) {
+                a.populateVolumeMapping(container)
+            }
         }
     }.also { panel ->
         (a.findViewById<View>(android.R.id.content) as ViewGroup).addView(

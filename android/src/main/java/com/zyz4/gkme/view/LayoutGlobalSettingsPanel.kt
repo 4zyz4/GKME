@@ -50,6 +50,8 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         fun onGyroDeadZoneChanged(value: Int)
         fun onGyroReverseDeadZoneChanged(value: Int)
         fun onGyroActivateModeChanged(mode: GyroActivateMode)
+        fun onPopulatePhysicalMapping(container: LinearLayout)
+        fun onPopulateVolumeMapping(container: LinearLayout)
     }
 
     var listener: Listener? = null
@@ -67,6 +69,13 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
     private var gyroActivateMode = GyroActivateMode.ALWAYS
 
     private var contentContainer: LinearLayout? = null
+    private var physicalContainer: LinearLayout? = null
+    private var volumeContainer: LinearLayout? = null
+    private var gyroScroll: ScrollView? = null
+    private var physicalScroll: ScrollView? = null
+    private var volumeScroll: ScrollView? = null
+    private var tabButtons: List<Button> = emptyList()
+    private var currentTab = 0
     private var gyroAdvancedContainer: LinearLayout? = null
     private var gyroCoordinateSystemSpinner: Spinner? = null
     private var gyroBaseDirectionSpinner: Spinner? = null
@@ -148,6 +157,24 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         gyroReverseDeadZone = preset.gyroReverseDeadZone ?: 0
         gyroActivateMode = preset.gyroActivateMode ?: GyroActivateMode.ALWAYS
         rebuildContent()
+        selectTab(0)
+    }
+
+    /** Repopulates whichever tab is currently visible (used after external state changes). */
+    fun refreshCurrentTab() {
+        selectTab(currentTab)
+    }
+
+    private fun selectTab(index: Int) {
+        currentTab = index
+        gyroScroll?.visibility = if (index == 0) View.VISIBLE else View.GONE
+        physicalScroll?.visibility = if (index == 1) View.VISIBLE else View.GONE
+        volumeScroll?.visibility = if (index == 2) View.VISIBLE else View.GONE
+        tabButtons.forEachIndexed { i, btn -> btn.isSelected = i == index }
+        when (index) {
+            1 -> physicalContainer?.let { listener?.onPopulatePhysicalMapping(it) }
+            2 -> volumeContainer?.let { listener?.onPopulateVolumeMapping(it) }
+        }
     }
 
     // ── Shell (sidebar + content) ───────────────────────────
@@ -195,16 +222,26 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
             bottomMargin = (8f * density).toInt()
         })
 
-        val btnGyro = Button(context).apply {
-            text = "陀螺仪"
+        fun tabButton(label: String): Button = Button(context).apply {
+            text = label
             gravity = Gravity.CENTER
             setTextColor(androidx.core.content.ContextCompat.getColor(context, R.color.text_primary))
             textSize = 13f
             background = androidx.core.content.ContextCompat.getDrawable(context, R.drawable.bg_sidebar_item)
             stateListAnimator = null
-            isSelected = true
+            isSelected = false
         }
-        sidebar.addView(btnGyro, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (48f * density).toInt()))
+
+        val btnGyro = tabButton("陀螺仪")
+        val btnPhysical = tabButton("实体手柄")
+        val btnVolume = tabButton("音量键")
+        tabButtons = listOf(btnGyro, btnPhysical, btnVolume)
+        tabButtons.forEach { btn ->
+            sidebar.addView(btn, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (48f * density).toInt()))
+        }
+        btnGyro.setOnClickListener { selectTab(0) }
+        btnPhysical.setOnClickListener { selectTab(1) }
+        btnVolume.setOnClickListener { selectTab(2) }
 
         // ── Right content ──
         val contentHost = FrameLayout(context).apply {
@@ -212,15 +249,24 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         }
         root.addView(contentHost, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
 
-        val scroll = ScrollView(context).apply {
+        fun page(): LinearLayout = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        fun scroll(content: LinearLayout): ScrollView = ScrollView(context).apply {
             layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             isFillViewport = true
+            addView(content)
         }
-        contentContainer = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-        }
-        scroll.addView(contentContainer)
-        contentHost.addView(scroll)
+
+        contentContainer = page()
+        physicalContainer = page()
+        volumeContainer = page()
+        gyroScroll = scroll(contentContainer!!)
+        physicalScroll = scroll(physicalContainer!!)
+        volumeScroll = scroll(volumeContainer!!)
+        contentHost.addView(gyroScroll)
+        contentHost.addView(physicalScroll)
+        contentHost.addView(volumeScroll)
+        physicalScroll?.visibility = View.GONE
+        volumeScroll?.visibility = View.GONE
 
         addView(root)
     }

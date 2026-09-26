@@ -42,6 +42,12 @@ data class LayoutPreset(
     val gyroModeSensitivity: Int? = null,
     val gyroDeadZone: Int? = null,
     val gyroReverseDeadZone: Int? = null,
+    /** Per-layout remapping of the physical controller; a missing key means "default". */
+    val physicalInputMappings: Map<String, PhysicalInputMapping> = emptyMap(),
+    /** Per-layout output bits emitted by the volume-up key. */
+    val volumeUpBits: List<Int> = emptyList(),
+    /** Per-layout output bits emitted by the volume-down key. */
+    val volumeDownBits: List<Int> = emptyList(),
 ) {
     companion object {
         private val gsonInstance = Gson()
@@ -159,6 +165,15 @@ data class LayoutPreset(
             val gyroModeSens = root.get("gyroModeSensitivity")?.asInt
             val gyroDeadZone = root.get("gyroDeadZone")?.asInt
             val gyroReverseDeadZone = root.get("gyroReverseDeadZone")?.asInt
+            val physicalInputMappings: Map<String, PhysicalInputMapping> =
+                root.get("physicalInputMappings")?.let {
+                    gsonInstance.fromJson(
+                        it,
+                        object : TypeToken<Map<String, PhysicalInputMapping>>() {}.type,
+                    )
+                } ?: emptyMap()
+            val volumeUpBits = root.getAsJsonArray("volumeUpBits")?.map { it.asInt } ?: emptyList()
+            val volumeDownBits = root.getAsJsonArray("volumeDownBits")?.map { it.asInt } ?: emptyList()
             return LayoutPreset(
                 version = root.get("version")?.asInt ?: 1,
                 buttons = buttons,
@@ -168,6 +183,9 @@ data class LayoutPreset(
                 gyroModeSensitivity = gyroModeSens,
                 gyroDeadZone = gyroDeadZone,
                 gyroReverseDeadZone = gyroReverseDeadZone,
+                physicalInputMappings = physicalInputMappings,
+                volumeUpBits = volumeUpBits,
+                volumeDownBits = volumeDownBits,
             )
         }
 
@@ -260,6 +278,9 @@ data class LayoutPreset(
         gyroModeSensitivity?.let { obj["gyroModeSensitivity"] = it }
         gyroDeadZone?.let { obj["gyroDeadZone"] = it }
         gyroReverseDeadZone?.let { obj["gyroReverseDeadZone"] = it }
+        if (physicalInputMappings.isNotEmpty()) obj["physicalInputMappings"] = physicalInputMappings
+        if (volumeUpBits.isNotEmpty()) obj["volumeUpBits"] = volumeUpBits
+        if (volumeDownBits.isNotEmpty()) obj["volumeDownBits"] = volumeDownBits
         return gson.toJson(obj)
     }
 
