@@ -217,7 +217,7 @@ class ClassicHidTransport(
         }
 
         lastReport = report
-        val reportId = 19
+        val reportId = gamepadReportId()
         try {
             val ok = hid.sendReport(device, reportId, report)
             if (!ok) {
@@ -232,6 +232,17 @@ class ClassicHidTransport(
             Log.e("ClassicHid", "sendReport exception", e)
             sendFailedCounter.incrementAndGet()
         }
+    }
+
+    /**
+     * The gamepad Report ID depends on the registered descriptor. Combo descriptors embed the
+     * gamepad as Report ID 19, while gamepad-only descriptors expose it as Report ID 1 (matching
+     * the legacy 3.0.2 layout).
+     */
+    private fun gamepadReportId(): Int = when (currentSettings?.targetPlatform) {
+        TargetPlatform.ANDROID_GAMEPAD_ONLY,
+        TargetPlatform.WINDOWS_GAMEPAD_ONLY -> GAMEPAD_REPORT_ID_ONLY
+        else -> GAMEPAD_REPORT_ID_COMBO
     }
 
     private val mouseSendFailedCounter = AtomicInteger(0)
@@ -407,11 +418,16 @@ class ClassicHidTransport(
         }
         val deviceName = getRealDeviceName()
         val label = "Virtual HID Controller"
+        val subclass = when (settings?.targetPlatform) {
+            TargetPlatform.ANDROID_GAMEPAD_ONLY,
+            TargetPlatform.WINDOWS_GAMEPAD_ONLY -> BluetoothHidDevice.SUBCLASS2_GAMEPAD
+            else -> BluetoothHidDevice.SUBCLASS1_COMBO
+        }
         val sdp = BluetoothHidDeviceAppSdpSettings(
             deviceName,
             label,
             deviceName,
-            BluetoothHidDevice.SUBCLASS1_COMBO,
+            subclass,
             desc,
         )
         val qos = BluetoothHidDeviceAppQosSettings(
@@ -540,6 +556,12 @@ class ClassicHidTransport(
         private const val MAX_REGISTER_ATTEMPTS = 5
 
         private fun b(v: Int) = v.toByte()
+
+        /** Gamepad Report ID inside a combo descriptor (keyboard/mouse present). */
+        private const val GAMEPAD_REPORT_ID_COMBO = 19
+
+        /** Gamepad Report ID of a gamepad-only descriptor, matching the legacy 3.0.2 layout. */
+        private const val GAMEPAD_REPORT_ID_ONLY = 1
 
         /** Combo device (Keyboard + Mouse + Windows Gamepad 11-byte) HID descriptor. */
         private val COMBO_WIN_HID_DESCRIPTOR = byteArrayOf(
@@ -1118,13 +1140,13 @@ class ClassicHidTransport(
             b(0xC0),                     // End Collection
         )
 
-        /** Android Gamepad only descriptor (no keyboard/mouse). Report ID 19, 9-byte layout. */
+        /** Android Gamepad only descriptor (no keyboard/mouse). Report ID 1, 9-byte layout. */
         private val ANDROID_GAMEPAD_ONLY_HID_DESCRIPTOR = byteArrayOf(
-            // GAMEPAD — Report ID 19 — 9-byte Android layout
+            // GAMEPAD — Report ID 1 — 9-byte Android layout
             b(0x05), b(0x01),             // Usage Page (Generic Desktop)
             b(0x09), b(0x05),             // Usage (Game Pad)
             b(0xA1), b(0x01),             // Collection (Application)
-            b(0x85), b(0x13),             //   Report ID (19)
+            b(0x85), b(0x01),             //   Report ID (1)
 
             // Buttons (2 bytes — 16 buttons)
             b(0x05), b(0x09),             //   Usage Page (Button)
@@ -1184,14 +1206,14 @@ class ClassicHidTransport(
             b(0xC0),                      // End Collection
         )
 
-        /** Windows Gamepad only descriptor (no keyboard/mouse). Report ID 19, 11-byte layout. */
+        /** Windows Gamepad only descriptor (no keyboard/mouse). Report ID 1, 11-byte layout. */
         private val WINDOWS_GAMEPAD_ONLY_HID_DESCRIPTOR = byteArrayOf(
-            // GAMEPAD — Report ID 19 — using Windows 11-byte layout
+            // GAMEPAD — Report ID 1 — using Windows 11-byte layout
             // (18 buttons + 6 padding + 4 x 16-bit axes)
             b(0x05), b(0x01),       // Usage Page (Generic Desktop)
             b(0x09), b(0x05),       // Usage (Game Pad)
             b(0xA1), b(0x01),       // Collection (Application)
-            b(0x85), b(0x13),       //   Report ID (19)
+            b(0x85), b(0x01),       //   Report ID (1)
 
             // Buttons (18 buttons + 6 padding = 24 bits / 3 bytes)
             b(0x05), b(0x09),       //   Usage Page (Button)
