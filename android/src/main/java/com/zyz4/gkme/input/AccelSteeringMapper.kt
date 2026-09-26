@@ -105,6 +105,8 @@ class AccelSteeringMapper {
         sensitivity: Int,
         deadZone: Int = 0,
         reverseDeadZone: Int = 0,
+        /** Shared gyro/accel stick sensitivity curve (flat points); null = identity. */
+        curve: List<Float>? = null,
         gyroX: Float = 0f,
         gyroY: Float = 0f,
         gyroZ: Float = 0f,
@@ -219,6 +221,11 @@ class AccelSteeringMapper {
                 outY = rawY * scale
             }
         }
+
+        // 灵敏度曲线：死区之后、灵敏度之前，按满量程（|输出| = 1）径向映射。
+        val (curvedX, curvedY) = SensitivityCurve.applyRadial(curve, outX, outY, 1f)
+        outX = curvedX
+        outY = curvedY
 
         return AccelStick(
             x = (outX * sens).coerceIn(-1f, 1f),

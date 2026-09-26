@@ -42,6 +42,8 @@ data class LayoutPreset(
     val gyroModeSensitivity: Int? = null,
     val gyroDeadZone: Int? = null,
     val gyroReverseDeadZone: Int? = null,
+    /** Shared sensitivity curve (flat [x0,y0,x1,y1,...]) for the gyro/accel -> stick modes. */
+    val gyroStickCurve: List<Float>? = null,
     /** Per-layout remapping of the physical controller; a missing key means "default". */
     val physicalInputMappings: Map<String, PhysicalInputMapping> = emptyMap(),
     /** Per-layout output bits emitted by the volume-up key. */
@@ -165,6 +167,7 @@ data class LayoutPreset(
             val gyroModeSens = root.get("gyroModeSensitivity")?.asInt
             val gyroDeadZone = root.get("gyroDeadZone")?.asInt
             val gyroReverseDeadZone = root.get("gyroReverseDeadZone")?.asInt
+            val gyroStickCurve = root.getAsJsonArray("gyroStickCurve")?.map { it.asFloat }
             val physicalInputMappings: Map<String, PhysicalInputMapping> =
                 root.get("physicalInputMappings")?.let {
                     gsonInstance.fromJson(
@@ -183,6 +186,7 @@ data class LayoutPreset(
                 gyroModeSensitivity = gyroModeSens,
                 gyroDeadZone = gyroDeadZone,
                 gyroReverseDeadZone = gyroReverseDeadZone,
+                gyroStickCurve = gyroStickCurve,
                 physicalInputMappings = physicalInputMappings,
                 volumeUpBits = volumeUpBits,
                 volumeDownBits = volumeDownBits,
@@ -278,6 +282,7 @@ data class LayoutPreset(
         gyroModeSensitivity?.let { obj["gyroModeSensitivity"] = it }
         gyroDeadZone?.let { obj["gyroDeadZone"] = it }
         gyroReverseDeadZone?.let { obj["gyroReverseDeadZone"] = it }
+        if (!gyroStickCurve.isNullOrEmpty()) obj["gyroStickCurve"] = gyroStickCurve
         if (physicalInputMappings.isNotEmpty()) obj["physicalInputMappings"] = physicalInputMappings
         if (volumeUpBits.isNotEmpty()) obj["volumeUpBits"] = volumeUpBits
         if (volumeDownBits.isNotEmpty()) obj["volumeDownBits"] = volumeDownBits

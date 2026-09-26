@@ -281,45 +281,8 @@ val clampedDist = if (dist > maxD) maxD else dist
         onStickMoved?.invoke(sx, sy)
     }
 
-    private fun evaluateCurve(t: Float): Float {
-        if (sensitivityCurve == null || sensitivityCurve!!.size < 2) return t
-        val pts = mutableListOf<Pair<Float, Float>>()
-        for (i in sensitivityCurve!!.indices step 2) {
-            if (i + 1 < sensitivityCurve!!.size) {
-                pts.add(Pair(sensitivityCurve!![i], sensitivityCurve!![i + 1]))
-            }
-        }
-        if (pts.isEmpty()) return t
-        val sorted = pts.sortedBy { it.first }
-
-        val inVal = t.coerceIn(0f, 1f)
-        if (inVal <= sorted.first().first) {
-            if (sorted.first().first > 0f) return sorted.first().second * inVal / sorted.first().first
-            return sorted.first().second
-        }
-        if (inVal >= sorted.last().first) {
-            if (sorted.last().first < 1f) return sorted.last().second + (1f - sorted.last().second) * (inVal - sorted.last().first) / (1f - sorted.last().first)
-            return sorted.last().second
-        }
-
-        for (i in 0 until sorted.size - 1) {
-            val p0 = sorted[i]
-            val p1 = sorted[i + 1]
-            if (inVal >= p0.first && inVal < p1.first) {
-                val localT = (inVal - p0.first) / (p1.first - p0.first)
-                val pm1 = if (i > 0) sorted[i - 1] else Pair(-(p1.first - p0.first), -(p1.second - p0.second))
-                val p2 = if (i < sorted.size - 2) sorted[i + 2] else Pair(p1.first + (p1.first - p0.first), p1.second + (p1.second - p0.second))
-                return catmullRom(pm1.second, p0.second, p1.second, p2.second, localT)
-            }
-        }
-        return inVal
-    }
-
-    private fun catmullRom(p0: Float, p1: Float, p2: Float, p3: Float, t: Float): Float {
-        val t2 = t * t
-        val t3 = t2 * t
-        return 0.5f * ((2f * p1) + (-p0 + p2) * t + (2f * p0 - 5f * p1 + 4f * p2 - p3) * t2 + (-p0 + 3f * p1 - 3f * p2 + p3) * t3)
-    }
+    private fun evaluateCurve(t: Float): Float =
+        com.zyz4.gkme.input.SensitivityCurve.evaluate(sensitivityCurve, t)
 
     private fun highlightColor(color: Int, factor: Float): Int {
         val r = (Color.red(color) + (255 - Color.red(color)) * factor).toInt().coerceIn(0, 255)

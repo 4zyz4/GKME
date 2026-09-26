@@ -188,6 +188,8 @@ data class AppSettings(
     val gyroModeSensitivity: Int = 20,
     val gyroDeadZone: Int = 0,
     val gyroReverseDeadZone: Int = 0,
+    /** Shared sensitivity curve (flat [x0,y0,x1,y1,...]) for the gyro/accel -> stick modes. */
+    val gyroStickCurve: List<Float>? = null,
     val keepScreenOn: Boolean = false,
     /** Opacity (0-100) applied to all floating-mode buttons (multiplied with each button's
      *  own idle/active opacity). */
