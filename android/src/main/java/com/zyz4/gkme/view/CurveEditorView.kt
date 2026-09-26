@@ -187,5 +187,16 @@ class CurveEditorView @JvmOverloads constructor(
         invalidate()
     }
 
+    /** Current points as a flat `[x0, y0, x1, y1, ...]` list, or null when empty. */
+    fun flatList(): List<Float>? {
+        if (points.isEmpty()) return null
+        val flat = ArrayList<Float>(points.size * 2)
+        for (p in points) {
+            flat.add(p.first)
+            flat.add(p.second)
+        }
+        return flat
+    }
+
     fun hasSelection(): Boolean = selectedIndex >= 0 && selectedIndex < points.size
 }
