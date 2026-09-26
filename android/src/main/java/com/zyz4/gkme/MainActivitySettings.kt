@@ -74,8 +74,8 @@ import kotlin.time.Duration.Companion.milliseconds
 
 private const val SETTINGS_OPEN_DURATION = 300L
 private const val SETTINGS_CLOSE_DURATION = 300L
-private const val CATEGORY_SWITCH_DURATION = 150L
-private const val PAGE_SWITCH_OFFSET_DP = 24f
+internal const val CATEGORY_SWITCH_DURATION = 150L
+internal const val PAGE_SWITCH_OFFSET_DP = 24f
 
 private val SETTINGS_PAGES = listOf(
     R.id.pageConnection, R.id.pagePresets, R.id.pageAppearance, R.id.pagePhysicalController,

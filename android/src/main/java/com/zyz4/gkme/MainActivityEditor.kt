@@ -241,7 +241,7 @@ internal fun MainActivity.showLayoutGlobalSettings() {
     val panel = a.layoutGlobalSettingsPanel ?: createGlobalSettingsPanel().also { a.layoutGlobalSettingsPanel = it }
     a.floatingEditor.showingGlobalSettings = true
     a.floatingEditor.updateActionButtonsVisibility()
-    a.floatingEditor.hideAnimated()
+    a.floatingEditor.hideAnimated(LayoutGlobalSettingsPanel.SHOW_DURATION_MS)
     a.gamepadLayout.deselectButton()
     a.gamepadLayout.blockSelectionForGlobalSettings = true
     val settings = a.viewModel.settings.value
@@ -254,12 +254,12 @@ internal fun MainActivity.showLayoutGlobalSettings() {
 
 internal fun MainActivity.hideLayoutGlobalSettings() {
     val a = this
-    a.layoutGlobalSettingsPanel?.hide {
-        a.gamepadLayout.blockSelectionForGlobalSettings = false
-        a.floatingEditor.showingGlobalSettings = false
-        a.floatingEditor.updateActionButtonsVisibility()
-        a.floatingEditor.showAnimated()
-    }
+    val panel = a.layoutGlobalSettingsPanel ?: return
+    a.gamepadLayout.blockSelectionForGlobalSettings = false
+    a.floatingEditor.showingGlobalSettings = false
+    a.floatingEditor.updateActionButtonsVisibility()
+    a.floatingEditor.showAnimated(LayoutGlobalSettingsPanel.HIDE_DURATION_MS)
+    panel.hide()
 }
 
 internal fun MainActivity.getPreviewText(entry: CtrlEntry, mode: DisplayMode): String? {
