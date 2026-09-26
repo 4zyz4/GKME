@@ -1064,6 +1064,8 @@ class GkViewModel @Inject constructor(
                         sensorHandler.gyroOrientation,
                         sensorHandler.isDeviceInverted,
                         s.gyroModeSensitivity,
+                        deadZone = s.gyroDeadZone,
+                        reverseDeadZone = s.gyroReverseDeadZone,
                         gyroX = accelGyroX,
                         gyroY = accelGyroY,
                         gyroZ = accelGyroZ,
