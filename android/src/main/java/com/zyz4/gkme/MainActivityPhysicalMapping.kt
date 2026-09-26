@@ -9,6 +9,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import com.zyz4.gkme.model.PhysicalInput
 import com.zyz4.gkme.model.PhysicalInputKind
+import com.zyz4.gkme.model.PhysicalInputMapping
 import com.zyz4.gkme.model.PhysicalInputs
 import com.zyz4.gkme.view.FlowLayout
 
@@ -26,21 +27,46 @@ internal fun MainActivity.currentSupportedPhysicalButtons(): Int {
     return if (mask != 0) mask else PhysicalInputs.STANDARD_BUTTON_MASK
 }
 
+/** Persists the physical-controller remapping into the layout being edited. */
+internal fun MainActivity.writePhysicalMapping(key: String, outputs: List<Int>, gyroActivate: Boolean) {
+    val updated = gamepadLayout.currentPhysicalInputMappings.toMutableMap()
+    val isDefault = outputs == PhysicalInputs.defaultOutputsFor(key) && !gyroActivate
+    if (isDefault) updated.remove(key)
+    else updated[key] = PhysicalInputMapping(outputs = outputs, gyroActivate = gyroActivate)
+    gamepadLayout.setPhysicalInputMappings(updated)
+    viewModel.updatePresetButtons(gamepadLayout.getPreset())
+}
+
+internal fun MainActivity.updatePhysicalMappingOutputs(key: String, outputs: List<Int>) {
+    val gyro = gamepadLayout.currentPhysicalInputMappings[key]?.gyroActivate ?: false
+    writePhysicalMapping(key, outputs, gyro)
+}
+
+internal fun MainActivity.updatePhysicalMappingGyro(key: String, enabled: Boolean) {
+    val outputs = gamepadLayout.currentPhysicalInputMappings[key]?.outputs
+        ?: PhysicalInputs.defaultOutputsFor(key)
+    writePhysicalMapping(key, outputs, enabled)
+}
+
+internal fun MainActivity.resetPhysicalMapping(key: String) {
+    val gyro = gamepadLayout.currentPhysicalInputMappings[key]?.gyroActivate ?: false
+    writePhysicalMapping(key, PhysicalInputs.defaultOutputsFor(key), gyro)
+}
+
 /**
- * Rebuilds the physical-controller mapping list: one card per input, each with a
- * volume-key-style output row plus a separate "用于激活陀螺仪" checkbox row. Joysticks and
- * the touchpad only get the checkbox.
+ * Rebuilds the physical-controller mapping list into [container]: one card per input, each with a
+ * volume-key-style output row plus a separate "用于激活陀螺仪" checkbox row. Joysticks and the
+ * touchpad only get the checkbox.
  */
-internal fun MainActivity.rebuildPhysicalMappingRows() {
+internal fun MainActivity.populatePhysicalMapping(container: LinearLayout) {
     val a = this
-    if (!a.settingsInflated) return
-    val container = a.findViewById<LinearLayout>(R.id.layoutPhysicalButtonMapping) ?: return
     val density = a.resources.displayMetrics.density
     fun dp(v: Int) = (v * density).toInt()
-
     container.removeAllViews()
+
     val supported = a.currentSupportedPhysicalButtons()
-    val mappings = a.viewModel.settings.value.physicalInputMappings
+    val mappings = a.gamepadLayout.currentPhysicalInputMappings
+    fun refresh() = a.populatePhysicalMapping(container)
 
     for (input in PhysicalInputs.ALL) {
         val isButton = input.kind == PhysicalInputKind.BUTTON
@@ -60,11 +86,11 @@ internal fun MainActivity.rebuildPhysicalMappingRows() {
         if (isButton) {
             val outputs = mappings[input.key]?.outputs ?: input.defaultOutputs
             card.addView(
-                a.buildPhysicalMappingRow(input, outputs, density),
+                a.buildPhysicalMappingRow(input, outputs, density, ::refresh),
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
             )
             card.addView(
-                a.buildPhysicalGyroCheckbox(input, gyroChecked, density),
+                a.buildPhysicalGyroCheckbox(input, gyroChecked, density, ::refresh),
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                     .apply { topMargin = dp(2) },
             )
@@ -82,7 +108,7 @@ internal fun MainActivity.rebuildPhysicalMappingRows() {
                 LinearLayout.LayoutParams(dp(92), ViewGroup.LayoutParams.WRAP_CONTENT),
             )
             row.addView(
-                a.buildPhysicalGyroCheckbox(input, gyroChecked, density),
+                a.buildPhysicalGyroCheckbox(input, gyroChecked, density, ::refresh),
                 LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
             )
             card.addView(
@@ -97,6 +123,7 @@ private fun MainActivity.buildPhysicalMappingRow(
     input: PhysicalInput,
     outputs: List<Int>,
     density: Float,
+    onChanged: () -> Unit,
 ): View {
     val a = this
     fun dp(v: Int) = (v * density).toInt()
@@ -120,7 +147,8 @@ private fun MainActivity.buildPhysicalMappingRow(
         LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = dp(6) },
     )
     a.fillPhysicalMappingChips(chips, outputs, density) { removed ->
-        a.viewModel.updatePhysicalInputOutputs(input.key, outputs - removed)
+        a.updatePhysicalMappingOutputs(input.key, outputs - removed)
+        onChanged()
     }
 
     row.addView(
@@ -128,7 +156,8 @@ private fun MainActivity.buildPhysicalMappingRow(
             text = "添加"
             setOnClickListener {
                 a.showOutputValuePicker(outputs) { newBits ->
-                    a.viewModel.updatePhysicalInputOutputs(input.key, newBits)
+                    a.updatePhysicalMappingOutputs(input.key, newBits)
+                    onChanged()
                 }
             }
         },
@@ -138,7 +167,10 @@ private fun MainActivity.buildPhysicalMappingRow(
     row.addView(
         Button(a, null, 0, R.style.GamepadChip).apply {
             text = "清空"
-            setOnClickListener { a.viewModel.updatePhysicalInputOutputs(input.key, emptyList()) }
+            setOnClickListener {
+                a.updatePhysicalMappingOutputs(input.key, emptyList())
+                onChanged()
+            }
         },
         LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(36)).apply { leftMargin = dp(4) },
     )
@@ -146,7 +178,10 @@ private fun MainActivity.buildPhysicalMappingRow(
     row.addView(
         Button(a, null, 0, R.style.GamepadChip).apply {
             text = "重置"
-            setOnClickListener { a.viewModel.resetPhysicalInputMapping(input.key) }
+            setOnClickListener {
+                a.resetPhysicalMapping(input.key)
+                onChanged()
+            }
         },
         LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(36)).apply { leftMargin = dp(4) },
     )
@@ -158,6 +193,7 @@ private fun MainActivity.buildPhysicalGyroCheckbox(
     input: PhysicalInput,
     checked: Boolean,
     density: Float,
+    onChanged: () -> Unit,
 ): CheckBox = CheckBox(this).apply {
     text = "用于激活陀螺仪"
     setTextColor(COLOR_TEXT_SECONDARY)
@@ -165,7 +201,8 @@ private fun MainActivity.buildPhysicalGyroCheckbox(
     isChecked = checked
     setPadding(0, 0, 0, 0)
     setOnCheckedChangeListener { _, value ->
-        viewModel.updatePhysicalInputGyroActivate(input.key, value)
+        updatePhysicalMappingGyro(input.key, value)
+        onChanged()
     }
 }
 

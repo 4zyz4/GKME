@@ -116,9 +116,6 @@ internal fun MainActivity.observeState() {
                     a.applyEffectivePhysicalControllerSettings()
                     a.applyAdaptiveTriggerSettings()
                     a.applyAppearanceIfChanged(s)
-                    if (a.settingsInflated && a.inSettings && a.currentSettingsCategory == 3) {
-                        a.rebuildPhysicalMappingRows()
-                    }
                 }
             }
             launch {
@@ -196,9 +193,9 @@ internal fun MainActivity.observeState() {
                         a.syncVoiceCoilUI()
                         a.syncControllerAudioUI()
                         a.syncGyroSourceUI()
-                        if (a.currentSettingsCategory == 3) {
-                            a.rebuildPhysicalMappingRows()
-                        }
+                    }
+                    if (a.isLayoutGlobalSettingsVisible()) {
+                        a.layoutGlobalSettingsPanel?.refreshCurrentTab()
                     }
                     a.syncPhysicalControllerState()
                     // 手柄连接时重新应用当前LED状态

@@ -269,9 +269,6 @@ internal fun MainActivity.selectSettingsCategory(index: Int, animate: Boolean = 
             a.updateAppearancePreview()
         }
     }
-    if (index == 3) {
-        a.rebuildPhysicalMappingRows()
-    }
     if (index == 4) {
         a.vibrationPollingJob = a.lifecycleScope.launch {
             while (true) {
@@ -1478,27 +1475,6 @@ internal fun MainActivity.setupMiscPage() {
     listOf(R.id.rowFloatingMode, R.id.btnFloatingMode).forEach { id ->
         a.findViewById<View>(id).setOnClickListener { a.enterFloatingMode() }
     }
-
-    a.findViewById<View>(R.id.btnAddVolumeUp).setOnClickListener {
-        a.showOutputValuePicker(a.viewModel.settings.value.volumeUpBits) { newBits ->
-            a.viewModel.updateVolumeUpBits(newBits)
-            a.updateVolumeMappingLabels()
-        }
-    }
-    a.findViewById<View>(R.id.btnClearVolumeUp).setOnClickListener {
-        a.viewModel.updateVolumeUpBits(emptyList())
-        a.updateVolumeMappingLabels()
-    }
-    a.findViewById<View>(R.id.btnAddVolumeDown).setOnClickListener {
-        a.showOutputValuePicker(a.viewModel.settings.value.volumeDownBits) { newBits ->
-            a.viewModel.updateVolumeDownBits(newBits)
-            a.updateVolumeMappingLabels()
-        }
-    }
-    a.findViewById<View>(R.id.btnClearVolumeDown).setOnClickListener {
-        a.viewModel.updateVolumeDownBits(emptyList())
-        a.updateVolumeMappingLabels()
-    }
 }
 
 @SuppressLint("SetTextI18n")
@@ -1831,7 +1807,6 @@ internal fun MainActivity.syncSettingsUI() {
     a.findViewById<Switch>(R.id.switchKeepScreenOn).isChecked = s.keepScreenOn
     a.findViewById<SeekBar>(R.id.seekFloatingOpacity).progress = s.floatingOpacity
     a.findViewById<TextView>(R.id.tvFloatingOpacity).text = "${s.floatingOpacity}%"
-    a.updateVolumeMappingLabels()
 
     a.syncAppearanceUI()
     a.applyAppearanceIfChanged(s)
@@ -1844,8 +1819,6 @@ internal fun MainActivity.syncSettingsUI() {
     a.findViewById<SeekBar>(R.id.seekControllerGyroZ).progress = 0
 
     a.syncPhysicalControllerUI()
-
-    a.rebuildPhysicalMappingRows()
 
     a.refreshPresetList()
     a.syncAudioUI()
