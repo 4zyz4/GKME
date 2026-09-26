@@ -53,6 +53,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         fun onGyroModeSensitivityChanged(value: Int)
         fun onGyroDeadZoneChanged(value: Int)
         fun onGyroReverseDeadZoneChanged(value: Int)
+        fun onGyroStickCurveChanged(curve: List<Float>?)
         fun onGyroActivateModeChanged(mode: GyroActivateMode)
         fun onPopulatePhysicalMapping(container: LinearLayout)
         fun onPopulateVolumeMapping(container: LinearLayout)
@@ -70,6 +71,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
     private var gyroModeSensitivity = 20
     private var gyroDeadZone = 0
     private var gyroReverseDeadZone = 0
+    private var gyroStickCurve: List<Float>? = null
     private var gyroActivateMode = GyroActivateMode.ALWAYS
 
     private var contentContainer: LinearLayout? = null
@@ -88,6 +90,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
     private var gyroCoordinateSystemSpinner: Spinner? = null
     private var gyroBaseDirectionSpinner: Spinner? = null
     private var gyroBaseDirectionLabel: TextView? = null
+    private var gyroStickCurveContainer: LinearLayout? = null
 
     private val baseDirectionValues = listOf(
         GyroBaseDirection.VERTICAL,
@@ -177,6 +180,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         gyroModeSensitivity = preset.gyroModeSensitivity ?: 20
         gyroDeadZone = preset.gyroDeadZone ?: 0
         gyroReverseDeadZone = preset.gyroReverseDeadZone ?: 0
+        gyroStickCurve = preset.gyroStickCurve
         gyroActivateMode = preset.gyroActivateMode ?: GyroActivateMode.ALWAYS
         physicalContainer?.removeAllViews()
         volumeContainer?.removeAllViews()
@@ -402,6 +406,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         gyroCoordinateSystemSpinner = null
         gyroBaseDirectionSpinner = null
         gyroBaseDirectionLabel = null
+        gyroStickCurveContainer = null
 
         val density = resources.displayMetrics.density
 
@@ -532,6 +537,54 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
             gyroModeSensitivity = it
             listener?.onGyroModeSensitivityChanged(it)
         }
+
+        // Shared sensitivity curve for the gyro / accel -> stick modes.
+        gyroStickCurveContainer = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        val curveContainer = gyroStickCurveContainer!!
+        curveContainer.addView(sectionLabel("灵敏度曲线", density))
+        val curveView = CurveEditorView(context).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                (200f * density).toInt(),
+            )
+            setFromFlatList(gyroStickCurve)
+            onPointsChanged = { list ->
+                gyroStickCurve = list
+                listener?.onGyroStickCurveChanged(list)
+            }
+        }
+        curveContainer.addView(curveView)
+        val curveBtnRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = (4f * density).toInt()
+            }
+        }
+        val btnDeletePoint = Button(context).apply {
+            text = "删除选中点"
+            setTextColor(-0x1)
+            textSize = 12f
+            setBackgroundResource(R.drawable.button_flat)
+            setOnClickListener { curveView.deleteSelected() }
+        }
+        val btnResetCurve = Button(context).apply {
+            text = "重置为直线"
+            setTextColor(-0x1)
+            textSize = 12f
+            setBackgroundResource(R.drawable.button_flat)
+            setOnClickListener {
+                gyroStickCurve = null
+                listener?.onGyroStickCurveChanged(null)
+                curveView.setFromFlatList(null)
+            }
+        }
+        curveBtnRow.addView(btnDeletePoint, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+            rightMargin = (4f * density).toInt()
+        })
+        curveBtnRow.addView(btnResetCurve, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        curveContainer.addView(curveBtnRow)
+        advanced.addView(curveContainer)
+
         addSeekbar(advanced, "陀螺仪死区(%)", gyroDeadZone, 0, 100) {
             gyroDeadZone = it
             listener?.onGyroDeadZoneChanged(it)
@@ -608,6 +661,12 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
             gyroMode == GyroMode.ACCELEROMETER_RIGHT_STICK
         gyroBaseDirectionSpinner?.visibility = if (needBaseDirection) View.VISIBLE else View.GONE
         gyroBaseDirectionLabel?.visibility = if (needBaseDirection) View.VISIBLE else View.GONE
+
+        val needStickCurve = gyroMode == GyroMode.LEFT_STICK ||
+            gyroMode == GyroMode.RIGHT_STICK ||
+            gyroMode == GyroMode.ACCELEROMETER_LEFT_STICK ||
+            gyroMode == GyroMode.ACCELEROMETER_RIGHT_STICK
+        gyroStickCurveContainer?.visibility = if (needStickCurve) View.VISIBLE else View.GONE
     }
 
     private fun addSeekbar(container: LinearLayout, label: String, value: Int, min: Int, max: Int, onChange: (Int) -> Unit) {

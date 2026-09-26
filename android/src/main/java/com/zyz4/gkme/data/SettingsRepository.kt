@@ -78,6 +78,7 @@ class SettingsRepository @Inject constructor(
         val GYRO_COORDINATE_SYSTEM = intPreferencesKey("gyro_coordinate_system")
         val GYRO_DEAD_ZONE = intPreferencesKey("gyro_dead_zone")
         val GYRO_REVERSE_DEAD_ZONE = intPreferencesKey("gyro_reverse_dead_zone")
+        val GYRO_STICK_CURVE = stringPreferencesKey("gyro_stick_curve")
         val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val FLOATING_OPACITY = intPreferencesKey("floating_opacity")
         val GYRO_ACTIVATE_MODE = intPreferencesKey("gyro_activate_mode")
@@ -142,6 +143,7 @@ class SettingsRepository @Inject constructor(
 
     private val gson = Gson()
     private val stringSetType = object : TypeToken<Set<String>>() {}.type
+    private val floatListType = object : TypeToken<List<Float>>() {}.type
 
     val settings: Flow<AppSettings> = context.settingsDataStore.data.map { prefs ->
         AppSettings(
@@ -214,6 +216,7 @@ class SettingsRepository @Inject constructor(
             gyroModeSensitivity = prefs[Keys.GYRO_MODE_SENSITIVITY] ?: 20,
             gyroDeadZone = prefs[Keys.GYRO_DEAD_ZONE] ?: 0,
             gyroReverseDeadZone = prefs[Keys.GYRO_REVERSE_DEAD_ZONE] ?: 0,
+            gyroStickCurve = parseFloatList(prefs[Keys.GYRO_STICK_CURVE]),
             gyroBaseDirection = GyroBaseDirection.entries.getOrElse(
                 prefs[Keys.GYRO_BASE_DIRECTION] ?: GyroBaseDirection.VERTICAL.ordinal
             ) { GyroBaseDirection.VERTICAL },
@@ -330,6 +333,11 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.GYRO_MODE_SENSITIVITY] = settings.gyroModeSensitivity
             prefs[Keys.GYRO_DEAD_ZONE] = settings.gyroDeadZone
             prefs[Keys.GYRO_REVERSE_DEAD_ZONE] = settings.gyroReverseDeadZone
+            if (settings.gyroStickCurve != null) {
+                prefs[Keys.GYRO_STICK_CURVE] = gson.toJson(settings.gyroStickCurve)
+            } else {
+                prefs.remove(Keys.GYRO_STICK_CURVE)
+            }
             prefs[Keys.GYRO_BASE_DIRECTION] = settings.gyroBaseDirection.ordinal
             prefs[Keys.GYRO_COORDINATE_SYSTEM] = settings.gyroCoordinateSystem.ordinal
             prefs[Keys.KEEP_SCREEN_ON] = settings.keepScreenOn
@@ -434,5 +442,12 @@ class SettingsRepository @Inject constructor(
         return try {
             gson.fromJson<Set<String>>(json, stringSetType) ?: emptySet()
         } catch (_: Exception) { emptySet() }
+    }
+
+    private fun parseFloatList(json: String?): List<Float>? {
+        if (json.isNullOrEmpty()) return null
+        return try {
+            gson.fromJson<List<Float>>(json, floatListType)?.takeIf { it.isNotEmpty() }
+        } catch (_: Exception) { null }
     }
 }

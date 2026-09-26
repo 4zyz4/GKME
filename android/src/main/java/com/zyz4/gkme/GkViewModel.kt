@@ -9,6 +9,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.zyz4.gkme.data.LayoutRepository
 import com.zyz4.gkme.input.AccelSteeringMapper
+import com.zyz4.gkme.input.SensitivityCurve
 import com.zyz4.gkme.input.SensorHandler
 import com.zyz4.gkme.input.toProto
 import com.zyz4.gkme.model.AudioDevice
@@ -275,6 +276,9 @@ class GkViewModel @Inject constructor(
             val updated = settings.value.copy(gyroReverseDeadZone = it)
             connectionManager.updateSettings(updated)
         }
+        if (settings.value.gyroStickCurve != preset.gyroStickCurve) {
+            connectionManager.updateSettings(settings.value.copy(gyroStickCurve = preset.gyroStickCurve))
+        }
     }
 
     fun setSelectedButtonId(id: String?) {
@@ -483,6 +487,11 @@ class GkViewModel @Inject constructor(
 
     fun updateGyroReverseDeadZone(value: Int) {
         val updated = settings.value.copy(gyroReverseDeadZone = value)
+        connectionManager.updateSettings(updated)
+    }
+
+    fun updateGyroStickCurve(curve: List<Float>?) {
+        val updated = settings.value.copy(gyroStickCurve = curve)
         connectionManager.updateSettings(updated)
     }
 
@@ -998,6 +1007,16 @@ class GkViewModel @Inject constructor(
                     }
                 }
 
+                // 陀螺仪转摇杆的灵敏度曲线：在死区之后、灵敏度之前，按满量程径向映射。
+                // 其它模式把 mappedX/Y 当角速度使用，不做曲线。
+                if (s.gyroMode == GyroMode.LEFT_STICK || s.gyroMode == GyroMode.RIGHT_STICK) {
+                    val (curvedX, curvedY) = SensitivityCurve.applyRadial(
+                        s.gyroStickCurve, mappedX, mappedY, gyroDeadZoneMaxRate,
+                    )
+                    mappedX = curvedX
+                    mappedY = curvedY
+                }
+
                 // Apply gyro mapping mode (world coordinate system)
                 val sens = s.gyroModeSensitivity / 100f
                 if (actualGyroEnabled) {
@@ -1069,6 +1088,7 @@ class GkViewModel @Inject constructor(
                         gyroX = accelGyroX,
                         gyroY = accelGyroY,
                         gyroZ = accelGyroZ,
+                        curve = s.gyroStickCurve,
                         dt = dtSec,
                     )
                     val ix = (stick.x * 32767f).toInt().coerceIn(-32768, 32767)

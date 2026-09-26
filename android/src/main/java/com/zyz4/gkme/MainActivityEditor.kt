@@ -207,6 +207,13 @@ internal fun MainActivity.createGlobalSettingsPanel(): LayoutGlobalSettingsPanel
                 a.viewModel.updateGyroReverseDeadZone(value)
             }
 
+            override fun onGyroStickCurveChanged(curve: List<Float>?) {
+                val preset = a.gamepadLayout.currentGyroPreset.copy(gyroStickCurve = curve)
+                a.gamepadLayout.loadPreset(preset)
+                a.viewModel.updatePresetButtons(preset)
+                a.viewModel.updateGyroStickCurve(curve)
+            }
+
             override fun onGyroActivateModeChanged(mode: GyroActivateMode) {
                 val preset = a.gamepadLayout.currentGyroPreset.copy(gyroActivateMode = mode)
                 a.gamepadLayout.loadPreset(preset)

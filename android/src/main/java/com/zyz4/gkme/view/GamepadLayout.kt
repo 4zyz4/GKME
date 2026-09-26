@@ -123,6 +123,8 @@ class GamepadLayout @JvmOverloads constructor(
         private set
     var currentGyroReverseDeadZone: Int? = null
         private set
+    var currentGyroStickCurve: List<Float>? = null
+        private set
     var currentPhysicalInputMappings: Map<String, PhysicalInputMapping> = emptyMap()
         private set
     var currentVolumeUpBits: List<Int> = emptyList()
@@ -130,7 +132,7 @@ class GamepadLayout @JvmOverloads constructor(
     var currentVolumeDownBits: List<Int> = emptyList()
         private set
     val currentGyroPreset: com.zyz4.gkme.model.LayoutPreset
-        get() = LayoutPreset(version = 1, buttons = currentButtons, gyroOrientation = currentGyroOrientation, gyroActivateMode = currentGyroActivateMode, gyroMode = currentGyroMode, gyroModeSensitivity = currentGyroModeSensitivity, gyroDeadZone = currentGyroDeadZone, gyroReverseDeadZone = currentGyroReverseDeadZone, physicalInputMappings = currentPhysicalInputMappings, volumeUpBits = currentVolumeUpBits, volumeDownBits = currentVolumeDownBits)
+        get() = LayoutPreset(version = 1, buttons = currentButtons, gyroOrientation = currentGyroOrientation, gyroActivateMode = currentGyroActivateMode, gyroMode = currentGyroMode, gyroModeSensitivity = currentGyroModeSensitivity, gyroDeadZone = currentGyroDeadZone, gyroReverseDeadZone = currentGyroReverseDeadZone, gyroStickCurve = currentGyroStickCurve, physicalInputMappings = currentPhysicalInputMappings, volumeUpBits = currentVolumeUpBits, volumeDownBits = currentVolumeDownBits)
     private var isEditMode = false
     var selectedButtonId: String? = null
         private set
@@ -804,6 +806,7 @@ class GamepadLayout @JvmOverloads constructor(
         currentGyroModeSensitivity = preset.gyroModeSensitivity
         currentGyroDeadZone = preset.gyroDeadZone
         currentGyroReverseDeadZone = preset.gyroReverseDeadZone
+        currentGyroStickCurve = preset.gyroStickCurve
         currentPhysicalInputMappings = preset.physicalInputMappings
         currentVolumeUpBits = preset.volumeUpBits
         currentVolumeDownBits = preset.volumeDownBits
@@ -879,7 +882,7 @@ class GamepadLayout @JvmOverloads constructor(
     }
 
     fun getPreset(): LayoutPreset {
-        return LayoutPreset(version = 1, buttons = currentButtons.toList(), gyroOrientation = currentGyroOrientation, gyroActivateMode = currentGyroActivateMode, gyroMode = currentGyroMode, gyroModeSensitivity = currentGyroModeSensitivity, gyroDeadZone = currentGyroDeadZone, gyroReverseDeadZone = currentGyroReverseDeadZone, physicalInputMappings = currentPhysicalInputMappings, volumeUpBits = currentVolumeUpBits, volumeDownBits = currentVolumeDownBits)
+        return LayoutPreset(version = 1, buttons = currentButtons.toList(), gyroOrientation = currentGyroOrientation, gyroActivateMode = currentGyroActivateMode, gyroMode = currentGyroMode, gyroModeSensitivity = currentGyroModeSensitivity, gyroDeadZone = currentGyroDeadZone, gyroReverseDeadZone = currentGyroReverseDeadZone, gyroStickCurve = currentGyroStickCurve, physicalInputMappings = currentPhysicalInputMappings, volumeUpBits = currentVolumeUpBits, volumeDownBits = currentVolumeDownBits)
     }
 
     /** Replaces the physical-controller remapping of the layout being edited. */

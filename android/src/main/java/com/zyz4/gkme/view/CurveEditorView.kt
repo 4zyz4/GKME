@@ -74,8 +74,6 @@ class CurveEditorView @JvmOverloads constructor(
         canvas.restore()
     }
 
-    private val curveTempPoints = mutableListOf<Pair<Float, Float>>()
-
     private fun drawCurve(canvas: Canvas, left: Float, top: Float, size: Float) {
         if (points.isEmpty()) {
             val path = Path()
@@ -85,135 +83,20 @@ class CurveEditorView @JvmOverloads constructor(
             return
         }
 
-        val path = Path()
-        // Prepend (0,0) and append (1,1) to user points for interpolation
-        curveTempPoints.clear()
-        curveTempPoints.add(Pair(0f, 0f))
-        curveTempPoints.addAll(points.sortedBy { it.first })
-        curveTempPoints.add(Pair(1f, 1f))
+        val flat = ArrayList<Float>(points.size * 2)
+        for (p in points) {
+            flat.add(p.first)
+            flat.add(p.second)
+        }
 
+        val path = Path()
         path.moveTo(left, top + size)
         for (j in 1..40) {
             val x = j.toFloat() / 40
-            val y = evalCRWithKnots(x, curveTempPoints)
+            val y = com.zyz4.gkme.input.SensitivityCurve.evaluate(flat, x)
             path.lineTo(left + x * size, top + (1f - y) * size)
         }
         canvas.drawPath(path, curvePaint)
-    }
-
-    private fun findSegmentIndex(sortedWithKnots: List<Pair<Float, Float>>, cx: Float): Int {
-        for (i in 0 until sortedWithKnots.size - 1) {
-            val p0 = sortedWithKnots[i]
-            val p1 = sortedWithKnots[i + 1]
-            if (cx >= p0.first - 1e-6f && cx <= p1.first + 1e-6f && p0.first < p1.first + 1e-6f) {
-                return i
-            }
-        }
-        return sortedWithKnots.size - 2
-    }
-
-    /**
-     * Catmull-Rom with explicit knots including (0,0) at index=0 and (1,1) at last index.
-     * The curve passes through every knot in the chain.
-     */
-    private fun evalCRWithKnots(x: Float, sortedWithKnots: List<Pair<Float, Float>>): Float {
-        val cx = x.coerceIn(0f, 1f)
-
-        // At exact endpoints, return exact values
-        if (cx < 1e-6f) return 0f
-        if (cx >= 1f - 1e-5f) return 1f
-
-        val segIdx = findSegmentIndex(sortedWithKnots, cx)
-        val p0 = sortedWithKnots[segIdx]       // before current segment
-        val p1 = sortedWithKnots[segIdx + 1]   // current segment target
-        val pLocalIdx = segIdx                  // index of p0 in the full list
-
-        val pm1 = if (pLocalIdx > 0) sortedWithKnots[pLocalIdx - 1]
-                  else Pair(2f * 0f - p0.first, 2f * 0f - p0.second)  // extrapolate past (0,0)
-        val p2 = if (pLocalIdx < sortedWithKnots.size - 2) sortedWithKnots[pLocalIdx + 2]
-                 else Pair(2f * p1.first, 2f * p1.second)  // extrapolate past (1,1)
-
-        val lt = if ((p1.first - p0.first) > 1e-6f)
-            (cx - p0.first) / (p1.first - p0.first) else 0f
-
-        return cr(pm1.second, p0.second, p1.second, p2.second, lt.coerceIn(0f, 1f))
-    }
-
-    private fun absSorted(): List<Pair<Float, Float>> {
-        return points.sortedBy { it.first }.toMutableList()
-    }
-
-    private fun evalCR(x: Float, sorted: List<Pair<Float, Float>>): Float {
-        val cx = x.coerceIn(0f, 1f)
-
-        if (sorted.isEmpty()) return cx
-
-        if (cx <= sorted[0].first) {
-            val fx = sorted[0].first.coerceAtLeast(0.001f)
-            return sorted[0].second * cx / fx
-        }
-
-        for (i in 0 until sorted.size - 1) {
-            val p0 = sorted[i]; val p1 = sorted[i + 1]
-            if (cx >= p0.first && cx < p1.first && p0.first < p1.first) {
-                val lt = (cx - p0.first) / (p1.first - p0.first)
-                val pm1 = if (i > 0) sorted[i - 1] else Pair(2f * 0f - p0.first, 2f * 0f - p0.second)
-                val p2 = if (i < sorted.size - 2) sorted[i + 2] else Pair(
-                    2f * p1.first - p0.first, 2f * p1.second - p0.second
-                )
-                return cr(pm1.second, p0.second, p1.second, p2.second, lt)
-            }
-        }
-
-        val last = sorted.last()
-        if (cx >= last.first) {
-            if (last.first < 1f - 0.001f) {
-                val slope = (last.second - if (sorted.size > 1) sorted[sorted.size - 2].second else 0f) /
-                            (last.first - if (sorted.size > 1) sorted[sorted.size - 2].first else 0f)
-                return last.second + slope * (cx - last.first)
-            }
-            return last.second
-        }
-
-        return last.second
-    }
-
-    /**
-     * Catmull-Rom evaluation with (0,0) and (1,1) as implicit knots.
-     * sortedWithFinal must include (1,1) as the last element.
-     * @deprecated Use evalCRWithKnots instead.
-     */
-    @Deprecated("Use evalCRWithKnots", ReplaceWith("evalCRWithKnots(x, sortedWithFinal)"))
-    private fun evalCRWithFinal(x: Float, sortedWithFinal: List<Pair<Float, Float>>): Float {
-        val cx = x.coerceIn(0f, 1f)
-
-        // cx == 0: always return 0 (passes through origin)
-        if (cx < 1e-6f) return 0f
-
-        // cx == 1: must return 1 (passes through (1,1))
-        if (cx >= 1f - 1e-5f) return 1f
-
-        // Find the segment containing cx
-        for (i in 0 until sortedWithFinal.size - 1) {
-            val p0 = sortedWithFinal[i]
-            val p1 = sortedWithFinal[i + 1]
-            if (cx >= p0.first && cx < p1.first && p0.first < p1.first) {
-                val lt = (cx - p0.first) / (p1.first - p0.first)
-                val pm1 = if (i > 0) sortedWithFinal[i - 1] else Pair(2f * 0f - p0.first, 2f * 0f - p0.second)
-                val p2 = if (i < sortedWithFinal.size - 2) sortedWithFinal[i + 2] else Pair(
-                    2f * p1.first, 2f * p1.second - 1f // extrapolate past (1,1) so curve naturally reaches it
-                )
-                return cr(pm1.second, p0.second, p1.second, p2.second, lt)
-            }
-        }
-
-        // Fallback: should not reach here but clamp to last known
-        return sortedWithFinal.last().second
-    }
-
-    private fun cr(p0: Float, p1: Float, p2: Float, p3: Float, t: Float): Float {
-        val t2 = t * t; val t3 = t2 * t
-        return 0.5f * ((2f * p1) + (-p0 + p2) * t + (2f * p0 - 5f * p1 + 4f * p2 - p3) * t2 + (-p0 + 3f * p1 - 3f * p2 + p3) * t3)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
