@@ -91,6 +91,8 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
     private var gyroBaseDirectionSpinner: Spinner? = null
     private var gyroBaseDirectionLabel: TextView? = null
     private var gyroStickCurveContainer: LinearLayout? = null
+    private var gyroStickCurveView: CurveEditorView? = null
+    private var curveZoom: CurveZoomOverlay? = null
 
     private val baseDirectionValues = listOf(
         GyroBaseDirection.VERTICAL,
@@ -120,6 +122,9 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         isFocusable = true
         background = ColorDrawable(ColorUtils.setAlphaComponent(Color.BLACK, (pageAlpha * 255).toInt()))
         buildShell()
+        curveZoom = CurveZoomOverlay(context).also {
+            addView(it, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        }
     }
 
     // ── Show / hide ─────────────────────────────────────────
@@ -182,6 +187,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         gyroReverseDeadZone = preset.gyroReverseDeadZone ?: 0
         gyroStickCurve = preset.gyroStickCurve
         gyroActivateMode = preset.gyroActivateMode ?: GyroActivateMode.ALWAYS
+        hideCurveOverlay()
         physicalContainer?.removeAllViews()
         volumeContainer?.removeAllViews()
         physicalDirty = true
@@ -407,6 +413,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         gyroBaseDirectionSpinner = null
         gyroBaseDirectionLabel = null
         gyroStickCurveContainer = null
+        gyroStickCurveView = null
 
         val density = resources.displayMetrics.density
 
@@ -548,11 +555,9 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
                 (200f * density).toInt(),
             )
             setFromFlatList(gyroStickCurve)
-            onPointsChanged = { list ->
-                gyroStickCurve = list
-                listener?.onGyroStickCurveChanged(list)
-            }
         }
+        gyroStickCurveView = curveView
+        curveView.onPointsChanged = { list -> applyCurve(list, fromOverlay = false) }
         curveContainer.addView(curveView)
         val curveBtnRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -573,15 +578,26 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
             textSize = 12f
             setBackgroundResource(R.drawable.button_flat)
             setOnClickListener {
-                gyroStickCurve = null
-                listener?.onGyroStickCurveChanged(null)
                 curveView.setFromFlatList(null)
+                applyCurve(null, fromOverlay = false)
+            }
+        }
+        val btnEnlarge = Button(context).apply {
+            text = "放大"
+            setTextColor(-0x1)
+            textSize = 12f
+            setBackgroundResource(R.drawable.button_flat)
+            setOnClickListener {
+                curveZoom?.show(gyroStickCurve) { list -> applyCurve(list, fromOverlay = true) }
             }
         }
         curveBtnRow.addView(btnDeletePoint, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
             rightMargin = (4f * density).toInt()
         })
-        curveBtnRow.addView(btnResetCurve, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        curveBtnRow.addView(btnResetCurve, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+            rightMargin = (4f * density).toInt()
+        })
+        curveBtnRow.addView(btnEnlarge, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         curveContainer.addView(curveBtnRow)
         advanced.addView(curveContainer)
 
@@ -667,6 +683,20 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
             gyroMode == GyroMode.ACCELEROMETER_LEFT_STICK ||
             gyroMode == GyroMode.ACCELEROMETER_RIGHT_STICK
         gyroStickCurveContainer?.visibility = if (needStickCurve) View.VISIBLE else View.GONE
+    }
+
+    /** Routes a curve edit from either the inline editor or the enlarged overlay to both views. */
+    private fun applyCurve(list: List<Float>?, fromOverlay: Boolean) {
+        gyroStickCurve = list
+        listener?.onGyroStickCurveChanged(list)
+        if (fromOverlay) gyroStickCurveView?.setFromFlatList(list) else curveZoom?.setCurve(list)
+    }
+
+    /** True while the enlarged curve editor is covering the page (used to consume the back key). */
+    fun isCurveOverlayVisible(): Boolean = curveZoom?.isOverlayVisible == true
+
+    fun hideCurveOverlay() {
+        curveZoom?.hide()
     }
 
     private fun addSeekbar(container: LinearLayout, label: String, value: Int, min: Int, max: Int, onChange: (Int) -> Unit) {

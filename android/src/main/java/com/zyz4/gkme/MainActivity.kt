@@ -57,6 +57,7 @@ class MainActivity : ComponentActivity() {
     internal lateinit var floatingController: FloatingModeController
     internal val floatingEditor: FloatingEditorPanel by lazy { createFloatingEditor() }
     internal var layoutGlobalSettingsPanel: LayoutGlobalSettingsPanel? = null
+    internal var curveZoomOverlay: com.zyz4.gkme.view.CurveZoomOverlay? = null
     internal val controlViews = mutableMapOf<String, View>()
     internal val touchpadLabels = mutableListOf<TextView>()
     internal val mousepadLabels = mutableListOf<TextView>()
@@ -209,6 +210,8 @@ class MainActivity : ComponentActivity() {
                 when {
                     isScreenOff -> exitScreenOffMode()
                     previewZoomVisible -> hidePreviewZoom()
+                    isCurveZoomVisible() -> hideCurveZoom()
+                    layoutGlobalSettingsPanel?.isCurveOverlayVisible() == true -> layoutGlobalSettingsPanel?.hideCurveOverlay()
                     isLayoutGlobalSettingsVisible() -> hideLayoutGlobalSettings()
                     gamepadLayout.isEditModeActive() -> {
                         CustomDialog.showConfirm(

@@ -48,6 +48,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         fun onOpacityPreviewEnd(buttonId: String)
         fun onEnterGlobalGyroSettings()
         fun onExitGlobalGyroSettings()
+        fun onEnlargeCurve(curve: List<Float>?, onChanged: (List<Float>?) -> Unit)
     }
 
     var editorListener: EditorListener? = null
@@ -1093,8 +1094,22 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                     curveView.setFromFlatList(null)
                 }
             }
+            val btnEnlargeCurve = Button(context).apply {
+                text = "放大"
+                setTextColor(-0x1)
+                textSize = 12f
+                setBackgroundResource(R.drawable.button_flat)
+                setOnClickListener {
+                    editorListener?.onEnlargeCurve(curveView.flatList()) { newList ->
+                        curveView.setFromFlatList(newList)
+                        currentButton = currentButton?.copy(sensitivityCurve = newList)
+                        currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                    }
+                }
+            }
             curveBtnRow.addView(btnDeletePoint, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = (4f * density).toInt() })
-            curveBtnRow.addView(btnResetCurve, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            curveBtnRow.addView(btnResetCurve, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = (4f * density).toInt() })
+            curveBtnRow.addView(btnEnlargeCurve, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             buttonParamsInner.addView(curveBtnRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
         }
         if (buttonId == "dpadPad") {

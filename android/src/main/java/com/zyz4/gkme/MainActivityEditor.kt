@@ -141,6 +141,10 @@ override fun onOpacityPreviewEnd(buttonId: String) {
             override fun onExitGlobalGyroSettings() {
                 a.hideLayoutGlobalSettings()
             }
+
+            override fun onEnlargeCurve(curve: List<Float>?, onChanged: (List<Float>?) -> Unit) {
+                a.showCurveZoom(curve, onChanged)
+            }
         }
     }.also { panel ->
         (a.findViewById<View>(android.R.id.content) as ViewGroup).addView(
@@ -268,6 +272,30 @@ internal fun MainActivity.hideLayoutGlobalSettings() {
     a.floatingEditor.showAnimated(LayoutGlobalSettingsPanel.HIDE_DURATION_MS)
     panel.hide()
 }
+
+// ── Enlarged curve editor (joystick sensitivity curve) ───
+
+internal fun MainActivity.showCurveZoom(curve: List<Float>?, onChanged: (List<Float>?) -> Unit) {
+    val a = this
+    val overlay = a.curveZoomOverlay ?: com.zyz4.gkme.view.CurveZoomOverlay(a).also {
+        (a.findViewById<View>(android.R.id.content) as ViewGroup).addView(
+            it,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            ),
+        )
+        a.curveZoomOverlay = it
+    }
+    overlay.show(curve, onChanged)
+}
+
+internal fun MainActivity.hideCurveZoom() {
+    curveZoomOverlay?.hide()
+}
+
+internal fun MainActivity.isCurveZoomVisible(): Boolean =
+    curveZoomOverlay?.isOverlayVisible == true
 
 internal fun MainActivity.getPreviewText(entry: CtrlEntry, mode: DisplayMode): String? {
     return when (entry.baseId) {
