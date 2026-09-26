@@ -1,6 +1,8 @@
 package com.zyz4.gkme.view
 
 import android.content.Context
+import android.animation.AnimatorSet
+import android.animation.ValueAnimator
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
@@ -21,6 +23,8 @@ import android.widget.SeekBar
 import android.widget.Spinner
 import android.widget.TextView
 import androidx.core.graphics.ColorUtils
+import com.zyz4.gkme.CATEGORY_SWITCH_DURATION
+import com.zyz4.gkme.PAGE_SWITCH_OFFSET_DP
 import com.zyz4.gkme.R
 import com.zyz4.gkme.easeOutQuint
 import com.zyz4.gkme.model.GyroActivateMode
@@ -75,7 +79,11 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
     private var physicalScroll: ScrollView? = null
     private var volumeScroll: ScrollView? = null
     private var tabButtons: List<Button> = emptyList()
+    private val tabButtonDrawables = mutableMapOf<Button, SidebarItemDrawable>()
+    private val tabButtonAnimators = mutableMapOf<Button, AnimatorSet>()
     private var currentTab = 0
+    private var physicalDirty = true
+    private var volumeDirty = true
     private var gyroAdvancedContainer: LinearLayout? = null
     private var gyroCoordinateSystemSpinner: Spinner? = null
     private var gyroBaseDirectionSpinner: Spinner? = null
@@ -126,7 +134,21 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
             .alpha(1f)
             .setDuration(SHOW_DURATION_MS)
             .setInterpolator(easeOutQuint())
+            .withEndAction { prebuildMappingTabs() }
             .start()
+    }
+
+    /**
+     * Builds the two mapping tabs ahead of time (split across frames) so that when the user
+     * switches to them the views are already cached and the page-switch animation can run
+     * without any view creation blocking it. Runs after the open fade-in to keep that smooth.
+     */
+    private fun prebuildMappingTabs() {
+        if (currentTab != 0) return
+        post {
+            populateTab(1)
+            post { populateTab(2) }
+        }
     }
 
     fun hide(onEnd: (() -> Unit)? = null) {
@@ -156,24 +178,125 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         gyroDeadZone = preset.gyroDeadZone ?: 0
         gyroReverseDeadZone = preset.gyroReverseDeadZone ?: 0
         gyroActivateMode = preset.gyroActivateMode ?: GyroActivateMode.ALWAYS
+        physicalContainer?.removeAllViews()
+        volumeContainer?.removeAllViews()
+        physicalDirty = true
+        volumeDirty = true
         rebuildContent()
         selectTab(0)
     }
 
     /** Repopulates whichever tab is currently visible (used after external state changes). */
     fun refreshCurrentTab() {
-        selectTab(currentTab)
+        physicalDirty = true
+        volumeDirty = true
+        populateTab(currentTab)
     }
 
-    private fun selectTab(index: Int) {
+    private fun selectTab(index: Int, animate: Boolean = false) {
+        val pages = listOfNotNull(gyroScroll, physicalScroll, volumeScroll)
+        val oldPage = pages.getOrNull(currentTab)
+        val newPage = pages.getOrNull(index)
         currentTab = index
-        gyroScroll?.visibility = if (index == 0) View.VISIBLE else View.GONE
-        physicalScroll?.visibility = if (index == 1) View.VISIBLE else View.GONE
-        volumeScroll?.visibility = if (index == 2) View.VISIBLE else View.GONE
-        tabButtons.forEachIndexed { i, btn -> btn.isSelected = i == index }
+        animateTabHighlights(index, animate)
+        if (animate && oldPage != null && newPage != null && oldPage !== newPage) {
+            // Animate the switch; building is a no-op when the tab is already cached, otherwise it
+            // runs after the animation so view creation never blocks the animation frames.
+            animatePageSwitch(pages, oldPage, newPage) { populateTab(index) }
+            return
+        }
+        pages.forEachIndexed { i, page ->
+            page.animate().cancel()
+            page.translationY = 0f
+            page.alpha = 1f
+            page.visibility = if (i == index) View.VISIBLE else View.GONE
+        }
+        populateTab(index)
+    }
+
+    /** (Re)builds the mapping list for [index] only when needed, so switching tabs reuses cached views. */
+    private fun populateTab(index: Int) {
         when (index) {
-            1 -> physicalContainer?.let { listener?.onPopulatePhysicalMapping(it) }
-            2 -> volumeContainer?.let { listener?.onPopulateVolumeMapping(it) }
+            1 -> physicalContainer?.let {
+                if (physicalDirty || it.childCount == 0) {
+                    physicalDirty = false
+                    listener?.onPopulatePhysicalMapping(it)
+                }
+            }
+            2 -> volumeContainer?.let {
+                if (volumeDirty || it.childCount == 0) {
+                    volumeDirty = false
+                    listener?.onPopulateVolumeMapping(it)
+                }
+            }
+        }
+    }
+
+    /** Slides the old tab up while fading it out, and the new tab up while fading it in. Mirrors the app settings page switch. */
+    private fun animatePageSwitch(pages: List<View>, oldPage: View, newPage: View, onEnd: (() -> Unit)? = null) {
+        val offset = PAGE_SWITCH_OFFSET_DP * resources.displayMetrics.density
+        pages.forEach { it.animate().cancel() }
+        pages.forEach { p ->
+            if (p !== oldPage && p !== newPage) {
+                p.visibility = View.GONE
+                p.translationY = 0f
+                p.alpha = 1f
+            }
+        }
+        if (oldPage.visibility == View.VISIBLE) {
+            oldPage.animate()
+                .translationY(-offset)
+                .alpha(0f)
+                .setDuration(CATEGORY_SWITCH_DURATION)
+                .setInterpolator(easeOutQuint())
+                .withEndAction {
+                    oldPage.visibility = View.GONE
+                    oldPage.translationY = 0f
+                    oldPage.alpha = 1f
+                }
+                .start()
+        }
+        newPage.visibility = View.VISIBLE
+        newPage.translationY = offset
+        newPage.alpha = 0f
+        newPage.animate()
+            .translationY(0f)
+            .alpha(1f)
+            .setDuration(CATEGORY_SWITCH_DURATION)
+            .setInterpolator(easeOutQuint())
+            .withEndAction { onEnd?.invoke() }
+            .start()
+    }
+
+    /** Wipes the tab highlight from left to right while cross-fading its text color. Mirrors the app settings sidebar. */
+    private fun animateTabHighlights(selectedIndex: Int, animate: Boolean) {
+        tabButtons.forEachIndexed { i, btn ->
+            val drawable = tabButtonDrawables[btn] ?: return@forEachIndexed
+            val selected = i == selectedIndex
+            val targetFill = if (selected) 1f else 0f
+            val targetColor = if (selected) 0xFFFFFFFF.toInt() else 0xFF888888.toInt()
+            tabButtonAnimators.remove(btn)?.cancel()
+            if (!animate) {
+                drawable.fill = targetFill
+                drawable.invalidateSelf()
+                btn.setTextColor(targetColor)
+                return@forEachIndexed
+            }
+            val fillAnimator = ValueAnimator.ofFloat(drawable.fill, targetFill).apply {
+                addUpdateListener { anim ->
+                    drawable.fill = anim.animatedValue as Float
+                    drawable.invalidateSelf()
+                }
+            }
+            val colorAnimator = ValueAnimator.ofArgb(btn.currentTextColor, targetColor).apply {
+                addUpdateListener { anim -> btn.setTextColor(anim.animatedValue as Int) }
+            }
+            val set = AnimatorSet()
+            set.playTogether(fillAnimator, colorAnimator)
+            set.duration = CATEGORY_SWITCH_DURATION
+            set.interpolator = easeOutQuint()
+            set.start()
+            tabButtonAnimators[btn] = set
         }
     }
 
@@ -225,11 +348,12 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         fun tabButton(label: String): Button = Button(context).apply {
             text = label
             gravity = Gravity.CENTER
-            setTextColor(androidx.core.content.ContextCompat.getColor(context, R.color.text_primary))
+            setTextColor(androidx.core.content.ContextCompat.getColor(context, R.color.text_secondary))
             textSize = 13f
-            background = androidx.core.content.ContextCompat.getDrawable(context, R.drawable.bg_sidebar_item)
+            val drawable = SidebarItemDrawable()
+            tabButtonDrawables[this] = drawable
+            background = drawable
             stateListAnimator = null
-            isSelected = false
         }
 
         val btnGyro = tabButton("陀螺仪")
@@ -239,9 +363,9 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         tabButtons.forEach { btn ->
             sidebar.addView(btn, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (48f * density).toInt()))
         }
-        btnGyro.setOnClickListener { selectTab(0) }
-        btnPhysical.setOnClickListener { selectTab(1) }
-        btnVolume.setOnClickListener { selectTab(2) }
+        btnGyro.setOnClickListener { selectTab(0, animate = true) }
+        btnPhysical.setOnClickListener { selectTab(1, animate = true) }
+        btnVolume.setOnClickListener { selectTab(2, animate = true) }
 
         // ── Right content ──
         val contentHost = FrameLayout(context).apply {
@@ -634,7 +758,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         container.addView(row2)
     }
 
-    private companion object {
+    companion object {
         const val SHOW_DURATION_MS = 200L
         const val HIDE_DURATION_MS = 150L
     }

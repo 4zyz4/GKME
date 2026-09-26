@@ -544,25 +544,25 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     }
 
     /** Fades the whole panel in. Used when entering layout edit mode. */
-    fun showAnimated() {
+    fun showAnimated(durationMs: Long = PANEL_FADE_IN_MS) {
         hidingPanel = false
         animate().cancel()
         alpha = 0f
         visibility = View.VISIBLE
         animate()
             .alpha(1f)
-            .setDuration(PANEL_FADE_IN_MS)
+            .setDuration(durationMs)
             .setInterpolator(easeOutQuint())
             .start()
     }
 
     /** Fades the whole panel out, then hides it. Used when exiting layout edit mode. */
-    fun hideAnimated() {
+    fun hideAnimated(durationMs: Long = PANEL_FADE_OUT_MS) {
         hidingPanel = true
         animate().cancel()
         animate()
             .alpha(0f)
-            .setDuration(PANEL_FADE_OUT_MS)
+            .setDuration(durationMs)
             .setInterpolator(easeOutQuint())
             .withEndAction {
                 if (hidingPanel) {
