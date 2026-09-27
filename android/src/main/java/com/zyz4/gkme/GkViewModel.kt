@@ -294,6 +294,10 @@ class GkViewModel @Inject constructor(
         connectionManager.updateSettings(settings.value.copy(connectionMode = mode))
     }
 
+    fun updateControlType(type: com.zyz4.gkme.model.ControlType) {
+        connectionManager.updateSettings(settings.value.copy(controlType = type))
+    }
+
     fun updatePollingRate(rate: Int) {
         connectionManager.updateSettings(settings.value.copy(pollingRate = rate))
     }

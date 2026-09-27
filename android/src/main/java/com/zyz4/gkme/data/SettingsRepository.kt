@@ -10,6 +10,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.zyz4.gkme.model.AppSettings
 import com.zyz4.gkme.model.ConnectionMode
+import com.zyz4.gkme.model.ControlType
 import com.zyz4.gkme.model.ControllerDriver
 import com.zyz4.gkme.model.DisplayMode
 import com.zyz4.gkme.model.FillType
@@ -43,6 +44,7 @@ class SettingsRepository @Inject constructor(
     private object Keys {
         val DISPLAY_MODE = intPreferencesKey("display_mode")
         val CONNECTION_MODE = intPreferencesKey("connection_mode")
+        val CONTROL_TYPE = intPreferencesKey("control_type")
         val TARGET_PLATFORM = intPreferencesKey("target_platform")
         val POLLING_RATE = intPreferencesKey("polling_rate")
         val DEVICE_NAME = stringPreferencesKey("device_name")
@@ -153,6 +155,9 @@ class SettingsRepository @Inject constructor(
             connectionMode = ConnectionMode.entries.getOrElse(
                 prefs[Keys.CONNECTION_MODE] ?: 0
             ) { ConnectionMode.WIFI },
+            controlType = ControlType.entries.getOrElse(
+                prefs[Keys.CONTROL_TYPE] ?: ControlType.CONTROLLER.ordinal
+            ) { ControlType.CONTROLLER },
             targetPlatform = TargetPlatform.entries.getOrElse(
                 prefs[Keys.TARGET_PLATFORM] ?: 0
             ) { TargetPlatform.WINDOWS },
@@ -300,6 +305,7 @@ class SettingsRepository @Inject constructor(
         context.settingsDataStore.edit { prefs ->
             prefs[Keys.DISPLAY_MODE] = settings.displayMode.ordinal
             prefs[Keys.CONNECTION_MODE] = settings.connectionMode.ordinal
+            prefs[Keys.CONTROL_TYPE] = settings.controlType.ordinal
             prefs[Keys.TARGET_PLATFORM] = settings.targetPlatform.ordinal
             prefs[Keys.POLLING_RATE] = settings.pollingRate
             prefs[Keys.DEVICE_NAME] = settings.deviceName

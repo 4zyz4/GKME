@@ -35,6 +35,7 @@ android {
 
     buildFeatures {
         prefab = true
+        aidl = true
     }
 
     externalNativeBuild {
@@ -72,6 +73,10 @@ dependencies {
     ksp("com.google.dagger:hilt-android-compiler:2.60.1")
 
     implementation("com.google.protobuf:protobuf-javalite:3.25.5")
+
+    // 被控端：通过 Shizuku 在 shell/root 进程创建 uinput 虚拟手柄。
+    implementation("dev.rikka.shizuku:api:13.1.5")
+    implementation("dev.rikka.shizuku:provider:13.1.5")
 
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("com.google.code.gson:gson:2.11.0")

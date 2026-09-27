@@ -29,3 +29,11 @@
 # org.libsdl.app.* 的方法（如 onNativeDropFile），静态无法推断；
 # AAR 自带 proguard.txt 未覆盖本项目的原生构建，必须整包保留。
 -keep class org.libsdl.app.** { *; }
+
+# 被控端：Shizuku UserService 由 Shizuku 通过类名反射实例化，
+# 且 RemoteGamepadDevice 的 native 方法通过 JNI 静态命名解析，均需保留原名。
+-keep class com.zyz4.gkme.controlled.RemoteGamepadService { *; }
+-keep class com.zyz4.gkme.controlled.RemoteGamepadDevice { *; }
+-keep class com.zyz4.gkme.controlled.IGamepadService { *; }
+-keep class com.zyz4.gkme.controlled.IGamepadService$* { *; }
+

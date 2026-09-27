@@ -2,6 +2,17 @@ package com.zyz4.gkme.model
 
 enum class ConnectionMode { WIFI, BLUETOOTH, USB }
 
+/**
+ * WiFi 模式下本机承担的角色：
+ * - [CONTROLLER] 作为控制端：把本机触摸/手柄输入发送给远端主机（默认，保持原有行为）。
+ * - [CONTROLLED] 作为被控端：接收远端控制端的输入，并通过 Shizuku + uinput 在本地
+ *   创建一个虚拟手柄。
+ */
+enum class ControlType(val displayName: String) {
+    CONTROLLER("作为控制端"),
+    CONTROLLED("作为被控端"),
+}
+
 enum class TargetPlatform { WINDOWS, ANDROID, LINUX, ANDROID_GAMEPAD_ONLY, UNIVERSAL_KM, WINDOWS_GAMEPAD_ONLY }
 
 enum class DisplayMode { XBOX, PLAYSTATION, SWITCH }
@@ -149,6 +160,8 @@ enum class FillType { SOLID_COLOR, IMAGE }
 
 data class AppSettings(
     val connectionMode: ConnectionMode = ConnectionMode.WIFI,
+    /** WiFi 模式下的角色（控制端 / 被控端）。 */
+    val controlType: ControlType = ControlType.CONTROLLER,
     val targetPlatform: TargetPlatform = TargetPlatform.WINDOWS,
     val displayMode: DisplayMode = DisplayMode.XBOX,
     val pollingRate: Int = 120,

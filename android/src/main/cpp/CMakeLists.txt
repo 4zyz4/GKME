@@ -19,3 +19,11 @@ target_link_libraries(gkme_sdl PRIVATE
         SDL3::SDL3
         android
         log)
+
+# 被控端虚拟手柄：运行在 Shizuku UserService 进程，直接操作 /dev/uinput。
+add_library(gkme_uinput SHARED
+        uinput_gamepad.c)
+
+target_link_libraries(gkme_uinput PRIVATE
+        android
+        log)

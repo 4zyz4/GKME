@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/bg_dark"
+    android:fitsSystemWindows="true"
+    android:padding="16dp">
+
+    <!-- 顶部栏 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="12dp">
+
+        <Button
+            android:id="@+id/btnControlledBack"
+            style="@style/GamepadChip"
+            android:text="返回" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="12dp"
+            android:text="作为被控端"
+            android:textColor="@color/text_primary"
+            android:textSize="18sp"
+            android:fontFamily="sans-serif-medium" />
+
+        <Button
+            android:id="@+id/btnShizukuGuide"
+            style="@style/GamepadChip"
+            android:text="Shizuku 指引" />
+    </LinearLayout>
+
+    <!-- Shizuku 环境卡片 -->
+    <LinearLayout
+        android:id="@+id/cardShizuku"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@color/bg_surface"
+        android:padding="12dp"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Shizuku 环境"
+            android:textColor="@color/text_primary"
+            android:textSize="14sp"
+            android:fontFamily="sans-serif-medium" />
+
+        <TextView
+            android:id="@+id/tvShizukuStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="检测中…"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp">
+
+            <Button
+                android:id="@+id/btnShizukuDownload"
+                style="@style/GamepadChip"
+                android:layout_marginEnd="6dp"
+                android:text="下载 Shizuku" />
+
+            <Button
+                android:id="@+id/btnShizukuStart"
+                style="@style/GamepadChip"
+                android:layout_marginEnd="6dp"
+                android:text="打开 Shizuku" />
+
+            <Button
+                android:id="@+id/btnShizukuPermission"
+                style="@style/GamepadChip"
+                android:text="申请授权" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- 手动 IP 卡片 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="@color/bg_surface"
+        android:padding="10dp"
+        android:layout_marginBottom="8dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="IP 地址"
+            android:textColor="@color/text_primary"
+            android:textSize="13sp"
+            android:layout_marginEnd="8dp" />
+
+        <EditText
+            android:id="@+id/etManualIp"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_small_btn"
+            android:hint="控制端 IP"
+            android:inputType="text"
+            android:paddingHorizontal="10dp"
+            android:singleLine="true"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_secondary"
+            android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/btnManualConnect"
+            style="@style/GamepadChip"
+            android:layout_marginStart="8dp"
+            android:text="手动连接" />
+
+        <Button
+            android:id="@+id/btnRefreshDevices"
+            style="@style/GamepadChip"
+            android:layout_marginStart="6dp"
+            android:text="刷新" />
+
+        <Button
+            android:id="@+id/btnControlledAbout"
+            style="@style/GamepadChip"
+            android:layout_marginStart="6dp"
+            android:text="关于" />
+    </LinearLayout>
+
+    <!-- 状态 -->
+    <TextView
+        android:id="@+id/tvControlledStatus"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:background="@color/bg_surface"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="12dp"
+        android:text="未启动"
+        android:textColor="@color/text_secondary"
+        android:textSize="13sp"
+        android:layout_marginBottom="8dp" />
+
+    <!-- 设备列表 -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:scrollbars="vertical">
+
+        <LinearLayout
+            android:id="@+id/deviceListContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+    </ScrollView>
+
+</LinearLayout>

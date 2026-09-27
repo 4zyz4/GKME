@@ -12,10 +12,18 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 被控端：申请 Shizuku 权限 -->
+    <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
 
     <uses-feature android:name="android.hardware.sensor.gyroscope" android:required="false" />
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+
+    <!-- 用于检测/打开 Shizuku -->
+    <queries>
+        <package android:name="moe.shizuku.privileged.api" />
+    </queries>
+
 
     <application
         android:name=".GkmeApp"
@@ -49,5 +57,22 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="floating_gamepad_overlay" />
         </service>
+
+        <!-- 作为被控端：发现控制端并创建本地虚拟手柄 -->
+        <activity
+            android:name=".controlled.ControlledActivity"
+            android:exported="false"
+            android:screenOrientation="userLandscape"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- Shizuku（提供 shell/root 身份运行 UserService） -->
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:multiprocess="false"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
     </application>
 </manifest>

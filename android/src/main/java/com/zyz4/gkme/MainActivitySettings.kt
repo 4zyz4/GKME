@@ -45,6 +45,8 @@ import com.zyz4.gkme.model.AudioDeviceType
 import com.zyz4.gkme.model.AdaptiveTriggerDevice
 import com.zyz4.gkme.model.AdaptiveTriggerTargetType
 import com.zyz4.gkme.model.ConnectionMode
+import com.zyz4.gkme.model.ControlType
+import com.zyz4.gkme.controlled.ControlledActivity
 import com.zyz4.gkme.model.DisplayMode
 import com.zyz4.gkme.model.GyroOrientation
 import com.zyz4.gkme.model.GyroSource
@@ -491,6 +493,18 @@ internal fun MainActivity.setupSettings() {
             val mode = ConnectionMode.entries[idx]
             a.viewModel.updateConnectionMode(mode)
             a.updateSettingsVisibility(mode)
+        }
+    }
+
+    val controlTypeChipIds = listOf(R.id.btnControlTypeController, R.id.btnControlTypeControlled)
+    listOf(R.id.btnControlTypeController to 0, R.id.btnControlTypeControlled to 1).forEach { (id, idx) ->
+        a.findViewById<Button>(id).setOnClickListener {
+            if (a.viewModel.connectionState.value.phase != ConnectionPhase.IDLE) {
+                a.showToast("请先停止服务")
+                return@setOnClickListener
+            }
+            a.selectChipGroup(controlTypeChipIds, idx)
+            a.viewModel.updateControlType(ControlType.entries[idx])
         }
     }
 
@@ -1517,6 +1531,10 @@ internal fun MainActivity.setupConnectionPage() {
             a.viewModel.stopServer()
         } else {
             val s = a.viewModel.settings.value
+            if (s.connectionMode == ConnectionMode.WIFI && s.controlType == ControlType.CONTROLLED) {
+                a.launchControlledMode()
+                return@setOnClickListener
+            }
             if (s.connectionMode == ConnectionMode.BLUETOOTH
                 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
             ) {
@@ -1562,6 +1580,13 @@ internal fun MainActivity.setupConnectionPage() {
     }
 }
 
+/** 进入“作为被控端”的连接页面（接收远端控制端输入并创建本地虚拟手柄）。 */
+internal fun MainActivity.launchControlledMode() {
+    val a = this
+    a.hideSettings()
+    a.startActivity(Intent(a, ControlledActivity::class.java))
+}
+
 @Suppress("DEPRECATION")
 internal fun MainActivity.checkBluetoothOnAndStart() {
     val a = this
@@ -1578,6 +1603,8 @@ internal fun MainActivity.autoStartService() {
     val a = this
     val s = a.viewModel.settings.value
     if (!s.autoStartEnabled) return
+    // 被控端需要用户显式进入连接页面（并完成 Shizuku 授权），不自动启动。
+    if (s.connectionMode == ConnectionMode.WIFI && s.controlType == ControlType.CONTROLLED) return
     if (s.connectionMode == ConnectionMode.BLUETOOTH) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val connectGranted = ContextCompat.checkSelfPermission(
@@ -1722,6 +1749,7 @@ internal fun MainActivity.updateSettingsVisibility(mode: ConnectionMode) {
     val isBt = mode == ConnectionMode.BLUETOOTH
     val isWifi = mode == ConnectionMode.WIFI
     a.findViewById<View>(R.id.sectionTargetPlatform).visibility = if (isBt) View.VISIBLE else View.GONE
+    a.findViewById<View>(R.id.sectionControlType).visibility = if (isWifi) View.VISIBLE else View.GONE
     a.findViewById<View>(R.id.tvServerIp).visibility = if (isWifi) View.VISIBLE else View.GONE
     a.updatePairedDeviceVisibility(a.viewModel.pairedDeviceName.value)
 }
@@ -1775,6 +1803,8 @@ internal fun MainActivity.syncSettingsUI() {
         DisplayMode.entries.indexOf(s.displayMode).coerceAtLeast(0))
     a.selectChipGroup(listOf(R.id.btnConnWifi, R.id.btnConnBluetooth, R.id.btnConnUsb),
         ConnectionMode.entries.indexOf(s.connectionMode).coerceAtLeast(0))
+    a.selectChipGroup(listOf(R.id.btnControlTypeController, R.id.btnControlTypeControlled),
+        ControlType.entries.indexOf(s.controlType).coerceAtLeast(0))
     a.selectChipGroup(listOf(
         R.id.btnTargetWindows, R.id.btnTargetAndroid, R.id.btnTargetLinux,
         R.id.btnTargetAndroidGamepad, R.id.btnTargetUniversalKm, R.id.btnTargetWindowsGamepad
