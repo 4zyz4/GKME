@@ -1,8 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">GKME</string>
-
-    <string name="controlled_about_text">作为被控端\n\n本页让本机接收远端控制端的输入，并通过 Shizuku 在本地创建一个虚拟手柄（uinput），可被游戏直接识别为实体手柄。\n\n使用步骤：\n1. 让控制端与手机处于同一 WiFi；\n2. 控制端以“作为控制端”启动服务；\n3. 在列表中点击“连接”，或手动输入控制端 IP；\n4. 首次使用需安装并启动 Shizuku，并在本应用授予权限。\n\n注意：多数设备需要以 root 身份启动 Shizuku，系统才允许打开 /dev/uinput；若创建失败会给出提示。</string>
-
-    <string name="shizuku_guide_text">本功能依赖 Shizuku 提供的高权限进程来创建虚拟手柄。\n\n1. 下载并安装 Shizuku（点击下方“下载 Shizuku”）。\n2. 启动 Shizuku：\n   • 已 root：在 Shizuku 中选择“通过 root 启动”；\n   • 未 root：按 Shizuku 指引通过无线调试（Android 11+）启动。\n3. 回到本应用，点击“申请授权”，在 Shizuku 弹窗中允许。\n4. 授权后即可连接控制端，虚拟手柄会自动创建。\n\n若提示“创建虚拟手柄失败”，通常是 Shizuku 以 shell 身份启动，而设备只允许 root 访问 /dev/uinput，请改用 root 启动 Shizuku。</string>
 </resources>

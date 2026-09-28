@@ -53,8 +53,6 @@ class ControlledActivity : ComponentActivity() {
         findViewById<Button>(R.id.btnManualConnect).setOnClickListener {
             ControlledHostManager.connectManual(etManualIp.text.toString())
         }
-        findViewById<Button>(R.id.btnControlledAbout).setOnClickListener { showAbout() }
-        findViewById<Button>(R.id.btnShizukuGuide).setOnClickListener { showShizukuGuide() }
         findViewById<Button>(R.id.btnShizukuDownload).setOnClickListener {
             if (GamepadInjector.isShizukuInstalled(this)) {
                 GamepadInjector.openShizuku(this)
@@ -122,15 +120,7 @@ class ControlledActivity : ComponentActivity() {
     private fun renderDevices(devices: List<ControlledDevice>) {
         val active = ControlledHostManager.session.value
         deviceList.removeAllViews()
-        if (devices.isEmpty()) {
-            deviceList.addView(TextView(this).apply {
-                text = "暂无设备\n请让控制端在同一 WiFi 下启动服务，或手动输入 IP 连接"
-                setTextColor(0xFF888888.toInt())
-                textSize = 13f
-                setPadding(0, 24, 0, 0)
-            })
-            return
-        }
+        if (devices.isEmpty()) return
         val inflater = LayoutInflater.from(this)
         for (device in devices) {
             val item = inflater.inflate(R.layout.item_controlled_device, deviceList, false)
@@ -147,39 +137,6 @@ class ControlledActivity : ComponentActivity() {
             btnDisconnect.setOnClickListener { ControlledHostManager.disconnect() }
             deviceList.addView(item)
         }
-    }
-
-    private fun showAbout() {
-        val content = TextView(this).apply {
-            text = getString(R.string.controlled_about_text)
-            setTextColor(0xFFCCCCCC.toInt())
-            textSize = 13f
-            setLineSpacing(4f, 1f)
-            setPadding(8, 8, 8, 8)
-        }
-        CustomDialog.showCustomView(this, "关于被控端", content, negativeText = "关闭")
-    }
-
-    private fun showShizukuGuide() {
-        val tv = TextView(this).apply {
-            text = getString(R.string.shizuku_guide_text)
-            setTextColor(0xFFCCCCCC.toInt())
-            textSize = 13f
-            setLineSpacing(4f, 1f)
-            setPadding(8, 8, 8, 8)
-        }
-        CustomDialog.showCustomView(
-            this, "Shizuku 使用指引", tv,
-            negativeText = "下载 Shizuku", onNegative = { GamepadInjector.openDownloadPage(this) },
-            positiveText = if (GamepadInjector.isShizukuInstalled(this)) "打开 Shizuku" else "申请授权",
-            onPositive = {
-                if (GamepadInjector.isShizukuInstalled(this)) {
-                    GamepadInjector.openShizuku(this)
-                } else {
-                    GamepadInjector.requestPermission()
-                }
-            },
-        )
     }
 
     private fun showToast(message: String) {

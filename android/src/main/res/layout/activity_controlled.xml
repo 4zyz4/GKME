@@ -17,8 +17,15 @@
 
         <Button
             android:id="@+id/btnControlledBack"
-            style="@style/GamepadChip"
-            android:text="返回" />
+            android:layout_width="120dp"
+            android:layout_height="44dp"
+            android:background="?android:attr/selectableItemBackground"
+            android:text="返回"
+            android:drawableLeft="@drawable/ic_back"
+            android:paddingStart="8dp"
+            android:textColor="@color/text_primary"
+            android:textSize="13sp"
+            android:stateListAnimator="@null" />
 
         <TextView
             android:layout_width="0dp"
@@ -29,11 +36,6 @@
             android:textColor="@color/text_primary"
             android:textSize="18sp"
             android:fontFamily="sans-serif-medium" />
-
-        <Button
-            android:id="@+id/btnShizukuGuide"
-            style="@style/GamepadChip"
-            android:text="Shizuku 指引" />
     </LinearLayout>
 
     <!-- Shizuku 环境卡片 -->
@@ -131,12 +133,6 @@
             style="@style/GamepadChip"
             android:layout_marginStart="6dp"
             android:text="刷新" />
-
-        <Button
-            android:id="@+id/btnControlledAbout"
-            style="@style/GamepadChip"
-            android:layout_marginStart="6dp"
-            android:text="关于" />
     </LinearLayout>
 
     <!-- 状态 -->
