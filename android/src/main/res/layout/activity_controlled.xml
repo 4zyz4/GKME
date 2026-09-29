@@ -43,51 +43,25 @@
         android:id="@+id/cardShizuku"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
         android:background="@color/bg_surface"
         android:padding="12dp"
         android:layout_marginBottom="12dp">
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:text="Shizuku 环境"
             android:textColor="@color/text_primary"
             android:textSize="14sp"
             android:fontFamily="sans-serif-medium" />
 
-        <TextView
-            android:id="@+id/tvShizukuStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="检测中…"
-            android:textColor="@color/text_secondary"
-            android:textSize="13sp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="8dp">
-
-            <Button
-                android:id="@+id/btnShizukuDownload"
-                style="@style/GamepadChip"
-                android:layout_marginEnd="6dp"
-                android:text="下载 Shizuku" />
-
-            <Button
-                android:id="@+id/btnShizukuStart"
-                style="@style/GamepadChip"
-                android:layout_marginEnd="6dp"
-                android:text="打开 Shizuku" />
-
-            <Button
-                android:id="@+id/btnShizukuPermission"
-                style="@style/GamepadChip"
-                android:text="申请授权" />
-        </LinearLayout>
+        <Button
+            android:id="@+id/btnShizukuAction"
+            style="@style/GamepadChip"
+            android:text="下载 Shizuku" />
     </LinearLayout>
 
     <!-- 手动 IP 卡片 -->

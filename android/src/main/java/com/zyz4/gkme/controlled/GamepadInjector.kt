@@ -58,6 +58,9 @@ object GamepadInjector {
     @Volatile
     private var permissionRequestInFlight = false
 
+    /** 根据当前环境推断用户下一步需要执行的操作。 */
+    enum class Action { DOWNLOAD, OPEN, REQUEST_PERMISSION, NONE }
+
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
             service = IGamepadService.Stub.asInterface(binder)
@@ -275,6 +278,14 @@ object GamepadInjector {
     }
 
     fun lastErrorMessage(): String? = lastError
+
+    /** 推断用户下一步操作：下载 / 打开 Shizuku / 申请授权 / 无需操作。 */
+    fun requiredAction(context: Context): Action = when {
+        !isShizukuInstalled(context) -> Action.DOWNLOAD
+        !binderAlive -> Action.OPEN
+        !permissionGranted -> Action.REQUEST_PERMISSION
+        else -> Action.NONE
+    }
 
     fun isShizukuInstalled(context: Context): Boolean {
         return try {

@@ -28,7 +28,7 @@ class ControlledActivity : ComponentActivity() {
 
     private lateinit var deviceList: LinearLayout
     private lateinit var tvStatus: TextView
-    private lateinit var tvShizukuStatus: TextView
+    private lateinit var btnShizukuAction: Button
     private lateinit var etManualIp: EditText
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,7 +39,7 @@ class ControlledActivity : ComponentActivity() {
 
         deviceList = findViewById(R.id.deviceListContainer)
         tvStatus = findViewById(R.id.tvControlledStatus)
-        tvShizukuStatus = findViewById(R.id.tvShizukuStatus)
+        btnShizukuAction = findViewById(R.id.btnShizukuAction)
         etManualIp = findViewById(R.id.etManualIp)
 
         GamepadInjector.init(this)
@@ -53,32 +53,10 @@ class ControlledActivity : ComponentActivity() {
         findViewById<Button>(R.id.btnManualConnect).setOnClickListener {
             ControlledHostManager.connectManual(etManualIp.text.toString())
         }
-        findViewById<Button>(R.id.btnShizukuDownload).setOnClickListener {
-            if (GamepadInjector.isShizukuInstalled(this)) {
-                GamepadInjector.openShizuku(this)
-            } else {
-                GamepadInjector.openDownloadPage(this)
-            }
-        }
-        findViewById<Button>(R.id.btnShizukuStart).setOnClickListener {
-            if (GamepadInjector.isShizukuInstalled(this)) {
-                GamepadInjector.openShizuku(this)
-            } else {
-                showToast("未安装 Shizuku，请先下载")
-                GamepadInjector.openDownloadPage(this)
-            }
-        }
-        findViewById<Button>(R.id.btnShizukuPermission).setOnClickListener {
-            GamepadInjector.requestPermission()
-            showToast("正在申请 Shizuku 权限…")
-        }
+        btnShizukuAction.setOnClickListener { onShizukuAction() }
 
         ControlledHostManager.start()
-        tvShizukuStatus.text = if (GamepadInjector.isShizukuInstalled(this)) {
-            GamepadInjector.statusText()
-        } else {
-            "未安装 Shizuku，请点击下方“下载 Shizuku”"
-        }
+        updateShizukuAction()
         observe()
     }
 
@@ -102,13 +80,7 @@ class ControlledActivity : ComponentActivity() {
                     }
                 }
                 launch {
-                    ControlledHostManager.shizukuStatus.collect { status ->
-                        tvShizukuStatus.text = if (GamepadInjector.isShizukuInstalled(this@ControlledActivity)) {
-                            status
-                        } else {
-                            "未安装 Shizuku，请点击下方“下载 Shizuku”"
-                        }
-                    }
+                    ControlledHostManager.shizukuStatus.collect { updateShizukuAction() }
                 }
                 launch {
                     ControlledHostManager.session.collect { renderDevices(ControlledHostManager.devices.value) }
@@ -136,6 +108,31 @@ class ControlledActivity : ComponentActivity() {
             btnConnect.setOnClickListener { ControlledHostManager.connect(device) }
             btnDisconnect.setOnClickListener { ControlledHostManager.disconnect() }
             deviceList.addView(item)
+        }
+    }
+
+    private fun onShizukuAction() {
+        when (GamepadInjector.requiredAction(this)) {
+            GamepadInjector.Action.DOWNLOAD -> GamepadInjector.openDownloadPage(this)
+            GamepadInjector.Action.OPEN -> GamepadInjector.openShizuku(this)
+            GamepadInjector.Action.REQUEST_PERMISSION -> {
+                GamepadInjector.requestPermission()
+                showToast("正在申请 Shizuku 权限…")
+            }
+            GamepadInjector.Action.NONE -> Unit
+        }
+    }
+
+    private fun updateShizukuAction() {
+        btnShizukuAction.isEnabled = true
+        when (GamepadInjector.requiredAction(this)) {
+            GamepadInjector.Action.DOWNLOAD -> btnShizukuAction.text = "下载 Shizuku"
+            GamepadInjector.Action.OPEN -> btnShizukuAction.text = "打开 Shizuku"
+            GamepadInjector.Action.REQUEST_PERMISSION -> btnShizukuAction.text = "申请授权"
+            GamepadInjector.Action.NONE -> {
+                btnShizukuAction.text = "已授权"
+                btnShizukuAction.isEnabled = false
+            }
         }
     }
 
