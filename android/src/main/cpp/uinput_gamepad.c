@@ -340,9 +340,9 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWrite(
     }
 
     int lx = gkme_clamp_s16(leftX);
-    int ly = gkme_clamp_s16(-leftY);
+    int ly = gkme_clamp_s16(leftY);
     int rx = gkme_clamp_s16(rightX);
-    int rz = gkme_clamp_s16(-rightY);
+    int rz = gkme_clamp_s16(rightY);
     int brake = leftTrigger < 0 ? 0 : (leftTrigger > 255 ? 255 : leftTrigger);
     int gas = rightTrigger < 0 ? 0 : (rightTrigger > 255 ? 255 : rightTrigger);
 
