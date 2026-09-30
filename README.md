@@ -120,13 +120,13 @@ also. **G**eneral **K**ey **M**apping **E**ngine
 
 ## 下载
 
-[![GitHub Releases](https://img.shields.io/badge/download-Releases-blue?logo=github)](https://github.com/4zyz4/gamepad-emu-android/releases)
+[![GitHub Releases](https://img.shields.io/badge/download-Releases-blue?logo=github)](https://github.com/4zyz4/GKME/releases)
 
 或自行构建：
 
 ```bash
-git clone https://github.com/4zyz4/gamepad-emu-android.git
-cd gamepad-emu-android
+git clone https://github.com/4zyz4/GKME.git
+cd GKME
 ./gradlew assembleDebug
 ```
 
