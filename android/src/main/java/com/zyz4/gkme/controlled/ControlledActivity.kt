@@ -35,6 +35,7 @@ class ControlledActivity : ComponentActivity() {
     private lateinit var tvStatus: TextView
     private lateinit var btnShizukuAction: Button
     private lateinit var etManualIp: EditText
+    private var exitDialogShowing = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -87,10 +88,21 @@ class ControlledActivity : ComponentActivity() {
         }
     }
 
-    /** 返回：结束被控端（移除常驻通知并停止前台服务）后关闭页面。 */
+    /** 返回：先弹确认框（返回后将停止服务），确认后再结束被控端并关闭页面。 */
     private fun exitControlled() {
-        ControlledHostService.stop(this)
-        finish()
+        if (exitDialogShowing) return
+        exitDialogShowing = true
+        CustomDialog.showConfirm(
+            this,
+            "退出被控端",
+            "返回后将停止服务，确认返回吗？",
+            positiveText = "确认返回",
+            negativeText = "取消",
+            onPositive = {
+                ControlledHostService.stop(this)
+                finish()
+            },
+        ).setOnDismissListener { exitDialogShowing = false }
     }
 
     private fun observe() {
