@@ -27,6 +27,7 @@ import android.widget.TextView
 import com.zyz4.gkme.R
 import com.zyz4.gkme.easeOutQuint
 import com.zyz4.gkme.model.ButtonPosition
+import com.zyz4.gkme.model.CenterShape
 import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.model.MouseGestureAction
 import com.zyz4.gkme.model.SlideDirection
@@ -1113,6 +1114,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             buttonParamsInner.addView(curveBtnRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
         }
         if (buttonId == "dpadPad") {
+            buildCenterShapeParam(density)
             // ── Rectangular area follow ──
             val cbFollowArea = CheckBox(context).apply {
                 text = "矩形区域内跟随"
@@ -1470,6 +1472,38 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
     }
 
+    /** 中心形状配置项：方形 / 圆形。选择圆形后方向区域变为径向扇环。 */
+    private fun buildCenterShapeParam(density: Float) {
+        val cb0 = currentButton ?: return
+        val label = TextView(context).apply {
+            text = "中心形状"
+            setTextColor(-0x1)
+            textSize = 14f
+        }
+        buttonParamsInner.addView(label, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+
+        val items = listOf("方形", "圆形")
+        val spinner = Spinner(context).apply {
+            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, items).also {
+                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+            setSelection(if (cb0.centerShape == CenterShape.CIRCLE) 1 else 0)
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id2: Long) {
+                    val current = currentButton ?: return
+                    val shape = if (pos == 1) CenterShape.CIRCLE else CenterShape.SQUARE
+                    if (shape == current.centerShape) return
+                    val updated = current.copy(centerShape = shape)
+                    currentButton = updated
+                    editorListener?.onButtonUpdated(current.id, updated)
+                    showParameters(current.id, updated)
+                }
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
+        }
+        buttonParamsInner.addView(spinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
+    }
+
     private fun buildKeypadParams(density: Float) {
         val id = currentButton?.id ?: return
         val cb = currentButton ?: return
@@ -1504,6 +1538,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             }
         }
         buttonParamsInner.addView(modeSpinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
+
+        buildCenterShapeParam(density)
 
         val dirs = mutableListOf("上方向" to 0, "下方向" to 1, "左方向" to 2, "右方向" to 3)
         if (cb.keypadEightWay) {

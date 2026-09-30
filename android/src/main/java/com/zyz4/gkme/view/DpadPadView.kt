@@ -13,6 +13,7 @@ import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
 import com.zyz4.gkme.R
+import com.zyz4.gkme.model.CenterShape
 import com.zyz4.gkme.model.FillType
 import com.zyz4.gkme.model.GamepadState
 
@@ -57,6 +58,16 @@ class DpadPadView @JvmOverloads constructor(
     /** Adaptive arrow-size cap in px (from the global icon-size setting); null = sized relative to the region. */
     var arrowMaxSizePx: Float? = null
 
+    /** 中心形状。CIRCLE 时中心为内切圆，周围 8 个方向改为径向扇环（绘制与判定一致）。 */
+    var centerShape: CenterShape = CenterShape.SQUARE
+        set(value) {
+            if (field != value) {
+                field = value
+                rebuildShapePath()
+                invalidate()
+            }
+        }
+
     var idleOpacity: Int = 100
     var activeOpacity: Int = 100
 
@@ -76,6 +87,22 @@ class DpadPadView @JvmOverloads constructor(
     private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val shapePath = Path()
 
+    /** 圆形模式下 8 个径向扇环的路径，索引 = 扇区序号（0=右，顺时针每 45°）。 */
+    private val sectorPaths = Array(8) { Path() }
+    private var centerRadius = 0f
+
+    /** 扇区序号 → D-pad 位（0=右，顺时针每 45°）。 */
+    private val sectorBits = intArrayOf(
+        GamepadState.DPAD_RIGHT,
+        GamepadState.DPAD_DOWN or GamepadState.DPAD_RIGHT,
+        GamepadState.DPAD_DOWN,
+        GamepadState.DPAD_DOWN or GamepadState.DPAD_LEFT,
+        GamepadState.DPAD_LEFT,
+        GamepadState.DPAD_UP or GamepadState.DPAD_LEFT,
+        GamepadState.DPAD_UP,
+        GamepadState.DPAD_UP or GamepadState.DPAD_RIGHT,
+    )
+
     private var side = 0f
     private var originX = 0f
     private var originY = 0f
@@ -87,6 +114,7 @@ class DpadPadView @JvmOverloads constructor(
         originX = (w - side) / 2f
         originY = (h - side) / 2f
         third = side / 3f
+        centerRadius = third / 2f
         centerX = originX + side / 2f
         centerY = originY + side / 2f
         effectiveCenterX = centerX
@@ -97,6 +125,21 @@ class DpadPadView @JvmOverloads constructor(
     private fun rebuildShapePath() {
         shapePath.reset()
         shapePath.addCircle(originX + side / 2f, originY + side / 2f, side / 2f, Path.Direction.CW)
+
+        val cx = originX + side / 2f
+        val cy = originY + side / 2f
+        val r = side / 2f
+        val cr = centerRadius
+        val outer = RectF(cx - r, cy - r, cx + r, cy + r)
+        val inner = RectF(cx - cr, cy - cr, cx + cr, cy + cr)
+        for (i in 0 until 8) {
+            val start = -22.5f + i * 45f
+            val p = sectorPaths[i]
+            p.reset()
+            p.arcTo(outer, start, 45f, true)
+            p.arcTo(inner, start + 45f, -45f, false)
+            p.close()
+        }
     }
 
     private fun highlightColor(color: Int, factor: Float): Int {
@@ -140,11 +183,15 @@ class DpadPadView @JvmOverloads constructor(
             canvas.restore()
         }
 
-        // Directional arrows (up / down / left / right)
-        drawArrow(canvas, R.drawable.ic_arrow_up, a, 0f, a, a)
-        drawArrow(canvas, R.drawable.ic_arrow_down, a, 2f * a, a, a)
-        drawArrow(canvas, R.drawable.ic_arrow_left, 0f, a, a, a)
-        drawArrow(canvas, R.drawable.ic_arrow_right, 2f * a, a, a, a)
+        if (centerShape == CenterShape.SQUARE) {
+            // Directional arrows (up / down / left / right) on the grid cells.
+            drawArrow(canvas, R.drawable.ic_arrow_up, a, 0f, a, a)
+            drawArrow(canvas, R.drawable.ic_arrow_down, a, 2f * a, a, a)
+            drawArrow(canvas, R.drawable.ic_arrow_left, 0f, a, a, a)
+            drawArrow(canvas, R.drawable.ic_arrow_right, 2f * a, a, a, a)
+        } else {
+            drawCircleArrows(canvas, a)
+        }
 
         // Border + separators (same color & width)
         if (appearanceBorderWidth > 0f) {
@@ -153,15 +200,46 @@ class DpadPadView @JvmOverloads constructor(
             canvas.drawPath(shapePath, borderPaint)
             canvas.save()
             canvas.clipPath(shapePath)
-            val hw = appearanceBorderWidth / 2f
-            canvas.drawLine(originX + a, originY, originX + a, originY + side, borderPaint)
-            canvas.drawLine(originX + 2f * a, originY, originX + 2f * a, originY + side, borderPaint)
-            canvas.drawLine(originX, originY + a, originX + side, originY + a, borderPaint)
-            canvas.drawLine(originX, originY + 2f * a, originX + side, originY + 2f * a, borderPaint)
+            if (centerShape == CenterShape.SQUARE) {
+                canvas.drawLine(originX + a, originY, originX + a, originY + side, borderPaint)
+                canvas.drawLine(originX + 2f * a, originY, originX + 2f * a, originY + side, borderPaint)
+                canvas.drawLine(originX, originY + a, originX + side, originY + a, borderPaint)
+                canvas.drawLine(originX, originY + 2f * a, originX + side, originY + 2f * a, borderPaint)
+            } else {
+                // 中心圆 + 8 条扇区分隔线（中心圆边缘 → 外圆）
+                canvas.drawCircle(centerX, centerY, centerRadius, borderPaint)
+                val r = side / 2f
+                for (i in 0 until 8) {
+                    val rad = Math.toRadians((22.5 + i * 45).toDouble())
+                    val cos = Math.cos(rad).toFloat()
+                    val sin = Math.sin(rad).toFloat()
+                    canvas.drawLine(
+                        centerX + centerRadius * cos, centerY + centerRadius * sin,
+                        centerX + r * cos, centerY + r * sin,
+                        borderPaint,
+                    )
+                }
+            }
             canvas.restore()
         }
 
         canvas.restore()
+    }
+
+    /** 圆形模式下，把四个方向箭头放在对应扇环的中间半径处。 */
+    private fun drawCircleArrows(canvas: Canvas, a: Float) {
+        val r = side / 2f
+        val ringR = centerRadius + (r - centerRadius) * 0.55f
+        fun arrow(resId: Int, deg: Float) {
+            val rad = Math.toRadians(deg.toDouble())
+            val px = centerX + ringR * Math.cos(rad).toFloat()
+            val py = centerY + ringR * Math.sin(rad).toFloat()
+            drawArrow(canvas, resId, px - originX - a / 2f, py - originY - a / 2f, a, a)
+        }
+        arrow(R.drawable.ic_arrow_up, 270f)
+        arrow(R.drawable.ic_arrow_down, 90f)
+        arrow(R.drawable.ic_arrow_left, 180f)
+        arrow(R.drawable.ic_arrow_right, 0f)
     }
 
     private fun drawArrow(canvas: Canvas, resId: Int, left: Float, top: Float, w: Float, h: Float) {
@@ -175,8 +253,12 @@ class DpadPadView @JvmOverloads constructor(
         drawable.draw(canvas)
     }
 
-    /** Path of the region (grid cell) corresponding to the given D-pad bit combination. */
+    /** Path of the region corresponding to the given D-pad bit combination. */
     private fun regionPath(bits: Int): Path {
+        if (centerShape == CenterShape.CIRCLE) {
+            val k = sectorIndexForBits(bits)
+            return if (k >= 0) sectorPaths[k] else Path()
+        }
         val p = Path()
         val a = third
         val rect = RectF()
@@ -201,9 +283,23 @@ class DpadPadView @JvmOverloads constructor(
         return p
     }
 
+    /** 扇区序号（0=右，顺时针每 45°）对应的 D-pad 位；与 SECTOR_BITS 互为逆映射。 */
+    private fun sectorIndexForBits(bits: Int): Int = when (bits) {
+        GamepadState.DPAD_RIGHT -> 0
+        (GamepadState.DPAD_DOWN or GamepadState.DPAD_RIGHT) -> 1
+        GamepadState.DPAD_DOWN -> 2
+        (GamepadState.DPAD_DOWN or GamepadState.DPAD_LEFT) -> 3
+        GamepadState.DPAD_LEFT -> 4
+        (GamepadState.DPAD_UP or GamepadState.DPAD_LEFT) -> 5
+        GamepadState.DPAD_UP -> 6
+        (GamepadState.DPAD_UP or GamepadState.DPAD_RIGHT) -> 7
+        else -> -1
+    }
+
     /** D-pad bits for the region under (x, y) in view coordinates; 0 = centre. Points outside the
      *  circle map to whichever of the 8 surrounding direction cells is closest to the finger. */
     private fun regionAt(x: Float, y: Float): Int {
+        if (centerShape == CenterShape.CIRCLE) return regionAtCircle(x, y)
         val lx = x - originX
         val ly = y - originY
         val a = third
@@ -220,6 +316,17 @@ class DpadPadView @JvmOverloads constructor(
         val col = when { lx < eOffX - r + a -> 0; lx < eOffX - r + 2f * a -> 1; else -> 2 }
         val row = when { ly < eOffY - r + a -> 0; ly < eOffY - r + 2f * a -> 1; else -> 2 }
         return bitsAt(col, row)
+    }
+
+    /** 圆形模式：中心圆内返回 0，圆外/环内按极角落入 8 个扇区之一。 */
+    private fun regionAtCircle(x: Float, y: Float): Int {
+        val dx = x - effectiveCenterX
+        val dy = y - effectiveCenterY
+        if (dx * dx + dy * dy <= centerRadius * centerRadius) return 0
+        var deg = Math.toDegrees(Math.atan2(dy.toDouble(), dx.toDouble())).toFloat()
+        if (deg < 0f) deg += 360f
+        val k = (((deg + 22.5f) % 360f) / 45f).toInt().coerceIn(0, 7)
+        return sectorBits[k]
     }
 
     private fun bitsAt(col: Int, row: Int): Int = when {

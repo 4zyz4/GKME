@@ -20,6 +20,8 @@ data class ButtonPosition(
     val keypadBits: List<List<Int>>? = null,
     // true = 8 方向模式（含 4 个斜向），false = 4 方向模式
     val keypadEightWay: Boolean = false,
+    // 中心形状：SQUARE = 方形中心，CIRCLE = 圆形中心（周围区域变径向扇环）
+    val centerShape: CenterShape = CenterShape.SQUARE,
     val sensitivityCurve: List<Float>? = null,
     val deadZone: Int = 0,
     val reverseDeadZone: Int = 0,

@@ -132,6 +132,7 @@ data class LayoutPreset(
                         btnObj.add("keypadBits", bitsArr)
                     }
                     if (!btnObj.has("keypadEightWay")) btnObj.addProperty("keypadEightWay", false)
+                    if (!btnObj.has("centerShape")) btnObj.addProperty("centerShape", "SQUARE")
                     if (!btnObj.has("customBits")) {
                         btnObj.add("customBits", com.google.gson.JsonArray())
                     }
@@ -269,6 +270,7 @@ data class LayoutPreset(
                 m["keypadBits"] = ButtonPosition.keypadBitsOf(b)
                 if (b.keypadEightWay) m["keypadEightWay"] = true
             }
+            if (b.centerShape != CenterShape.SQUARE) m["centerShape"] = b.centerShape.name
             if (b.gyroActivate) m["gyroActivate"] = b.gyroActivate
             if (b.autoHold) m["autoHold"] = b.autoHold
             list.add(m)

@@ -14,6 +14,7 @@ import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
 import com.zyz4.gkme.model.ButtonPosition
+import com.zyz4.gkme.model.CenterShape
 import com.zyz4.gkme.model.FillType
 
 /** Custom keypad: a circle split into directional regions plus a centre. In 4-direction mode the
@@ -76,6 +77,17 @@ class CustomKeypadView @JvmOverloads constructor(
             }
         }
 
+    /** 中心形状。CIRCLE 时中心为内切圆，周围方向区域改为径向扇环（绘制与判定一致）。 */
+    var centerShape: CenterShape = CenterShape.SQUARE
+        set(value) {
+            if (field != value) {
+                field = value
+                activeDir = -1
+                rebuildPaths()
+                invalidate()
+            }
+        }
+
     /** 全局“最大图标大小”限制（px）；null = 不限制。字号不会超过该值。 */
     var textMaxSizePx: Float? = null
         set(value) {
@@ -109,6 +121,15 @@ class CustomKeypadView @JvmOverloads constructor(
     private val centerRect = Path()
     private val sepPaint = Paint(borderPaint).apply { style = Paint.Style.STROKE }
     private val wedgePaths = arrayOf(Path(), Path(), Path(), Path())
+    // 圆形模式：中心圆、外围环、以及按区域索引存放的扇环路径（4 方向用索引 0..3，8 方向用 0..8）。
+    private val centerCirclePath = Path()
+    private val circleRingPath = Path()
+    private val sectorPaths = Array(9) { Path() }
+    private var centerRadius = 0f
+
+    /** 圆形模式扇区序号（0=右，顺时针）→ 区域索引。 */
+    private val circleSectorRegionEight = intArrayOf(3, 8, 1, 7, 2, 5, 0, 6)
+    private val circleSectorRegionFour = intArrayOf(3, 1, 2, 0)
     // 8 方向模式：3×3 网格中每个格的路径，索引 = row*3 + col（与一体十字键的划分一致）。
     private val eightCellPaths = Array(9) { Path() }
     // (row, col) → 区域索引；-1 表示中心（不参与方向触发，走双击逻辑）。
@@ -232,6 +253,53 @@ class CustomKeypadView @JvmOverloads constructor(
                 )
             }
         }
+
+        // ── 圆形模式：中心圆 + 径向扇环 ──
+        // 中心圆半径取现有方形中心的内切圆：8 方向 = 中心格内切（third/2），4 方向 = 中心方块内切（half）。
+        val cr = if (eightWay) third / 2f else half
+        centerRadius = cr
+
+        centerCirclePath.reset()
+        centerCirclePath.addCircle(cx, cy, cr, Path.Direction.CW)
+
+        val outerRect = RectF(cx - r, cy - r, cx + r, cy + r)
+        val innerRect = RectF(cx - cr, cy - cr, cx + cr, cy + cr)
+
+        val cwRingCircle = Path()
+        cwRingCircle.addCircle(cx, cy, r, Path.Direction.CW)
+        val circleHole = Path()
+        circleHole.addCircle(cx, cy, cr, Path.Direction.CCW)
+        cwRingCircle.addPath(circleHole)
+        circleRingPath.reset()
+        circleRingPath.addPath(cwRingCircle)
+
+        for (path in sectorPaths) path.reset()
+        if (eightWay) {
+            // 区域索引 → 扇环：0=上(270°), 1=下(90°), 2=左(180°), 3=右(0°),
+            // 5=左上(225°), 6=右上(315°), 7=左下(135°), 8=右下(45°)。每扇 45°。
+            buildSector(sectorPaths[0], outerRect, innerRect, 247.5f, 45f)
+            buildSector(sectorPaths[1], outerRect, innerRect, 67.5f, 45f)
+            buildSector(sectorPaths[2], outerRect, innerRect, 157.5f, 45f)
+            buildSector(sectorPaths[3], outerRect, innerRect, -22.5f, 45f)
+            buildSector(sectorPaths[5], outerRect, innerRect, 202.5f, 45f)
+            buildSector(sectorPaths[6], outerRect, innerRect, 292.5f, 45f)
+            buildSector(sectorPaths[7], outerRect, innerRect, 112.5f, 45f)
+            buildSector(sectorPaths[8], outerRect, innerRect, 22.5f, 45f)
+        } else {
+            // 4 方向：每扇 90°，分隔线在四个对角方向。
+            buildSector(sectorPaths[0], outerRect, innerRect, 225f, 90f)
+            buildSector(sectorPaths[1], outerRect, innerRect, 45f, 90f)
+            buildSector(sectorPaths[2], outerRect, innerRect, 135f, 90f)
+            buildSector(sectorPaths[3], outerRect, innerRect, -45f, 90f)
+        }
+    }
+
+    /** 构造一个扇环路径（中心圆到外圆之间的一段环形区域）。角度使用 Android 画布约定：0° 在右，顺时针为正。 */
+    private fun buildSector(path: Path, outer: RectF, inner: RectF, startDeg: Float, sweepDeg: Float) {
+        path.reset()
+        path.arcTo(outer, startDeg, sweepDeg, true)
+        path.arcTo(inner, startDeg + sweepDeg, -sweepDeg, false)
+        path.close()
     }
 
     private val separatorPath = Path()
@@ -264,7 +332,20 @@ class CustomKeypadView @JvmOverloads constructor(
         canvas.save()
         canvas.clipPath(circlePath)
 
-        if (eightWay) {
+        if (centerShape == CenterShape.CIRCLE) {
+            // 圆形中心：整圆填充 + 方向扇环高亮 + 中心圆高亮。
+            fillPaint.shader = null
+            fillPaint.color = padColor
+            canvas.drawPath(circlePath, fillPaint)
+            if (activeDir in sectorPaths.indices && activeDir != ButtonPosition.KEYPAD_CENTER_INDEX) {
+                fillPaint.color = highlightColor(padColor, 0.3f)
+                canvas.drawPath(sectorPaths[activeDir], fillPaint)
+            }
+            if (centerPressed) {
+                fillPaint.color = highlightColor(padColor, 0.45f)
+                canvas.drawPath(centerCirclePath, fillPaint)
+            }
+        } else if (eightWay) {
             // 一体十字键图案：整圆填充 + 3×3 网格区域高亮。
             fillPaint.shader = null
             fillPaint.color = padColor
@@ -307,7 +388,23 @@ class CustomKeypadView @JvmOverloads constructor(
             sepPaint.pathEffect = null
             sepPaint.shader = null
             canvas.drawPath(circlePath, sepPaint)
-            if (eightWay) {
+            if (centerShape == CenterShape.CIRCLE) {
+                // 中心圆 + 扇区分隔线（中心圆边缘 → 外圆）。
+                canvas.drawCircle(centerX, centerY, centerRadius, sepPaint)
+                val step = if (eightWay) 45f else 90f
+                var deg = if (eightWay) 22.5f else 45f
+                while (deg < 360f) {
+                    val rad = Math.toRadians(deg.toDouble())
+                    val cos = Math.cos(rad).toFloat()
+                    val sin = Math.sin(rad).toFloat()
+                    canvas.drawLine(
+                        centerX + centerRadius * cos, centerY + centerRadius * sin,
+                        centerX + radius * cos, centerY + radius * sin,
+                        sepPaint,
+                    )
+                    deg += step
+                }
+            } else if (eightWay) {
                 // 3×3 网格分隔线，裁剪到圆内，形成一体十字键的十字图案。
                 val a = third
                 canvas.save()
@@ -324,7 +421,26 @@ class CustomKeypadView @JvmOverloads constructor(
         }
 
         val textAt: (Int) -> String = { keypadTexts.getOrElse(it) { "" } }
-        if (eightWay) {
+        if (centerShape == CenterShape.CIRCLE) {
+            // 圆形模式：每个方向文本放在对应扇环的中间半径处。
+            val midR = centerRadius + (radius - centerRadius) * 0.62f
+            val box = (radius - centerRadius) * 0.9f
+            fun place(region: Int, deg: Float) {
+                val rad = Math.toRadians(deg.toDouble())
+                drawRegionText(
+                    canvas, textAt(region),
+                    centerX + midR * Math.cos(rad).toFloat(),
+                    centerY + midR * Math.sin(rad).toFloat(),
+                    box, box,
+                )
+            }
+            place(0, 270f); place(1, 90f); place(2, 180f); place(3, 0f)
+            if (eightWay) {
+                place(5, 225f); place(6, 315f); place(7, 135f); place(8, 45f)
+            }
+            val centerBox = centerRadius * 2f
+            drawRegionText(canvas, textAt(ButtonPosition.KEYPAD_CENTER_INDEX), centerX, centerY, centerBox, centerBox)
+        } else if (eightWay) {
             val a = third
             val x1 = centerX
             val y1 = centerY
@@ -384,11 +500,29 @@ class CustomKeypadView @JvmOverloads constructor(
         textMaxSizePx?.let { Math.min(size, it) } ?: size
 
     private fun directionAt(x: Float, y: Float): Int {
+        if (centerShape == CenterShape.CIRCLE) return regionAtCircle(x, y)
         if (eightWay) return regionAtEight(x, y)
         val dx = x - effectiveCenterX
         val dy = y - effectiveCenterY
         if (Math.abs(dx) <= half && Math.abs(dy) <= half) return -1
         return classify(dx, dy)
+    }
+
+    /** 圆形模式：中心圆内返回 -1（中心），否则按极角落入方向扇环，返回区域索引。 */
+    private fun regionAtCircle(x: Float, y: Float): Int {
+        val dx = x - effectiveCenterX
+        val dy = y - effectiveCenterY
+        if (dx * dx + dy * dy <= centerRadius * centerRadius) return -1
+        var deg = Math.toDegrees(Math.atan2(dy.toDouble(), dx.toDouble())).toFloat()
+        if (deg < 0f) deg += 360f
+        if (eightWay) {
+            // 8 扇区：0=右, 1=右下, 2=下, 3=左下, 4=左, 5=左上, 6=上, 7=右上。
+            val k = (((deg + 22.5f) % 360f) / 45f).toInt().coerceIn(0, 7)
+            return circleSectorRegionEight[k]
+        }
+        // 4 扇区：0=右, 1=下, 2=左, 3=上。
+        val k = (((deg + 45f) % 360f) / 90f).toInt().coerceIn(0, 3)
+        return circleSectorRegionFour[k]
     }
 
     private fun classify(dx: Float, dy: Float): Int = when {

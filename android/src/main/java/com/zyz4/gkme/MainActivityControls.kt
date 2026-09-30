@@ -12,6 +12,7 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
 import com.zyz4.gkme.model.ButtonPosition
+import com.zyz4.gkme.model.CenterShape
 import com.zyz4.gkme.model.ConnectionMode
 import com.zyz4.gkme.model.DisplayMode
 import com.zyz4.gkme.model.GamepadState
@@ -646,6 +647,7 @@ internal fun MainActivity.createDpadPadView(id: String): DpadPadView {
 internal fun MainActivity.setupDpadPadTouch(view: DpadPadView) {
     val a = this
     val id = view.tag as String
+    view.centerShape = a.gamepadLayout.currentButtons.find { it.id == id }?.centerShape ?: CenterShape.SQUARE
     view.onDpadChange = { released, pressed ->
         a.viewModel.updateDpad(pressed, released)
     }
@@ -694,6 +696,7 @@ internal fun MainActivity.setupCustomKeypadTouch(view: CustomKeypadView, initial
         }
     }
     view.eightWay = findKeypadPos()?.keypadEightWay == true
+    view.centerShape = findKeypadPos()?.centerShape ?: CenterShape.SQUARE
     val kpBits = findKeypadPos()?.let { ButtonPosition.keypadBitsOf(it) } ?: listOf()
     view.validDirs = ButtonPosition.keypadDirectionIndices(view.eightWay)
         .filter { kpBits.getOrNull(it)?.isNotEmpty() == true }
