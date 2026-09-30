@@ -114,35 +114,81 @@ class ControlledActivity : ComponentActivity() {
                 launch {
                     ControlledHostManager.session.collect { renderDevices(ControlledHostManager.devices.value) }
                 }
+                launch {
+                    ControlledHostManager.connectingIp.collect { renderDevices(ControlledHostManager.devices.value) }
+                }
             }
         }
     }
 
-    private fun renderDevices(devices: List<ControlledDevice>) {
+    private fun renderDevices(cards: List<ControlledDeviceCard>) {
         val active = ControlledHostManager.session.value
+        val connectingIp = ControlledHostManager.connectingIp.value
         val reconnecting =
             ControlledHostManager.state.value.phase == ControlledHostManager.Phase.RECONNECTING
         deviceList.removeAllViews()
-        if (devices.isEmpty()) return
+        if (cards.isEmpty()) return
         val inflater = LayoutInflater.from(this)
-        for (device in devices) {
-            val item = inflater.inflate(R.layout.item_controlled_device, deviceList, false)
-            item.findViewById<TextView>(R.id.tvDeviceName).text = device.displayName
-            item.findViewById<TextView>(R.id.tvDeviceIp).text = device.subtitle
-            val isActive = active?.ip == device.ip
-            item.findViewById<TextView>(R.id.tvDeviceStatus).text = when {
-                isActive && reconnecting -> "尝试连接"
-                isActive -> "已连接"
-                else -> "可连接"
+        for (card in cards) {
+            val activeEndpoint = card.endpoints.firstOrNull { it.ip == active?.ip }
+            // 同一 MAC 有多个可用 IP 且均未连接时展开，逐条列出每个 IP。
+            val expanded = card.hasMultipleEndpoints && activeEndpoint == null
+            if (expanded) {
+                renderExpandedCard(inflater, card, connectingIp)
+            } else {
+                renderCollapsedCard(inflater, card, activeEndpoint ?: card.endpoints.first(), active, connectingIp, reconnecting)
             }
-            val btnConnect = item.findViewById<Button>(R.id.btnDeviceConnect)
-            val btnDisconnect = item.findViewById<Button>(R.id.btnDeviceDisconnect)
-            btnConnect.visibility = if (isActive) View.GONE else View.VISIBLE
-            btnDisconnect.visibility = if (isActive) View.VISIBLE else View.GONE
-            btnConnect.setOnClickListener { ControlledHostManager.connect(device) }
-            btnDisconnect.setOnClickListener { ControlledHostManager.disconnect() }
-            deviceList.addView(item)
         }
+    }
+
+    private fun renderExpandedCard(
+        inflater: LayoutInflater,
+        card: ControlledDeviceCard,
+        connectingIp: String?,
+    ) {
+        val item = inflater.inflate(R.layout.item_controlled_device_group, deviceList, false)
+        item.findViewById<TextView>(R.id.tvDeviceName).text = card.title
+        item.findViewById<TextView>(R.id.tvGroupSubtitle).text = "${card.endpoints.size} 个可用连接"
+        val endpointList = item.findViewById<LinearLayout>(R.id.endpointList)
+        for (endpoint in card.endpoints) {
+            val row = inflater.inflate(R.layout.item_controlled_endpoint, endpointList, false)
+            row.findViewById<TextView>(R.id.tvEndpointIp).text = endpoint.ip
+            val btnConnect = row.findViewById<Button>(R.id.btnEndpointConnect)
+            if (endpoint.ip == connectingIp) {
+                btnConnect.text = "连接中…"
+                btnConnect.isEnabled = false
+            }
+            btnConnect.setOnClickListener { ControlledHostManager.connect(endpoint) }
+            endpointList.addView(row)
+        }
+        deviceList.addView(item)
+    }
+
+    private fun renderCollapsedCard(
+        inflater: LayoutInflater,
+        card: ControlledDeviceCard,
+        device: ControlledDevice,
+        active: ControlledDevice?,
+        connectingIp: String?,
+        reconnecting: Boolean,
+    ) {
+        val item = inflater.inflate(R.layout.item_controlled_device, deviceList, false)
+        item.findViewById<TextView>(R.id.tvDeviceName).text = card.name.ifBlank { device.ip }
+        item.findViewById<TextView>(R.id.tvDeviceIp).text = device.subtitle
+        val isActive = active?.ip == device.ip
+        item.findViewById<TextView>(R.id.tvDeviceStatus).text = when {
+            isActive && reconnecting -> "尝试连接"
+            isActive -> "已连接"
+            device.ip == connectingIp -> "尝试连接"
+            else -> "可连接"
+        }
+        val btnConnect = item.findViewById<Button>(R.id.btnDeviceConnect)
+        val btnDisconnect = item.findViewById<Button>(R.id.btnDeviceDisconnect)
+        btnConnect.visibility = if (isActive) View.GONE else View.VISIBLE
+        btnDisconnect.visibility = if (isActive) View.VISIBLE else View.GONE
+        btnConnect.setOnClickListener { ControlledHostManager.connect(device) }
+        btnDisconnect.setOnClickListener { ControlledHostManager.disconnect() }
+        deviceList.addView(item)
     }
 
     private fun onShizukuAction() {

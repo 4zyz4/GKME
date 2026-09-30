@@ -52,14 +52,18 @@ object ControlledHostManager {
 
     data class HostState(val phase: Phase = Phase.IDLE, val statusText: String = "未启动")
 
-    private val _devices = MutableStateFlow<List<ControlledDevice>>(emptyList())
-    val devices: StateFlow<List<ControlledDevice>> = _devices.asStateFlow()
+    private val _devices = MutableStateFlow<List<ControlledDeviceCard>>(emptyList())
+    val devices: StateFlow<List<ControlledDeviceCard>> = _devices.asStateFlow()
 
     private val _state = MutableStateFlow(HostState())
     val state: StateFlow<HostState> = _state.asStateFlow()
 
     private val _session = MutableStateFlow<ControlledDevice?>(null)
     val session: StateFlow<ControlledDevice?> = _session.asStateFlow()
+
+    /** 正在尝试连接的端点 IP（尚未建立会话），供合并卡片显示“连接中…”。 */
+    private val _connectingIp = MutableStateFlow<String?>(null)
+    val connectingIp: StateFlow<String?> = _connectingIp.asStateFlow()
 
     private val _shizukuStatus = MutableStateFlow("")
     val shizukuStatus: StateFlow<String> = _shizukuStatus.asStateFlow()
@@ -127,6 +131,7 @@ object ControlledHostManager {
         recovering = false
         lastReceiveAt = 0L
         _session.value = null
+        _connectingIp.value = null
         GamepadInjector.release()
         jobs.forEach { it.cancel() }
         jobs.clear()
@@ -160,25 +165,30 @@ object ControlledHostManager {
         val s = scope ?: return
         connectJob?.cancel()
         connectJob = s.launch {
-            if (active != null) disconnectInternal(null)
-            reconnecting = false
-            _state.value = HostState(Phase.CONNECTING, "正在连接到 ${device.ip}…")
-            val ready = awaitInjectorReady(8_000)
-            if (!ready) {
-                _state.value = HostState(
-                    Phase.ERROR,
-                    "连接失败: ${device.ip}（${GamepadInjector.statusText()}）",
-                )
-                return@launch
+            try {
+                if (active != null) disconnectInternal(null)
+                _connectingIp.value = device.ip
+                reconnecting = false
+                _state.value = HostState(Phase.CONNECTING, "正在连接到 ${device.ip}…")
+                val ready = awaitInjectorReady(8_000)
+                if (!ready) {
+                    _state.value = HostState(
+                        Phase.ERROR,
+                        "连接失败: ${device.ip}（${GamepadInjector.statusText()}）",
+                    )
+                    return@launch
+                }
+                active = device
+                lastReceiveAt = System.currentTimeMillis()
+                _session.value = device
+                deviceMap[device.ip] = device
+                sendServerHello(device.ip)
+                startRumblePump(device)
+                _state.value = HostState(Phase.CONNECTED, "已连接: ${device.ip}")
+            } finally {
+                if (_connectingIp.value == device.ip) _connectingIp.value = null
+                publish()
             }
-            active = device
-            lastReceiveAt = System.currentTimeMillis()
-            _session.value = device
-            deviceMap[device.ip] = device
-            publish()
-            sendServerHello(device.ip)
-            startRumblePump(device)
-            _state.value = HostState(Phase.CONNECTED, "已连接: ${device.ip}")
         }
     }
 
@@ -403,6 +413,7 @@ object ControlledHostManager {
         rumbleJob?.cancel()
         rumbleJob = null
         _session.value = null
+        _connectingIp.value = null
         if (device != null) {
             try {
                 send(device.ip, TYPE_SERVER_TO_CLIENT, disconnectMessage())
@@ -488,8 +499,20 @@ object ControlledHostManager {
         }
     }
 
+    /** 按物理设备（MAC，未知时退回 IP）把多个 IP 端点合并成一张卡片。 */
     private fun publish() {
-        _devices.value = deviceMap.values.sortedBy { it.ip }
+        val grouped = LinkedHashMap<String, MutableList<ControlledDevice>>()
+        for (device in deviceMap.values.sortedBy { it.ip }) {
+            grouped.getOrPut(device.groupKey) { mutableListOf() }.add(device)
+        }
+        _devices.value = grouped.map { (key, eps) ->
+            ControlledDeviceCard(
+                groupKey = key,
+                name = eps.firstOrNull { it.name.isNotBlank() }?.name.orEmpty(),
+                mac = eps.firstOrNull { it.mac.isNotBlank() }?.mac.orEmpty(),
+                endpoints = eps,
+            )
+        }.sortedBy { it.title }
     }
 
     private fun sendServerHello(ip: String) {
