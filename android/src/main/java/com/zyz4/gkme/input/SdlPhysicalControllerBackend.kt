@@ -402,6 +402,7 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
         try {
             for (id in InputDevice.getDeviceIds()) {
                 val device = InputDevice.getDevice(id) ?: continue
+                if (VirtualGamepad.matches(device)) continue
                 val sources = device.sources
                 if (sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
                     sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK

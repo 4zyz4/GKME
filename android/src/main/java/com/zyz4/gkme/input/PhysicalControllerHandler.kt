@@ -212,6 +212,7 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
         return try {
             InputDevice.getDeviceIds().any { id ->
                 val device = InputDevice.getDevice(id) ?: return@any false
+                if (VirtualGamepad.matches(device)) return@any false
                 val sources = device.sources
                 (sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD) ||
                     (sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK)

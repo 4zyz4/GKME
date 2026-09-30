@@ -121,6 +121,14 @@ constexpr Uint64 HIDAPI_PREFER_MS = 3000;
 // may not support them, so fall back to the Android driver sooner.
 constexpr Uint64 HIDAPI_PREFER_SHORT_MS = 2000;
 
+// GKME's own uinput virtual gamepad (see uinput_gamepad.c). It registers as a normal
+// Android joystick/gamepad, so SDL enumerates it too; skip it here or the app would
+// read its own injected input back and treat it as a physical controller. The
+// name/vendor/product must match VirtualGamepad.kt and uinput_gamepad.c.
+constexpr Uint16 GKME_VIRTUAL_VENDOR = 0x045E;
+constexpr Uint16 GKME_VIRTUAL_PRODUCT = 0x02FD;
+constexpr const char *GKME_VIRTUAL_NAME = "Xbox One S Controller";
+
 std::mutex g_mutex;
 std::vector<Entry> g_gamepads;
 std::thread g_thread;
@@ -202,6 +210,17 @@ bool isKnownHidapiType(SDL_JoystickID id) {
 // independent of HIDAPI's open/permission state, unlike SDL_hid_enumerate().
 bool isUsbDevice(Uint32 key) {
     return g_usbDeviceKeys.find(key) != g_usbDeviceKeys.end();
+}
+
+// True when SDL's device corresponds to GKME's own uinput virtual gamepad. Such a
+// device must never be exposed to the app as a physical controller.
+bool isGkmeVirtualGamepad(SDL_JoystickID id) {
+    if (SDL_GetGamepadVendorForID(id) != GKME_VIRTUAL_VENDOR ||
+        SDL_GetGamepadProductForID(id) != GKME_VIRTUAL_PRODUCT) {
+        return false;
+    }
+    const char *name = SDL_GetGamepadNameForID(id);
+    return name != nullptr && SDL_strcmp(name, GKME_VIRTUAL_NAME) == 0;
 }
 
 void applyHints() {
@@ -421,6 +440,9 @@ void reconcileLocked() {
             }
         }
         if (found) {
+            continue;
+        }
+        if (isGkmeVirtualGamepad(ids[i])) {
             continue;
         }
         const Uint16 vendor = SDL_GetGamepadVendorForID(ids[i]);

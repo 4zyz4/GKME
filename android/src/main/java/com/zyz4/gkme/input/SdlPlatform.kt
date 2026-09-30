@@ -1,6 +1,7 @@
 package com.zyz4.gkme.input
 
 import android.app.Activity
+import android.view.InputDevice
 import android.view.MotionEvent
 import org.libsdl.app.HIDDeviceManager
 import org.libsdl.app.SDL
@@ -54,8 +55,13 @@ object SdlPlatform {
         hidDeviceManager = null
     }
 
-    fun isJoystickDevice(deviceId: Int): Boolean =
-        SDLControllerManager.isDeviceSDLJoystick(deviceId)
+    fun isJoystickDevice(deviceId: Int): Boolean {
+        // Never forward events from GKME's own uinput virtual gamepad into SDL, or the
+        // app would read its own injected input back as if it were a physical gamepad.
+        val device = InputDevice.getDevice(deviceId)
+        if (device != null && VirtualGamepad.matches(device)) return false
+        return SDLControllerManager.isDeviceSDLJoystick(deviceId)
+    }
 
     fun handleJoystickMotionEvent(event: MotionEvent): Boolean =
         SDLControllerManager.handleJoystickMotionEvent(event)

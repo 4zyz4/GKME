@@ -3,7 +3,7 @@
  *
  * 该库运行在 Shizuku UserService 进程（shell/root 身份）中，因为普通 App 进程
  * 无法打开 /dev/uinput。实现参考 starcore_gamepad_reverse.md：
- *   - BUS_VIRTUAL + vendor=0x045E(Microsoft) + product=0x02FD 伪装成 Xbox 手柄；
+ *   - BUS_VIRTUAL + vendor=0x045E(Microsoft) + product=0x02FD 伪装成 Xbox One S 手柄；
  *   - 按键位沿用 XInput wButtons 掩码，再翻译成 Linux BTN_* / KEY_*；
  *   - 左摇杆 ABS_X/ABS_Y，右摇杆 ABS_Z/ABS_RZ，扳机 ABS_BRAKE/ABS_GAS，
  *     十字键 ABS_HAT0X/ABS_HAT0Y；
@@ -320,9 +320,11 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeCreate(JNIEnv *env, jcla
     memset(&setup, 0, sizeof(setup));
     setup.id.bustype = 0x0006; /* BUS_VIRTUAL */
     setup.id.vendor = 0x045E;  /* Microsoft */
-    setup.id.product = 0x02FD; /* Xbox 手柄 */
+    setup.id.product = 0x02FD; /* Xbox One S 手柄 */
     setup.id.version = 0x0001;
-    snprintf(setup.name, sizeof(setup.name), "%s", "GKME Remote Gamepad");
+    /* 使用被模拟设备的本身名称（虚拟 Xbox One S）。该名称是 App 识别并排除自己
+     * 创建的虚拟手柄的依据，需与 VirtualGamepad.kt / sdl_bridge.cpp 保持一致。 */
+    snprintf(setup.name, sizeof(setup.name), "%s", "Xbox One S Controller");
     setup.ff_effects_max = ff_max;
 
     if (ioctl(fd, GKME_UI_DEV_SETUP, &setup) < 0) {
