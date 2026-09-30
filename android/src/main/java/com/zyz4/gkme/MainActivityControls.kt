@@ -565,7 +565,6 @@ internal fun MainActivity.createSettingsButtonView(): View {
             (8f * a.resources.displayMetrics.density).toInt()
         )
         contentDescription = "Settings"
-        translationZ = 2f
         setOnClickListener { a.showSettings() }
     }
     a.gamepadLayout.addView(view)

@@ -849,8 +849,18 @@ class GamepadLayout @JvmOverloads constructor(
     /** Brings the settings button to the very top of the child stack so it is always the topmost control. */
     fun bringSettingsToFront() {
         for (i in childCount - 1 downTo 0) {
-            if (getButtonId(getChildAt(i)) == SETTINGS_BUTTON_ID) {
-                bringChildToFront(getChildAt(i))
+            val child = getChildAt(i)
+            if (getButtonId(child) == SETTINGS_BUTTON_ID) {
+                bringChildToFront(child)
+                // Sibling Material buttons are drawn by Z (2dp elevation, plus 4dp while pressed),
+                // not by child order, so bringChildToFront alone is not enough: raise the settings
+                // button's Z above every sibling so it is never visually covered.
+                var maxSiblingZ = 0f
+                for (j in 0 until childCount) {
+                    val other = getChildAt(j)
+                    if (other !== child) maxSiblingZ = maxOf(maxSiblingZ, other.z)
+                }
+                child.translationZ = maxSiblingZ + 8f * density
                 return
             }
         }
