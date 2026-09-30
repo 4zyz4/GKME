@@ -38,8 +38,10 @@ import com.zyz4.gkme.model.AudioDevice
 import com.zyz4.gkme.model.AdaptiveTriggerDevice
 import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.model.AppSettings
+import com.zyz4.gkme.model.ConnectionMode
 import com.zyz4.gkme.model.HapticEffect
 import com.zyz4.gkme.model.VibrationType
+import com.zyz4.gkme.service.ConnectionPhase
 import com.zyz4.gkme.service.FloatingOverlayService
 import com.zyz4.gkme.view.FloatingEditorPanel
 import com.zyz4.gkme.view.GamepadLayout
@@ -308,6 +310,29 @@ class MainActivity : ComponentActivity() {
         ) {
             exitFloatingMode()
         }
+    }
+
+    /**
+     * 本机模式下服务已启动时，用户每次最小化应用（Home / 最近任务）都自动进入悬浮模式，
+     * 无需再手动点按悬浮按钮。切到本 App 内部页面或系统权限页不会触发
+     * [onUserLeaveHint]，因此不会被误触发。
+     */
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        maybeAutoEnterFloating()
+    }
+
+    private fun maybeAutoEnterFloating() {
+        if (viewModel.settings.value.connectionMode != ConnectionMode.LOCAL) return
+        if (viewModel.connectionState.value.phase == ConnectionPhase.IDLE) return
+        if (!::floatingController.isInitialized || floatingController.isActive) return
+        // 悬浮启动的权限流程进行中时不再重复触发，避免权限对话框反复弹出。
+        if (pendingFloatingStart) return
+        // 缺少悬浮窗权限时 enterFloatingMode 会跳转授权页；这里不主动触发，避免
+        // 每次最小化都弹出授权流程。授权后由启动服务/手动入口进入。
+        if (!Settings.canDrawOverlays(this)) return
+        if (gamepadLayout.isEditModeActive()) return
+        enterFloatingMode()
     }
 
     override fun onNewIntent(intent: Intent) {
