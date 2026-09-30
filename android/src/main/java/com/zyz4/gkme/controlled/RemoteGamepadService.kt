@@ -20,6 +20,8 @@ class RemoteGamepadService @JvmOverloads constructor(
     }
 
     private val fd = AtomicInteger(-1)
+    private val kbdFd = AtomicInteger(-1)
+    private val mouseFd = AtomicInteger(-1)
     private val lock = Any()
 
     @Volatile
@@ -77,6 +79,7 @@ class RemoteGamepadService @JvmOverloads constructor(
     }
 
     override fun release() {
+        releaseKeyboardMouse()
         synchronized(lock) {
             val f = fd.getAndSet(-1)
             if (f >= 0 && RemoteGamepadDevice.isLoaded()) {
@@ -86,6 +89,91 @@ class RemoteGamepadService @JvmOverloads constructor(
                     Log.e(TAG, "nativeDestroy 失败", t)
                 }
                 Log.i(TAG, "虚拟手柄已销毁 fd=$f")
+            }
+        }
+    }
+
+    override fun createKeyboard(): Int {
+        if (!RemoteGamepadDevice.isLoaded()) {
+            lastError = "native 库加载失败: ${RemoteGamepadDevice.loadError()}"
+            Log.e(TAG, lastError!!)
+            return -19 // -ENODEV
+        }
+        synchronized(lock) {
+            if (kbdFd.get() >= 0) return 0
+            val f = RemoteGamepadDevice.nativeCreateKeyboard()
+            if (f < 0) {
+                lastError = "无法创建虚拟键盘 (errno=${-f})"
+                Log.e(TAG, lastError!!)
+                return f
+            }
+            kbdFd.set(f)
+            Log.i(TAG, "虚拟键盘已创建 fd=$f")
+            return 0
+        }
+    }
+
+    override fun updateKeyboard(modifiers: Int, usages: IntArray?) {
+        val f = kbdFd.get()
+        if (f < 0 || !RemoteGamepadDevice.isLoaded()) return
+        try {
+            RemoteGamepadDevice.nativeWriteKeyboard(f, modifiers, usages ?: IntArray(0))
+        } catch (t: Throwable) {
+            Log.e(TAG, "nativeWriteKeyboard 失败", t)
+            lastError = t.message
+        }
+    }
+
+    override fun createMouse(): Int {
+        if (!RemoteGamepadDevice.isLoaded()) {
+            lastError = "native 库加载失败: ${RemoteGamepadDevice.loadError()}"
+            Log.e(TAG, lastError!!)
+            return -19 // -ENODEV
+        }
+        synchronized(lock) {
+            if (mouseFd.get() >= 0) return 0
+            val f = RemoteGamepadDevice.nativeCreateMouse()
+            if (f < 0) {
+                lastError = "无法创建虚拟鼠标 (errno=${-f})"
+                Log.e(TAG, lastError!!)
+                return f
+            }
+            mouseFd.set(f)
+            Log.i(TAG, "虚拟鼠标已创建 fd=$f")
+            return 0
+        }
+    }
+
+    override fun updateMouse(dx: Int, dy: Int, wheel: Int, pan: Int, buttons: Int) {
+        val f = mouseFd.get()
+        if (f < 0 || !RemoteGamepadDevice.isLoaded()) return
+        try {
+            RemoteGamepadDevice.nativeWriteMouse(f, dx, dy, wheel, pan, buttons)
+        } catch (t: Throwable) {
+            Log.e(TAG, "nativeWriteMouse 失败", t)
+            lastError = t.message
+        }
+    }
+
+    override fun releaseKeyboardMouse() {
+        synchronized(lock) {
+            val k = kbdFd.getAndSet(-1)
+            if (k >= 0 && RemoteGamepadDevice.isLoaded()) {
+                try {
+                    RemoteGamepadDevice.nativeDestroyInput(k)
+                } catch (t: Throwable) {
+                    Log.e(TAG, "nativeDestroyInput(键盘) 失败", t)
+                }
+                Log.i(TAG, "虚拟键盘已销毁 fd=$k")
+            }
+            val m = mouseFd.getAndSet(-1)
+            if (m >= 0 && RemoteGamepadDevice.isLoaded()) {
+                try {
+                    RemoteGamepadDevice.nativeDestroyInput(m)
+                } catch (t: Throwable) {
+                    Log.e(TAG, "nativeDestroyInput(鼠标) 失败", t)
+                }
+                Log.i(TAG, "虚拟鼠标已销毁 fd=$m")
             }
         }
     }

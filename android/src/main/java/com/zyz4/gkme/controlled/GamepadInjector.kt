@@ -58,6 +58,19 @@ object GamepadInjector {
     @Volatile
     private var permissionRequestInFlight = false
 
+    /** 虚拟键盘/鼠标的懒创建状态；仅在收到对应输入时创建。 */
+    @Volatile
+    private var keyboardCreated = false
+
+    @Volatile
+    private var keyboardFailed = false
+
+    @Volatile
+    private var mouseCreated = false
+
+    @Volatile
+    private var mouseFailed = false
+
     /** 根据当前环境推断用户下一步需要执行的操作。 */
     enum class Action { DOWNLOAD, OPEN, REQUEST_PERMISSION, NONE }
 
@@ -73,6 +86,7 @@ object GamepadInjector {
             service = null
             created = false
             bound = false
+            resetKeyboardMouse()
             Log.w(TAG, "Shizuku 用户服务已断开")
         }
     }
@@ -91,6 +105,7 @@ object GamepadInjector {
         service = null
         created = false
         bound = false
+        resetKeyboardMouse()
         lastError = "Shizuku 已停止"
     }
 
@@ -229,13 +244,30 @@ object GamepadInjector {
 
     fun release() {
         val svc = service
-        if (svc != null && created) {
-            try {
-                svc.release()
-            } catch (_: Throwable) {
+        if (svc != null) {
+            if (keyboardCreated || mouseCreated) {
+                try {
+                    svc.releaseKeyboardMouse()
+                } catch (_: Throwable) {
+                }
+            }
+            if (created) {
+                try {
+                    svc.release()
+                } catch (_: Throwable) {
+                }
             }
         }
         created = false
+        resetKeyboardMouse()
+    }
+
+    /** 重置虚拟键盘/鼠标的懒创建状态（服务断开或释放后调用）。 */
+    private fun resetKeyboardMouse() {
+        keyboardCreated = false
+        keyboardFailed = false
+        mouseCreated = false
+        mouseFailed = false
     }
 
     fun update(input: GamepadInput) {
@@ -250,6 +282,65 @@ object GamepadInjector {
                 input.leftStickY,
                 input.rightStickX,
                 input.rightStickY,
+            )
+        } catch (_: Throwable) {
+        }
+        updateKeyboard(svc, input)
+        updateMouse(svc, input)
+    }
+
+    /**
+     * 转发一帧键盘全量状态。首次出现按键/修饰键时懒创建虚拟键盘；创建失败则
+     * 本次会话不再重试（与 GKME-Windows 的 [MarkKeyboardMouseFailed] 行为一致）。
+     */
+    private fun updateKeyboard(svc: IGamepadService, input: GamepadInput) {
+        val hasKeys = input.pressedScanCodesCount > 0 || input.keyboardModifiers != 0
+        if (!keyboardCreated) {
+            if (!hasKeys || keyboardFailed) return
+            val r = try {
+                svc.createKeyboard()
+            } catch (_: Throwable) {
+                -1
+            }
+            if (r != 0) {
+                keyboardFailed = true
+                return
+            }
+            keyboardCreated = true
+        }
+        try {
+            svc.updateKeyboard(input.keyboardModifiers, input.pressedScanCodesList.toIntArray())
+        } catch (_: Throwable) {
+        }
+    }
+
+    /**
+     * 转发一帧鼠标状态（相对位移 + 滚轮 + 按键）。首次出现鼠标活动时懒创建
+     * 虚拟鼠标；创建失败则本次会话不再重试。
+     */
+    private fun updateMouse(svc: IGamepadService, input: GamepadInput) {
+        val active = input.mouseDx != 0 || input.mouseDy != 0 || input.mouseWheel != 0 ||
+            input.mousePan != 0 || input.mouseButtons != 0
+        if (!mouseCreated) {
+            if (!active || mouseFailed) return
+            val r = try {
+                svc.createMouse()
+            } catch (_: Throwable) {
+                -1
+            }
+            if (r != 0) {
+                mouseFailed = true
+                return
+            }
+            mouseCreated = true
+        }
+        try {
+            svc.updateMouse(
+                input.mouseDx,
+                input.mouseDy,
+                input.mouseWheel,
+                input.mousePan,
+                input.mouseButtons,
             )
         } catch (_: Throwable) {
         }

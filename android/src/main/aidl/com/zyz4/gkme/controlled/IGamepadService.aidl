@@ -16,6 +16,28 @@ interface IGamepadService {
     /** 销毁虚拟手柄。 */
     void release() = 4;
 
+    /** 创建虚拟键盘，返回 0 表示成功，负数表示 -errno。 */
+    int createKeyboard() = 5;
+
+    /**
+     * 写入一次全量键盘状态。
+     * modifiers 为 HID 修饰键位掩码（bit0=LCtrl … bit7=RGui）；
+     * usages 为 HID Keyboard/Keypad 键位用法（0x04..0xFF，修饰键 0xE0..0xE7 除外）。
+     */
+    void updateKeyboard(int modifiers, in int[] usages) = 6;
+
+    /** 创建虚拟鼠标，返回 0 表示成功，负数表示 -errno。 */
+    int createMouse() = 7;
+
+    /**
+     * 写入一次鼠标帧。buttons 为按键掩码（bit0 左键、bit1 右键、bit2 中键、
+     * bit3 后退、bit4 前进）；dx/dy 为相对位移；wheel/pan 为垂直/横向滚轮。
+     */
+    void updateMouse(int dx, int dy, int wheel, int pan, int buttons) = 8;
+
+    /** 销毁虚拟键盘与鼠标。 */
+    void releaseKeyboardMouse() = 9;
+
     /**
      * 用户服务退出（Shizuku 约定的事务号，见 Shizuku-API 文档：
      * "The transaction code for that method is 16777115 (use 16777114 in aidl)"）。

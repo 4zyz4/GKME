@@ -42,4 +42,31 @@ public final class RemoteGamepadDevice {
     public static native long nativeRumble(int fd);
 
     public static native void nativeDestroy(int fd);
+
+    /** 创建虚拟键盘，返回 uinput fd（负数表示 -errno）。 */
+    public static native int nativeCreateKeyboard();
+
+    /**
+     * 写入一次全量键盘状态。
+     *
+     * @param modifiers HID 修饰键位掩码（bit0=LCtrl … bit7=RGui）
+     * @param usages    HID Keyboard/Keypad 键位用法（0x04..0xFF，修饰键除外）
+     */
+    public static native void nativeWriteKeyboard(int fd, int modifiers, int[] usages);
+
+    /** 创建虚拟鼠标，返回 uinput fd（负数表示 -errno）。 */
+    public static native int nativeCreateMouse();
+
+    /**
+     * 写入一次鼠标帧。按钮掩码：bit0 左键、bit1 右键、bit2 中键、bit3 后退、bit4 前进。
+     *
+     * @param dx/dy  相对位移
+     * @param wheel  垂直滚轮（正为向上）
+     * @param pan    横向滚轮（正为向右）
+     */
+    public static native void nativeWriteMouse(int fd, int dx, int dy, int wheel, int pan,
+                                               int buttons);
+
+    /** 销毁键盘/鼠标 uinput 设备（与手柄的 nativeDestroy 区分）。 */
+    public static native void nativeDestroyInput(int fd);
 }
