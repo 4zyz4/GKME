@@ -66,6 +66,16 @@
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:windowSoftInputMode="adjustResize" />
 
+        <!-- 被控端前台服务：常驻通知，防止熄屏/后台时被系统杀进程 -->
+        <service
+            android:name=".controlled.ControlledHostService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="controlled_host_keepalive" />
+        </service>
+
         <!-- Shizuku（提供 shell/root 身份运行 UserService） -->
         <provider
             android:name="rikka.shizuku.ShizukuProvider"

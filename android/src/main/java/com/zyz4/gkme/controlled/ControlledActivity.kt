@@ -1,5 +1,7 @@
 package com.zyz4.gkme.controlled
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -12,6 +14,9 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -45,7 +50,10 @@ class ControlledActivity : ComponentActivity() {
         GamepadInjector.init(this)
         GamepadInjector.ensureBound()
 
-        findViewById<Button>(R.id.btnControlledBack).setOnClickListener { finish() }
+        findViewById<Button>(R.id.btnControlledBack).setOnClickListener { exitControlled() }
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() = exitControlled()
+        })
         findViewById<Button>(R.id.btnRefreshDevices).setOnClickListener {
             ControlledHostManager.refresh()
             showToast("正在扫描…")
@@ -55,14 +63,34 @@ class ControlledActivity : ComponentActivity() {
         }
         btnShizukuAction.setOnClickListener { onShizukuAction() }
 
-        ControlledHostManager.start()
+        startHostWithNotificationPermission()
         updateShizukuAction()
         observe()
     }
 
-    override fun onDestroy() {
-        ControlledHostManager.stop()
-        super.onDestroy()
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        // 无论是否授权都启动服务：前台服务本身仍可运行，通知在授权后可见。
+        ControlledHostService.start(this)
+    }
+
+    /** 被控端以前台服务 + 常驻通知的方式常驻，避免熄屏或切到后台后被系统杀进程。 */
+    private fun startHostWithNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            ControlledHostService.start(this)
+        }
+    }
+
+    /** 返回：结束被控端（移除常驻通知并停止前台服务）后关闭页面。 */
+    private fun exitControlled() {
+        ControlledHostService.stop(this)
+        finish()
     }
 
     private fun observe() {
@@ -77,6 +105,7 @@ class ControlledActivity : ComponentActivity() {
                         if (st.phase == ControlledHostManager.Phase.ERROR) {
                             showToast(st.statusText)
                         }
+                        renderDevices(ControlledHostManager.devices.value)
                     }
                 }
                 launch {
@@ -91,6 +120,8 @@ class ControlledActivity : ComponentActivity() {
 
     private fun renderDevices(devices: List<ControlledDevice>) {
         val active = ControlledHostManager.session.value
+        val reconnecting =
+            ControlledHostManager.state.value.phase == ControlledHostManager.Phase.RECONNECTING
         deviceList.removeAllViews()
         if (devices.isEmpty()) return
         val inflater = LayoutInflater.from(this)
@@ -99,8 +130,11 @@ class ControlledActivity : ComponentActivity() {
             item.findViewById<TextView>(R.id.tvDeviceName).text = device.displayName
             item.findViewById<TextView>(R.id.tvDeviceIp).text = device.subtitle
             val isActive = active?.ip == device.ip
-            item.findViewById<TextView>(R.id.tvDeviceStatus).text =
-                if (isActive) "已连接" else "已发现"
+            item.findViewById<TextView>(R.id.tvDeviceStatus).text = when {
+                isActive && reconnecting -> "尝试连接"
+                isActive -> "已连接"
+                else -> "可连接"
+            }
             val btnConnect = item.findViewById<Button>(R.id.btnDeviceConnect)
             val btnDisconnect = item.findViewById<Button>(R.id.btnDeviceDisconnect)
             btnConnect.visibility = if (isActive) View.GONE else View.VISIBLE
