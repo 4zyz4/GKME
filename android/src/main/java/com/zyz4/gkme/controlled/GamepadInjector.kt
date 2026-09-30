@@ -55,6 +55,13 @@ object GamepadInjector {
 
     private var initialized = false
 
+    /** 当前虚拟手柄的配置，用于判断是否需要重建。 */
+    @Volatile
+    private var rumbleEnabled = true
+
+    @Volatile
+    private var mouseEnabled = true
+
     @Volatile
     private var permissionRequestInFlight = false
 
@@ -205,8 +212,13 @@ object GamepadInjector {
     /**
      * 确保虚拟手柄已就绪。若 Shizuku 未运行/未授权/未绑定，则返回 false 并触发相应流程，
      * 调用方可稍后重试。
+     *
+     * @param rumble 是否让虚拟手柄暴露震动（FF）能力。本机模式下必须为 false：系统会把
+     *   手机震动重定向到带 FF 的虚拟手柄，而虚拟手柄的震动又用手机马达，形成死循环。
+     * @param mouse 是否按需创建虚拟鼠标。本机模式下必须为 false：虚拟鼠标会与屏幕触摸
+     *   输入冲突。
      */
-    fun ensureReady(): Boolean {
+    fun ensureReady(rumble: Boolean = true, mouse: Boolean = true): Boolean {
         if (!binderAlive) {
             lastError = "Shizuku 未运行"
             return false
@@ -223,9 +235,15 @@ object GamepadInjector {
             ensureBound()
             return false
         }
-        if (created) return true
+        if (created) {
+            if (rumbleEnabled == rumble && mouseEnabled == mouse) return true
+            // 配置发生变化（例如从被控端切到本机模式）：销毁后按新配置重建。
+            release()
+        }
+        rumbleEnabled = rumble
+        mouseEnabled = mouse
         return try {
-            val r = svc.create(true)
+            val r = svc.create(rumble)
             if (r == 0) {
                 created = true
                 lastError = null
@@ -286,7 +304,7 @@ object GamepadInjector {
         } catch (_: Throwable) {
         }
         updateKeyboard(svc, input)
-        updateMouse(svc, input)
+        if (mouseEnabled) updateMouse(svc, input)
     }
 
     /**

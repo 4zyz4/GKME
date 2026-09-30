@@ -1,6 +1,6 @@
 package com.zyz4.gkme.model
 
-enum class ConnectionMode { WIFI, BLUETOOTH, USB }
+enum class ConnectionMode { WIFI, BLUETOOTH, USB, LOCAL }
 
 /**
  * WiFi 模式下本机承担的角色：

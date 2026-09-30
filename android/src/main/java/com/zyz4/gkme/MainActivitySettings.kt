@@ -47,6 +47,7 @@ import com.zyz4.gkme.model.AdaptiveTriggerTargetType
 import com.zyz4.gkme.model.ConnectionMode
 import com.zyz4.gkme.model.ControlType
 import com.zyz4.gkme.controlled.ControlledActivity
+import com.zyz4.gkme.controlled.GamepadInjector
 import com.zyz4.gkme.model.DisplayMode
 import com.zyz4.gkme.model.GyroOrientation
 import com.zyz4.gkme.model.GyroSource
@@ -135,6 +136,7 @@ internal fun MainActivity.hideSettings() {
     if (!a.inSettings) return
     a.inSettings = false
     a.vibrationPollingJob?.cancel()
+    a.stopShizukuPolling()
     val gamepad = a.findViewById<View>(R.id.gamepadPanel)
     val panel = a.findViewById<View>(R.id.settingsPanel)
     a.settingsRevealAnimator?.end()
@@ -482,8 +484,8 @@ internal fun MainActivity.setupSettings() {
 
     // Audio VC indicator polling will be started in selectSettingsCategory when index == 6
 
-    val connectionChipIds = listOf(R.id.btnConnWifi, R.id.btnConnBluetooth, R.id.btnConnUsb)
-    listOf(R.id.btnConnWifi to 0, R.id.btnConnBluetooth to 1, R.id.btnConnUsb to 2).forEach { (id, idx) ->
+    val connectionChipIds = listOf(R.id.btnConnWifi, R.id.btnConnBluetooth, R.id.btnConnUsb, R.id.btnConnLocal)
+    listOf(R.id.btnConnWifi to 0, R.id.btnConnBluetooth to 1, R.id.btnConnUsb to 2, R.id.btnConnLocal to 3).forEach { (id, idx) ->
         a.findViewById<Button>(id).setOnClickListener {
             if (a.viewModel.connectionState.value.phase != ConnectionPhase.IDLE) {
                 a.showToast("请先停止服务")
@@ -1528,9 +1530,15 @@ internal fun MainActivity.setupConnectionPage() {
     a.findViewById<Button>(R.id.btnConnectAction).setOnClickListener {
         val st = a.viewModel.connectionState.value
         if (st.phase != ConnectionPhase.IDLE) {
+            val wasLocal = a.viewModel.settings.value.connectionMode == ConnectionMode.LOCAL
             a.viewModel.stopServer()
+            if (wasLocal) a.exitFloatingMode()
         } else {
             val s = a.viewModel.settings.value
+            if (s.connectionMode == ConnectionMode.LOCAL) {
+                a.startLocalMode()
+                return@setOnClickListener
+            }
             if (s.connectionMode == ConnectionMode.WIFI && s.controlType == ControlType.CONTROLLED) {
                 a.launchControlledMode()
                 return@setOnClickListener
@@ -1578,6 +1586,95 @@ internal fun MainActivity.setupConnectionPage() {
         }
         override fun onNothingSelected(parent: AdapterView<*>?) {}
     }
+
+    a.setupShizukuEntry()
+}
+
+/** 本机模式：在当前设备创建虚拟手柄，随后进入悬浮模式。 */
+internal fun MainActivity.startLocalMode() {
+    val a = this
+    GamepadInjector.init(a)
+    GamepadInjector.ensureBound()
+    a.localStartPending = true
+    a.updateShizukuEntry()
+    if (a.tryStartLocalVirtualDevice()) return
+    a.startShizukuPolling()
+}
+
+/**
+ * 尝试创建虚拟设备并进入悬浮模式。Shizuku 尚未运行/未授权/用户服务未就绪时返回
+ * false，由 [startShizukuPolling] 在就绪后自动继续。
+ */
+internal fun MainActivity.tryStartLocalVirtualDevice(): Boolean {
+    val a = this
+    if (!a.localStartPending) return false
+    // 本机模式：不暴露震动能力（避免手机震动被重定向到虚拟手柄形成死循环），
+    // 也不创建虚拟鼠标（避免与屏幕触摸冲突）。
+    if (!GamepadInjector.ensureReady(rumble = false, mouse = false)) {
+        a.updateShizukuEntry()
+        return false
+    }
+    a.localStartPending = false
+    a.stopShizukuPolling()
+    a.viewModel.startServer()
+    a.enterFloatingMode()
+    return true
+}
+
+/** 轮询 Shizuku 状态：刷新授权条目，并在用户已点击启动服务后自动完成启动。 */
+internal fun MainActivity.startShizukuPolling() {
+    val a = this
+    if (a.shizukuPollingJob != null) return
+    a.updateShizukuEntry()
+    a.shizukuPollingJob = a.lifecycleScope.launch {
+        while (true) {
+            delay(500.milliseconds)
+            if (!a.settingsInflated) continue
+            a.updateShizukuEntry()
+            if (a.tryStartLocalVirtualDevice()) break
+        }
+    }
+}
+
+internal fun MainActivity.stopShizukuPolling() {
+    val a = this
+    a.shizukuPollingJob?.cancel()
+    a.shizukuPollingJob = null
+}
+
+internal fun MainActivity.setupShizukuEntry() {
+    val a = this
+    a.findViewById<Button>(R.id.btnShizukuEntry).setOnClickListener { a.onShizukuEntryAction() }
+    a.updateShizukuEntry()
+}
+
+internal fun MainActivity.onShizukuEntryAction() {
+    val a = this
+    when (GamepadInjector.requiredAction(a)) {
+        GamepadInjector.Action.DOWNLOAD -> GamepadInjector.openDownloadPage(a)
+        GamepadInjector.Action.OPEN -> GamepadInjector.openShizuku(a)
+        GamepadInjector.Action.REQUEST_PERMISSION -> {
+            GamepadInjector.requestPermission()
+            a.showToast("正在申请 Shizuku 权限…")
+        }
+        GamepadInjector.Action.NONE -> Unit
+    }
+}
+
+internal fun MainActivity.updateShizukuEntry() {
+    val a = this
+    if (!a.settingsInflated) return
+    val btn = a.findViewById<Button>(R.id.btnShizukuEntry) ?: return
+    btn.isEnabled = true
+    when (GamepadInjector.requiredAction(a)) {
+        GamepadInjector.Action.DOWNLOAD -> btn.text = "下载 Shizuku"
+        GamepadInjector.Action.OPEN -> btn.text = "打开 Shizuku"
+        GamepadInjector.Action.REQUEST_PERMISSION -> btn.text = "申请授权"
+        GamepadInjector.Action.NONE -> {
+            btn.text = "已授权"
+            btn.isEnabled = false
+        }
+    }
 }
 
 /** 进入“作为被控端”的连接页面（接收远端控制端输入并创建本地虚拟手柄）。 */
@@ -1605,6 +1702,8 @@ internal fun MainActivity.autoStartService() {
     if (!s.autoStartEnabled) return
     // 被控端需要用户显式进入连接页面（并完成 Shizuku 授权），不自动启动。
     if (s.connectionMode == ConnectionMode.WIFI && s.controlType == ControlType.CONTROLLED) return
+    // 本机模式需要 Shizuku 授权并进入悬浮模式，由用户点击“启动服务”触发。
+    if (s.connectionMode == ConnectionMode.LOCAL) return
     if (s.connectionMode == ConnectionMode.BLUETOOTH) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val connectGranted = ContextCompat.checkSelfPermission(
@@ -1748,9 +1847,17 @@ internal fun MainActivity.updateSettingsVisibility(mode: ConnectionMode) {
     if (!a.settingsInflated) return
     val isBt = mode == ConnectionMode.BLUETOOTH
     val isWifi = mode == ConnectionMode.WIFI
+    val isLocal = mode == ConnectionMode.LOCAL
     a.findViewById<View>(R.id.sectionTargetPlatform).visibility = if (isBt) View.VISIBLE else View.GONE
     a.findViewById<View>(R.id.sectionControlType).visibility = if (isWifi) View.VISIBLE else View.GONE
     a.findViewById<View>(R.id.tvServerIp).visibility = if (isWifi) View.VISIBLE else View.GONE
+    a.findViewById<View>(R.id.sectionShizuku).visibility = if (isLocal) View.VISIBLE else View.GONE
+    if (isLocal) {
+        a.startShizukuPolling()
+    } else {
+        a.localStartPending = false
+        a.stopShizukuPolling()
+    }
     a.updatePairedDeviceVisibility(a.viewModel.pairedDeviceName.value)
 }
 
@@ -1801,7 +1908,7 @@ internal fun MainActivity.syncSettingsUI() {
 
     a.selectChipGroup(listOf(R.id.btnDisplayXbox, R.id.btnDisplayPlaystation, R.id.btnDisplaySwitch),
         DisplayMode.entries.indexOf(s.displayMode).coerceAtLeast(0))
-    a.selectChipGroup(listOf(R.id.btnConnWifi, R.id.btnConnBluetooth, R.id.btnConnUsb),
+    a.selectChipGroup(listOf(R.id.btnConnWifi, R.id.btnConnBluetooth, R.id.btnConnUsb, R.id.btnConnLocal),
         ConnectionMode.entries.indexOf(s.connectionMode).coerceAtLeast(0))
     a.selectChipGroup(listOf(R.id.btnControlTypeController, R.id.btnControlTypeControlled),
         ControlType.entries.indexOf(s.controlType).coerceAtLeast(0))

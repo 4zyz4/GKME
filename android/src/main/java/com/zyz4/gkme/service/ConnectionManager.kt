@@ -5,6 +5,7 @@ import android.os.Build
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.provider.Settings
+import com.zyz4.gkme.controlled.GamepadInjector
 import com.zyz4.gkme.data.PairingStateRepository
 import com.zyz4.gkme.data.SettingsRepository
 import com.zyz4.gkme.model.AppSettings
@@ -219,6 +220,15 @@ class ConnectionManager @Inject constructor(
                     startUsbServer()
                     watchdogJob = launch { watchdogLoop() }
                 }
+            }
+            ConnectionMode.LOCAL -> {
+                // 本机模式：虚拟手柄由 GamepadInjector（Shizuku + uinput）创建，
+                // 输入直接在本机注入，不经过网络传输。
+                _connectionState.value = _connectionState.value.copy(
+                    connected = true,
+                    phase = ConnectionPhase.CONNECTED,
+                    statusText = "本机虚拟手柄已就绪",
+                )
             }
         }
     }
@@ -465,6 +475,9 @@ class ConnectionManager @Inject constructor(
         activeProtocol = ActiveProtocol.NONE
         _connectionState.value = ConnectionState()
         clearTriggerEffects()
+        if (_settings.value.connectionMode == ConnectionMode.LOCAL) {
+            GamepadInjector.release()
+        }
     }
 
     private fun stopBluetooth() {
@@ -747,6 +760,9 @@ class ConnectionManager @Inject constructor(
                 if (!usbService.peerConnected) return
                 usbService.sendGamepadInput(state)
             }
+            ConnectionMode.LOCAL -> {
+                if (GamepadInjector.isReady()) GamepadInjector.update(state)
+            }
         }
     }
 
@@ -780,6 +796,8 @@ class ConnectionManager @Inject constructor(
                     button.toInt(), dx.toInt(), dy.toInt(), wheel.toInt(), hWheel.toInt()
                 )
             }
+            // 本机模式不创建虚拟鼠标（会与屏幕触摸冲突），鼠标状态不注入。
+            ConnectionMode.LOCAL -> {}
         }
     }
 
@@ -798,6 +816,8 @@ class ConnectionManager @Inject constructor(
             // USB carries the keyboard inside the regular GamepadInput frame
             // (see GkViewModel); no separate HID report is needed.
             ConnectionMode.USB -> {}
+            // LOCAL also carries the keyboard inside the GamepadInput frame.
+            ConnectionMode.LOCAL -> {}
         }
     }
 

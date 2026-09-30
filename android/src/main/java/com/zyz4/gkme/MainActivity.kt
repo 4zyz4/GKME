@@ -33,6 +33,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
+import com.zyz4.gkme.controlled.GamepadInjector
 import com.zyz4.gkme.model.AudioDevice
 import com.zyz4.gkme.model.AdaptiveTriggerDevice
 import com.zyz4.gkme.model.GamepadState
@@ -64,6 +65,8 @@ class MainActivity : ComponentActivity() {
     internal var discoverableRequested = false
     internal var vibrationPollingJob: kotlinx.coroutines.Job? = null
     internal var audioPollingJob: kotlinx.coroutines.Job? = null
+    internal var shizukuPollingJob: kotlinx.coroutines.Job? = null
+    internal var localStartPending = false
     internal var lastAppliedSettings: AppSettings? = null
     internal var lastPresetInfos: Any? = null
     internal var lastPresetCurrentName: String? = null
@@ -192,6 +195,8 @@ class MainActivity : ComponentActivity() {
         gamepadLayout = findViewById(R.id.gamepadLayout)
         floatingController = FloatingModeController(this)
         physicalControllerHandler = PhysicalControllerHandler(this)
+        // 注册 Shizuku 监听（本机模式使用），以便连接页正确显示授权条目状态。
+        GamepadInjector.init(this)
         setupMediaSession()
         setupGamepadLayoutListener()
         viewModel.onHapticFeedbackPress = { performHaptic(isPress = true) }
