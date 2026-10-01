@@ -141,19 +141,29 @@ enum class GyroActivateMode(val displayName: String) {
     BUTTON("按下特定按钮开启"),
 }
 
-enum class HapticEffect(val displayName: String) {
-    KEYBOARD_TAP("轻触"),
-    KEYBOARD_PRESS("按键按下"),
-    KEYBOARD_RELEASE("按键抬起"),
-    CONFIRM("确认"),
-    REJECT("拒绝"),
-    CLOCK_TICK("滴答"),
-    CONTEXT_CLICK("上下文"),
-    LONG_PRESS("长按"),
-    GESTURE_START("手势开始"),
-    GESTURE_END("手势结束"),
-    VIRTUAL_KEY("虚拟键"),
-    VIRTUAL_KEY_RELEASE("虚拟键释放"),
+/**
+ * 按键震动可选效果。
+ *
+ * [prebakedId] 是启用高清震动（RichTap）后用于替换系统 `HapticFeedbackConstants` 的
+ * RichTap PrebakedEffect ID（10001-10050）；HD 不可用时仍回退系统效果，该字段不生效。
+ */
+enum class HapticEffect(
+    val displayName: String,
+    /** 高清震动下的 RichTap PrebakedEffect ID（对应 SDK `PrebakedEffectId`）。 */
+    val prebakedId: Int,
+) {
+    KEYBOARD_TAP("轻触", 10012),
+    KEYBOARD_PRESS("按键按下", 10011),
+    KEYBOARD_RELEASE("按键抬起", 10016),
+    CONFIRM("确认", 10022),
+    REJECT("拒绝", 10023),
+    CLOCK_TICK("滴答", 10013),
+    CONTEXT_CLICK("上下文", 10015),
+    LONG_PRESS("长按", 10010),
+    GESTURE_START("手势开始", 10021),
+    GESTURE_END("手势结束", 10020),
+    VIRTUAL_KEY("虚拟键", 10011),
+    VIRTUAL_KEY_RELEASE("虚拟键释放", 10017),
 }
 
 enum class FillType { SOLID_COLOR, IMAGE }

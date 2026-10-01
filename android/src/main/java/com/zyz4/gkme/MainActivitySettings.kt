@@ -1478,6 +1478,8 @@ internal fun MainActivity.testHaptic(isPress: Boolean) {
         VibrationType.NONE -> return
         VibrationType.VIEW -> {
             val e = if (isPress) s.vibrationPressViewEffect else s.vibrationReleaseViewEffect
+            // 同 performHaptic：高清震动下系统效果会被 RichTap 抢占，改用预置效果替换。
+            if (PhoneHdHaptics.playPrebaked(e.prebakedId)) return
             a.gamepadLayout.performHapticFeedback(a.hapticEffectToConstant(e))
         }
         VibrationType.VIBRATION_EFFECT -> {

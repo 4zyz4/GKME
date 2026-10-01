@@ -114,6 +114,15 @@ object PhoneHdHaptics {
         return HapticInjector.startPattern(RichTapHe.continuous(freq, dur), 1, 0, s, freq, TOKEN)
     }
 
+    /** 播放一段 RichTap 预置效果（PrebakedEffect，ID 10001-10050），用于在 HD 下替换
+     *  系统 `performHapticFeedback`（后者会被 RichTap 抢占而失效）。命中 HD 返回 true。 */
+    fun playPrebaked(prebakedId: Int): Boolean {
+        if (!enabled) return false
+        if (!HapticInjector.isHapticReady()) return false
+        val he = RichTapPrebaked.he(prebakedId) ?: return false
+        return HapticInjector.startEffect(he, TOKEN)
+    }
+
     /** 停止 HD 持续震动（若正在运行）。仅停止本消费者自己的效果。 */
     fun stop(): Boolean {
         active = false

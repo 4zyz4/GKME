@@ -666,8 +666,10 @@ internal fun performHaptic(isPress: Boolean) {
             VibrationType.NONE -> return
             VibrationType.VIEW -> {
                 val effect = if (isPress) s.vibrationPressViewEffect else s.vibrationReleaseViewEffect
-                val constantId = hapticEffectToConstant(effect)
-                gamepadLayout.performHapticFeedback(constantId)
+                // 启用高清震动后，RichTap 动态效果会占用马达，导致系统 performHapticFeedback()
+                // 失效；因此用 RichTap 预置效果（PrebakedEffect）替换系统效果，HD 不可用时回退。
+                if (PhoneHdHaptics.playPrebaked(effect.prebakedId)) return
+                gamepadLayout.performHapticFeedback(hapticEffectToConstant(effect))
             }
             VibrationType.VIBRATION_EFFECT -> {
                 val duration = (if (isPress) s.vibrationPressDuration else s.vibrationReleaseDuration).coerceAtLeast(1)

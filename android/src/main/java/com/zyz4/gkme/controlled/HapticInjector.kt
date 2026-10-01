@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.zyz4.gkme.haptic.RichTapFrequency
 import com.zyz4.gkme.haptic.RichTapHe
+import com.zyz4.gkme.haptic.RichTapPrebaked
 
 /**
  * App 侧对 HD 震动 Shizuku 用户服务（[RemoteHapticService]）的封装。
@@ -48,6 +49,7 @@ object HapticInjector {
     @Synchronized
     fun init(context: Context) {
         if (initialized) return
+        RichTapPrebaked.load(context)
         val b = ShizukuServiceBinding(
             tag = TAG,
             processNameSuffix = "gkme_haptic",
