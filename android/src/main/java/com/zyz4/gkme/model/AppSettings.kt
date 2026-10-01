@@ -130,10 +130,10 @@ enum class GyroMode(val displayName: String) {
     NONE("关闭"),
     HANDHELD("手柄陀螺仪"),
     MOUSE("陀螺仪转鼠标"),
-    LEFT_STICK("陀螺仪转左摇杆"),
-    RIGHT_STICK("陀螺仪转右摇杆"),
-    ACCELEROMETER_LEFT_STICK("加速度计转左摇杆"),
-    ACCELEROMETER_RIGHT_STICK("加速度计转右摇杆"),
+    LEFT_STICK("陀螺仪转左摇杆视角"),
+    RIGHT_STICK("陀螺仪转右摇杆视角"),
+    ACCELEROMETER_LEFT_STICK("陀螺仪转左摇杆方向"),
+    ACCELEROMETER_RIGHT_STICK("陀螺仪转右摇杆方向"),
 }
 
 enum class GyroActivateMode(val displayName: String) {
