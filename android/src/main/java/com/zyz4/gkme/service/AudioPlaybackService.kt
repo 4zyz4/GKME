@@ -682,9 +682,6 @@ class AudioPlaybackService {
             supportsControllerAudio?.invoke(controllerAudioDevice.controllerIndex) == true
         ) controllerAudioDevice.controllerIndex else -1
         if (vcPcmIndex >= 0 || caPcmIndex >= 0) {
-            Log.i(TAG, "USB PCM path selected: vcIndex=$vcPcmIndex caIndex=$caPcmIndex rate=$sampleRate ch=$channels")
-        }
-        if (vcPcmIndex >= 0 || caPcmIndex >= 0) {
             // Both the voice-coil and controller-audio lanes go to the same
             // DualSense USB audio endpoint, which runs at 48 kHz, so resample once
             // per incoming frame and share the result across targets.

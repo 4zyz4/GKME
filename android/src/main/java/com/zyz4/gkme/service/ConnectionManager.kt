@@ -121,6 +121,18 @@ class ConnectionManager @Inject constructor(
         ThreadPoolExecutor.DiscardOldestPolicy(),
     )
 
+    // Controller HID output (rumble / adaptive triggers) also performs a blocking
+    // bulkTransfer. On a DualSense whose audio-haptics endpoint is streaming, that
+    // write can sit in the USB stack until its 1 s timeout. Running it on the
+    // receive loop stalled every following frame — including the PCM stream — so it
+    // gets its own writer thread. Only the latest state matters, hence DiscardOldest.
+    private val controllerOutputExecutor = ThreadPoolExecutor(
+        1, 1, 0L, TimeUnit.MILLISECONDS,
+        ArrayBlockingQueue(8),
+        { r -> Thread(r, "GkmeHidOut").apply { isDaemon = true } },
+        ThreadPoolExecutor.DiscardOldestPolicy(),
+    )
+
     init {
         _settings.value = runBlocking(Dispatchers.IO) {
             settingsRepository.settings.first()
@@ -544,11 +556,15 @@ class ConnectionManager @Inject constructor(
                 val cf = msg.compactFrame
                 val rumbleLow = if (cf.hasVibration()) cf.vibration.largeMotor.toInt() else 0
                 val rumbleHigh = if (cf.hasVibration()) cf.vibration.smallMotor.toInt() else 0
-                if (cf.hasVibration() && _settings.value.gameVibrationDeviceFor(physicalControllerConnected).type != VibrationDeviceType.NONE) {
-                    onRumbleRequest?.invoke(rumbleLow, rumbleHigh)
-                }
-                if (cf.hasTriggerEffects()) {
-                    dispatchTriggerEffects(cf.triggerEffects)
+                val hasVibration = cf.hasVibration() &&
+                    _settings.value.gameVibrationDeviceFor(physicalControllerConnected).type != VibrationDeviceType.NONE
+                // Rumble and adaptive triggers reach the pad through a blocking HID
+                // bulkTransfer; keep them off the receive loop so a slow write cannot
+                // hold up the rest of the stream (see controllerOutputExecutor).
+                val triggerEffects = if (cf.hasTriggerEffects()) cf.triggerEffects else null
+                controllerOutputExecutor.execute {
+                    if (hasVibration) onRumbleRequest?.invoke(rumbleLow, rumbleHigh)
+                    triggerEffects?.let { dispatchTriggerEffects(it) }
                 }
                 if (cf.hasLedState()) {
                     _ledState.value = LedState(
@@ -596,7 +612,8 @@ class ConnectionManager @Inject constructor(
                 audioPlaybackService.setTestTone(msg.testTone.enabled)
             }
             ServerToClient.PayloadCase.TRIGGER_EFFECTS -> {
-                dispatchTriggerEffects(msg.triggerEffects)
+                val triggerEffects = msg.triggerEffects
+                controllerOutputExecutor.execute { dispatchTriggerEffects(triggerEffects) }
             }
             else -> {}
         }
