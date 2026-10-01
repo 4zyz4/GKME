@@ -87,8 +87,8 @@ object HapticInjector {
         }
     }
 
-    fun requestPermission() {
-        binding?.requestPermission()
+    fun requestPermission(force: Boolean = false) {
+        binding?.requestPermission(force)
     }
 
     fun ensureBound() {

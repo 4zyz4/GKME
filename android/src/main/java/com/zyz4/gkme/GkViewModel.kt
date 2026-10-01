@@ -907,6 +907,11 @@ class GkViewModel @Inject constructor(
         connectionManager.stopServer()
     }
 
+    /** 更新服务未运行时的状态栏文案（本机模式 Shizuku 授权进度 / 失败）。 */
+    fun setLocalModeStatus(text: String) {
+        connectionManager.setIdleStatus(text)
+    }
+
     private fun startSensorDisplay() {
         sensorHandler.gyroOrientation = currentPresetGyroOrientation ?: settings.value.gyroOrientation
         sensorHandler.start()

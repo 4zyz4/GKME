@@ -222,6 +222,14 @@ class ConnectionManager @Inject constructor(
         }
     }
 
+    /** 服务未运行时更新状态栏文案（例如本机模式等待 Shizuku 授权 / 授权失败）。 */
+    fun setIdleStatus(text: String) {
+        val st = _connectionState.value
+        if (st.phase == ConnectionPhase.IDLE) {
+            _connectionState.value = st.copy(statusText = text)
+        }
+    }
+
     fun startServer(scope: CoroutineScope) {
         val s = _settings.value
         activeProtocol = ActiveProtocol.NONE

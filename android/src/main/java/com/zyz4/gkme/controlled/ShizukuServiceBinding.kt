@@ -38,6 +38,11 @@ class ShizukuServiceBinding(
     var permissionGranted: Boolean = false
         private set
 
+    /** 授权申请已被用户拒绝，调用方据此判定“授权失败”。 */
+    @Volatile
+    var permissionDenied: Boolean = false
+        private set
+
     @Volatile
     var bound: Boolean = false
         private set
@@ -50,6 +55,9 @@ class ShizukuServiceBinding(
     private var args: Shizuku.UserServiceArgs? = null
     private var initialized = false
     private var permissionRequestInFlight = false
+
+    /** 是否已自动发起过一次授权申请；未通过前不再自动重复申请（避免反复弹窗）。 */
+    private var autoPrompted = false
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
@@ -68,6 +76,8 @@ class ShizukuServiceBinding(
 
     private val binderReceivedListener = Shizuku.OnBinderReceivedListener {
         binderAlive = true
+        permissionDenied = false
+        autoPrompted = false
         refreshPermission()
         if (permissionGranted) ensureBound()
     }
@@ -75,6 +85,9 @@ class ShizukuServiceBinding(
     private val binderDeadListener = Shizuku.OnBinderDeadListener {
         binderAlive = false
         permissionGranted = false
+        permissionDenied = false
+        autoPrompted = false
+        permissionRequestInFlight = false
         bound = false
         lastError = "Shizuku 已停止"
         onDisconnected()
@@ -86,9 +99,13 @@ class ShizukuServiceBinding(
             permissionRequestInFlight = false
             permissionGranted = grantResult == PackageManager.PERMISSION_GRANTED
             if (permissionGranted) {
+                permissionDenied = false
+                autoPrompted = false
                 lastError = null
                 ensureBound()
             } else {
+                permissionDenied = true
+                autoPrompted = true
                 lastError = "Shizuku 权限被拒绝"
             }
         }
@@ -124,9 +141,19 @@ class ShizukuServiceBinding(
         } catch (_: Throwable) {
             false
         }
+        if (permissionGranted) {
+            permissionDenied = false
+            autoPrompted = false
+        }
     }
 
-    fun requestPermission() {
+    /**
+     * 申请 Shizuku 权限。
+     *
+     * 自动流程（[ensureBound] 等由轮询反复调用）只会真正发起一次申请，被拒绝后不再重复弹窗；
+     * 用户手动点击「申请授权」时传 [force] = true 可再次申请。
+     */
+    fun requestPermission(force: Boolean = false) {
         handler?.post {
             try {
                 if (Shizuku.isPreV11()) {
@@ -135,14 +162,16 @@ class ShizukuServiceBinding(
                 }
                 if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
                     permissionGranted = true
+                    permissionDenied = false
+                    autoPrompted = false
+                    lastError = null
                     ensureBound()
                     return@post
                 }
-                if (Shizuku.shouldShowRequestPermissionRationale()) {
-                    lastError = "Shizuku 权限已被拒绝，请在 Shizuku 中手动授权"
-                    return@post
-                }
                 if (permissionRequestInFlight) return@post
+                if (autoPrompted && !force) return@post
+                if (force) permissionDenied = false
+                autoPrompted = true
                 permissionRequestInFlight = true
                 Shizuku.requestPermission(requestCode)
             } catch (t: Throwable) {
@@ -196,6 +225,9 @@ class ShizukuServiceBinding(
         }
         unbind()
         initialized = false
+        permissionRequestInFlight = false
+        permissionDenied = false
+        autoPrompted = false
     }
 
     /** 推断用户下一步操作：下载 / 打开 Shizuku / 申请授权 / 无需操作。 */

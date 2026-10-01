@@ -57,6 +57,7 @@ object GamepadInjector {
 
     val binderAlive: Boolean get() = binding?.binderAlive == true
     val permissionGranted: Boolean get() = binding?.permissionGranted == true
+    val permissionDenied: Boolean get() = binding?.permissionDenied == true
 
     @Synchronized
     fun init(context: Context) {
@@ -81,8 +82,8 @@ object GamepadInjector {
         b.init(context)
     }
 
-    fun requestPermission() {
-        binding?.requestPermission()
+    fun requestPermission(force: Boolean = false) {
+        binding?.requestPermission(force)
     }
 
     fun ensureBound() {
@@ -105,7 +106,9 @@ object GamepadInjector {
             return false
         }
         if (!b.permissionGranted) {
-            lastError = "正在申请 Shizuku 权限…"
+            if (b.permissionDenied) {
+                lastError = b.lastError ?: "Shizuku 权限被拒绝"
+            }
             b.requestPermission()
             return false
         }
@@ -259,7 +262,8 @@ object GamepadInjector {
         val b = binding ?: return "Shizuku 未运行"
         return when {
             !b.binderAlive -> "Shizuku 未运行"
-            !b.permissionGranted -> "Shizuku 未授权"
+            !b.permissionGranted ->
+                if (b.permissionDenied) (b.lastError ?: "Shizuku 权限被拒绝") else "Shizuku 未授权"
             service == null -> "正在启动 Shizuku 用户服务…"
             lastError != null -> lastError!!
             created -> "虚拟手柄已就绪"

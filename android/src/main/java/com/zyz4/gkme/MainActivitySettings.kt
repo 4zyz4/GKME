@@ -1658,6 +1658,13 @@ internal fun MainActivity.tryStartLocalVirtualDevice(): Boolean {
     // 也不创建虚拟鼠标（避免与屏幕触摸冲突）。
     if (!GamepadInjector.ensureReady(rumble = false, mouse = false)) {
         a.updateShizukuEntry()
+        if (GamepadInjector.permissionDenied) {
+            // 授权只自动尝试一次；被拒绝后停止轮询并把失败显示在服务状态上，避免反复弹窗。
+            a.localStartPending = false
+            a.stopShizukuPolling()
+            a.updateShizukuEntry()
+            a.viewModel.setLocalModeStatus("Shizuku 授权失败，请在 Shizuku 中手动授权后重试")
+        }
         return false
     }
     a.localStartPending = false
@@ -1700,8 +1707,7 @@ internal fun MainActivity.onShizukuEntryAction() {
         GamepadInjector.Action.DOWNLOAD -> GamepadInjector.openDownloadPage(a)
         GamepadInjector.Action.OPEN -> GamepadInjector.openShizuku(a)
         GamepadInjector.Action.REQUEST_PERMISSION -> {
-            GamepadInjector.requestPermission()
-            a.showToast("正在申请 Shizuku 权限…")
+            GamepadInjector.requestPermission(force = true)
         }
         GamepadInjector.Action.NONE -> Unit
     }
@@ -1747,8 +1753,7 @@ internal fun MainActivity.onHdVibrationShizukuAction() {
         ShizukuServiceBinding.Action.DOWNLOAD -> ShizukuServiceBinding.openDownloadPage(a)
         ShizukuServiceBinding.Action.OPEN -> ShizukuServiceBinding.openShizuku(a)
         ShizukuServiceBinding.Action.REQUEST_PERMISSION -> {
-            HapticInjector.requestPermission()
-            a.showToast("正在申请 Shizuku 权限…")
+            HapticInjector.requestPermission(force = true)
         }
         ShizukuServiceBinding.Action.NONE -> HapticInjector.ensureBound()
     }
@@ -1956,6 +1961,7 @@ internal fun MainActivity.updateSettingsVisibility(mode: ConnectionMode) {
     } else {
         a.localStartPending = false
         a.stopShizukuPolling()
+        a.viewModel.setLocalModeStatus("未启动")
     }
     a.updatePairedDeviceVisibility(a.viewModel.pairedDeviceName.value)
 }

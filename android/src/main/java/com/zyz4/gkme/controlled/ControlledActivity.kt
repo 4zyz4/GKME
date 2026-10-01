@@ -208,8 +208,7 @@ class ControlledActivity : ComponentActivity() {
             GamepadInjector.Action.DOWNLOAD -> GamepadInjector.openDownloadPage(this)
             GamepadInjector.Action.OPEN -> GamepadInjector.openShizuku(this)
             GamepadInjector.Action.REQUEST_PERMISSION -> {
-                GamepadInjector.requestPermission()
-                showToast("正在申请 Shizuku 权限…")
+                GamepadInjector.requestPermission(force = true)
             }
             GamepadInjector.Action.NONE -> Unit
         }
