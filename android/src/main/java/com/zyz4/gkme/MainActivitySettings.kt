@@ -837,6 +837,9 @@ internal fun MainActivity.setupSettings() {
     a.viewModel.connectionManager.onTriggerEffectsRequest = { leftEffect: ByteArray?, rightEffect: ByteArray? ->
         a.adaptiveTriggerHandler.onEffects(leftEffect, rightEffect)
     }
+    a.viewModel.connectionManager.onTriggerRumbleRequest = { left: Int, right: Int ->
+        a.adaptiveTriggerHandler.onTriggerRumble(left, right)
+    }
 }
 
 internal fun MainActivity.setupEffectSpinner(spinnerId: Int, isPress: Boolean) {

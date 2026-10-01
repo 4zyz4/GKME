@@ -21,6 +21,7 @@ import com.zyz4.gkme.proto.ClientToServer
 import com.zyz4.gkme.proto.GamepadInput
 import com.zyz4.gkme.proto.Hello
 import com.zyz4.gkme.proto.ServerToClient
+import com.zyz4.gkme.proto.TriggerEffects
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -546,17 +547,8 @@ class ConnectionManager @Inject constructor(
                 if (cf.hasVibration() && _settings.value.gameVibrationDeviceFor(physicalControllerConnected).type != VibrationDeviceType.NONE) {
                     onRumbleRequest?.invoke(rumbleLow, rumbleHigh)
                 }
-                if (cf.hasTriggerEffects() && cf.triggerEffects.leftTriggerEffect.size() > 0) {
-                    onTriggerEffectsRequest?.invoke(
-                        cf.triggerEffects.leftTriggerEffect.toByteArray(),
-                        cf.triggerEffects.rightTriggerEffect.toByteArray(),
-                    )
-                }
-                if (cf.hasTriggerEffects() && cf.triggerEffects.leftTriggerEffect.size() == 0 && cf.triggerEffects.rightTriggerEffect.size() == 0) {
-                    onTriggerEffectsRequest?.invoke(
-                        byteArrayOf(),
-                        byteArrayOf(),
-                    )
+                if (cf.hasTriggerEffects()) {
+                    dispatchTriggerEffects(cf.triggerEffects)
                 }
                 if (cf.hasLedState()) {
                     _ledState.value = LedState(
@@ -604,13 +596,22 @@ class ConnectionManager @Inject constructor(
                 audioPlaybackService.setTestTone(msg.testTone.enabled)
             }
             ServerToClient.PayloadCase.TRIGGER_EFFECTS -> {
-                val te = msg.triggerEffects
-                onTriggerEffectsRequest?.invoke(
-                    te.leftTriggerEffect.toByteArray(),
-                    te.rightTriggerEffect.toByteArray(),
-                )
+                dispatchTriggerEffects(msg.triggerEffects)
             }
             else -> {}
+        }
+    }
+
+    /** Routes a TriggerEffects payload to the adaptive-trigger (DualSense effect bytes)
+     *  or the trigger-rumble (Xbox amplitudes) callback depending on which fields are set. */
+    private fun dispatchTriggerEffects(te: TriggerEffects) {
+        if (te.hasLeftTriggerRumble() || te.hasRightTriggerRumble()) {
+            onTriggerRumbleRequest?.invoke(te.leftTriggerRumble, te.rightTriggerRumble)
+        } else {
+            onTriggerEffectsRequest?.invoke(
+                te.leftTriggerEffect.toByteArray(),
+                te.rightTriggerEffect.toByteArray(),
+            )
         }
     }
 
@@ -716,6 +717,7 @@ class ConnectionManager @Inject constructor(
     var onControllerVibrationRequest: ((controllerIndex: Int, leftAmp: Int, rightAmp: Int) -> Unit)? = null
     var onVoiceCoilMotorOutputUpdate: ((leftAmp: Int, rightAmp: Int) -> Unit)? = null
     var onTriggerEffectsRequest: ((left: ByteArray?, right: ByteArray?) -> Unit)? = null
+    var onTriggerRumbleRequest: ((left: Int, right: Int) -> Unit)? = null
 
     suspend fun sendGamepadState(state: GamepadInput) {
         when (_settings.value.connectionMode) {

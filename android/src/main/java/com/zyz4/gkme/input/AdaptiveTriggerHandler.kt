@@ -29,6 +29,13 @@ class AdaptiveTriggerHandler(
     private var leftPosition = 0
     private var rightPosition = 0
 
+    // Xbox One trigger-rumble source (separate PC field). When active it overrides
+    // the DualSense-effect source: the amplitudes are applied unconditionally instead
+    // of being derived from the trigger position.
+    private var rumbleActive = false
+    private var rumbleLeft = 0
+    private var rumbleRight = 0
+
     private var lastOutLeft = -1
     private var lastOutRight = -1
     private var lastNativeKey: String? = null
@@ -53,6 +60,24 @@ class AdaptiveTriggerHandler(
         rightRaw = right
         leftEffect = AdaptiveTriggerEffect.parse(left)
         rightEffect = AdaptiveTriggerEffect.parse(right)
+        rumbleActive = false
+        render(force = true)
+    }
+
+    /**
+     * Called when the PC forwards Xbox One impulse-trigger rumble (0..255 per side).
+     * The values are handled as an adaptive-trigger input but applied unconditionally:
+     * a DualSense target receives a synthesised 0x26 Vibration effect, an Xbox target
+     * the raw trigger rumble, and a motor target the amplitude directly.
+     */
+    @Synchronized
+    fun onTriggerRumble(left: Int, right: Int) {
+        rumbleLeft = left.coerceIn(0, 255)
+        rumbleRight = right.coerceIn(0, 255)
+        rumbleActive = true
+        // Re-assert on every compact frame (like the effect source): a rumble-driven
+        // motor output has no position updates to refresh it, so without this a
+        // finite-duration controller rumble would lapse and the vibration would vanish.
         render(force = true)
     }
 
@@ -76,10 +101,19 @@ class AdaptiveTriggerHandler(
         }
     }
 
-    /** Converts the effects to motor amplitudes. Only the output channel is swapped. */
-    private fun renderMotor(force: Boolean, out: (Int, Int) -> Unit) {
+    /** Motor amplitudes for the active source. Rumble values pass through unchanged;
+     *  effect sources resolve the current trigger position. Only the output channels swap. */
+    private fun motorAmplitudes(): Pair<Int, Int> {
+        if (rumbleActive) {
+            return if (swap) rumbleRight to rumbleLeft else rumbleLeft to rumbleRight
+        }
         val left = if (swap) rightEffect.amplitudeFor(rightPosition) else leftEffect.amplitudeFor(leftPosition)
         val right = if (swap) leftEffect.amplitudeFor(leftPosition) else rightEffect.amplitudeFor(rightPosition)
+        return left to right
+    }
+
+    private fun renderMotor(force: Boolean, out: (Int, Int) -> Unit) {
+        val (left, right) = motorAmplitudes()
         if (!force && left == lastOutLeft && right == lastOutRight) return
         lastOutLeft = left
         lastOutRight = right
@@ -88,25 +122,44 @@ class AdaptiveTriggerHandler(
 
     private fun renderTrigger(force: Boolean, target: AdaptiveTriggerDevice) {
         val info = controllerHandler.connectedControllers.value.getOrNull(target.controllerIndex)
-        val left = if (swap) rightEffect.amplitudeFor(rightPosition) else leftEffect.amplitudeFor(leftPosition)
-        val right = if (swap) leftEffect.amplitudeFor(leftPosition) else rightEffect.amplitudeFor(rightPosition)
+        val (left, right) = motorAmplitudes()
         when {
-            info?.hasAdaptiveTrigger == true -> {
-                val key = nativeKey()
-                if (!force && key == lastNativeKey) return
-                lastNativeKey = key
-                val l = if (swap) rightRaw else leftRaw
-                val r = if (swap) leftRaw else rightRaw
-                controllerHandler.setAdaptiveTriggerEffects(
-                    target.controllerIndex, 0x0F,
-                    (l?.getOrNull(0) ?: 0).toByte(),
-                    (r?.getOrNull(0) ?: 0).toByte(),
-                    payload(l), payload(r),
-                )
-            }
+            info?.hasAdaptiveTrigger == true -> emitAdaptiveTrigger(target, force, left, right)
             info?.hasTriggerRumble == true -> emitTriggerRumble(target, force, left, right)
             else -> emitControllerMotor(target, force, left, right)
         }
+    }
+
+    /** Native DualSense output: raw effect blocks for the effect source, or a synthesised
+     *  0x26 Vibration effect when the active source is Xbox trigger rumble. */
+    private fun emitAdaptiveTrigger(target: AdaptiveTriggerDevice, force: Boolean, left: Int, right: Int) {
+        val key: String
+        val typeLeft: Byte
+        val typeRight: Byte
+        val dataLeft: ByteArray?
+        val dataRight: ByteArray?
+        if (rumbleActive) {
+            val l = AdaptiveTriggerEffect.vibrationPacket(left)
+            val r = AdaptiveTriggerEffect.vibrationPacket(right)
+            typeLeft = l[0]
+            typeRight = r[0]
+            dataLeft = l.copyOfRange(1, l.size)
+            dataRight = r.copyOfRange(1, r.size)
+            key = "r:$left:$right"
+        } else {
+            val l = if (swap) rightRaw else leftRaw
+            val r = if (swap) leftRaw else rightRaw
+            typeLeft = (l?.getOrNull(0) ?: 0).toByte()
+            typeRight = (r?.getOrNull(0) ?: 0).toByte()
+            dataLeft = payload(l)
+            dataRight = payload(r)
+            key = nativeKey()
+        }
+        if (!force && key == lastNativeKey) return
+        lastNativeKey = key
+        controllerHandler.setAdaptiveTriggerEffects(
+            target.controllerIndex, 0x0F, typeLeft, typeRight, dataLeft, dataRight,
+        )
     }
 
     private fun emitTriggerRumble(target: AdaptiveTriggerDevice, force: Boolean, left: Int, right: Int) {

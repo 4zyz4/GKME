@@ -339,6 +339,11 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
     private class ControllerOutputs(
         @Volatile var low: Int = 0,
         @Volatile var high: Int = 0,
+        // Secondary (adaptive-trigger / voice-coil) motor contribution. Kept separate
+        // from the game rumble so one source never erases the other; the two are
+        // max-combined when driving the actuators.
+        @Volatile var auxLow: Int = 0,
+        @Volatile var auxHigh: Int = 0,
         @Volatile var leftTrigger: Int = 0,
         @Volatile var rightTrigger: Int = 0,
     )
@@ -500,8 +505,8 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
      */
     private fun applyControllerOutput(index: Int, outputs: ControllerOutputs) {
         val binding = controllerBindings.getOrNull(index)
-        val low = outputs.low
-        val high = outputs.high
+        val low = maxOf(outputs.low, outputs.auxLow)
+        val high = maxOf(outputs.high, outputs.auxHigh)
         val lt = outputs.leftTrigger
         val rt = outputs.rightTrigger
         val motorActive = low != 0 || high != 0
@@ -576,6 +581,8 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
             for (outputs in controllerOutputs.values) {
                 outputs.low = 0
                 outputs.high = 0
+                outputs.auxLow = 0
+                outputs.auxHigh = 0
                 outputs.leftTrigger = 0
                 outputs.rightTrigger = 0
             }
@@ -1018,15 +1025,18 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
 
     // ── Vibration ──────────────────────────────────────────
 
-    /** Drives the two motors of the given controller from the voice-coil left/right channels. */
+    /** Drives the two motors of the given controller from the voice-coil left/right channels
+     *  (and from adaptive-trigger conversion). Stored as a secondary contribution so it is
+     *  max-combined with the game rumble instead of overwriting it. */
     override fun setControllerMotorsVibration(controllerIndex: Int, leftIntensity: Int, rightIntensity: Int) {
         val count = SdlNative.nativeGetControllerCount()
         if (controllerIndex < 0 || controllerIndex >= count) return
-        driveControllerMotors(
-            controllerIndex,
-            leftIntensity.coerceIn(0, 255),
-            rightIntensity.coerceIn(0, 255),
-        )
+        val outputs = outputsFor(controllerIndex)
+        synchronized(outputsLock) {
+            outputs.auxLow = leftIntensity.coerceIn(0, 255)
+            outputs.auxHigh = rightIntensity.coerceIn(0, 255)
+        }
+        applyControllerOutput(controllerIndex, outputs)
     }
 
     @Volatile

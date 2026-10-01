@@ -85,6 +85,11 @@ message HdRumble {
 message TriggerEffects {
   bytes left_trigger_effect = 1;
   bytes right_trigger_effect = 2;
+  // Xbox One 脉冲扳机的扳机震动幅度（左右各 0-255）。与上面的自适应效果字节块
+  // 不同，它与扳机行程无关，属于“无条件”震动。未设置表示没有扳机震动源；显式
+  // 设置为 0 是合法的“停止”值。
+  optional uint32 left_trigger_rumble = 3;
+  optional uint32 right_trigger_rumble = 4;
 }
 
 /// DualSense 扬声器测试（WAVEOUT_CTRL）的 1 kHz 测试音状态。enabled 时由手机端

@@ -121,6 +121,43 @@ class AdaptiveTriggerEffect private constructor(
             return AdaptiveTriggerEffect(type, true, p, 255, strength, null, Mode.FROM_POSITION)
         }
 
+        /** Trigger-rumble buzz frequency (Hz). A non-zero frequency is mandatory: the
+         *  controller ignores a 0x26 Vibration effect whose frequency byte is 0. */
+        private const val VIBRATION_FREQUENCY_HZ = 40
+
+        /**
+         * Builds a raw 11-byte DualSense "Vibration" (0x26) effect that vibrates across the
+         * whole trigger travel at an amplitude derived from [amplitude] (0..255). It is the
+         * closest native equivalent of an Xbox trigger-rumble amplitude: position-independent
+         * and unconditional. [amplitude] 0 produces an OFF packet (all-zero bytes).
+         *
+         * Wire layout (matching the reference TriggerEffectGenerator::Vibration):
+         * [0]=type 0x26, [1..2]=active-zone mask, [3..6]=3-bit amplitude per zone,
+         * [9]=frequency. Without [9] the controller renders no vibration.
+         */
+        fun vibrationPacket(
+            amplitude: Int,
+            frequency: Int = VIBRATION_FREQUENCY_HZ,
+        ): ByteArray {
+            val raw = ByteArray(11)
+            val amp = amplitude.coerceIn(0, 255)
+            if (amp == 0) return raw
+            // DualSense maps amplitude 1..8 onto the 3-bit per-zone value 0..7
+            // (inverse of [strength3]): code = round(amp * 8 / 255) - 1, clamped to 0..7.
+            val code = ((amp * 8 + 127) / 255 - 1).coerceIn(0, 0x07)
+            raw[0] = VIBRATION.toByte()
+            raw[1] = 0xFF.toByte() // zones 0..7 active
+            raw[2] = 0x03          // zones 8..9 active
+            var packed = 0
+            for (i in 0 until 10) packed = packed or (code shl (3 * i))
+            raw[3] = (packed and 0xFF).toByte()
+            raw[4] = ((packed ushr 8) and 0xFF).toByte()
+            raw[5] = ((packed ushr 16) and 0xFF).toByte()
+            raw[6] = ((packed ushr 24) and 0xFF).toByte()
+            raw[9] = frequency.coerceIn(1, 255).toByte()
+            return raw
+        }
+
         /** 3-bit force code (0..7) scaled so that even code 0 is the minimum, non-zero amplitude. */
         private fun strength3(code: Int): Int = ((code and 0x07) + 1) * 255 / 8
 

@@ -441,13 +441,51 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
         _lastVoiceCoilActivityNs = System.nanoTime()
     }
 
+    // Adaptive-trigger / voice-coil motor contribution, kept separate from the game
+    // rumble so the two never overwrite each other on the same pad. Values are
+    // already output-oriented (the caller applied its own swap). Max-combined with
+    // the game rumble when driving the actuators.
+    private val auxMotorLock = Any()
+    private val auxMotors = HashMap<Int, IntArray>()
+    private val ZERO_MOTOR = intArrayOf(0, 0)
+
+    private fun auxMotorFor(controllerIndex: Int): IntArray =
+        synchronized(auxMotorLock) { auxMotors[controllerIndex] } ?: ZERO_MOTOR
+
+    private fun setAuxMotor(controllerIndex: Int, left: Int, right: Int) {
+        synchronized(auxMotorLock) {
+            if (left == 0 && right == 0) auxMotors.remove(controllerIndex)
+            else auxMotors[controllerIndex] = intArrayOf(left, right)
+        }
+    }
+
     override fun setControllerMotorsVibration(controllerIndex: Int, leftIntensity: Int, rightIntensity: Int) {
+        val left = leftIntensity.coerceIn(0, 255)
+        val right = rightIntensity.coerceIn(0, 255)
+        setAuxMotor(controllerIndex, left, right)
+
+        val isGameTarget = gameVibrationDevice.type == VibrationDeviceType.CONTROLLER &&
+            gameVibrationDevice.controllerIndex == controllerIndex
+
         synchronized(this) {
             val controller = synchronized(lock) { controllerList.getOrNull(controllerIndex) } ?: return
-            
-            val left = leftIntensity.coerceIn(0, 255)
-            val right = rightIntensity.coerceIn(0, 255)
-            
+
+            // A DualSense carrying both rumble and trigger/LED must go through the single
+            // combined report (which max-combines the aux contribution) so the two never
+            // clobber each other.
+            if (isGameTarget && controller.hasAdvancedAudioHapticsSupport()) {
+                sendCombinedReport()
+                return
+            }
+
+            // Otherwise fold the (possibly zero) game rumble of this pad into the write
+            // so the two sources are felt together and a later game-rumble update cannot
+            // erase this contribution.
+            val baseLeft = if (isGameTarget) _lastRumbleLow else 0
+            val baseRight = if (isGameTarget) _lastRumbleHigh else 0
+            val outLeft = maxOf(left, baseLeft)
+            val outRight = maxOf(right, baseRight)
+
             if (controller.hasAdvancedAudioHapticsSupport() && controller.isAdvancedAudioHapticsActive()) {
                 val timeSinceLastActivity = System.nanoTime() - _lastVoiceCoilActivityNs
                 val isStale = _lastVoiceCoilActivityNs == 0L || timeSinceLastActivity > VOICE_COIL_SILENCE_TIMEOUT_NS
@@ -455,13 +493,13 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
                 val vcRight = _voiceCoilRightAmp
                 if (!isStale && (vcLeft > 1 || vcRight > 1)) return
             }
-            
-            if (left == 0 && right == 0) {
+
+            if (outLeft == 0 && outRight == 0) {
                 controller.rumble(0, 0)
             } else {
                 controller.rumble(
-                    (left * 257).toShort(),
-                    (right * 257).toShort(),
+                    (outLeft * 257).toShort(),
+                    (outRight * 257).toShort(),
                 )
             }
         }
@@ -537,6 +575,7 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
             try { controller.rumble(0, 0) } catch (_: Exception) {}
             try { controller.rumbleTriggers(0, 0) } catch (_: Exception) {}
         }
+        synchronized(auxMotorLock) { auxMotors.clear() }
         _lastRumbleLow = 0
         _lastRumbleHigh = 0
         vibratePhone(0)
@@ -609,12 +648,15 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
             System.nanoTime() - _lastVoiceCoilActivityNs <= VOICE_COIL_SILENCE_TIMEOUT_NS &&
             (_voiceCoilLeftAmp > 1 || _voiceCoilRightAmp > 1)
 
+        val aux = auxMotorFor(gameVibrationDevice.controllerIndex)
         val low = _lastRumbleLow
         val high = _lastRumbleHigh
-        val motor0 = if (voiceCoilActive) 0
-            else if (swapControllerMotors) high * 257 else low * 257
-        val motor1 = if (voiceCoilActive) 0
-            else if (swapControllerMotors) low * 257 else high * 257
+        // The game rumble is swapped by the controller-motor setting; the aux
+        // contribution is already output-oriented, so combine after the swap.
+        val gameMotor0 = if (swapControllerMotors) high else low
+        val gameMotor1 = if (swapControllerMotors) low else high
+        val motor0 = if (voiceCoilActive) 0 else maxOf(gameMotor0, aux[0]) * 257
+        val motor1 = if (voiceCoilActive) 0 else maxOf(gameMotor1, aux[1]) * 257
 
         val r = ((_lastLedColor shr 16) and 0xFF).toByte()
         val g = ((_lastLedColor shr 8) and 0xFF).toByte()
