@@ -11,6 +11,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import android.view.KeyEvent
 import android.view.MotionEvent
+import com.zyz4.gkme.haptic.HapticSource
 import com.zyz4.gkme.haptic.PhoneHdHaptics
 import com.zyz4.gkme.input.usb.AbstractController
 import com.zyz4.gkme.input.usb.DualSenseController
@@ -731,7 +732,7 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
     private fun vibratePhoneMotors(low: Int, high: Int, swap: Boolean) {
         val motor0 = if (swap) high else low
         val motor1 = if (swap) low else high
-        if (PhoneHdHaptics.playMotors(motor0, motor1)) {
+        if (PhoneHdHaptics.playMotors(motor0, motor1, source = HapticSource.GAME_RUMBLE)) {
             if (!phoneHdOwned) {
                 phoneHdOwned = true
                 try { vibrator.cancel() } catch (_: Exception) {}
@@ -768,7 +769,7 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
         val clamped = amp.coerceIn(0, 255)
         if (clamped < 1) {
             phoneHdOwned = false
-            PhoneHdHaptics.stop()
+            PhoneHdHaptics.stop(HapticSource.GAME_RUMBLE)
             try { vibrator.cancel() } catch (_: Exception) {}
             lastPhoneAmp = -1
             return

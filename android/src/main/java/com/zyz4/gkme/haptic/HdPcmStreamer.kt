@@ -17,8 +17,8 @@ import com.zyz4.gkme.controlled.HapticInjector
  *
  * 关键点：
  * - **静音时冲刷**（而不是直接丢弃）已累积的分块，短促音效也能出声；
- * - 用**所有权 token** 停止，避免与 `PhoneHdHaptics`（游戏 rumble）共用同一个
- *   HapticPlayer 时互相误杀；
+ * - 以 [HapticSource.AUDIO] 参与 `HapticInjector` 的优先级仲裁：被更高优先级的自适应扳机
+ *   占用时静默并清空缓冲，避免与 `PhoneHdHaptics`（游戏 rumble）抢占同一个 HapticPlayer；
  * - 静音超过 [SILENCE_STOP_MS] 才真正停止，避免相邻块/短暂静音把效果掐掉。
  *
  * 延迟：分块时长就是**每次起振的首帧延迟**。原来 `16×50ms=0.8s` 太大，
@@ -64,9 +64,6 @@ object HdPcmStreamer {
      */
     private const val ONSET_ACCENT_MS = 5
 
-    /** 效果所有权 token：与 PhoneHdHaptics 区分，避免互相误杀。 */
-    private val TOKEN = Any()
-
     private val lock = Any()
     private val encoder = PcmHeEncoder(EVENTS_PER_CHUNK, EVENT_MS, SEAM_BOOST, ONSET_ACCENT_MS)
     private var lastNs = 0L
@@ -84,6 +81,19 @@ object HdPcmStreamer {
         if (!PhoneHdHaptics.enabled) return false
         if (!HapticInjector.isHapticReady()) return false
 
+        // 被更高优先级来源（自适应扳机）占用：静默并清空缓冲，避免解禁后补发陈旧音频；
+        // 返回 true 让 AudioPlaybackService 不要回退系统震动。
+        if (!HapticInjector.canPlay(HapticSource.AUDIO)) {
+            synchronized(lock) {
+                encoder.reset()
+                lastNs = 0L
+                pending = false
+                silenceSinceNs = 0L
+            }
+            active = false
+            return true
+        }
+
         val amp = maxOf(left, right).coerceIn(0, 255)
         val now = System.nanoTime()
 
@@ -92,13 +102,13 @@ object HdPcmStreamer {
                 if (pending) {
                     pending = false
                     val json = encoder.flush()
-                    if (json != null) HapticInjector.startEffect(json, TOKEN)
+                    if (json != null) HapticInjector.startEffect(json, HapticSource.AUDIO)
                 }
                 if (silenceSinceNs == 0L) silenceSinceNs = now
                 val quietMs = (now - silenceSinceNs) / 1_000_000L
                 if (active && quietMs >= SILENCE_STOP_MS) {
                     active = false
-                    HapticInjector.stopOwnedBy(TOKEN)
+                    HapticInjector.stopOwnedBy(HapticSource.AUDIO)
                 }
                 lastNs = 0L
             }
@@ -119,7 +129,7 @@ object HdPcmStreamer {
             pending = true
             if (json != null) {
                 pending = false
-                HapticInjector.startEffect(json, TOKEN)
+                HapticInjector.startEffect(json, HapticSource.AUDIO)
             }
         }
         active = true
@@ -136,7 +146,7 @@ object HdPcmStreamer {
         }
         if (active) {
             active = false
-            HapticInjector.stopOwnedBy(TOKEN)
+            HapticInjector.stopOwnedBy(HapticSource.AUDIO)
         }
     }
 }

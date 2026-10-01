@@ -2,6 +2,8 @@ package com.zyz4.gkme.controlled
 
 import android.content.Context
 import android.util.Log
+import com.zyz4.gkme.haptic.HapticArbiter
+import com.zyz4.gkme.haptic.HapticSource
 import com.zyz4.gkme.haptic.RichTapFrequency
 import com.zyz4.gkme.haptic.RichTapHe
 import com.zyz4.gkme.haptic.RichTapPrebaked
@@ -95,27 +97,38 @@ object HapticInjector {
     /** 是否可下发 HD 效果。 */
     fun isHapticReady(): Boolean = service != null && available
 
-    // ── 效果所有权 ──
-    // 手机马达 HD 有两个消费者：游戏 rumble（PhoneHdHaptics）与音圈 PCM（HdPcmStreamer）。
-    // 它们共用同一个 HapticPlayer；若一方无条件 stop() 会误杀另一方刚投递的效果（表现为
-    // “调用了震动但马达启动前被关闭”）。这里给当前效果打上 token，消费者只能停自己的效果。
+    // ── 效果所有权 / 优先级仲裁 ──
+    // 四条通路（自适应扳机 > 音频到震动 > 游戏震动 > 按钮震动）共用同一个 HapticPlayer。
+    // 由本对象集中仲裁：同一时刻只有一个来源驱动；高优先级可抢占低优先级，低优先级在更高
+    // 来源播放期间不能 start（调用方据此静默而不回退系统震动）。这同时保证一方 stop() 不会
+    // 误杀另一方正在播放的效果。
 
-    private val ownerLock = Any()
+    private val arbiter = HapticArbiter()
 
-    @Volatile
-    private var ownerToken: Any? = null
+    /** 当前是否允许 [source] 驱动 HD：空闲，或优先级不低于当前来源（同级可刷新）。 */
+    fun canPlay(source: HapticSource): Boolean = arbiter.canPlay(source)
+
+    /** 抢占当前来源：空闲或优先级不低于当前时成功，并成为当前来源。 */
+    fun acquire(source: HapticSource): Boolean = arbiter.acquire(source)
+
+    /** 当前来源；空闲为 null。 */
+    fun owner(): HapticSource? = arbiter.current()
+
+    /** 仅当 [source] 为当前来源时清除所有权（不停止正在播放的效果）。 */
+    fun release(source: HapticSource) = arbiter.release(source)
 
     /** 下发一段 HE 1.0 效果。 */
-    fun startPattern(json: String, loop: Int, interval: Int, amplitude: Int, freq: Int, token: Any? = null): Boolean {
+    fun startPattern(json: String, loop: Int, interval: Int, amplitude: Int, freq: Int, source: HapticSource): Boolean {
         val svc = service ?: return false
         if (!available) return false
+        if (!acquire(source)) return false
         val ok = try {
             svc.startPattern(json, loop, interval, amplitude, freq)
         } catch (t: Throwable) {
             Log.w(TAG, "startPattern 失败", t)
             false
         }
-        if (ok) synchronized(ownerLock) { ownerToken = token }
+        if (!ok) release(source)
         return ok
     }
 
@@ -126,9 +139,10 @@ object HapticInjector {
      * 兼容：若 Shizuku 仍复用旧版用户服务（没有 `startEffect` 事务），回退到
      * [startPattern]，至少能出声。
      */
-    fun startEffect(json: String, token: Any? = null): Boolean {
+    fun startEffect(json: String, source: HapticSource): Boolean {
         val svc = service ?: return false
         if (!available) return false
+        if (!acquire(source)) return false
         val ok = try {
             svc.startEffect(json)
         } catch (t: Throwable) {
@@ -145,22 +159,22 @@ object HapticInjector {
                 false
             }
         }
-        if (started) synchronized(ownerLock) { ownerToken = token }
+        if (!started) release(source)
         return started
     }
 
     /** 播放持续震动（游戏 rumble / 自适应扳机 / 音圈）。[amplitude] 0-255，[frequency] 0-100。
      *  单次只投递一段效果，持续由 PhoneHdHaptics 定时重投递实现（见 continuous duration 注释）。 */
-    fun startContinuous(amplitude: Int, frequency: Int, token: Any? = null): Boolean = startPattern(
+    fun startContinuous(amplitude: Int, frequency: Int, source: HapticSource): Boolean = startPattern(
         RichTapHe.continuous(frequency, CONTINUOUS_DURATION_MS),
         // 单次播放；不要用 loop=-1（HAL 循环衔接有 ~200ms 断点）。
-        1, 0, amplitude.coerceIn(0, 255), frequency.coerceIn(0, 100), token,
+        1, 0, amplitude.coerceIn(0, 255), frequency.coerceIn(0, 100), source,
     )
 
     /** 播放短促点击（按键反馈）。 */
-    fun playClick(strength: Int, frequency: Int, token: Any? = null): Boolean = startPattern(
+    fun playClick(strength: Int, frequency: Int, source: HapticSource): Boolean = startPattern(
         RichTapHe.click(strength, frequency),
-        1, 0, 255, frequency.coerceIn(0, 100), token,
+        1, 0, 255, frequency.coerceIn(0, 100), source,
     )
 
     /** 无条件停止当前效果（用户关闭 HD / 硬停止）。 */
@@ -169,17 +183,15 @@ object HapticInjector {
             service?.stop()
         } catch (_: Throwable) {
         }
-        synchronized(ownerLock) { ownerToken = null }
+        arbiter.clear()
     }
 
     /**
-     * 仅当当前效果属于 [token] 时停止；否则不动，避免误杀别的消费者正在播放的效果。
+     * 仅当当前来源为 [source] 时停止；否则不动，避免误杀别的来源正在播放的效果。
      * @return 是否实际停止。
      */
-    fun stopOwnedBy(token: Any?): Boolean {
-        if (token != null) {
-            synchronized(ownerLock) { if (ownerToken !== token) return false }
-        }
+    fun stopOwnedBy(source: HapticSource): Boolean {
+        if (arbiter.current() !== source) return false
         stop()
         return true
     }

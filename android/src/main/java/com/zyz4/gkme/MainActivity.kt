@@ -35,6 +35,7 @@ import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
 import com.zyz4.gkme.controlled.GamepadInjector
 import com.zyz4.gkme.controlled.HapticInjector
+import com.zyz4.gkme.haptic.HapticSource
 import com.zyz4.gkme.haptic.PhoneHdHaptics
 import com.zyz4.gkme.model.AudioDevice
 import com.zyz4.gkme.model.AdaptiveTriggerDevice
@@ -170,8 +171,8 @@ class MainActivity : ComponentActivity() {
     internal lateinit var physicalControllerHandler: PhysicalControllerHandler
 
     internal val adaptiveTriggerHandler: AdaptiveTriggerHandler by lazy {
-        AdaptiveTriggerHandler(physicalControllerHandler) { left, right ->
-            vibratePhoneForAdaptive(left, right)
+        AdaptiveTriggerHandler(physicalControllerHandler) { left, right, frequencyHz ->
+            vibratePhoneForAdaptive(left, right, frequencyHz)
         }
     }
 
@@ -702,17 +703,19 @@ internal fun performHaptic(isPress: Boolean) {
     }
 
     /** Drives the phone motors for adaptive-trigger conversion. Left/right map to the two
-     *  actuators when the device exposes multiple vibrators, otherwise the loudest side is used. */
-    internal fun vibratePhoneForAdaptive(left: Int, right: Int) {
+     *  actuators when the device exposes multiple vibrators, otherwise the loudest side is used.
+     *  [frequencyHz] is the effect's native cycling frequency (0 when unspecified), forwarded to
+     *  HD vibration so automated effects keep their rate. */
+    internal fun vibratePhoneForAdaptive(left: Int, right: Int, frequencyHz: Double = 0.0) {
         val l = left.coerceIn(0, 255)
         val r = right.coerceIn(0, 255)
         if (l <= 0 && r <= 0) {
             phoneHdAdaptiveOwned = false
-            PhoneHdHaptics.stop()
+            PhoneHdHaptics.stop(HapticSource.ADAPTIVE_TRIGGER)
             try { vibrator.cancel() } catch (_: Exception) {}
             return
         }
-        if (PhoneHdHaptics.playMotors(l, r)) {
+        if (PhoneHdHaptics.playMotors(l, r, frequencyHz, HapticSource.ADAPTIVE_TRIGGER)) {
             if (!phoneHdAdaptiveOwned) {
                 phoneHdAdaptiveOwned = true
                 try { vibrator.cancel() } catch (_: Exception) {}

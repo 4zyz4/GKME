@@ -17,7 +17,7 @@ import com.zyz4.gkme.model.AdaptiveTriggerTargetType
  */
 class AdaptiveTriggerHandler(
     private val controllerHandler: PhysicalControllerHandler,
-    private val phoneVibration: (left: Int, right: Int) -> Unit,
+    private val phoneVibration: (left: Int, right: Int, frequencyHz: Double) -> Unit,
 ) {
     private var device: AdaptiveTriggerDevice = AdaptiveTriggerDevice.NONE
     private var swap: Boolean = false
@@ -28,6 +28,11 @@ class AdaptiveTriggerHandler(
     private var rightEffect: AdaptiveTriggerEffect = AdaptiveTriggerEffect.parse(null)
     private var leftPosition = 0
     private var rightPosition = 0
+
+    // Rising-edge state for the resistance effects (Feedback/Weapon): they must vibrate
+    // only while the trigger is pressed deeper, so the amplitude is gated on an increase.
+    private var leftRising = false
+    private var rightRising = false
 
     // Xbox One trigger-rumble source (separate PC field). When active it overrides
     // the DualSense-effect source: the amplitudes are applied unconditionally instead
@@ -47,6 +52,8 @@ class AdaptiveTriggerHandler(
         stopOutput(device)
         device = newDevice
         swap = newSwap
+        leftRising = false
+        rightRising = false
         lastOutLeft = -1
         lastOutRight = -1
         lastNativeKey = null
@@ -84,49 +91,96 @@ class AdaptiveTriggerHandler(
     /** Called whenever the emulated trigger positions change. */
     @Synchronized
     fun onTriggerPositions(left: Int, right: Int) {
-        if (left == leftPosition && right == rightPosition) return
+        if (left == leftPosition && right == rightPosition) {
+            // Pressure stopped increasing: clear the rising edges so resistance effects
+            // stop vibrating while the trigger is held or released.
+            if (leftRising || rightRising) {
+                leftRising = false
+                rightRising = false
+                render(force = false)
+            }
+            return
+        }
+        leftRising = left > leftPosition
+        rightRising = right > rightPosition
         leftPosition = left
         rightPosition = right
         render(force = false)
     }
 
+    /** Resolved motor output: per-channel amplitude plus the effect's cycling frequency. */
+    private data class MotorOutput(val left: Int, val right: Int, val frequencyHz: Double)
+
     private fun render(force: Boolean) {
         val target = device
         when (target.type) {
             AdaptiveTriggerTargetType.NONE -> stopOutput(target)
-            AdaptiveTriggerTargetType.PHONE_MOTOR -> renderMotor(force) { l, r -> phoneVibration(l, r) }
+            AdaptiveTriggerTargetType.PHONE_MOTOR ->
+                renderMotor(force) { l, r, f -> phoneVibration(l, r, f) }
             AdaptiveTriggerTargetType.CONTROLLER_MOTOR ->
-                renderMotor(force) { l, r -> controllerHandler.setControllerMotorsVibration(target.controllerIndex, l, r) }
+                renderMotor(force) { l, r, _ -> controllerHandler.setControllerMotorsVibration(target.controllerIndex, l, r) }
             AdaptiveTriggerTargetType.CONTROLLER_TRIGGER -> renderTrigger(force, target)
         }
     }
 
-    /** Motor amplitudes for the active source. Rumble values pass through unchanged;
-     *  effect sources resolve the current trigger position. Only the output channels swap. */
-    private fun motorAmplitudes(): Pair<Int, Int> {
+    /** Motor output for the active source. Rumble values pass through unchanged; effect
+     *  sources resolve the current trigger position, gate the resistance effects on a rising
+     *  edge, and pick the frequency of the louder channel. Only the output channels swap. */
+    private fun motorOutput(): MotorOutput {
         if (rumbleActive) {
-            return if (swap) rumbleRight to rumbleLeft else rumbleLeft to rumbleRight
+            return if (swap) MotorOutput(rumbleRight, rumbleLeft, 0.0)
+            else MotorOutput(rumbleLeft, rumbleRight, 0.0)
         }
-        val left = if (swap) rightEffect.amplitudeFor(rightPosition) else leftEffect.amplitudeFor(leftPosition)
-        val right = if (swap) leftEffect.amplitudeFor(leftPosition) else rightEffect.amplitudeFor(rightPosition)
-        return left to right
+        val lEffect = if (swap) rightEffect else leftEffect
+        val lPosition = if (swap) rightPosition else leftPosition
+        val lRising = if (swap) rightRising else leftRising
+        val rEffect = if (swap) leftEffect else rightEffect
+        val rPosition = if (swap) leftPosition else rightPosition
+        val rRising = if (swap) leftRising else rightRising
+        val left = amplitudeOf(lEffect, lPosition, lRising)
+        val right = amplitudeOf(rEffect, rPosition, rRising)
+        return MotorOutput(left, right, dominantFrequency(lEffect, left, rEffect, right))
     }
 
-    private fun renderMotor(force: Boolean, out: (Int, Int) -> Unit) {
-        val (left, right) = motorAmplitudes()
-        if (!force && left == lastOutLeft && right == lastOutRight) return
-        lastOutLeft = left
-        lastOutRight = right
-        out(left, right)
+    private fun amplitudeOf(effect: AdaptiveTriggerEffect, position: Int, rising: Boolean): Int {
+        val amplitude = effect.amplitudeFor(position)
+        return if (effect.risingOnly && !rising) 0 else amplitude
+    }
+
+    /** Frequency of the louder channel when it declares one; 0.0 falls back to the
+     *  motor heuristic (e.g. Feedback/Weapon/Bow carry no native frequency). */
+    private fun dominantFrequency(
+        leftEffect: AdaptiveTriggerEffect,
+        left: Int,
+        rightEffect: AdaptiveTriggerEffect,
+        right: Int,
+    ): Double {
+        val primary = if (left >= right) leftEffect else rightEffect
+        val secondary = if (left >= right) rightEffect else leftEffect
+        return when {
+            primary.frequencyHz > 0.0 -> primary.frequencyHz
+            secondary.frequencyHz > 0.0 && maxOf(left, right) > 0 -> secondary.frequencyHz
+            else -> 0.0
+        }
+    }
+
+    private fun renderMotor(force: Boolean, out: (Int, Int, Double) -> Unit) {
+        val output = motorOutput()
+        if (!force && output.left == lastOutLeft && output.right == lastOutRight) return
+        lastOutLeft = output.left
+        lastOutRight = output.right
+        out(output.left, output.right, output.frequencyHz)
     }
 
     private fun renderTrigger(force: Boolean, target: AdaptiveTriggerDevice) {
         val info = controllerHandler.connectedControllers.value.getOrNull(target.controllerIndex)
-        val (left, right) = motorAmplitudes()
+        val output = motorOutput()
         when {
-            info?.hasAdaptiveTrigger == true -> emitAdaptiveTrigger(target, force, left, right)
-            info?.hasTriggerRumble == true -> emitTriggerRumble(target, force, left, right)
-            else -> emitControllerMotor(target, force, left, right)
+            info?.hasAdaptiveTrigger == true ->
+                emitAdaptiveTrigger(target, force, output.left, output.right)
+            info?.hasTriggerRumble == true ->
+                emitTriggerRumble(target, force, output.left, output.right)
+            else -> emitControllerMotor(target, force, output.left, output.right)
         }
     }
 
@@ -188,7 +242,7 @@ class AdaptiveTriggerHandler(
     private fun stopOutput(target: AdaptiveTriggerDevice) {
         when (target.type) {
             AdaptiveTriggerTargetType.NONE -> Unit
-            AdaptiveTriggerTargetType.PHONE_MOTOR -> phoneVibration(0, 0)
+            AdaptiveTriggerTargetType.PHONE_MOTOR -> phoneVibration(0, 0, 0.0)
             AdaptiveTriggerTargetType.CONTROLLER_MOTOR ->
                 controllerHandler.setControllerMotorsVibration(target.controllerIndex, 0, 0)
             AdaptiveTriggerTargetType.CONTROLLER_TRIGGER -> {

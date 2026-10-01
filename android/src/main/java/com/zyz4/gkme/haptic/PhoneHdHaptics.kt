@@ -26,12 +26,19 @@ object PhoneHdHaptics {
     @Volatile
     private var active: Boolean = false
 
+    /** 当前驱动本对象的来源（游戏震动或自适应扳机）；用于按优先级让位与定向停止。 */
+    @Volatile
+    private var activeSource: HapticSource? = null
+
     /** 正在播放的（量化后）振幅/HE 频率。 */
     @Volatile
     private var appliedAmp: Int = -1
 
     @Volatile
     private var appliedFreq: Int = -1
+
+    @Volatile
+    private var appliedSource: HapticSource? = null
 
     /** 期望播放的（量化后）振幅/HE 频率；由 [playMotors] 更新，调度线程负责应用。 */
     @Volatile
@@ -79,8 +86,15 @@ object PhoneHdHaptics {
     private const val LOW_SIM_WINDOW_MS = 4_000
 
     /** 驱动左右马达（0-255）。命中 HD 返回 true，否则返回 false 由调用方回退。
-     *  [frequencyHz] > 0 时用 PCM 估计的主导音高映射成 HE 频率，否则按左右力度启发式选择。 */
-    fun playMotors(left: Int, right: Int, frequencyHz: Double = 0.0): Boolean {
+     *  [frequencyHz] > 0 时用 PCM 估计的主导音高映射成 HE 频率，否则按左右力度启发式选择。
+     *  [source] 为本次驱动来源（游戏震动或自适应扳机），用于优先级仲裁：被更高优先级占用时
+     *  返回 true（静默、不回退），不打扰正在播放的高优先级效果。 */
+    fun playMotors(
+        left: Int,
+        right: Int,
+        frequencyHz: Double = 0.0,
+        source: HapticSource = HapticSource.GAME_RUMBLE,
+    ): Boolean {
         if (!enabled) return false
         val l = left.coerceIn(0, 255)
         val r = right.coerceIn(0, 255)
@@ -99,94 +113,130 @@ object PhoneHdHaptics {
         } else {
             frequencyForMotors(l, r)
         }
+
+        // 曾被更高优先级抢占（如自适应扳机）时不持有所有权；恢复后需要重投递。
+        val wasOwner = HapticInjector.owner() === source
+        // 被更高优先级来源占用：静默（返回 true 让调用方不要回退系统震动）。
+        if (!HapticInjector.acquire(source)) return true
+
+        val previousSource = activeSource
         wantAmp = qAmp
         wantFreq = freq
         wantLowHz = lowHz
+        activeSource = source
 
         if (!active) {
-            if (submit()) {
+            if (submit(source)) {
                 active = true
                 ensureScheduled()
                 return true
             }
+            activeSource = null
+            HapticInjector.release(source)
             return false
         }
-        // 已在播放：参数变化交由调度线程按节流应用，避免高频重启把输出拖弱。
+        // 来源切换或被抢占恢复后需立即重投递；同来源的参数变化交由调度线程按节流应用，
+        // 避免高频重启把输出拖弱。
+        if (previousSource != source || !wasOwner) submit(source)
         return true
     }
 
-    /** 按键反馈用的短促点击。[strength] 0-255。 */
+    /** 按键反馈用的短促点击。[strength] 0-255。被更高优先级来源占用时静默（返回 true）。 */
     fun playClick(strength: Int): Boolean {
         if (!enabled) return false
         if (!HapticInjector.isHapticReady()) return false
+        if (!HapticInjector.canPlay(HapticSource.BUTTON)) return true
         val s = strength.coerceIn(0, CLICK_STRENGTH_MAX)
-        return HapticInjector.playClick(s, DEFAULT_FREQ, TOKEN)
+        return HapticInjector.playClick(s, DEFAULT_FREQ, HapticSource.BUTTON)
     }
 
     /** 按指定时长播放一次 HD 效果（按键按下/抬起等）。[strength] 0-255，[durationMs] 毫秒，
-     *  [frequencyHe] 为 RichTap HE 频率 0-100，缺省用谐振点 [DEFAULT_FREQ]。 */
+     *  [frequencyHe] 为 RichTap HE 频率 0-100，缺省用谐振点 [DEFAULT_FREQ]。
+     *  被更高优先级来源占用时静默（返回 true）。 */
     fun playEffect(strength: Int, durationMs: Int, frequencyHe: Int = DEFAULT_FREQ): Boolean {
         if (!enabled) return false
         if (!HapticInjector.isHapticReady()) return false
+        if (!HapticInjector.canPlay(HapticSource.BUTTON)) return true
         val s = strength.coerceIn(0, CLICK_STRENGTH_MAX)
         val dur = durationMs.coerceAtLeast(1)
         val freq = frequencyHe.coerceIn(0, 100)
-        return HapticInjector.startPattern(RichTapHe.continuous(freq, dur), 1, 0, s, freq, TOKEN)
+        return HapticInjector.startPattern(
+            RichTapHe.continuous(freq, dur), 1, 0, s, freq, HapticSource.BUTTON,
+        )
     }
 
     /** 播放一段 RichTap 预置效果（PrebakedEffect，ID 10001-10050），用于在 HD 下替换
-     *  系统 `performHapticFeedback`（后者会被 RichTap 抢占而失效）。命中 HD 返回 true。 */
+     *  系统 `performHapticFeedback`（后者会被 RichTap 抢占而失效）。命中 HD 返回 true。
+     *  被更高优先级来源占用时静默（返回 true）。 */
     fun playPrebaked(prebakedId: Int): Boolean {
         if (!enabled) return false
         if (!HapticInjector.isHapticReady()) return false
+        if (!HapticInjector.canPlay(HapticSource.BUTTON)) return true
         val he = RichTapPrebaked.he(prebakedId) ?: return false
-        return HapticInjector.startEffect(he, TOKEN)
+        return HapticInjector.startEffect(he, HapticSource.BUTTON)
     }
 
     /** 播放一段低频脉冲串效果（模拟低于马达下限的低频）。[strength] 0-255，
      *  [frequencyHz] 目标低频（Hz），[durationMs] 时长。命中 HD 返回 true。 */
-    fun playLowFrequency(strength: Int, frequencyHz: Double, durationMs: Int): Boolean {
+    fun playLowFrequency(
+        strength: Int,
+        frequencyHz: Double,
+        durationMs: Int,
+        source: HapticSource = HapticSource.GAME_RUMBLE,
+    ): Boolean {
         if (!enabled) return false
         if (!HapticInjector.isHapticReady()) return false
         if (!RichTapLowFreq.supports(frequencyHz)) return false
+        if (!HapticInjector.canPlay(source)) return true
         val s = strength.coerceIn(0, CLICK_STRENGTH_MAX)
         val dur = durationMs.coerceAtLeast(1)
-        return HapticInjector.startEffect(RichTapLowFreq.pattern(frequencyHz, dur, s), TOKEN)
+        return HapticInjector.startEffect(RichTapLowFreq.pattern(frequencyHz, dur, s), source)
     }
 
-    /** 停止 HD 持续震动（若正在运行）。仅停止本消费者自己的效果。 */
-    fun stop(): Boolean {
+    /** 停止 HD 持续震动。传入 [source] 时仅当当前来源匹配才停止，避免让位后误杀别的来源；
+     *  不传 [source] 视为硬停止（用户关闭 HD），清除所有已投递的效果。 */
+    fun stop(source: HapticSource? = null): Boolean {
+        if (source != null && activeSource != source) return false
+        val owned = activeSource
         active = false
+        activeSource = null
         appliedAmp = -1
         appliedFreq = -1
         appliedLowHz = 0.0
-        HapticInjector.stopOwnedBy(TOKEN)
+        appliedSource = null
+        when {
+            source == null -> HapticInjector.stop()
+            owned != null -> HapticInjector.stopOwnedBy(owned)
+        }
         return true
     }
 
     /** 断开/心跳丢失后复位内部缓存。 */
     fun reset() {
         active = false
+        activeSource = null
         appliedAmp = -1
         appliedFreq = -1
         appliedLowHz = 0.0
+        appliedSource = null
     }
 
     /** 用当前期望值投递一次；成功返回 true。 */
-    private fun submit(): Boolean {
+    private fun submit(source: HapticSource): Boolean {
         val ok: Boolean
         if (wantLowHz > 0.0) {
             ok = HapticInjector.startEffect(
                 RichTapLowFreq.pattern(wantLowHz, LOW_SIM_WINDOW_MS, wantAmp),
-                TOKEN,
+                source,
             )
         } else {
-            ok = HapticInjector.startContinuous(wantAmp, wantFreq, TOKEN)
+            ok = HapticInjector.startContinuous(wantAmp, wantFreq, source)
         }
         if (ok) {
             appliedAmp = wantAmp
             appliedFreq = wantFreq
             appliedLowHz = wantLowHz
+            appliedSource = source
             lastSubmitNs = System.nanoTime()
         }
         return ok
@@ -208,16 +258,19 @@ object PhoneHdHaptics {
     private fun onTick() {
         if (!active || !enabled) return
         if (!HapticInjector.isHapticReady()) return
+        val source = activeSource ?: return
         val now = System.nanoTime()
-        val changed = appliedAmp != wantAmp || appliedFreq != wantFreq || appliedLowHz != wantLowHz
+        // 来源切换（自适应扳机 ↔ 游戏震动）也需要重投递，刷新引擎侧的参数与所有权。
+        val changed = appliedAmp != wantAmp || appliedFreq != wantFreq ||
+            appliedLowHz != wantLowHz || appliedSource != source
         val lowFreq = wantLowHz > 0.0
         if (changed) {
             // 低频脉冲串单次覆盖时长短，参数变化时不必等满 MIN_RESUBMIT，避免中间空档。
             val minResubmit = if (lowFreq) refreshIntervalNs() else MIN_RESUBMIT_NS
-            if (now - lastSubmitNs >= minResubmit) submit()
+            if (now - lastSubmitNs >= minResubmit) submit(source)
         } else if (now - lastSubmitNs >= refreshIntervalNs()) {
             // 延续效果：在单次效果结束前重投递。
-            submit()
+            submit(source)
         }
     }
 
@@ -253,7 +306,4 @@ object PhoneHdHaptics {
 
     private const val AMP_STEP = 16
     private const val HE_STEP = 4
-
-    /** 效果所有权 token：与 HdPcmStreamer（音圈 PCM）区分，避免互相误杀。 */
-    private val TOKEN = Any()
 }

@@ -3,17 +3,27 @@ package com.zyz4.gkme.input
 /**
  * Parsed PC adaptive-trigger effect.
  *
- * The PC sends an 11-byte packet per trigger:
+ * The PC sends the reference `TriggerEffectGenerator` 11-byte packet per trigger
+ * (Nielk1 revision 6):
  *  - byte0: effect type
  *  - byte1..2: positions / active-zone mask
  *  - byte3..6: force / amplitude parameters
- *  - byte7..8: extra parameters (period/frequency)
- *  - byte9: vibration frequency
+ *  - byte7..8: reserved for the official effects (Machine packs its period at byte5)
+ *  - byte9: Vibration frequency (Simple_Vibration stores frequency at byte1,
+ *    Galloping/Machine at byte4)
  *  - byte10: reserved
  *
  * Motor targets cannot reproduce trigger resistance, so the effect is reduced to a
  * position -> amplitude curve: [amplitudeFor] returns the vibration intensity (0..255)
  * to play for a given trigger position (0..255).
+ *
+ * [risingOnly] marks the resistance effects (Feedback/Weapon and their simple/limited
+ * variants): a motor has no way to push back, so these vibrate only while the trigger
+ * pressure is increasing, which reads as a notch/ratchet under the finger.
+ *
+ * [frequencyHz] is the effect's native cycling frequency in hertz (0 when the effect has
+ * none). It is forwarded to HD vibration so automated effects (Vibration/Galloping/
+ * Machine/Simple_Vibration) can reproduce their operating rate.
  */
 class AdaptiveTriggerEffect private constructor(
     val type: Int,
@@ -23,6 +33,8 @@ class AdaptiveTriggerEffect private constructor(
     private val strength: Int,
     private val zoneAmplitudes: IntArray?,
     private val mode: Mode,
+    val risingOnly: Boolean,
+    val frequencyHz: Double,
 ) {
     private enum class Mode { ZONE, RANGE, FROM_POSITION }
 
@@ -66,25 +78,45 @@ class AdaptiveTriggerEffect private constructor(
             val type = u(raw, 0)
             return when (type) {
                 OFF, 0x00, 0xFC, 0xFD, 0xFE -> inactive()
-                FEEDBACK, VIBRATION -> zoneEffect(type, raw)
-                WEAPON -> rangeFromMask(type, raw, strength3(u(raw, 3)))
-                BOW, GALLOPING, MACHINE ->
-                    rangeFromMask(type, raw, strength3(maxOf(u(raw, 3) and 0x07, (u(raw, 3) shr 3) and 0x07)))
-                SIMPLE_FEEDBACK -> fromPosition(type, u(raw, 1), u(raw, 3))
-                SIMPLE_VIBRATION -> fromPosition(type, u(raw, 7), u(raw, 3))
-                LIMITED_FEEDBACK -> fromPosition(type, u(raw, 1), scaleLevel(u(raw, 3)))
-                SIMPLE_WEAPON -> range(type, u(raw, 1), u(raw, 3), u(raw, 7))
-                LIMITED_WEAPON -> range(type, u(raw, 1), u(raw, 3), scaleLevel(u(raw, 7)))
+                // Resistance effects (no native frequency); vibrate only while pressed deeper.
+                FEEDBACK -> zoneEffect(type, raw, risingOnly = true)
+                WEAPON -> rangeFromMask(type, raw, strength3(u(raw, 3)), risingOnly = true)
+                // Automated effects carry a cycling frequency in hertz.
+                VIBRATION -> zoneEffect(type, raw, risingOnly = false, frequencyHz = u(raw, 9).toDouble())
+                BOW -> rangeFromMask(type, raw, bowStrength(raw), risingOnly = false)
+                GALLOPING -> rangeFromMask(
+                    type, raw, bowStrength(raw), risingOnly = false, frequencyHz = u(raw, 4).toDouble(),
+                )
+                MACHINE -> rangeFromMask(
+                    type, raw, bowStrength(raw), risingOnly = false, frequencyHz = u(raw, 4).toDouble(),
+                )
+                SIMPLE_FEEDBACK -> fromPosition(type, u(raw, 1), u(raw, 2), risingOnly = true)
+                SIMPLE_VIBRATION -> fromPosition(
+                    type, u(raw, 3), u(raw, 2), risingOnly = false, frequencyHz = u(raw, 1).toDouble(),
+                )
+                LIMITED_FEEDBACK -> fromPosition(type, u(raw, 1), scaleLevel(u(raw, 2)), risingOnly = true)
+                SIMPLE_WEAPON -> range(type, u(raw, 1), u(raw, 2), u(raw, 3), risingOnly = true)
+                LIMITED_WEAPON -> range(type, u(raw, 1), u(raw, 2), scaleLevel(u(raw, 3)), risingOnly = true)
                 else -> inactive()
             }
         }
 
+        /** Bow/Galloping/Machine pack two 3-bit forces into byte 3; take the stronger one. */
+        private fun bowStrength(raw: ByteArray): Int =
+            strength3(maxOf(u(raw, 3) and 0x07, (u(raw, 3) shr 3) and 0x07))
+
         private fun inactive() = AdaptiveTriggerEffect(
             type = 0, active = false, positionStart = 0, positionEnd = 0,
             strength = 0, zoneAmplitudes = null, mode = Mode.RANGE,
+            risingOnly = false, frequencyHz = 0.0,
         )
 
-        private fun zoneEffect(type: Int, raw: ByteArray): AdaptiveTriggerEffect {
+        private fun zoneEffect(
+            type: Int,
+            raw: ByteArray,
+            risingOnly: Boolean,
+            frequencyHz: Double = 0.0,
+        ): AdaptiveTriggerEffect {
             val mask = u(raw, 1) or (u(raw, 2) shl 8)
             val packed = u(raw, 3) or (u(raw, 4) shl 8) or (u(raw, 5) shl 16) or (u(raw, 6) shl 24)
             val zones = IntArray(10)
@@ -93,10 +125,18 @@ class AdaptiveTriggerEffect private constructor(
                     zones[i] = strength3((packed shr (3 * i)) and 0x07)
                 }
             }
-            return AdaptiveTriggerEffect(type, mask != 0, 0, 255, 0, zones, Mode.ZONE)
+            return AdaptiveTriggerEffect(
+                type, mask != 0, 0, 255, 0, zones, Mode.ZONE, risingOnly, frequencyHz,
+            )
         }
 
-        private fun rangeFromMask(type: Int, raw: ByteArray, strength: Int): AdaptiveTriggerEffect {
+        private fun rangeFromMask(
+            type: Int,
+            raw: ByteArray,
+            strength: Int,
+            risingOnly: Boolean,
+            frequencyHz: Double = 0.0,
+        ): AdaptiveTriggerEffect {
             val mask = u(raw, 1) or (u(raw, 2) shl 8)
             var lowZone = -1
             var highZone = -1
@@ -107,18 +147,38 @@ class AdaptiveTriggerEffect private constructor(
                 }
             }
             if (lowZone < 0) return inactive()
-            return range(type, lowZone * 256 / 10, (highZone + 1) * 256 / 10 - 1, strength)
+            return range(
+                type, lowZone * 256 / 10, (highZone + 1) * 256 / 10 - 1, strength,
+                risingOnly, frequencyHz,
+            )
         }
 
-        private fun range(type: Int, start: Int, end: Int, strength: Int): AdaptiveTriggerEffect {
+        private fun range(
+            type: Int,
+            start: Int,
+            end: Int,
+            strength: Int,
+            risingOnly: Boolean,
+            frequencyHz: Double = 0.0,
+        ): AdaptiveTriggerEffect {
             val s = start.coerceIn(0, 255)
             val e = end.coerceIn(0, 255)
-            return AdaptiveTriggerEffect(type, true, s, e, strength, null, Mode.RANGE)
+            return AdaptiveTriggerEffect(
+                type, true, s, e, strength, null, Mode.RANGE, risingOnly, frequencyHz,
+            )
         }
 
-        private fun fromPosition(type: Int, position: Int, strength: Int): AdaptiveTriggerEffect {
+        private fun fromPosition(
+            type: Int,
+            position: Int,
+            strength: Int,
+            risingOnly: Boolean,
+            frequencyHz: Double = 0.0,
+        ): AdaptiveTriggerEffect {
             val p = position.coerceIn(0, 255)
-            return AdaptiveTriggerEffect(type, true, p, 255, strength, null, Mode.FROM_POSITION)
+            return AdaptiveTriggerEffect(
+                type, true, p, 255, strength, null, Mode.FROM_POSITION, risingOnly, frequencyHz,
+            )
         }
 
         /** Trigger-rumble buzz frequency (Hz). A non-zero frequency is mandatory: the
