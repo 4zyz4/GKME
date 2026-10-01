@@ -539,9 +539,17 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
             return
         }
 
-        // No Android vibrator available: fall back to SDL's low/high and trigger rumble.
-        SdlNative.nativeRumble(index, low * 257, high * 257, RUMBLE_DURATION_MS)
-        SdlNative.nativeRumbleTriggers(index, lt * 257, rt * 257, RUMBLE_DURATION_MS)
+        // No Android vibrator available (HIDAPI has claimed the pad and detached
+        // Android's input driver): fall back to SDL's low/high and trigger rumble.
+        //
+        // Use an infinite duration (0 = until the next call). With a finite
+        // duration the SDL rumble would silently expire: SDL caches the last value
+        // and skips the driver when it is unchanged, so a steady voice-coil/motor
+        // signal keeps resending the same value, never refreshes the expiration,
+        // and the motor stops after one duration. Stopping is explicit in the
+        // all-zero branch above, and on removal/stop SDL is commanded off.
+        SdlNative.nativeRumble(index, low * 257, high * 257, 0)
+        SdlNative.nativeRumbleTriggers(index, lt * 257, rt * 257, 0)
     }
 
     private fun cancelControllerVibration(index: Int) {
@@ -1187,8 +1195,6 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
     }
 
     companion object {
-        private const val RUMBLE_DURATION_MS = 1000
-
         // SDL_GamepadType values (see SDL_gamepad.h).
         private const val SDL_GAMEPAD_TYPE_PS4 = 5
         private const val SDL_GAMEPAD_TYPE_PS5 = 6
