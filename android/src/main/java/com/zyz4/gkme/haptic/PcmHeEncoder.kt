@@ -31,6 +31,16 @@ class PcmHeEncoder(
      * 0 = 关闭。
      */
     private val accentMs: Int = 0,
+    /**
+     * 短促瞬态响应：PC 会下发时长极短（≤[BURST_MAX_MS] ms）、且总是**从静音突变而来**的音频。
+     * 本项识别这种“静音 → 短促有声 → 静音”的瞬态，在 200ms 分块内对应时刻额外插入一条
+     * [burstMs] 时长的**满强度**事件，把这类“咔哒/敲击”还原成单次短促强震，一次瞬态只出一条。
+     * 0 = 关闭。
+     *
+     * 与 [accentMs] 的区别：[accentMs] 对任意突然增大都会触发（不关心后续是否持续）；
+     * 本项只在**短促且以静音收尾**的瞬态上触发。
+     */
+    private val burstMs: Int = 0,
 ) {
 
     private companion object {
@@ -50,6 +60,32 @@ class PcmHeEncoder(
 
         /** 两次强调之间的最小间隔（ms），避免连续触发。 */
         const val ACCENT_REFRACTORY_MS = 80
+
+        /** 视为静音的幅度上限（0..1）；低于它即认为音频回到静音。 */
+        const val BURST_SILENCE_AMP = 0.04f
+
+        /**
+         * 触发短促瞬态所需的最小峰值幅度（0..1）。
+         *
+         * 真机录音实测：这类短音经语音线圈 RMS 归一化后大多只有 0.10–0.15（远低于早期
+         * 0.15 的门限），因此门限取在 HdPcmStreamer 的静音门（≈0.016）之上、短音之下。
+         */
+        const val BURST_MIN_AMP = 0.06f
+
+        /**
+         * 短促瞬态的**有效时长**上限（ms）：从首次起振到最后一个有效峰，超过即判为持续音。
+         * 目标音源 ≤50ms，这里留出帧量化余量（RMS 帧边界最多使测量值多出一帧），取 60ms。
+         */
+        const val BURST_MAX_MS = 60
+
+        /**
+         * 瞬态内部的静音容限（ms）：短音常包含“主峰 → 短暂凹陷 → 余响/回声”（真机录音约
+         * 20–35ms 凹陷）。凹陷不超过此值仍视为同一次瞬态，避免一次短音被拆成多条脉冲。
+         */
+        const val BURST_GAP_MS = 40
+
+        /** 两次瞬态之间的最小间隔（ms），避免一次事件被幅度抖动拆成多条。 */
+        const val BURST_REFRACTORY_MS = 40
     }
 
     private val ampSum = Array(eventsPerChunk) { FloatArray(POINTS) }
@@ -61,7 +97,26 @@ class PcmHeEncoder(
     private var prevAmp = 0f
     private var clockMs = 0L
     private var lastAccentClock = -1_000_000L
-    private val accents = ArrayList<Int>()
+
+    // 短促瞬态检测状态（同样跨分块保留，避免分块边界把一次瞬态截断）。
+    // [armed] 只在“观察到静音”后才为 true：一次瞬态被判定为持续音后会解除武装，
+    // 直到再次静音才允许识别下一次瞬态，避免持续音被反复当作候选并在流结束时误报。
+    private var inBurst = false
+    private var armed = true
+    private var burstStartClock = 0L
+    private var burstStartInChunk = 0
+    private var burstLastActiveClock = 0L
+    private var burstPeak = 0f
+    private var lastBurstClock = -1_000_000L
+
+    /** 当前是否有正在累积的短促瞬态（供 [HdPcmStreamer] 决定静音时是否立即冲刷）。 */
+    val isBurstActive: Boolean get() = inBurst
+
+    // 额外插入的满强度短事件（音量突增强调 / 短促瞬态响应）。
+    private val pulses = ArrayList<Pulse>()
+
+    /** 一条额外插入的满强度短事件。[timeMs] 为分块内起点，[durationMs] 为时长。 */
+    private class Pulse(val timeMs: Int, val durationMs: Int, val intensity: Double)
 
     /** 一个完整分块的时长（毫秒）。 */
     val chunkMs: Int get() = eventsPerChunk * eventMs
@@ -76,7 +131,10 @@ class PcmHeEncoder(
             java.util.Arrays.fill(count[e], 0)
         }
         tMs = 0
-        accents.clear()
+        pulses.clear()
+        inBurst = false
+        burstPeak = 0f
+        burstLastActiveClock = 0L
         // 注意：prevAmp / clockMs 故意保留，避免分块切换被误判为“音量突增”。
     }
 
@@ -91,7 +149,10 @@ class PcmHeEncoder(
     fun addSample(dtMs: Int, amp01: Float, he: Int): String? {
         val amp = amp01.coerceIn(0f, 1f)
         val e = tMs / eventMs
-        if (accentMs > 0 && e < eventsPerChunk) detectAccent(amp, tMs)
+        if (e < eventsPerChunk) {
+            if (accentMs > 0) detectAccent(amp, tMs)
+            if (burstMs > 0) detectBurst(amp, tMs)
+        }
         prevAmp = amp
         clockMs += dtMs.coerceAtLeast(1)
 
@@ -115,13 +176,78 @@ class PcmHeEncoder(
         if (rising >= ONSET_DELTA && amp >= ONSET_MIN &&
             (clockMs - lastAccentClock) >= ACCENT_REFRACTORY_MS
         ) {
-            accents.add(timeInChunkMs)
+            pulses.add(Pulse(timeInChunkMs, accentMs, 1.0))
             lastAccentClock = clockMs
         }
     }
 
+    /**
+     * 短促瞬态检测：识别“静音 → 有声 → 静音”且总时长 ≤ [BURST_MAX_MS] 的音频段。
+     * 触发时登记一条位于起点的满强度短事件（一次事件只出一条，受 [BURST_REFRACTORY_MS] 抑制）。
+     */
+    private fun detectBurst(amp: Float, timeInChunkMs: Int) {
+        if (amp >= BURST_MIN_AMP) {
+            if (!inBurst) {
+                if (armed) {
+                    inBurst = true
+                    burstStartClock = clockMs
+                    burstStartInChunk = timeInChunkMs
+                    burstLastActiveClock = clockMs
+                    burstPeak = amp
+                }
+            } else {
+                if (amp > burstPeak) burstPeak = amp
+                burstLastActiveClock = clockMs
+                // 有效时长超限：判为持续音、解除武装并放弃（连续音也必须在此判定）。
+                if (burstLastActiveClock - burstStartClock > BURST_MAX_MS) {
+                    inBurst = false
+                    armed = false
+                }
+            }
+            return
+        }
+        if (inBurst) {
+            if (burstLastActiveClock - burstStartClock > BURST_MAX_MS) {
+                // 有效时长超限：判为持续音、解除武装并放弃。
+                inBurst = false
+                armed = false
+            } else if (clockMs - burstLastActiveClock >= BURST_GAP_MS) {
+                // 凹陷超过容限：一次瞬态结束，登记并重新武装。
+                inBurst = false
+                registerBurst()
+                armed = true
+            }
+        } else if (amp < BURST_SILENCE_AMP) {
+            armed = true
+        }
+    }
+
+    /** 当前（或刚结束的）瞬态是否满足“短促且达到最小峰值”（以最后一个有效峰计有效时长）。 */
+    private fun isShortBurst(): Boolean =
+        burstPeak >= BURST_MIN_AMP &&
+            (burstLastActiveClock - burstStartClock) <= BURST_MAX_MS
+
+    /** 把当前瞬态登记为一条满强度短事件（不满足条件或处于抑制窗内则不登记）。 */
+    private fun registerBurst() {
+        if (!isShortBurst()) return
+        if (clockMs - lastBurstClock < BURST_REFRACTORY_MS) return
+        lastBurstClock = clockMs
+        pulses.add(Pulse(burstStartInChunk.coerceAtLeast(0), burstMs, 1.0))
+    }
+
+    /** 分块收尾：处理仍处于“进行中”的瞬态（其后没有跟踪到静音帧，如流结束时）。 */
+    private fun finalizeBurst() {
+        if (!inBurst) return
+        inBurst = false
+        registerBurst()
+    }
+
     /** 立即取出当前（可能不完整）的分块；尾部全空的事件会被裁掉，无任何采样返回 null 并复位。 */
     fun flush(): String? {
+        // 冲刷时机通常就是静音（见 HdPcmStreamer）：若瞬态仍在进行中，说明短音已结束，
+        // 收尾判定它是否属于“短促瞬态”；随后重新武装，等待下一次瞬态。
+        finalizeBurst()
+        armed = true
         var lastNonEmpty = -1
         for (e in 0 until eventsPerChunk) {
             for (p in 0 until POINTS) {
@@ -175,25 +301,26 @@ class PcmHeEncoder(
             }
             events.add(RichTapHe.Event(e * eventMs, eventMs, base, points))
         }
-        appendAccents(events, eventCount)
+        appendPulses(events, eventCount)
         return RichTapHe.pattern(events)
     }
 
     /**
-     * 把检测到的音量突增点，作为**满强度** [accentMs] 短事件追加进效果（受真机事件数上限约束）。
-     * 曲线 4 点全为 1.0（`amplitudeToCurve(1.0)=1.0`），即“最强震动”。
+     * 把额外插入的满强度短事件（音量突增强调 / 短促瞬态响应）追加进效果（受真机事件数上限约束）。
+     * 曲线 4 点全为 [Pulse.intensity]（1.0 经 `amplitudeToCurve` 逆变换后仍为 1.0），即“最强震动”。
      */
-    private fun appendAccents(events: ArrayList<RichTapHe.Event>, eventCount: Int) {
-        if (accentMs <= 0 || accents.isEmpty()) return
+    private fun appendPulses(events: ArrayList<RichTapHe.Event>, eventCount: Int) {
+        if (pulses.isEmpty()) return
         val maxTime = eventCount * eventMs
-        for (a in accents) {
-            if (a < 0 || a >= maxTime) continue
+        for (pulse in pulses) {
+            if (pulse.timeMs < 0 || pulse.timeMs >= maxTime) continue
             if (events.size >= MAX_EVENTS) break
+            val dur = pulse.durationMs.coerceAtLeast(1)
             val pts = ArrayList<RichTapHe.CurvePoint>(POINTS)
             for (p in 0 until POINTS) {
-                pts.add(RichTapHe.CurvePoint(p * accentMs / (POINTS - 1), 1.0, 0.0))
+                pts.add(RichTapHe.CurvePoint(p * dur / (POINTS - 1), pulse.intensity, 0.0))
             }
-            events.add(RichTapHe.Event(a, accentMs, RichTapFrequency.HE_AT_RESONANCE, pts))
+            events.add(RichTapHe.Event(pulse.timeMs, dur, RichTapFrequency.HE_AT_RESONANCE, pts))
         }
         events.sortBy { it.relativeTimeMs }
     }

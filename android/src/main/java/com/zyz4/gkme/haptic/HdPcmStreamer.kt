@@ -20,6 +20,9 @@ import java.util.concurrent.atomic.AtomicBoolean
  *
  * 关键点：
  * - **静音时冲刷**（而不是直接丢弃）已累积的分块，短促音效也能出声；
+ * - **短促瞬态响应**：PC 的 ≤50ms 短音（总是从静音突变而来）除包络外，再于分块内对应时刻
+ *   并入一条 [BURST_MS] 的满强度事件，还原成单次短促强震；瞬态进行中即使出现短暂凹陷
+ *   （主峰后的余响/回声）也继续喂入静音样本、待编码器判定其结束再冲刷，避免一次短音被拆成两条；
  * - 以 [HapticSource.AUDIO] 参与 `HapticInjector` 的优先级仲裁：被更高优先级的自适应扳机
  *   占用时静默并清空缓冲，避免与 `PhoneHdHaptics`（游戏 rumble）抢占同一个 HapticPlayer；
  * - 只有幅度达到 [AUDIO_ACTIVE_AMP] 才算“正在输出触觉”，并据此刷新优先级租约；静音流/
@@ -83,8 +86,14 @@ object HdPcmStreamer {
      */
     private const val ONSET_ACCENT_MS = 5
 
+    /**
+     * 短促瞬态响应时长（ms）：PC 会下发 ≤50ms、总是从静音突变而来的音频，把它还原成
+     * 单次短促强震，并入当前 200ms 分块。0 = 关闭；见 [PcmHeEncoder] 的 `burstMs`。
+     */
+    private const val BURST_MS = 8
+
     private val lock = Any()
-    private val encoder = PcmHeEncoder(EVENTS_PER_CHUNK, EVENT_MS, SEAM_BOOST, ONSET_ACCENT_MS)
+    private val encoder = PcmHeEncoder(EVENTS_PER_CHUNK, EVENT_MS, SEAM_BOOST, ONSET_ACCENT_MS, BURST_MS)
     private var lastNs = 0L
     private var pending = false
 
@@ -121,12 +130,25 @@ object HdPcmStreamer {
         // 这里会因冲刷尾音而重新获取优先级，导致无声流长期阻塞）。
         if (amp < AUDIO_ACTIVE_AMP) {
             synchronized(lock) {
-                if (pending) {
+                if (pending && encoder.isBurstActive) {
+                    // 瞬态进行中（主峰后出现短暂凹陷）：继续喂入静音样本，让编码器跨过
+                    // “主峰 → 凹陷 → 余响”的间隙，把整段 ≤50ms 的短音当作一次瞬态。
+                    // 待编码器判定瞬态结束（间隙超过容限）后，再由下一静音帧冲刷投递。
+                    val dtMs = (((now - lastNs) / 1_000_000L).toInt()).coerceIn(1, MAX_DT_MS)
+                    lastNs = now
+                    val json = encoder.addSample(dtMs, 0f, RichTapFrequency.HE_AT_RESONANCE)
+                    if (json != null) {
+                        pending = false
+                        HapticInjector.startEffect(json, HapticSource.AUDIO)
+                    }
+                } else if (pending) {
                     pending = false
                     val json = encoder.flush()
                     if (json != null) HapticInjector.startEffect(json, HapticSource.AUDIO)
+                    lastNs = 0L
+                } else {
+                    lastNs = 0L
                 }
-                lastNs = 0L
             }
             return true
         }
@@ -184,6 +206,23 @@ object HdPcmStreamer {
         if (HapticInjector.owner() !== HapticSource.AUDIO) return
         val idleMs = (System.nanoTime() - lastActiveNs) / 1_000_000L
         if (idleMs >= AUDIO_RELEASE_MS) {
+            // 音频在瞬态/分块中途停发（之后不再有静音帧来冲刷）：先把已累积的分块投递出去，
+            // 避免漏掉这一下；延后一个周期再释放优先级。
+            var flushed = false
+            synchronized(lock) {
+                if (pending) {
+                    pending = false
+                    val json = encoder.flush()
+                    if (json != null) {
+                        HapticInjector.startEffect(json, HapticSource.AUDIO)
+                        flushed = true
+                    }
+                }
+            }
+            if (flushed) {
+                lastActiveNs = System.nanoTime()
+                return
+            }
             lastActiveNs = 0L
             HapticInjector.stopOwnedBy(HapticSource.AUDIO)
         }

@@ -133,6 +133,61 @@ class PcmHeEncoderTest {
     }
 
     @Test
+    fun shortBurstFromSilenceAddsSinglePulse() {
+        val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50, burstMs = 8)
+        enc.addSample(10, 0.0f, 56) // 静音
+        enc.addSample(10, 0.8f, 56) // 从静音突变
+        enc.addSample(10, 0.9f, 56)
+        enc.addSample(10, 0.0f, 56) // 20ms 后回到静音
+        val json = enc.flush()!!
+        assertEquals("一次瞬态只出一条 8ms 强调", 1, countOccurrences(json, "\"Duration\":8,"))
+        assertTrue("应为满强度", json.contains("\"Intensity\":1.0"))
+    }
+
+    @Test
+    fun sustainedToneDoesNotTriggerBurst() {
+        val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50, burstMs = 8)
+        val out = StringBuilder()
+        for (i in 0 until 40) enc.addSample(10, 0.8f, 56)?.let { out.append(it) }
+        enc.flush()?.let { out.append(it) }
+        assertFalse("持续音不应产生瞬态响应", out.contains("\"Duration\":8,"))
+    }
+
+    @Test
+    fun longToneAfterSilenceIsNotBurst() {
+        val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50, burstMs = 8)
+        enc.addSample(10, 0.0f, 56)
+        for (i in 0 until 8) enc.addSample(10, 0.7f, 56) // 80ms > 50ms
+        enc.addSample(10, 0.0f, 56)
+        val json = enc.flush()!!
+        assertFalse("超过 50ms 的持续音不算瞬态", json.contains("\"Duration\":8,"))
+    }
+
+    @Test
+    fun burstWithInternalGapAddsSinglePulse() {
+        // 真机录音：一次短音常是“主峰 → 短暂凹陷 → 余响”。凹陷（≤40ms）不应把一次瞬态拆成两条。
+        val enc = PcmHeEncoder(eventsPerChunk = 8, eventMs = 50, burstMs = 8)
+        enc.addSample(10, 0.0f, 56) // 静音
+        enc.addSample(10, 0.8f, 56) // 主峰
+        enc.addSample(10, 0.0f, 56) // 凹陷
+        enc.addSample(10, 0.0f, 56)
+        enc.addSample(10, 0.9f, 56) // 余响（仍属同一次瞬态）
+        for (i in 0 until 6) enc.addSample(10, 0.0f, 56) // 凹陷超过容限 -> 结束
+        val json = enc.flush()!!
+        assertEquals("内部凹陷不应拆成两条脉冲", 1, countOccurrences(json, "\"Duration\":8,"))
+    }
+
+    @Test
+    fun burstDisabledByDefault() {
+        val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50)
+        enc.addSample(10, 0.0f, 56)
+        enc.addSample(10, 0.8f, 56)
+        enc.addSample(10, 0.0f, 56)
+        val json = enc.flush()!!
+        assertFalse("默认不插入瞬态响应", json.contains("\"Duration\":8,"))
+    }
+
+    @Test
     fun frequencyCompensationRaisesOffResonanceIntensity() {
         fun firstPointIntensity(he: Int): Double {
             val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50, seamBoost = 1.0)
