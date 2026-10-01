@@ -387,3 +387,45 @@ LRA 是**窄带共振器**（本机 f0≈170Hz，Q≈10），无法复现宽带�
 - `MAX_DT_MS` 需 < `EVENT_MS`。`EVENT_MS=50` 是否可进一步缩短、以及 HAL 可接受的最短
   事件时长，待真机标定。
 
+---
+
+## 10. 低频震动：用「快速发送短促震动」模拟低于马达下限的频率
+
+> 目标：让 HD 震动也能表现**低频**（如 20–80Hz 的“慢/闷”手感）。LRA 可用频段约
+> 87–225Hz（见 §9.1），直接给引擎低于下限的 `Frequency` 会被截断成最低频，丢失低频。
+
+### 10.1 方法
+
+以目标低频 `f` 的**周期** `T = 1000/f`（ms）为间隔，重复发送**短促脉冲**；每个脉冲是一条很短
+的 `continuous` 事件（快速起振后立即衰减）。脉冲的**重复频率即目标低频**，因此触感是
+“每 `T` ms 来一下”，而不是连续的高频嗡嗡声。每个脉冲的载波用谐振点（最大能量），
+强度按引擎的次方律（`RichTapEngine.amplitudeToCurve`）换算成曲线峰值。
+
+```
+目标 40Hz → 周期 25ms → 每 25ms 一个约 9ms 的脉冲（0→峰→衰减→0）
+```
+
+### 10.2 实现（GKME）
+
+- `haptic/RichTapLowFreq.kt`（纯 JVM，可单测）：
+  - `supports(hz)`：`hz < RichTapEngine.MIN_HZ`（≈86.7Hz）时走脉冲串。
+  - `periodMs` / `pulseMs`（占空比 `PULSE_RATIO=0.35`，最小 3ms）/ `pulseCount` / `coverageMs`。
+  - `pattern(freqHz, durationMs, strength, carrierHe)`：最多 `MAX_PULSES=16` 个脉冲事件，
+    每事件 4 点曲线（`0 → 峰 → 0.35·峰 → 0`）。
+- `haptic/PhoneHdHaptics.kt`：
+  - `playMotors(..., frequencyHz)` 检测到 `frequencyHz` 低于下限时，改用脉冲串（`wantLowHz`），
+    并经无参 `startEffect()` 投递（保留事件自身参数）。
+  - 新增通用入口 `playLowFrequency(strength, frequencyHz, durationMs)`，供其他 HD 通路复用。
+  - 游戏 rumble：低频马达（强震动）固定用 `GAME_LOW_HZ = 40Hz` 的脉冲串，高频马达（弱震动）
+    仍用 ≈210Hz 连续效果（`frequencyForMotors`）。
+  - 脉冲串单条覆盖时长 = `coverageMs`，调度线程按 `coverage×0.9` 定时重投递以延续播放。
+
+### 10.3 约束与取舍
+
+- 单条效果最多 16 个事件 → 单条脉冲串最多覆盖 16 个周期（如 40Hz ≈ 400ms、20Hz ≈ 750ms）；
+  更长时长由 `PhoneHdHaptics` 定时重投递拼接。
+- 目标频率越接近下限，周期越短、覆盖越短、重投递越频繁；过低的频率（长周期）反而最稳。
+- 脉冲占空比 `PULSE_RATIO` 与载波 `carrierHe` 可按手感微调：占空比大→更接近连续震动，
+  小→更“点状”。
+
+

@@ -25,7 +25,7 @@ object HapticInjector {
      * 在每圈衔接处有约 200ms 断点，而连续重投递新的 effect 可无缝衔接。因此这里用一段
      * 较短效果 + PhoneHdHaptics 定时重投递的方式实现持续震动。
      */
-    private const val CONTINUOUS_DURATION_MS = 4_000
+    internal const val CONTINUOUS_DURATION_MS = 4_000
 
     @Volatile
     var service: IHapticService? = null

@@ -40,6 +40,16 @@ object PhoneHdHaptics {
     @Volatile
     private var wantFreq: Int = RichTapFrequency.HE_AT_RESONANCE
 
+    /**
+     * 低于马达下限的目标频率（Hz），>0 时改用 [RichTapLowFreq] 的脉冲串模拟低频；
+     * 为 0 时走普通连续效果。
+     */
+    @Volatile
+    private var wantLowHz: Double = 0.0
+
+    @Volatile
+    private var appliedLowHz: Double = 0.0
+
     @Volatile
     private var lastSubmitNs: Long = 0L
 
@@ -51,8 +61,9 @@ object PhoneHdHaptics {
     private var task: ScheduledFuture<*>? = null
 
     private val DEFAULT_FREQ = RichTapFrequency.HE_AT_RESONANCE    // ≈170 Hz（谐振点）
-    private val LOW_FREQ = RichTapFrequency.hzToHe(140.0)          // ≈140 Hz
     private val HIGH_FREQ = RichTapFrequency.hzToHe(210.0)         // ≈210 Hz
+    /** 游戏震动的低频马达目标频率（Hz）：低于马达下限，改用脉冲串模拟。 */
+    private const val GAME_LOW_HZ = 40.0
     private const val CLICK_STRENGTH_MAX = 255
 
     /** 两次重投递之间的最小间隔；小于此值的参数变化会合并。 */
@@ -63,6 +74,9 @@ object PhoneHdHaptics {
 
     /** 调度线程检查周期。 */
     private const val CHECK_INTERVAL_MS = 100L
+
+    /** 低频脉冲串单条效果的期望时长；实际覆盖时长受 [RichTapLowFreq.MAX_PULSES] 限制。 */
+    private const val LOW_SIM_WINDOW_MS = 4_000
 
     /** 驱动左右马达（0-255）。命中 HD 返回 true，否则返回 false 由调用方回退。
      *  [frequencyHz] > 0 时用 PCM 估计的主导音高映射成 HE 频率，否则按左右力度启发式选择。 */
@@ -75,13 +89,19 @@ object PhoneHdHaptics {
         if (!HapticInjector.isHapticReady()) return false
 
         val qAmp = quantizeAmp(amp)
-        val freq = if (frequencyHz > 0.0) {
-            quantizeHe(RichTapFrequency.hzToHe(frequencyHz))
+        // 低于马达下限的目标频率改为脉冲串模拟（见 RichTapLowFreq）。
+        val (lowHz, freq) = if (frequencyHz > 0.0) {
+            if (RichTapLowFreq.supports(frequencyHz)) {
+                frequencyHz to RichTapFrequency.HE_AT_RESONANCE
+            } else {
+                0.0 to quantizeHe(RichTapFrequency.hzToHe(frequencyHz))
+            }
         } else {
-            frequencyFor(l, r)
+            frequencyForMotors(l, r)
         }
         wantAmp = qAmp
         wantFreq = freq
+        wantLowHz = lowHz
 
         if (!active) {
             if (submit()) {
@@ -100,7 +120,7 @@ object PhoneHdHaptics {
         if (!enabled) return false
         if (!HapticInjector.isHapticReady()) return false
         val s = strength.coerceIn(0, CLICK_STRENGTH_MAX)
-        return HapticInjector.playClick(s, frequencyFor(s, s), TOKEN)
+        return HapticInjector.playClick(s, DEFAULT_FREQ, TOKEN)
     }
 
     /** 按指定时长播放一次 HD 效果（按键按下/抬起等）。[strength] 0-255，[durationMs] 毫秒，
@@ -123,11 +143,23 @@ object PhoneHdHaptics {
         return HapticInjector.startEffect(he, TOKEN)
     }
 
+    /** 播放一段低频脉冲串效果（模拟低于马达下限的低频）。[strength] 0-255，
+     *  [frequencyHz] 目标低频（Hz），[durationMs] 时长。命中 HD 返回 true。 */
+    fun playLowFrequency(strength: Int, frequencyHz: Double, durationMs: Int): Boolean {
+        if (!enabled) return false
+        if (!HapticInjector.isHapticReady()) return false
+        if (!RichTapLowFreq.supports(frequencyHz)) return false
+        val s = strength.coerceIn(0, CLICK_STRENGTH_MAX)
+        val dur = durationMs.coerceAtLeast(1)
+        return HapticInjector.startEffect(RichTapLowFreq.pattern(frequencyHz, dur, s), TOKEN)
+    }
+
     /** 停止 HD 持续震动（若正在运行）。仅停止本消费者自己的效果。 */
     fun stop(): Boolean {
         active = false
         appliedAmp = -1
         appliedFreq = -1
+        appliedLowHz = 0.0
         HapticInjector.stopOwnedBy(TOKEN)
         return true
     }
@@ -137,14 +169,24 @@ object PhoneHdHaptics {
         active = false
         appliedAmp = -1
         appliedFreq = -1
+        appliedLowHz = 0.0
     }
 
     /** 用当前期望值投递一次；成功返回 true。 */
     private fun submit(): Boolean {
-        val ok = HapticInjector.startContinuous(wantAmp, wantFreq, TOKEN)
+        val ok: Boolean
+        if (wantLowHz > 0.0) {
+            ok = HapticInjector.startEffect(
+                RichTapLowFreq.pattern(wantLowHz, LOW_SIM_WINDOW_MS, wantAmp),
+                TOKEN,
+            )
+        } else {
+            ok = HapticInjector.startContinuous(wantAmp, wantFreq, TOKEN)
+        }
         if (ok) {
             appliedAmp = wantAmp
             appliedFreq = wantFreq
+            appliedLowHz = wantLowHz
             lastSubmitNs = System.nanoTime()
         }
         return ok
@@ -167,21 +209,38 @@ object PhoneHdHaptics {
         if (!active || !enabled) return
         if (!HapticInjector.isHapticReady()) return
         val now = System.nanoTime()
-        val changed = appliedAmp != wantAmp || appliedFreq != wantFreq
+        val changed = appliedAmp != wantAmp || appliedFreq != wantFreq || appliedLowHz != wantLowHz
+        val lowFreq = wantLowHz > 0.0
         if (changed) {
-            if (now - lastSubmitNs >= MIN_RESUBMIT_NS) submit()
-        } else if (now - lastSubmitNs >= REFRESH_NS) {
+            // 低频脉冲串单次覆盖时长短，参数变化时不必等满 MIN_RESUBMIT，避免中间空档。
+            val minResubmit = if (lowFreq) refreshIntervalNs() else MIN_RESUBMIT_NS
+            if (now - lastSubmitNs >= minResubmit) submit()
+        } else if (now - lastSubmitNs >= refreshIntervalNs()) {
             // 延续效果：在单次效果结束前重投递。
             submit()
         }
     }
 
-    private fun frequencyFor(left: Int, right: Int): Int {
+    /** 重投递间隔：低频脉冲串按单条覆盖时长，普通连续效果用固定刷新周期。 */
+    private fun refreshIntervalNs(): Long =
+        if (wantLowHz > 0.0) {
+            val coverage = RichTapLowFreq.coverageMs(wantLowHz, LOW_SIM_WINDOW_MS)
+            (coverage * 0.9).toLong().coerceAtLeast(50L) * 1_000_000L
+        } else {
+            REFRESH_NS
+        }
+
+    /** 游戏 rumble 的左右马达 → (低频模拟 Hz, HE 频率)。Hz>0 表示走 [RichTapLowFreq] 脉冲串。
+     *  约定：低频马达（强震动）用 [GAME_LOW_HZ] 模拟，高频马达（弱震动）用 [HIGH_FREQ]。 */
+    private fun frequencyForMotors(left: Int, right: Int): Pair<Double, Int> {
         val l = left.coerceIn(0, 255)
         val r = right.coerceIn(0, 255)
-        if (l == r) return DEFAULT_FREQ
-        // 约定：较大值为“弱/高频”马达 → 更高频；否则更低频。
-        return if (r >= l) HIGH_FREQ else LOW_FREQ
+        return when {
+            l == r -> 0.0 to DEFAULT_FREQ
+            // 较大值为“弱/高频”马达 → 更高频；否则低频马达 → 40Hz 脉冲串。
+            r > l -> 0.0 to HIGH_FREQ
+            else -> GAME_LOW_HZ to RichTapFrequency.HE_AT_RESONANCE
+        }
     }
 
     /** 把 0-255 量化到 16 级（最小 16），降低 HD 效果重启频率。 */
