@@ -68,9 +68,8 @@ object PhoneHdHaptics {
     private var task: ScheduledFuture<*>? = null
 
     private val DEFAULT_FREQ = RichTapFrequency.HE_AT_RESONANCE    // ≈170 Hz（谐振点）
+    private val LOW_FREQ = RichTapFrequency.hzToHe(140.0)          // ≈140 Hz
     private val HIGH_FREQ = RichTapFrequency.hzToHe(210.0)         // ≈210 Hz
-    /** 游戏震动的低频马达目标频率（Hz）：低于马达下限，改用脉冲串模拟。 */
-    private const val GAME_LOW_HZ = 40.0
     private const val CLICK_STRENGTH_MAX = 255
 
     /** 两次重投递之间的最小间隔；小于此值的参数变化会合并。 */
@@ -285,15 +284,16 @@ object PhoneHdHaptics {
         }
 
     /** 游戏 rumble 的左右马达 → (低频模拟 Hz, HE 频率)。Hz>0 表示走 [RichTapLowFreq] 脉冲串。
-     *  约定：低频马达（强震动）用 [GAME_LOW_HZ] 模拟，高频马达（弱震动）用 [HIGH_FREQ]。 */
+     *  游戏震动**不做低频分段**（分段会让大小马达听感变成一顿一顿的脉冲），低频马达只在
+     *  马达可用频段内取一个较低频率做连续输出：较大值为“弱/高频”马达 → [HIGH_FREQ]，
+     *  否则低频马达 → [LOW_FREQ]。 */
     private fun frequencyForMotors(left: Int, right: Int): Pair<Double, Int> {
         val l = left.coerceIn(0, 255)
         val r = right.coerceIn(0, 255)
         return when {
             l == r -> 0.0 to DEFAULT_FREQ
-            // 较大值为“弱/高频”马达 → 更高频；否则低频马达 → 40Hz 脉冲串。
             r > l -> 0.0 to HIGH_FREQ
-            else -> GAME_LOW_HZ to RichTapFrequency.HE_AT_RESONANCE
+            else -> 0.0 to LOW_FREQ
         }
     }
 

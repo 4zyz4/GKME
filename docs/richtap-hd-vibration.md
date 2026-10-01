@@ -416,8 +416,8 @@ LRA 是**窄带共振器**（本机 f0≈170Hz，Q≈10），无法复现宽带�
   - `playMotors(..., frequencyHz)` 检测到 `frequencyHz` 低于下限时，改用脉冲串（`wantLowHz`），
     并经无参 `startEffect()` 投递（保留事件自身参数）。
   - 新增通用入口 `playLowFrequency(strength, frequencyHz, durationMs)`，供其他 HD 通路复用。
-  - 游戏 rumble：低频马达（强震动）固定用 `GAME_LOW_HZ = 40Hz` 的脉冲串，高频马达（弱震动）
-    仍用 ≈210Hz 连续效果（`frequencyForMotors`）。
+  - 游戏 rumble **不做低频脉冲串分段**（分段会让大小马达听感变成一顿一顿的脉冲）：低频马达
+    （强震动）用 ≈140Hz、高频马达（弱震动）用 ≈210Hz 的**连续**效果（`frequencyForMotors`）。
   - 脉冲串单条覆盖时长 = `coverageMs`，调度线程按 `coverage×0.9` 定时重投递以延续播放。
 
 ### 10.3 约束与取舍
