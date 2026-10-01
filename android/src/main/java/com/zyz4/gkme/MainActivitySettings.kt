@@ -48,6 +48,10 @@ import com.zyz4.gkme.model.ConnectionMode
 import com.zyz4.gkme.model.ControlType
 import com.zyz4.gkme.controlled.ControlledActivity
 import com.zyz4.gkme.controlled.GamepadInjector
+import com.zyz4.gkme.controlled.HapticInjector
+import com.zyz4.gkme.controlled.ShizukuServiceBinding
+import com.zyz4.gkme.haptic.RichTapHe
+import com.zyz4.gkme.haptic.PhoneHdHaptics
 import com.zyz4.gkme.model.DisplayMode
 import com.zyz4.gkme.model.GyroOrientation
 import com.zyz4.gkme.model.GyroSource
@@ -276,7 +280,8 @@ internal fun MainActivity.selectSettingsCategory(index: Int, animate: Boolean = 
     if (index == 4) {
         a.vibrationPollingJob = a.lifecycleScope.launch {
             while (true) {
-                delay(1000.milliseconds)
+                delay(500.milliseconds)
+                if (a.settingsInflated) a.updateHdVibrationUI()
             }
         }
     }
@@ -555,6 +560,8 @@ internal fun MainActivity.setupSettings() {
             VibrationDeviceType.NONE -> {}
         }
     }
+
+    a.setupHdVibrationEntry()
 
     a.findViewById<Spinner>(R.id.spinnerAdaptiveTriggerDevice).apply {
         setOnTouchListener { _, _ ->
@@ -1444,6 +1451,7 @@ internal fun MainActivity.testHaptic(isPress: Boolean) {
         VibrationType.VIBRATION_EFFECT -> {
             val dur = (if (isPress) s.vibrationPressDuration else s.vibrationReleaseDuration).coerceAtLeast(1)
             val amp = if (isPress) s.vibrationPressIntensity else s.vibrationReleaseIntensity
+            if (PhoneHdHaptics.playEffect(amp, dur)) return
             a.vibrator.cancel()
             a.vibrator.vibrate(VibrationEffect.createOneShot(dur.toLong(), amp.coerceIn(0, 255)))
         }
@@ -1675,6 +1683,69 @@ internal fun MainActivity.updateShizukuEntry() {
             btn.isEnabled = false
         }
     }
+}
+
+// ── 高清震动（HD / RichTap）────────────────────────────────
+
+internal fun MainActivity.setupHdVibrationEntry() {
+    val a = this
+    HapticInjector.init(a)
+    HapticInjector.ensureBound()
+    a.findViewById<Button>(R.id.btnHdShizuku).setOnClickListener { a.onHdVibrationShizukuAction() }
+    a.findViewById<Switch>(R.id.switchHdVibration).setOnCheckedChangeListener { _, isChecked ->
+        if (isChecked && HapticInjector.requiredAction(a) != ShizukuServiceBinding.Action.NONE) {
+            // 开启前先引导完成 Shizuku 授权；授权完成后由轮询自动刷新状态。
+            a.onHdVibrationShizukuAction()
+        }
+        a.viewModel.updateHdVibrationEnabled(isChecked)
+        a.updateHdVibrationUI()
+    }
+    a.findViewById<Button>(R.id.btnTestHdVibration).setOnClickListener { a.testHdVibration() }
+    a.updateHdVibrationUI()
+}
+
+internal fun MainActivity.onHdVibrationShizukuAction() {
+    val a = this
+    when (HapticInjector.requiredAction(a)) {
+        ShizukuServiceBinding.Action.DOWNLOAD -> ShizukuServiceBinding.openDownloadPage(a)
+        ShizukuServiceBinding.Action.OPEN -> ShizukuServiceBinding.openShizuku(a)
+        ShizukuServiceBinding.Action.REQUEST_PERMISSION -> {
+            HapticInjector.requestPermission()
+            a.showToast("正在申请 Shizuku 权限…")
+        }
+        ShizukuServiceBinding.Action.NONE -> HapticInjector.ensureBound()
+    }
+}
+
+internal fun MainActivity.updateHdVibrationUI() {
+    val a = this
+    if (!a.settingsInflated) return
+    val btn = a.findViewById<Button>(R.id.btnHdShizuku) ?: return
+    val action = HapticInjector.requiredAction(a)
+    btn.isEnabled = true
+    when (action) {
+        ShizukuServiceBinding.Action.DOWNLOAD -> btn.text = "下载 Shizuku"
+        ShizukuServiceBinding.Action.OPEN -> btn.text = "打开 Shizuku"
+        ShizukuServiceBinding.Action.REQUEST_PERMISSION -> btn.text = "申请授权"
+        ShizukuServiceBinding.Action.NONE -> {
+            btn.text = "已授权"
+            btn.isEnabled = false
+        }
+    }
+    val s = a.viewModel.settings.value
+    val sw = a.findViewById<Switch>(R.id.switchHdVibration)
+    if (sw != null && sw.isChecked != s.hdVibrationEnabled) sw.isChecked = s.hdVibrationEnabled
+    a.findViewById<TextView>(R.id.tvHdStatus).text =
+        if (s.hdVibrationEnabled) HapticInjector.statusText() else "HD 未启用"
+}
+
+internal fun MainActivity.testHdVibration() {
+    val a = this
+    if (!HapticInjector.isHapticReady()) {
+        a.showToast("HD 震动未就绪：${HapticInjector.statusText()}")
+        return
+    }
+    HapticInjector.startPattern(RichTapHe.click(100, 70), 1, 0, 255, 70)
 }
 
 /** 进入“作为被控端”的连接页面（接收远端控制端输入并创建本地虚拟手柄）。 */
@@ -1923,6 +1994,7 @@ internal fun MainActivity.syncSettingsUI() {
     }
     a.updateVibrationUI()
     a.syncGameVibrationUI()
+    a.updateHdVibrationUI()
     a.syncAdaptiveTriggerUI()
     a.updateSettingsVisibility(s.connectionMode)
 

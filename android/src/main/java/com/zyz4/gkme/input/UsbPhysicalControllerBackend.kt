@@ -11,6 +11,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import android.view.KeyEvent
 import android.view.MotionEvent
+import com.zyz4.gkme.haptic.PhoneHdHaptics
 import com.zyz4.gkme.input.usb.AbstractController
 import com.zyz4.gkme.input.usb.DualSenseController
 import com.zyz4.gkme.input.usb.DualSenseOutputReport
@@ -682,9 +683,21 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
 
     private var lastPhoneAmp = -1
 
+    /** 普通振动是否已被 HD 通路接管（用于切换时取消残留的普通波形）。 */
+    private var phoneHdOwned = false
+
     private fun vibratePhoneMotors(low: Int, high: Int, swap: Boolean) {
         val motor0 = if (swap) high else low
         val motor1 = if (swap) low else high
+        if (PhoneHdHaptics.playMotors(motor0, motor1)) {
+            if (!phoneHdOwned) {
+                phoneHdOwned = true
+                try { vibrator.cancel() } catch (_: Exception) {}
+            }
+            lastPhoneAmp = maxOf(motor0, motor1)
+            return
+        }
+        phoneHdOwned = false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
             val ids = vm?.vibratorIds
@@ -712,6 +725,8 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
     private fun vibratePhone(amp: Int) {
         val clamped = amp.coerceIn(0, 255)
         if (clamped < 1) {
+            phoneHdOwned = false
+            PhoneHdHaptics.stop()
             try { vibrator.cancel() } catch (_: Exception) {}
             lastPhoneAmp = -1
             return

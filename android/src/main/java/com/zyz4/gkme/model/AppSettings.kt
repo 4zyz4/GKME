@@ -182,6 +182,8 @@ data class AppSettings(
     val gameVibrationDeviceConnected: VibrationDevice = VibrationDevice.controller(0),
     val swapPhoneMotors: Boolean = false,
     val swapControllerMotors: Boolean = false,
+    /** 手机马达是否使用 RichTap 高清震动（通过 Shizuku 用户服务调用隐藏 API）。 */
+    val hdVibrationEnabled: Boolean = false,
     /** Actuator that receives PC adaptive-trigger effects while no physical controller is connected. */
     val adaptiveTriggerDevice: AdaptiveTriggerDevice = AdaptiveTriggerDevice.NONE,
     /** Adaptive-trigger target used while a physical controller is connected. */

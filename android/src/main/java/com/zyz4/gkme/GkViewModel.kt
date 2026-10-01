@@ -379,6 +379,10 @@ class GkViewModel @Inject constructor(
         connectionManager.updateSettings(settings.value.copy(swapControllerMotors = enabled))
     }
 
+    fun updateHdVibrationEnabled(enabled: Boolean) {
+        connectionManager.updateSettings(settings.value.copy(hdVibrationEnabled = enabled))
+    }
+
     /**
      * Selects the gyro source for the active set (connected or disconnected), writing only
      * to that set so the two are remembered independently.

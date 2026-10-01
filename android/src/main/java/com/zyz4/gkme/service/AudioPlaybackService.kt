@@ -8,6 +8,7 @@ import android.os.VibratorManager
 import android.util.Log
 import com.zyz4.gkme.input.SdlAudio
 import com.zyz4.gkme.input.SdlNative
+import com.zyz4.gkme.haptic.HdPcmStreamer
 import com.zyz4.gkme.model.AudioDevice
 import com.zyz4.gkme.model.AudioDeviceType
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -104,6 +105,10 @@ class AudioPlaybackService {
     private var hdOutputActive = false
     private var hdOutputIndex = -1
 
+    // 手机马达 HD 震动：分析语音线圈 PCM 的主导音高，映射成 RichTap HE 频率，
+    // 让手机马达的“音调”跟随 PCM。
+    private val phonePitchTracker = PcmPitchTracker()
+
     @Volatile
     private var lastHdRumbleUpdateNs = 0L
 
@@ -190,6 +195,7 @@ class AudioPlaybackService {
         setTestTone(false)
         stopHdRumble()
         stopHdOutput()
+        HdPcmStreamer.stop()
         stopAllSdlSinks()
         _vibrator.cancel()
     }
@@ -608,7 +614,8 @@ class AudioPlaybackService {
                     lastControllerMotorActive = false
                 }
                 if (voiceCoilDevice.type == AudioDeviceType.PHONE_MOTOR) {
-                    vibratePhoneMotors(leftAmp, rightAmp, voiceCoilSwap)
+                    val pitchHz = phonePitchTracker.process(pcm, channels, sampleRate)?.freqHz ?: 0.0
+                    vibratePhoneMotors(leftAmp, rightAmp, voiceCoilSwap, pitchHz)
                 }
             }
             AudioDeviceType.CONTROLLER -> {
@@ -778,10 +785,14 @@ class AudioPlaybackService {
         return out
     }
 
-    /** Drives the phone motors from the voice-coil channels; motor0 = left, motor1 = right. */
-    private fun vibratePhoneMotors(left: Int, right: Int, swap: Boolean) {
+    /** Drives the phone motors from the voice-coil channels; motor0 = left, motor1 = right.
+     *  [pitchHz] 为 PCM 估计的主导音高（Hz），供 HD 震动映射使用；0 表示未知。 */
+    private fun vibratePhoneMotors(left: Int, right: Int, swap: Boolean, pitchHz: Double = 0.0) {
         val m0 = (if (swap) right else left).coerceIn(0, 255)
         val m1 = (if (swap) left else right).coerceIn(0, 255)
+        // HD 路径自行处理静音（冲刷已缓冲的分块 + 延迟停止），因此静音也交给它，
+        // 避免“刚投递就被停止”。它返回 true 表示 HD 已接管（含静音）。
+        if (HdPcmStreamer.submit(m0, m1, pitchHz)) return
         if (m0 <= 1 && m1 <= 1) return
         val now = System.currentTimeMillis()
         if (now - lastVibrateTime < MOTOR_VIBRATE_DURATION_MS) return

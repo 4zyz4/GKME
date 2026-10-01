@@ -1,22 +1,14 @@
 package com.zyz4.gkme.controlled
 
-import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
-import android.content.ServiceConnection
-import android.content.pm.PackageManager
-import android.net.Uri
-import android.os.Handler
-import android.os.IBinder
-import android.os.Looper
 import android.util.Log
 import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.proto.GamepadInput
-import rikka.shizuku.Shizuku
 
 /**
- * App 侧对 Shizuku UserService 的封装：负责权限申请、绑定用户服务，并转发虚拟手柄状态。
+ * App 侧对 Shizuku UserService 的封装：负责把虚拟手柄状态转发到用户服务进程。
  *
+ * 授权/绑定的通用逻辑在 [ShizukuServiceBinding] 中（单独文件）；本文件只保留手柄相关状态。
  * 只有在 Shizuku 运行且已授权、并且用户服务成功打开 /dev/uinput 后，[ensureReady] 才返回 true。
  */
 object GamepadInjector {
@@ -25,16 +17,8 @@ object GamepadInjector {
 
     /** Shizuku 权限申请码。 */
     const val REQUEST_CODE = 0x5A17
-    const val SHIZUKU_PACKAGE = "moe.shizuku.privileged.api"
-    const val SHIZUKU_DOWNLOAD_URL = "https://shizuku.rikka.app/download/"
-
-    @Volatile
-    var binderAlive: Boolean = false
-        private set
-
-    @Volatile
-    var permissionGranted: Boolean = false
-        private set
+    const val SHIZUKU_PACKAGE = ShizukuServiceBinding.SHIZUKU_PACKAGE
+    const val SHIZUKU_DOWNLOAD_URL = ShizukuServiceBinding.SHIZUKU_DOWNLOAD_URL
 
     @Volatile
     var service: IGamepadService? = null
@@ -46,24 +30,12 @@ object GamepadInjector {
     @Volatile
     private var lastError: String? = null
 
-    private var appContext: Context? = null
-    private var mainHandler: Handler? = null
-    private var args: Shizuku.UserServiceArgs? = null
-
-    @Volatile
-    private var bound = false
-
-    private var initialized = false
-
     /** 当前虚拟手柄的配置，用于判断是否需要重建。 */
     @Volatile
     private var rumbleEnabled = true
 
     @Volatile
     private var mouseEnabled = true
-
-    @Volatile
-    private var permissionRequestInFlight = false
 
     /** 虚拟键盘/鼠标的懒创建状态；仅在收到对应输入时创建。 */
     @Volatile
@@ -78,135 +50,43 @@ object GamepadInjector {
     @Volatile
     private var mouseFailed = false
 
+    private var binding: ShizukuServiceBinding? = null
+
     /** 根据当前环境推断用户下一步需要执行的操作。 */
     enum class Action { DOWNLOAD, OPEN, REQUEST_PERMISSION, NONE }
 
-    private val connection = object : ServiceConnection {
-        override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
-            service = IGamepadService.Stub.asInterface(binder)
-            created = false
-            lastError = null
-            Log.i(TAG, "Shizuku 用户服务已连接")
-        }
-
-        override fun onServiceDisconnected(name: ComponentName?) {
-            service = null
-            created = false
-            bound = false
-            resetKeyboardMouse()
-            Log.w(TAG, "Shizuku 用户服务已断开")
-        }
-    }
-
-    private val binderReceivedListener = Shizuku.OnBinderReceivedListener {
-        binderAlive = true
-        refreshPermission()
-        if (permissionGranted) {
-            ensureBound()
-        }
-    }
-
-    private val binderDeadListener = Shizuku.OnBinderDeadListener {
-        binderAlive = false
-        permissionGranted = false
-        service = null
-        created = false
-        bound = false
-        resetKeyboardMouse()
-        lastError = "Shizuku 已停止"
-    }
-
-    private val permissionResultListener = Shizuku.OnRequestPermissionResultListener { requestCode, grantResult ->
-        if (requestCode != REQUEST_CODE) return@OnRequestPermissionResultListener
-        permissionRequestInFlight = false
-        permissionGranted = grantResult == PackageManager.PERMISSION_GRANTED
-        if (permissionGranted) {
-            lastError = null
-            ensureBound()
-        } else {
-            lastError = "Shizuku 权限被拒绝"
-        }
-    }
+    val binderAlive: Boolean get() = binding?.binderAlive == true
+    val permissionGranted: Boolean get() = binding?.permissionGranted == true
 
     @Synchronized
     fun init(context: Context) {
-        if (initialized) return
-        initialized = true
-        val app = context.applicationContext
-        appContext = app
-        mainHandler = Handler(Looper.getMainLooper())
-        try {
-            args = Shizuku.UserServiceArgs(
-                ComponentName(app.packageName, RemoteGamepadService::class.java.name)
-            )
-                .daemon(false)
-                .processNameSuffix("gkme_remote_input")
-                .debuggable(false)
-                .version(1)
-                .tag("GKME_RemoteGamepad")
-
-            Shizuku.addBinderReceivedListenerSticky(binderReceivedListener)
-            Shizuku.addBinderDeadListener(binderDeadListener)
-            Shizuku.addRequestPermissionResultListener(permissionResultListener)
-        } catch (t: Throwable) {
-            lastError = "Shizuku 初始化失败: ${t.message}"
-            Log.e(TAG, "init 失败", t)
-        }
-    }
-
-    private fun refreshPermission() {
-        permissionGranted = try {
-            !Shizuku.isPreV11() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
-        } catch (_: Throwable) {
-            false
-        }
+        if (binding != null) return
+        val b = ShizukuServiceBinding(
+            tag = TAG,
+            processNameSuffix = "gkme_remote_input",
+            requestCode = REQUEST_CODE,
+            serviceClass = RemoteGamepadService::class.java,
+            onConnected = { binder ->
+                service = IGamepadService.Stub.asInterface(binder)
+                created = false
+                lastError = null
+            },
+            onDisconnected = {
+                service = null
+                created = false
+                resetKeyboardMouse()
+            },
+        )
+        binding = b
+        b.init(context)
     }
 
     fun requestPermission() {
-        mainHandler?.post {
-            try {
-                if (Shizuku.isPreV11()) {
-                    lastError = "Shizuku 版本过低，请升级 Shizuku"
-                    return@post
-                }
-                if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
-                    permissionGranted = true
-                    ensureBound()
-                    return@post
-                }
-                if (Shizuku.shouldShowRequestPermissionRationale()) {
-                    lastError = "Shizuku 权限已被拒绝，请在 Shizuku 中手动授权"
-                    return@post
-                }
-                if (permissionRequestInFlight) return@post
-                permissionRequestInFlight = true
-                Shizuku.requestPermission(REQUEST_CODE)
-            } catch (t: Throwable) {
-                permissionRequestInFlight = false
-                lastError = "申请 Shizuku 权限失败: ${t.message}"
-            }
-        }
+        binding?.requestPermission()
     }
 
     fun ensureBound() {
-        mainHandler?.post {
-            val a = args ?: return@post
-            if (service != null || bound) return@post
-            if (!binderAlive) return@post
-            if (!permissionGranted) {
-                refreshPermission()
-                if (!permissionGranted) {
-                    requestPermission()
-                    return@post
-                }
-            }
-            try {
-                Shizuku.bindUserService(a, connection)
-                bound = true
-            } catch (t: Throwable) {
-                lastError = "绑定 Shizuku 用户服务失败: ${t.message}"
-            }
-        }
+        binding?.ensureBound()
     }
 
     /**
@@ -219,20 +99,20 @@ object GamepadInjector {
      *   输入冲突。
      */
     fun ensureReady(rumble: Boolean = true, mouse: Boolean = true): Boolean {
-        if (!binderAlive) {
+        val b = binding
+        if (b == null || !b.binderAlive) {
             lastError = "Shizuku 未运行"
             return false
         }
-        refreshPermission()
-        if (!permissionGranted) {
+        if (!b.permissionGranted) {
             lastError = "正在申请 Shizuku 权限…"
-            requestPermission()
+            b.requestPermission()
             return false
         }
         val svc = service
         if (svc == null) {
             lastError = "正在启动 Shizuku 用户服务…"
-            ensureBound()
+            b.ensureBound()
             return false
         }
         if (created) {
@@ -376,9 +256,10 @@ object GamepadInjector {
     }
 
     fun statusText(): String {
+        val b = binding ?: return "Shizuku 未运行"
         return when {
-            !binderAlive -> "Shizuku 未运行"
-            !permissionGranted -> "Shizuku 未授权"
+            !b.binderAlive -> "Shizuku 未运行"
+            !b.permissionGranted -> "Shizuku 未授权"
             service == null -> "正在启动 Shizuku 用户服务…"
             lastError != null -> lastError!!
             created -> "虚拟手柄已就绪"
@@ -389,60 +270,29 @@ object GamepadInjector {
     fun lastErrorMessage(): String? = lastError
 
     /** 推断用户下一步操作：下载 / 打开 Shizuku / 申请授权 / 无需操作。 */
-    fun requiredAction(context: Context): Action = when {
-        !isShizukuInstalled(context) -> Action.DOWNLOAD
-        !binderAlive -> Action.OPEN
-        !permissionGranted -> Action.REQUEST_PERMISSION
+    fun requiredAction(context: Context): Action = when (binding?.requiredAction(context)) {
+        ShizukuServiceBinding.Action.DOWNLOAD -> Action.DOWNLOAD
+        ShizukuServiceBinding.Action.OPEN -> Action.OPEN
+        ShizukuServiceBinding.Action.REQUEST_PERMISSION -> Action.REQUEST_PERMISSION
         else -> Action.NONE
     }
 
-    fun isShizukuInstalled(context: Context): Boolean {
-        return try {
-            context.packageManager.getPackageInfo(SHIZUKU_PACKAGE, 0)
-            true
-        } catch (_: Exception) {
-            false
-        }
-    }
+    fun isShizukuInstalled(context: Context): Boolean =
+        ShizukuServiceBinding.isShizukuInstalled(context)
 
     /** 打开 Shizuku；未安装时回退到下载页。 */
-    fun openShizuku(context: Context) {
-        val launch = context.packageManager.getLaunchIntentForPackage(SHIZUKU_PACKAGE)
-        if (launch != null) {
-            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startActivity(launch)
-            return
-        }
-        openDownloadPage(context)
-    }
+    fun openShizuku(context: Context) = ShizukuServiceBinding.openShizuku(context)
 
-    fun openDownloadPage(context: Context) {
-        try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(SHIZUKU_DOWNLOAD_URL))
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startActivity(intent)
-        } catch (_: Exception) {
-        }
-    }
+    fun openDownloadPage(context: Context) = ShizukuServiceBinding.openDownloadPage(context)
 
     fun destroy() {
-        try {
-            Shizuku.removeBinderReceivedListener(binderReceivedListener)
-            Shizuku.removeBinderDeadListener(binderDeadListener)
-            Shizuku.removeRequestPermissionResultListener(permissionResultListener)
-        } catch (_: Throwable) {
-        }
-        release()
-        val a = args
-        if (a != null && bound) {
-            try {
-                Shizuku.unbindUserService(a, connection, true)
-            } catch (_: Throwable) {
-            }
-        }
-        bound = false
+        binding?.detach()
+        binding = null
         service = null
-        initialized = false
+        created = false
+        rumbleEnabled = true
+        mouseEnabled = true
+        resetKeyboardMouse()
     }
 
     /** 把 GKME 的按键位布局翻译成 XInput wButtons 掩码（含十字键低 4 位）。 */

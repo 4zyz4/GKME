@@ -34,6 +34,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
 import com.zyz4.gkme.controlled.GamepadInjector
+import com.zyz4.gkme.controlled.HapticInjector
+import com.zyz4.gkme.haptic.PhoneHdHaptics
 import com.zyz4.gkme.model.AudioDevice
 import com.zyz4.gkme.model.AdaptiveTriggerDevice
 import com.zyz4.gkme.model.GamepadState
@@ -82,6 +84,9 @@ class MainActivity : ComponentActivity() {
     internal var adaptiveTriggerUserSelecting = false
 
     private var mediaSession: MediaSession? = null
+
+    /** 自适应扳机的手机马达是否已被 HD 通路接管。 */
+    private var phoneHdAdaptiveOwned = false
 
     internal val vibrator: Vibrator by lazy {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -199,6 +204,8 @@ class MainActivity : ComponentActivity() {
         physicalControllerHandler = PhysicalControllerHandler(this)
         // 注册 Shizuku 监听（本机模式使用），以便连接页正确显示授权条目状态。
         GamepadInjector.init(this)
+        // 高清震动（HD）Shizuku 用户服务；不可用时自动回退普通震动。
+        HapticInjector.init(this)
         setupMediaSession()
         setupGamepadLayoutListener()
         viewModel.onHapticFeedbackPress = { performHaptic(isPress = true) }
@@ -665,6 +672,7 @@ internal fun performHaptic(isPress: Boolean) {
             VibrationType.VIBRATION_EFFECT -> {
                 val duration = (if (isPress) s.vibrationPressDuration else s.vibrationReleaseDuration).coerceAtLeast(1)
                 val intensity = if (isPress) s.vibrationPressIntensity else s.vibrationReleaseIntensity
+                if (PhoneHdHaptics.playEffect(intensity, duration)) return
                 val effect = VibrationEffect.createOneShot(duration.toLong(), intensity.coerceIn(0, 255))
                 vibrator.cancel()
                 vibrator.vibrate(effect)
@@ -696,9 +704,19 @@ internal fun performHaptic(isPress: Boolean) {
         val l = left.coerceIn(0, 255)
         val r = right.coerceIn(0, 255)
         if (l <= 0 && r <= 0) {
+            phoneHdAdaptiveOwned = false
+            PhoneHdHaptics.stop()
             try { vibrator.cancel() } catch (_: Exception) {}
             return
         }
+        if (PhoneHdHaptics.playMotors(l, r)) {
+            if (!phoneHdAdaptiveOwned) {
+                phoneHdAdaptiveOwned = true
+                try { vibrator.cancel() } catch (_: Exception) {}
+            }
+            return
+        }
+        phoneHdAdaptiveOwned = false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val vm = getSystemService(VIBRATOR_MANAGER_SERVICE) as? VibratorManager
             val ids = vm?.vibratorIds
