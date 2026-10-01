@@ -1755,6 +1755,79 @@
                     android:fontFamily="sans-serif-medium"
                     android:layout_marginBottom="16dp" />
 
+                <!-- ── 高清震动（HD / RichTap，经 Shizuku 调用隐藏 API） ── -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="高清震动 (HD)"
+                    android:textColor="@color/text_primary"
+                    android:textSize="14sp"
+                    android:fontFamily="sans-serif-medium"
+                    android:layout_marginBottom="8dp" />
+
+                <LinearLayout
+                    android:id="@+id/layoutHdShizuku"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:background="@color/bg_surface"
+                    android:paddingHorizontal="12dp"
+                    android:layout_marginBottom="4dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Shizuku 授权"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp" />
+
+                    <Button
+                        android:id="@+id/btnHdShizuku"
+                        style="@style/GamepadChip"
+                        android:text="下载 Shizuku" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tvHdStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="12dp"
+                    android:paddingBottom="4dp"
+                    android:text="HD 未启用"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:background="@color/bg_surface"
+                    android:paddingHorizontal="12dp"
+                    android:layout_marginBottom="4dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="启用 HD 震动"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp" />
+
+                    <Switch
+                        android:id="@+id/switchHdVibration"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@color/bg_surface_light"
+                    android:layout_marginBottom="8dp" />
+
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -1947,92 +2020,6 @@
                         android:id="@+id/switchSwapMotors"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="@color/bg_surface_light"
-                    android:layout_marginBottom="8dp" />
-
-                <!-- ── 高清震动（HD / RichTap，经 Shizuku 调用隐藏 API） ── -->
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="高清震动 (HD)"
-                    android:textColor="@color/text_primary"
-                    android:textSize="14sp"
-                    android:fontFamily="sans-serif-medium"
-                    android:layout_marginBottom="8dp" />
-
-                <LinearLayout
-                    android:id="@+id/layoutHdShizuku"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:background="@color/bg_surface"
-                    android:paddingHorizontal="12dp"
-                    android:layout_marginBottom="4dp">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Shizuku 授权"
-                        android:textColor="@color/text_primary"
-                        android:textSize="14sp" />
-
-                    <Button
-                        android:id="@+id/btnHdShizuku"
-                        style="@style/GamepadChip"
-                        android:text="下载 Shizuku" />
-                </LinearLayout>
-
-                <TextView
-                    android:id="@+id/tvHdStatus"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:paddingHorizontal="12dp"
-                    android:paddingBottom="4dp"
-                    android:text="HD 未启用"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="12sp" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:background="@color/bg_surface"
-                    android:paddingHorizontal="12dp"
-                    android:layout_marginBottom="4dp">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="启用 HD 震动"
-                        android:textColor="@color/text_primary"
-                        android:textSize="14sp" />
-
-                    <Switch
-                        android:id="@+id/switchHdVibration"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center"
-                    android:layout_marginBottom="8dp">
-
-                    <Button
-                        android:id="@+id/btnTestHdVibration"
-                        style="@style/GamepadChip"
-                        android:text="测试 HD" />
                 </LinearLayout>
 
                 <View

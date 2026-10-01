@@ -50,7 +50,6 @@ import com.zyz4.gkme.controlled.ControlledActivity
 import com.zyz4.gkme.controlled.GamepadInjector
 import com.zyz4.gkme.controlled.HapticInjector
 import com.zyz4.gkme.controlled.ShizukuServiceBinding
-import com.zyz4.gkme.haptic.RichTapHe
 import com.zyz4.gkme.haptic.PhoneHdHaptics
 import com.zyz4.gkme.model.DisplayMode
 import com.zyz4.gkme.model.GyroOrientation
@@ -1700,7 +1699,6 @@ internal fun MainActivity.setupHdVibrationEntry() {
         a.viewModel.updateHdVibrationEnabled(isChecked)
         a.updateHdVibrationUI()
     }
-    a.findViewById<Button>(R.id.btnTestHdVibration).setOnClickListener { a.testHdVibration() }
     a.updateHdVibrationUI()
 }
 
@@ -1737,15 +1735,6 @@ internal fun MainActivity.updateHdVibrationUI() {
     if (sw != null && sw.isChecked != s.hdVibrationEnabled) sw.isChecked = s.hdVibrationEnabled
     a.findViewById<TextView>(R.id.tvHdStatus).text =
         if (s.hdVibrationEnabled) HapticInjector.statusText() else "HD 未启用"
-}
-
-internal fun MainActivity.testHdVibration() {
-    val a = this
-    if (!HapticInjector.isHapticReady()) {
-        a.showToast("HD 震动未就绪：${HapticInjector.statusText()}")
-        return
-    }
-    HapticInjector.startPattern(RichTapHe.click(100, 70), 1, 0, 255, 70)
 }
 
 /** 进入“作为被控端”的连接页面（接收远端控制端输入并创建本地虚拟手柄）。 */
