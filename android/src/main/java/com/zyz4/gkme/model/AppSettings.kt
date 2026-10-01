@@ -177,6 +177,9 @@ data class AppSettings(
     val vibrationReleaseDuration: Int = 20,
     val vibrationPressIntensity: Int = 128,
     val vibrationReleaseIntensity: Int = 64,
+    /** 自定义按钮震动的频率（RichTap HE Frequency 0-100，56 ≈ 170Hz 谐振点）。 */
+    val vibrationPressFrequency: Int = 56,
+    val vibrationReleaseFrequency: Int = 56,
     val gameVibrationDevice: VibrationDevice = VibrationDevice.PHONE,
     /** Game-rumble target used while a physical controller is connected (defaults to it). */
     val gameVibrationDeviceConnected: VibrationDevice = VibrationDevice.controller(0),

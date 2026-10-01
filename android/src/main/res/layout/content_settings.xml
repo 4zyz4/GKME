@@ -1884,6 +1884,8 @@
                             <SeekBar android:id="@+id/seekPressDuration" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="500" android:min="1" android:progress="50" />
                             <TextView android:id="@+id/tvPressIntensity" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="强度: 128" android:textColor="@color/text_secondary" android:textSize="11sp" />
                             <SeekBar android:id="@+id/seekPressIntensity" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="255" android:min="1" android:progress="128" />
+                            <TextView android:id="@+id/tvPressFrequency" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="频率: 56" android:textColor="@color/text_secondary" android:textSize="11sp" />
+                            <SeekBar android:id="@+id/seekPressFrequency" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="100" android:min="0" android:progress="56" />
                         </LinearLayout>
                     </LinearLayout>
 
@@ -1927,6 +1929,8 @@
                             <SeekBar android:id="@+id/seekReleaseDuration" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="500" android:min="1" android:progress="20" />
                             <TextView android:id="@+id/tvReleaseIntensity" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="强度: 64" android:textColor="@color/text_secondary" android:textSize="11sp" />
                             <SeekBar android:id="@+id/seekReleaseIntensity" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="255" android:min="1" android:progress="64" />
+                            <TextView android:id="@+id/tvReleaseFrequency" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="频率: 56" android:textColor="@color/text_secondary" android:textSize="11sp" />
+                            <SeekBar android:id="@+id/seekReleaseFrequency" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="100" android:min="0" android:progress="56" />
                         </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>

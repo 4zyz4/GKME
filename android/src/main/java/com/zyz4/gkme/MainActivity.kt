@@ -672,7 +672,8 @@ internal fun performHaptic(isPress: Boolean) {
             VibrationType.VIBRATION_EFFECT -> {
                 val duration = (if (isPress) s.vibrationPressDuration else s.vibrationReleaseDuration).coerceAtLeast(1)
                 val intensity = if (isPress) s.vibrationPressIntensity else s.vibrationReleaseIntensity
-                if (PhoneHdHaptics.playEffect(intensity, duration)) return
+                val frequency = if (isPress) s.vibrationPressFrequency else s.vibrationReleaseFrequency
+                if (PhoneHdHaptics.playEffect(intensity, duration, frequency)) return
                 val effect = VibrationEffect.createOneShot(duration.toLong(), intensity.coerceIn(0, 255))
                 vibrator.cancel()
                 vibrator.vibrate(effect)

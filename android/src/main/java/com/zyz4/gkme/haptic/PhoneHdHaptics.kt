@@ -103,13 +103,14 @@ object PhoneHdHaptics {
         return HapticInjector.playClick(s, frequencyFor(s, s), TOKEN)
     }
 
-    /** 按指定时长播放一次 HD 效果（按键按下/抬起等）。[strength] 0-255，[durationMs] 毫秒。 */
-    fun playEffect(strength: Int, durationMs: Int): Boolean {
+    /** 按指定时长播放一次 HD 效果（按键按下/抬起等）。[strength] 0-255，[durationMs] 毫秒，
+     *  [frequencyHe] 为 RichTap HE 频率 0-100，缺省用谐振点 [DEFAULT_FREQ]。 */
+    fun playEffect(strength: Int, durationMs: Int, frequencyHe: Int = DEFAULT_FREQ): Boolean {
         if (!enabled) return false
         if (!HapticInjector.isHapticReady()) return false
         val s = strength.coerceIn(0, CLICK_STRENGTH_MAX)
         val dur = durationMs.coerceAtLeast(1)
-        val freq = frequencyFor(s, s)
+        val freq = frequencyHe.coerceIn(0, 100)
         return HapticInjector.startPattern(RichTapHe.continuous(freq, dur), 1, 0, s, freq, TOKEN)
     }
 

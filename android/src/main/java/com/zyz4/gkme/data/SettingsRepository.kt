@@ -57,6 +57,8 @@ class SettingsRepository @Inject constructor(
         val VIBRATION_RELEASE_DURATION = intPreferencesKey("vibration_release_duration")
         val VIBRATION_PRESS_INTENSITY = intPreferencesKey("vibration_press_intensity")
         val VIBRATION_RELEASE_INTENSITY = intPreferencesKey("vibration_release_intensity")
+        val VIBRATION_PRESS_FREQUENCY = intPreferencesKey("vibration_press_frequency")
+        val VIBRATION_RELEASE_FREQUENCY = intPreferencesKey("vibration_release_frequency")
         val GAME_VIBRATION_DEVICE_TYPE = intPreferencesKey("game_vibration_device_type")
         val GAME_VIBRATION_CONTROLLER_INDEX = intPreferencesKey("game_vibration_controller_index")
         val GAME_VIBRATION_DEVICE_CONNECTED_TYPE = intPreferencesKey("game_vibration_device_connected_type")
@@ -181,6 +183,8 @@ class SettingsRepository @Inject constructor(
             vibrationReleaseDuration = prefs[Keys.VIBRATION_RELEASE_DURATION] ?: 20,
             vibrationPressIntensity = prefs[Keys.VIBRATION_PRESS_INTENSITY] ?: 128,
             vibrationReleaseIntensity = prefs[Keys.VIBRATION_RELEASE_INTENSITY] ?: 64,
+            vibrationPressFrequency = prefs[Keys.VIBRATION_PRESS_FREQUENCY] ?: 56,
+            vibrationReleaseFrequency = prefs[Keys.VIBRATION_RELEASE_FREQUENCY] ?: 56,
             gameVibrationDevice = VibrationDevice(
                 type = VibrationDeviceType.entries.getOrElse(
                     prefs[Keys.GAME_VIBRATION_DEVICE_TYPE] ?: VibrationDeviceType.PHONE.ordinal
@@ -320,6 +324,8 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.VIBRATION_RELEASE_DURATION] = settings.vibrationReleaseDuration
             prefs[Keys.VIBRATION_PRESS_INTENSITY] = settings.vibrationPressIntensity
             prefs[Keys.VIBRATION_RELEASE_INTENSITY] = settings.vibrationReleaseIntensity
+            prefs[Keys.VIBRATION_PRESS_FREQUENCY] = settings.vibrationPressFrequency
+            prefs[Keys.VIBRATION_RELEASE_FREQUENCY] = settings.vibrationReleaseFrequency
             prefs[Keys.GAME_VIBRATION_DEVICE_TYPE] = settings.gameVibrationDevice.type.ordinal
             prefs[Keys.GAME_VIBRATION_CONTROLLER_INDEX] = settings.gameVibrationDevice.controllerIndex
             prefs[Keys.GAME_VIBRATION_DEVICE_CONNECTED_TYPE] = settings.gameVibrationDeviceConnected.type.ordinal

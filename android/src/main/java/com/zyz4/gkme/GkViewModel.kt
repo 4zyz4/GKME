@@ -362,6 +362,14 @@ class GkViewModel @Inject constructor(
         connectionManager.updateSettings(settings.value.copy(vibrationReleaseIntensity = intensity))
     }
 
+    fun updateVibrationPressFrequency(frequency: Int) {
+        connectionManager.updateSettings(settings.value.copy(vibrationPressFrequency = frequency))
+    }
+
+    fun updateVibrationReleaseFrequency(frequency: Int) {
+        connectionManager.updateSettings(settings.value.copy(vibrationReleaseFrequency = frequency))
+    }
+
     fun updateGameVibrationDevice(device: VibrationDevice) {
         val updated = if (_physicalControllerConnected.value) {
             settings.value.copy(gameVibrationDeviceConnected = device)

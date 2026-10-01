@@ -26,6 +26,8 @@ import android.view.animation.PathInterpolator
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import androidx.lifecycle.lifecycleScope
+import com.zyz4.gkme.haptic.RichTapFrequency
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -638,6 +640,18 @@ internal fun MainActivity.setupSettings() {
         }
     )
 
+    a.findViewById<SeekBar>(R.id.seekPressFrequency).setOnSeekBarChangeListener(
+        object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
+                if (!fromUser) return
+                a.viewModel.updateVibrationPressFrequency(progress)
+                a.findViewById<TextView>(R.id.tvPressFrequency).text = frequencyLabel(progress)
+            }
+            override fun onStartTrackingTouch(sb: SeekBar?) {}
+            override fun onStopTrackingTouch(sb: SeekBar?) {}
+        }
+    )
+
     a.findViewById<SeekBar>(R.id.seekReleaseDuration).setOnSeekBarChangeListener(
         object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
@@ -656,6 +670,17 @@ internal fun MainActivity.setupSettings() {
                 if (!fromUser) return
                 a.viewModel.updateVibrationReleaseIntensity(progress)
                 a.findViewById<TextView>(R.id.tvReleaseIntensity).text = "强度: $progress"
+            }
+            override fun onStartTrackingTouch(sb: SeekBar?) {}
+            override fun onStopTrackingTouch(sb: SeekBar?) {}
+        }
+    )
+    a.findViewById<SeekBar>(R.id.seekReleaseFrequency).setOnSeekBarChangeListener(
+        object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
+                if (!fromUser) return
+                a.viewModel.updateVibrationReleaseFrequency(progress)
+                a.findViewById<TextView>(R.id.tvReleaseFrequency).text = frequencyLabel(progress)
             }
             override fun onStartTrackingTouch(sb: SeekBar?) {}
             override fun onStopTrackingTouch(sb: SeekBar?) {}
@@ -1408,6 +1433,10 @@ internal fun MainActivity.refreshAudioVCIndicators() {
     a.findViewById<TextView>(R.id.tvControllerAudioValue)?.text = controllerAmp.toString()
 }
 
+private fun frequencyLabel(he: Int): String =
+    "频率: $he (${RichTapFrequency.heToHz(he).roundToInt()}Hz)"
+
+@SuppressLint("SetTextI18n")
 internal fun MainActivity.updateVibrationUI() {
     val a = this
     val s = a.viewModel.settings.value
@@ -1423,6 +1452,8 @@ internal fun MainActivity.updateVibrationUI() {
     a.findViewById<TextView>(R.id.tvPressIntensity).text = "强度: ${s.vibrationPressIntensity}"
     a.findViewById<SeekBar>(R.id.seekPressDuration).progress = s.vibrationPressDuration
     a.findViewById<SeekBar>(R.id.seekPressIntensity).progress = s.vibrationPressIntensity
+    a.findViewById<TextView>(R.id.tvPressFrequency).text = frequencyLabel(s.vibrationPressFrequency)
+    a.findViewById<SeekBar>(R.id.seekPressFrequency).progress = s.vibrationPressFrequency
 
     a.selectChipGroup(listOf(R.id.btnVibReleaseTypeNone, R.id.btnVibReleaseTypeView, R.id.btnVibReleaseTypeEffect),
         s.vibrationReleaseType.ordinal)
@@ -1435,6 +1466,8 @@ internal fun MainActivity.updateVibrationUI() {
     a.findViewById<TextView>(R.id.tvReleaseIntensity).text = "强度: ${s.vibrationReleaseIntensity}"
     a.findViewById<SeekBar>(R.id.seekReleaseDuration).progress = s.vibrationReleaseDuration
     a.findViewById<SeekBar>(R.id.seekReleaseIntensity).progress = s.vibrationReleaseIntensity
+    a.findViewById<TextView>(R.id.tvReleaseFrequency).text = frequencyLabel(s.vibrationReleaseFrequency)
+    a.findViewById<SeekBar>(R.id.seekReleaseFrequency).progress = s.vibrationReleaseFrequency
 }
 
 internal fun MainActivity.testHaptic(isPress: Boolean) {
@@ -1450,7 +1483,8 @@ internal fun MainActivity.testHaptic(isPress: Boolean) {
         VibrationType.VIBRATION_EFFECT -> {
             val dur = (if (isPress) s.vibrationPressDuration else s.vibrationReleaseDuration).coerceAtLeast(1)
             val amp = if (isPress) s.vibrationPressIntensity else s.vibrationReleaseIntensity
-            if (PhoneHdHaptics.playEffect(amp, dur)) return
+            val freq = if (isPress) s.vibrationPressFrequency else s.vibrationReleaseFrequency
+            if (PhoneHdHaptics.playEffect(amp, dur, freq)) return
             a.vibrator.cancel()
             a.vibrator.vibrate(VibrationEffect.createOneShot(dur.toLong(), amp.coerceIn(0, 255)))
         }
