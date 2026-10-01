@@ -615,8 +615,8 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
     }
 
     private val gyroModeItems = listOf(
-        "手柄陀螺仪", "陀螺仪转鼠标", "陀螺仪转左摇杆", "陀螺仪转右摇杆",
-        "加速度计转左摇杆", "加速度计转右摇杆",
+        "手柄陀螺仪", "陀螺仪转鼠标", "陀螺仪转左摇杆视角", "陀螺仪转右摇杆视角",
+        "陀螺仪转左摇杆方向", "陀螺仪转右摇杆方向",
     )
 
     private fun sectionLabel(text: String, density: Float): TextView = TextView(context).apply {
