@@ -161,12 +161,17 @@ class PcmHeEncoder(
                 }
                 lastAmp = amp
                 lastHe = he
+                val offset = (he - base).coerceIn(-MAX_OFFSET, MAX_OFFSET)
                 // 分块边界起振补偿：只抬升首事件、并在事件内线性衰减回 1。
-                val target = if (e == 0) (amp * seamBoostAt(p)).coerceAtMost(1.0) else amp
+                val seam = if (e == 0) seamBoostAt(p) else 1.0
+                // 幅度-频率补偿：该控制点的实际驱动频率 = 事件基频 + 曲线偏移，偏离谐振
+                // （HE 56）时抬升驱动幅度，使不同频率下的实际机械位移尽量一致。
+                val effHe = (base + offset).roundToInt().coerceIn(0, 100)
+                val target = RichTapEngine.compensateNormalized(amp * seam, effHe)
                 // 引擎把曲线强度按次方律 (a = c·1.14^(10(c-1))) 转成驱动幅度，这里做逆变换，
                 // 使 LRA 的实际位移幅度线性跟随原 PCM 的包络。
                 val intensity = RichTapEngine.amplitudeToCurve(target)
-                points.add(RichTapHe.CurvePoint(time, intensity, (he - base).coerceIn(-MAX_OFFSET, MAX_OFFSET)))
+                points.add(RichTapHe.CurvePoint(time, intensity, offset))
             }
             events.add(RichTapHe.Event(e * eventMs, eventMs, base, points))
         }

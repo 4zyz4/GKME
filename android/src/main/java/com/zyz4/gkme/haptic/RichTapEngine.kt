@@ -1,6 +1,8 @@
 package com.zyz4.gkme.haptic
 
 import kotlin.math.pow
+import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 /**
  * 逆向自真实引擎 `libaachaptics.so`（"AAC richtap core v1.0.8"）的精确映射，
@@ -107,4 +109,68 @@ object RichTapEngine {
         }
         return (lo + hi) * 0.5
     }
+
+    // ── 幅度-频率补偿 ──
+    //
+    // LRA 是窄带谐振器：同样的驱动强度，**偏离谐振**（HE 56 ≈ 170Hz）时机械位移会显著下降，
+    // 于是同一个振幅数值在不同 HE 频率下实际强弱不一（HE 56 最大，更高/更低都变小）。
+    // 这里用欠阻尼受迫振动的位移响应**取反**做预补偿，把目标幅度折算成“实际位移尽量与频率
+    // 无关”的驱动幅度。补偿后仍在曲线强度上限（1.0）处封顶——谐振点满幅时没有余量，
+    // 因此高幅 + 偏离谐振无法完全拉平（见 docs 的说明）。
+
+    /** 机械品质因数 Q 的默认估计（真机可标定；越大谐振越尖锐、偏离时衰减越快）。 */
+    const val MECHANICAL_Q = 10.0
+
+    /** 频率补偿增益上限，避免偏离谐振时把驱动推向失真/不可控区。 */
+    const val MAX_FREQ_COMPENSATION = 2.0
+
+    /**
+     * LRA 归一化位移响应（相对谐振点）。恒定驱动力下，欠阻尼受迫振动位移
+     * `X(r) ∝ 1 / sqrt((1-r²)² + (2ζr)²)`，`r = f/f0`、`2ζ = 1/Q`；归一化到谐振
+     * （`r = 1`）为 **1.0**，其余处 < 1（本机在 HE [HE_AT_RESONANCE] 最大）。
+     *
+     * @param he HE 频率 0-100（经 [heToHz] 换算为 f，f0 = [RESONANCE_HZ]）。
+     * @param q  机械品质因数 [MECHANICAL_Q]。
+     */
+    fun resonanceResponse(he: Int, q: Double = MECHANICAL_Q): Double {
+        val r = heToHz(he) / RESONANCE_HZ
+        val zeta2 = 1.0 / q.coerceAtLeast(1e-3)
+        val denom = sqrt((1.0 - r * r).pow(2) + (zeta2 * r).pow(2))
+        if (denom <= 1e-12) return 1.0
+        return (zeta2 / denom).coerceIn(0.0, 1.0)
+    }
+
+    /**
+     * 幅度频率补偿增益：`1 / [resonanceResponse]`，谐振处 = 1，偏离谐振 > 1，上限 [maxBoost]。
+     * 用于把目标驱动幅度折算成“实际位移恒定”的驱动幅度。
+     */
+    fun frequencyCompensation(
+        he: Int,
+        q: Double = MECHANICAL_Q,
+        maxBoost: Double = MAX_FREQ_COMPENSATION,
+    ): Double {
+        val resp = resonanceResponse(he, q).coerceAtLeast(1e-3)
+        return (1.0 / resp).coerceIn(1.0, maxBoost.coerceAtLeast(1.0))
+    }
+
+    /**
+     * 对归一化目标幅度（0..1）做频率补偿，返回补偿后的归一化幅度（0..1，曲线强度上限决定封顶）。
+     * 谐振处不变；偏离谐振处按 [frequencyCompensation] 抬升，达到上限后封顶。
+     */
+    fun compensateNormalized(
+        a: Double,
+        he: Int,
+        q: Double = MECHANICAL_Q,
+        maxBoost: Double = MAX_FREQ_COMPENSATION,
+    ): Double = (a * frequencyCompensation(he, q, maxBoost)).coerceIn(0.0, 1.0)
+
+    /** 对 0-255 目标幅度做频率补偿（见 [compensateNormalized]）。 */
+    fun compensate255(
+        amplitude: Int,
+        he: Int,
+        q: Double = MECHANICAL_Q,
+        maxBoost: Double = MAX_FREQ_COMPENSATION,
+    ): Int = (compensateNormalized(amplitude.coerceIn(0, 255) / 255.0, he, q, maxBoost) * 255.0)
+        .roundToInt()
+        .coerceIn(0, 255)
 }

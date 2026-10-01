@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.zyz4.gkme.haptic.HapticArbiter
 import com.zyz4.gkme.haptic.HapticSource
+import com.zyz4.gkme.haptic.RichTapEngine
 import com.zyz4.gkme.haptic.RichTapFrequency
 import com.zyz4.gkme.haptic.RichTapHe
 import com.zyz4.gkme.haptic.RichTapPrebaked
@@ -168,12 +169,12 @@ object HapticInjector {
     fun startContinuous(amplitude: Int, frequency: Int, source: HapticSource): Boolean = startPattern(
         RichTapHe.continuous(frequency, CONTINUOUS_DURATION_MS),
         // 单次播放；不要用 loop=-1（HAL 循环衔接有 ~200ms 断点）。
-        1, 0, amplitude.coerceIn(0, 255), frequency.coerceIn(0, 100), source,
+        1, 0, RichTapEngine.compensate255(amplitude, frequency), frequency.coerceIn(0, 100), source,
     )
 
-    /** 播放短促点击（按键反馈）。 */
+    /** 播放短促点击（按键反馈）。[strength] 按频率做幅度-频率补偿后写入事件强度。 */
     fun playClick(strength: Int, frequency: Int, source: HapticSource): Boolean = startPattern(
-        RichTapHe.click(strength, frequency),
+        RichTapHe.click(RichTapEngine.compensate255(strength, frequency), frequency),
         1, 0, 255, frequency.coerceIn(0, 100), source,
     )
 

@@ -51,4 +51,37 @@ class RichTapEngineTest {
             prev = hz
         }
     }
+
+    @Test
+    fun resonanceResponseIsUnityAtResonance() {
+        assertEquals(1.0, RichTapEngine.resonanceResponse(RichTapEngine.HE_AT_RESONANCE), 1e-9)
+        assertEquals(1.0, RichTapEngine.frequencyCompensation(RichTapEngine.HE_AT_RESONANCE), 1e-9)
+    }
+
+    @Test
+    fun compensationBoostsAwayFromResonanceAndStaysBounded() {
+        assertTrue(RichTapEngine.frequencyCompensation(30) > 1.0)
+        assertTrue(RichTapEngine.frequencyCompensation(80) > 1.0)
+        for (he in 0..100) {
+            val g = RichTapEngine.frequencyCompensation(he)
+            assertTrue("gain >= 1 at $he: $g", g >= 1.0 - 1e-9)
+            assertTrue("gain <= max at $he: $g", g <= RichTapEngine.MAX_FREQ_COMPENSATION + 1e-9)
+        }
+    }
+
+    @Test
+    fun compensateNormalizedCapsAtOne() {
+        assertEquals(0.0, RichTapEngine.compensateNormalized(0.0, 30), 1e-9)
+        assertEquals(1.0, RichTapEngine.compensateNormalized(1.0, 30), 1e-9)
+        assertTrue(RichTapEngine.compensateNormalized(0.5, 30) > 0.5)
+        // 谐振处不补偿。
+        assertEquals(0.5, RichTapEngine.compensateNormalized(0.5, RichTapEngine.HE_AT_RESONANCE), 1e-9)
+    }
+
+    @Test
+    fun compensate255IsMonotonicAndBounded() {
+        assertEquals(128, RichTapEngine.compensate255(128, RichTapEngine.HE_AT_RESONANCE))
+        assertTrue(RichTapEngine.compensate255(128, 30) > 128)
+        assertEquals(255, RichTapEngine.compensate255(255, 30))
+    }
 }

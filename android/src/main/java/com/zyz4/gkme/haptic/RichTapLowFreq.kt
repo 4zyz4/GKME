@@ -78,7 +78,13 @@ object RichTapLowFreq {
         val period = periodMs(freqHz)
         val pulse = pulseMs(freqHz)
         val count = pulseCount(freqHz, durationMs)
-        val peak = RichTapEngine.amplitudeToCurve(strength.coerceIn(0, 255) / 255.0)
+        // 幅度-频率补偿：载波偏离谐振（HE 56）时抬升峰值，使不同载波下的实际位移一致。
+        val peak = RichTapEngine.amplitudeToCurve(
+            RichTapEngine.compensateNormalized(
+                strength.coerceIn(0, 255) / 255.0,
+                carrierHe.coerceIn(0, 100),
+            ),
+        )
         val attack = max(1, pulse / 4)
         val decay = max(attack + 1, (pulse * 7) / 10).coerceAtMost(pulse)
         val events = (0 until count).map { i ->

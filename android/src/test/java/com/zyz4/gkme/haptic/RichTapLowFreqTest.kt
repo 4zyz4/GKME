@@ -62,6 +62,14 @@ class RichTapLowFreqTest {
     }
 
     @Test
+    fun offResonanceCarrierRaisesPeak() {
+        fun peak(he: Int): Double = Regex("\"Intensity\":([0-9]+\\.[0-9]+)")
+            .findAll(RichTapLowFreq.pattern(40.0, 80, 200, carrierHe = he))
+            .map { it.groupValues[1].toDouble() }.max()!!
+        assertTrue("偏离谐振载波应抬升峰值", peak(30) > peak(RichTapEngine.HE_AT_RESONANCE))
+    }
+
+    @Test
     fun strongerStrengthYieldsHigherPeakIntensity() {
         val weak = RichTapLowFreq.pattern(40.0, 80, 32)
         val strong = RichTapLowFreq.pattern(40.0, 80, 255)

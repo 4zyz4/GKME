@@ -131,4 +131,31 @@ class PcmHeEncoderTest {
         val json = enc.flush()!!
         assertFalse("默认不插入强调", json.contains("\"Duration\":5,"))
     }
+
+    @Test
+    fun frequencyCompensationRaisesOffResonanceIntensity() {
+        fun firstPointIntensity(he: Int): Double {
+            val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50, seamBoost = 1.0)
+            for (i in 0 until 30) enc.addSample(10, 0.4f, he)
+            // values[0] 是 Parameters.Intensity(=100)；values[1] 是首控制点的曲线强度。
+            return Regex("\"Intensity\":([0-9.]+)").findAll(enc.flush()!!)
+                .map { it.groupValues[1].toDouble() }.toList()[1]
+        }
+        val atResonance = firstPointIntensity(RichTapEngine.HE_AT_RESONANCE)
+        val offResonance = firstPointIntensity(30)
+        assertTrue(
+            "偏离谐振应抬升曲线强度: $offResonance > $atResonance",
+            offResonance > atResonance,
+        )
+    }
+
+    @Test
+    fun resonancePointIntensityUnchangedByCompensation() {
+        // he=56 时补偿增益为 1，曲线强度只由 amplitudeToCurve 决定。
+        val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50, seamBoost = 1.0)
+        for (i in 0 until 30) enc.addSample(10, 0.4f, RichTapEngine.HE_AT_RESONANCE)
+        val intensities = Regex("\"Intensity\":([0-9.]+)").findAll(enc.flush()!!)
+            .map { it.groupValues[1].toDouble() }.toList()
+        assertEquals(RichTapEngine.amplitudeToCurve(0.4), intensities[1], 1e-6)
+    }
 }

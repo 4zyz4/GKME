@@ -161,7 +161,8 @@ object PhoneHdHaptics {
         val dur = durationMs.coerceAtLeast(1)
         val freq = frequencyHe.coerceIn(0, 100)
         return HapticInjector.startPattern(
-            RichTapHe.continuous(freq, dur), 1, 0, s, freq, HapticSource.BUTTON,
+            RichTapHe.continuous(freq, dur), 1, 0,
+            RichTapEngine.compensate255(s, freq), freq, HapticSource.BUTTON,
         )
     }
 

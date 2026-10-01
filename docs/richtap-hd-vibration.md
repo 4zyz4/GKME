@@ -428,4 +428,48 @@ LRA 是**窄带共振器**（本机 f0≈170Hz，Q≈10），无法复现宽带�
 - 脉冲占空比 `PULSE_RATIO` 与载波 `carrierHe` 可按手感微调：占空比大→更接近连续震动，
   小→更“点状”。
 
+---
+
+## 11. 幅度-频率补偿：让不同频率下的实际振幅一致
+
+> 现象（真机手感）：**同一个振幅数值，在不同 HE 频率下的实际振幅不同**。HE 56（≈170Hz，
+> 谐振点）最大，更高或更低的频率都会变小。需要**增大高频和低频的驱动幅度**来平衡差异。
+
+### 11.1 模型
+
+LRA 是欠阻尼受迫谐振器。恒定驱动力下位移幅度
+
+```
+X(r) ∝ 1 / sqrt((1-r²)² + (2ζr)²)     r = f/f0,  2ζ = 1/Q
+```
+
+归一化到谐振（`r=1`）为 1.0，其余处 < 1。补偿增益取其倒数：
+
+```
+gain(he) = 1 / resonanceResponse(he)   ∈ [1, MAX_FREQ_COMPENSATION]
+```
+
+`f0 = RESONANCE_HZ`（170Hz），`f = heToHz(he)`，`Q = MECHANICAL_Q`（默认 10，真机可标定）。
+谐振 HE 56 处 `gain = 1`，偏离时 >1、按曲线强度上限封顶。
+
+### 11.2 实现（GKME）
+
+- `haptic/RichTapEngine.kt`（纯 JVM）：
+  - `resonanceResponse(he, q)`：归一化位移响应。
+  - `frequencyCompensation(he, q, maxBoost)`：补偿增益。
+  - `compensateNormalized(a, he)` / `compensate255(amp, he)`：对目标幅度做补偿（0..1 封顶）。
+  - 常量 `MECHANICAL_Q`、`MAX_FREQ_COMPENSATION`。
+- `haptic/PcmHeEncoder.kt`：每个控制点按 **事件基频 + 曲线偏移** 得到实际驱动 HE，补偿后再走
+  `amplitudeToCurve`（谐振点 HE 56 不变，偏离时抬升）。
+- `haptic/RichTapLowFreq.kt`：脉冲峰值按 `carrierHe` 补偿。
+- `controlled/HapticInjector.kt` / `haptic/PhoneHdHaptics.kt`：连续效果补偿全局 amplitude，
+  点击/`playEffect` 补偿强度，使所有 HD 通路口径一致。
+
+### 11.3 取舍
+
+- HE 曲线强度上限为 1.0：**谐振点满幅时没有余量**，偏离谐振无法再抬升（高幅附近补偿无效）。
+  如需全频段都能补偿，可在调用处把非补偿基准整体压低（本轮未做，保持谐振点最大手感）。
+- `Q` 越小，谐振越平、偏离衰减越慢、所需补偿越温和；`Q` 越大相反。两者均建议按真机手感标定。
+- 预置效果（`playPrebaked`）的 HE JSON 由 SDK 提供，未参与本补偿。
+
 
