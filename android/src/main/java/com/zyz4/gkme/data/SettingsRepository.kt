@@ -174,11 +174,11 @@ class SettingsRepository @Inject constructor(
                 prefs[Keys.VIBRATION_RELEASE_TYPE] ?: VibrationType.VIEW.ordinal
             ) { VibrationType.VIEW },
             vibrationPressViewEffect = HapticEffect.entries.getOrElse(
-                prefs[Keys.VIBRATION_PRESS_VIEW_EFFECT] ?: HapticEffect.CONFIRM.ordinal
-            ) { HapticEffect.CONFIRM },
-            vibrationReleaseViewEffect = HapticEffect.entries.getOrElse(
-                prefs[Keys.VIBRATION_RELEASE_VIEW_EFFECT] ?: HapticEffect.KEYBOARD_TAP.ordinal
+                prefs[Keys.VIBRATION_PRESS_VIEW_EFFECT] ?: HapticEffect.KEYBOARD_TAP.ordinal
             ) { HapticEffect.KEYBOARD_TAP },
+            vibrationReleaseViewEffect = HapticEffect.entries.getOrElse(
+                prefs[Keys.VIBRATION_RELEASE_VIEW_EFFECT] ?: HapticEffect.CLOCK_TICK.ordinal
+            ) { HapticEffect.CLOCK_TICK },
             vibrationPressDuration = prefs[Keys.VIBRATION_PRESS_DURATION] ?: 50,
             vibrationReleaseDuration = prefs[Keys.VIBRATION_RELEASE_DURATION] ?: 20,
             vibrationPressIntensity = prefs[Keys.VIBRATION_PRESS_INTENSITY] ?: 128,
