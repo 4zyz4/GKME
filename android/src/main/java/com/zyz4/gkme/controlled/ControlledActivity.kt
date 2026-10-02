@@ -22,20 +22,32 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.zyz4.gkme.CustomDialog
 import com.zyz4.gkme.R
+import com.zyz4.gkme.model.VirtualGamepadType
+import com.zyz4.gkme.service.ConnectionManager
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /**
  * “作为被控端”的连接页面：布局与操作逻辑参考 GKME-Windows 主机端
  * （手动输入 IP、刷新、关于、设备列表、连接/断开），并在本地通过 Shizuku
  * 创建 uinput 虚拟手柄。
  */
+@AndroidEntryPoint
 class ControlledActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var connectionManager: ConnectionManager
 
     private lateinit var deviceList: LinearLayout
     private lateinit var tvStatus: TextView
     private lateinit var btnShizukuAction: Button
     private lateinit var etManualIp: EditText
     private var exitDialogShowing = false
+
+    private val vgTypeChipIds = listOf(
+        R.id.btnVgXbox, R.id.btnVgDs4, R.id.btnVgDualsense, R.id.btnVgSwitch,
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,10 +76,42 @@ class ControlledActivity : ComponentActivity() {
         }
         btnShizukuAction.setOnClickListener { onShizukuAction() }
 
+        setupVirtualGamepadTypeSelector()
         startHostWithNotificationPermission()
         updateShizukuAction()
         observe()
     }
+
+    /**
+     * 本地虚拟手柄类型选择器。与设置页「模拟手柄类型」保持同一组选项和样式；
+     * 切换后立即持久化并重建已创建的虚拟手柄，无需重新连接。
+     */
+    private fun setupVirtualGamepadTypeSelector() {
+        vgTypeChipIds.forEachIndexed { idx, id ->
+            findViewById<Button>(id).setOnClickListener {
+                selectVgTypeChip(idx)
+                connectionManager.updateSettings(
+                    connectionManager.settings.value.copy(
+                        virtualGamepadType = VirtualGamepadType.entries[idx],
+                    )
+                )
+            }
+        }
+        selectVgTypeChip(currentVgTypeIndex())
+    }
+
+    private fun selectVgTypeChip(index: Int) {
+        vgTypeChipIds.forEachIndexed { i, id ->
+            findViewById<Button>(id).setBackgroundResource(
+                if (i == index) R.drawable.bg_chip_selected else R.drawable.bg_chip
+            )
+        }
+    }
+
+    private fun currentVgTypeIndex(): Int =
+        VirtualGamepadType.entries
+            .indexOf(connectionManager.settings.value.virtualGamepadType)
+            .coerceAtLeast(0)
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -128,6 +172,13 @@ class ControlledActivity : ComponentActivity() {
                 }
                 launch {
                     ControlledHostManager.connectingIp.collect { renderDevices(ControlledHostManager.devices.value) }
+                }
+                launch {
+                    connectionManager.settings.collect { s ->
+                        selectVgTypeChip(
+                            VirtualGamepadType.entries.indexOf(s.virtualGamepadType).coerceAtLeast(0)
+                        )
+                    }
                 }
             }
         }

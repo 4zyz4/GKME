@@ -1965,10 +1965,9 @@ internal fun MainActivity.updateSettingsVisibility(mode: ConnectionMode) {
     a.findViewById<View>(R.id.sectionControlType).visibility = if (isWifi) View.VISIBLE else View.GONE
     a.findViewById<View>(R.id.tvServerIp).visibility = if (isWifi) View.VISIBLE else View.GONE
     a.findViewById<View>(R.id.sectionShizuku).visibility = if (isLocal) View.VISIBLE else View.GONE
-    val showVirtualGamepad =
-        isLocal || (isWifi && a.viewModel.settings.value.controlType == ControlType.CONTROLLED)
+    // 被控端的手柄类型改到被控 activity 内选择，主设置页仅在本地模式显示。
     a.findViewById<View>(R.id.sectionVirtualGamepad).visibility =
-        if (showVirtualGamepad) View.VISIBLE else View.GONE
+        if (isLocal) View.VISIBLE else View.GONE
     if (isLocal) {
         a.startShizukuPolling()
     } else {
