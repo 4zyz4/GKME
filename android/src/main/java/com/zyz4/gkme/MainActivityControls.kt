@@ -538,10 +538,10 @@ internal fun MainActivity.setupGamepadLayoutListener() {
             val btn = (buttonDown.toInt() and 0x03) or (buttonUp.toInt() and 0xFC)
             a.viewModel.connectionManager.sendMouseReport(
                 button = btn.toByte(),
-                dx = dx.toByte(),
-                dy = dy.toByte(),
-                wheel = v.toByte(),
-                hWheel = h.toByte(),
+                dx = dx,
+                dy = dy,
+                wheel = v,
+                hWheel = h,
             )
             ByteArray(4)
         }
@@ -1073,16 +1073,14 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
         var iy = cursorAccumY.toInt()
         cursorAccumX -= ix
         cursorAccumY -= iy
-        // HID/协议每帧只接受一个有符号字节（-127..127），位移超过该范围时拆成
-        // 多帧发送；否则 toByte() 按 8 位截断，正数会翻转为负数，指针反向乱跳。
+        // 鼠标报文已改为 16 位有符号字段，无需再按 ±127 拆帧。
         val btnNow = a.viewModel.effectiveMouseButtons()
-        while (ix != 0 || iy != 0) {
-            val sx = ix.coerceIn(-127, 127)
-            val sy = iy.coerceIn(-127, 127)
-            a.sendMouseReportDirect(buttonDown = btnNow, buttonUp = 0,
-                dx = sx.toByte(), dy = sy.toByte())
-            ix -= sx
-            iy -= sy
+        if (ix != 0 || iy != 0) {
+            a.sendMouseReportDirect(
+                buttonDown = btnNow, buttonUp = 0,
+                dx = ix.coerceIn(-32767, 32767).toShort(),
+                dy = iy.coerceIn(-32767, 32767).toShort(),
+            )
         }
     }
     /** 双指/三指滑动的滚动处理（含布局旋转、反转与 WiFi 缩放）。 */
@@ -1111,17 +1109,20 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
         val sDy = if (invertScrollV) -scrollDy else scrollDy
         val sDx = if (invertScrollH) scrollDx else -scrollDx
         val connMode = a.viewModel.settings.value.connectionMode
-        val wifiScrollFactor = if (connMode == ConnectionMode.WIFI || connMode == ConnectionMode.USB) 33f else 1f
-        wheelAccumY += sDy * scrollSens * wifiScrollFactor
-        wheelAccumX += sDx * scrollSens * wifiScrollFactor
-        val wY = wheelAccumY.toInt().coerceIn(-127, 127)
-        val wX = wheelAccumX.toInt().coerceIn(-127, 127)
+        // 蓝牙目标在 Windows 上不会做 Resolution Multiplier 初始化（实测主机只走中断通道，
+        // 从不发 Feature 报表），因此蓝牙仍按传统“每单位 = 1 格”下发；WiFi/USB 经 GKMD
+        // 走 120 计数的高精度单位。
+        val scrollFactor = if (connMode == ConnectionMode.WIFI || connMode == ConnectionMode.USB) 33f else 1f
+        wheelAccumY += sDy * scrollSens * scrollFactor
+        wheelAccumX += sDx * scrollSens * scrollFactor
+        val wY = wheelAccumY.toInt().coerceIn(-32767, 32767)
+        val wX = wheelAccumX.toInt().coerceIn(-32767, 32767)
         wheelAccumY -= wY
         wheelAccumX -= wX
         if (wX != 0 || wY != 0) {
             a.sendMouseReportDirect(
                 buttonDown = a.viewModel.effectiveMouseButtons(), buttonUp = 0, dx = 0, dy = 0,
-                wheel = wY.toByte(), hWheel = wX.toByte()
+                wheel = wY.toShort(), hWheel = wX.toShort()
             )
         }
     }
@@ -1368,7 +1369,7 @@ private fun mousepadHighlight(mp: FrameLayout, active: Boolean, a: MainActivity)
  */
 private fun MainActivity.sendMouseReportDirect(
     buttonDown: Int, buttonUp: Int,
-    dx: Byte, dy: Byte, wheel: Byte = 0, hWheel: Byte = 0
+    dx: Short, dy: Short, wheel: Short = 0, hWheel: Short = 0
 ) {
     val button = (buttonDown or buttonUp).toByte()
     this.viewModel.connectionManager.sendMouseReport(

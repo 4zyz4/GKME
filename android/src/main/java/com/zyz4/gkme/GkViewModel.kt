@@ -877,10 +877,10 @@ class GkViewModel @Inject constructor(
                     viewModelScope.launch {
                         connectionManager.sendMouseReport(
                             button = effectiveMouseButtons().toByte(),
-                            dx = pMx.toByte(),
-                            dy = pMy.toByte(),
-                            wheel = pMw.toByte(),
-                            hWheel = pMp.toByte(),
+                            dx = pMx,
+                            dy = pMy,
+                            wheel = pMw,
+                            hWheel = pMp,
                         )
                     }
                 }
@@ -1189,10 +1189,10 @@ class GkViewModel @Inject constructor(
                     viewModelScope.launch {
                         connectionManager.sendMouseReport(
                             button = effectiveMouseButtons().toByte(),
-                            dx = mDx.toByte(),
-                            dy = mDy.toByte(),
-                            wheel = mWheel.toByte(),
-                            hWheel = mPan.toByte(),
+                            dx = mDx,
+                            dy = mDy,
+                            wheel = mWheel,
+                            hWheel = mPan,
                         )
                     }
                 }

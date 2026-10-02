@@ -48,8 +48,10 @@ class ClassicHidTransport(
     @Volatile
     private var connectedDevice: BluetoothDevice? = null
     private var lastReport: ByteArray = ByteArray(0)
-    /** Resolution Multiplier feature value for the mouse (Report ID 18): bits0-1 vertical, bits2-3 horizontal, ×2^N. */
-    private var resolutionFeature: Byte = 0x0A  // 0x0A = vertical 2, horizontal 2 => ×4 each
+    /** Resolution Multiplier feature value for the mouse (Report ID 20): bits0-1 vertical,
+     *  bits2-3 horizontal. The descriptor's Logical Max is 1 (Physical Max 120), so 1 means
+     *  high-resolution (120 raw units per WHEEL_DELTA detent) on both axes. */
+    private var resolutionFeature: Byte = 0x05  // vertical 1, horizontal 1 => high-res on
     private var currentSettings: AppSettings? = null
     private var onOutputReport: ((ByteArray) -> Unit)? = null
 
@@ -124,7 +126,9 @@ class ClassicHidTransport(
             }
 
             override fun onGetReport(device: BluetoothDevice, type: Byte, id: Byte, bufferSize: Int) {
-                if (type == BluetoothHidDevice.REPORT_TYPE_FEATURE && id == 18.toByte()) {
+                // The only Feature report in this descriptor is the mouse Resolution
+                // Multiplier (Report ID 20); reply with the current value.
+                if (type == BluetoothHidDevice.REPORT_TYPE_FEATURE && id == MULTIPLIER_REPORT_ID.toByte()) {
                     try {
                         hidDevice?.replyReport(device, type, id, byteArrayOf(resolutionFeature))
                     } catch (_: Exception) {}
@@ -138,7 +142,7 @@ class ClassicHidTransport(
             }
 
             override fun onSetReport(device: BluetoothDevice, type: Byte, id: Byte, data: ByteArray) {
-                if (type == BluetoothHidDevice.REPORT_TYPE_FEATURE && id == 18.toByte() && data.isNotEmpty()) {
+                if (type == BluetoothHidDevice.REPORT_TYPE_FEATURE && id == MULTIPLIER_REPORT_ID.toByte() && data.isNotEmpty()) {
                     resolutionFeature = data[0]
                     try {
                         hidDevice?.replyReport(device, type, id, data)
@@ -247,7 +251,7 @@ class ClassicHidTransport(
 
     private val mouseSendFailedCounter = AtomicInteger(0)
 
-    override fun sendMouseReport(button: Byte, dx: Byte, dy: Byte, wheel: Byte, hWheel: Byte) {
+    override fun sendMouseReport(button: Byte, dx: Short, dy: Short, wheel: Short, hWheel: Short) {
         val device = connectedDevice ?: return
         val hid = hidDevice ?: return
 
@@ -256,11 +260,21 @@ class ClassicHidTransport(
             return
         }
 
+        // Report ID 18 payload: [buttons][dx int16 LE][dy int16 LE][wheel int16 LE][pan int16 LE].
+        // Must match GKMD's USB mouse descriptor (16-bit fields, 120-count high-res wheel).
+        val report = ByteArray(9)
+        report[0] = button
+        report[1] = (dx.toInt() and 0xFF).toByte()
+        report[2] = ((dx.toInt() shr 8) and 0xFF).toByte()
+        report[3] = (dy.toInt() and 0xFF).toByte()
+        report[4] = ((dy.toInt() shr 8) and 0xFF).toByte()
+        report[5] = (wheel.toInt() and 0xFF).toByte()
+        report[6] = ((wheel.toInt() shr 8) and 0xFF).toByte()
+        report[7] = (hWheel.toInt() and 0xFF).toByte()
+        report[8] = ((hWheel.toInt() shr 8) and 0xFF).toByte()
+
         try {
-            val ok = hid.sendReport(device, 18, byteArrayOf(
-                (button.toInt() and 0x07).toByte(),
-                dx, dy, wheel, hWheel,
-            ))
+            val ok = hid.sendReport(device, 18, report)
             if (!ok) {
                 val count = mouseSendFailedCounter.incrementAndGet()
                 if (count % 10 == 0) {
@@ -560,6 +574,11 @@ class ClassicHidTransport(
         /** Gamepad Report ID inside a combo descriptor (keyboard/mouse present). */
         private const val GAMEPAD_REPORT_ID_COMBO = 19
 
+        /** Report ID of the mouse's Resolution Multiplier Feature report. Must be its own
+         *  report ID, separate from the mouse input (Report ID 18), per Microsoft's
+         *  "Enhanced Wheel Support in Windows" sample descriptor. */
+        private const val MULTIPLIER_REPORT_ID = 20
+
         /** Gamepad Report ID of a gamepad-only descriptor, matching the legacy 3.0.2 layout. */
         private const val GAMEPAD_REPORT_ID_ONLY = 1
 
@@ -599,70 +618,81 @@ class ClassicHidTransport(
             b(0x81), b(0x00),          //   Input (Data,Array)
             b(0xC0),                     // End Collection
 
-            // MOUSE — Report ID 18 — high-resolution wheel (vertical + horizontal AC Pan)
+            // MOUSE — Report ID 18 (input) / Report ID 20 (Resolution Multiplier feature).
+            // Layout ported from GKMD's USB HID mouse descriptor
+            // (StaticProfileRegistry.MouseUsbReportDescriptor): 8 buttons, 16-bit X/Y,
+            // 16-bit wheel / AC Pan, 120-count multiplier. Per Microsoft's "Enhanced
+            // Wheel Support" spec the Resolution Multiplier Feature MUST live in its own
+            // report ID (their sample uses input 0x01 / feature 0x02), otherwise Windows
+            // never enables high-resolution scrolling — which is why the previous
+            // same-ID 8-count/8-bit shape moved in coarse detents.
             b(0x05), b(0x01),          // Usage Page (Generic Desktop)
             b(0x09), b(0x02),          // Usage (Mouse)
             b(0xA1), b(0x01),          // Collection (Application)
-            b(0x85), b(0x12),          //   Report ID (18)
+            b(0x05), b(0x01),          //   Usage Page (Generic Desktop)
             b(0x09), b(0x02),          //   Usage (Mouse)
             b(0xA1), b(0x02),          //   Collection (Logical)
+            b(0x85), b(0x12),          //     Report ID (18)
             b(0x09), b(0x01),          //     Usage (Pointer)
             b(0xA1), b(0x00),          //     Collection (Physical)
-            // Buttons (5) + padding (3) = 1 byte
-            b(0x05), b(0x09),          //       Usage Page (Button)
-            b(0x19), b(0x01),          //       Usage Minimum (Button 1)
-            b(0x29), b(0x05),          //       Usage Maximum (Button 5)
+            // Buttons (8) = 1 byte
+            b(0x05), b(0x09),          //     Usage Page (Button)
+            b(0x19), b(0x01),          //     Usage Minimum (Button 1)
+            b(0x29), b(0x08),          //     Usage Maximum (Button 8)
+            b(0x95), b(0x08),          //     Report Count (8)
+            b(0x75), b(0x01),          //     Report Size (1)
+            b(0x25), b(0x01),          //     Logical Maximum (1)
+            b(0x81), b(0x02),          //     Input (Data,Var,Abs)
+            // X, Y (16-bit)
+            b(0x05), b(0x01),          //     Usage Page (Generic Desktop)
+            b(0x09), b(0x30),          //     Usage (X)
+            b(0x09), b(0x31),          //     Usage (Y)
+            b(0x95), b(0x02),          //     Report Count (2)
+            b(0x75), b(0x10),          //     Report Size (16)
+            b(0x16), b(0x00), b(0x80), //     Logical Minimum (-32768)
+            b(0x26), b(0xFF), b(0x7F), //     Logical Maximum (32767)
+            b(0x81), b(0x06),          //     Input (Data,Var,Rel)
+            b(0xA1), b(0x02),          //     Collection (Logical) — Vertical wheel
+            b(0x85), b(0x14),          //       Report ID (20) — Resolution Multiplier feature
+            b(0x09), b(0x48),          //       Usage (Resolution Multiplier)
+            b(0x95), b(0x01),          //       Report Count (1)
+            b(0x75), b(0x02),          //       Report Size (2)
             b(0x15), b(0x00),          //       Logical Minimum (0)
             b(0x25), b(0x01),          //       Logical Maximum (1)
-            b(0x75), b(0x01),          //       Report Size (1)
-            b(0x95), b(0x05),          //       Report Count (5)
-            b(0x81), b(0x02),          //       Input (Data,Var,Abs)
-            b(0x75), b(0x03),          //       Report Size (3)
-            b(0x95), b(0x01),          //       Report Count (1)
-            b(0x81), b(0x03),          //       Input (Const,Var,Abs)
-            // X, Y
-            b(0x05), b(0x01),          //       Usage Page (Generic Desktop)
-            b(0x09), b(0x30),          //       Usage (X)
-            b(0x09), b(0x31),          //       Usage (Y)
-            b(0x15), b(0x81),          //       Logical Minimum (-127)
-            b(0x25), b(0x7F),          //       Logical Maximum (127)
-            b(0x75), b(0x08),          //       Report Size (8)
-            b(0x95), b(0x02),          //       Report Count (2)
+            b(0x35), b(0x01),          //       Physical Minimum (1)
+            b(0x45), b(0x78),          //       Physical Maximum (120)
+            b(0xB1), b(0x02),          //       Feature (Data,Var,Abs)
+            b(0x85), b(0x12),          //       Report ID (18) — back to the mouse input
+            b(0x09), b(0x38),          //       Usage (Wheel)
+            b(0x35), b(0x00),          //       Physical Minimum (0)
+            b(0x45), b(0x00),          //       Physical Maximum (0)
+            b(0x16), b(0x00), b(0x80), //       Logical Minimum (-32768)
+            b(0x26), b(0xFF), b(0x7F), //       Logical Maximum (32767)
+            b(0x75), b(0x10),          //       Report Size (16)
             b(0x81), b(0x06),          //       Input (Data,Var,Rel)
-            b(0xA1), b(0x02),          //       Collection (Logical) — Vertical wheel
-            b(0x09), b(0x48),          //         Usage (Resolution Multiplier)
-            b(0x15), b(0x00),          //         Logical Minimum (0)
-            b(0x25), b(0x02),          //         Logical Maximum (2)
-            b(0x35), b(0x01),          //         Physical Minimum (1)
-            b(0x45), b(0x08),          //         Physical Maximum (8)
-            b(0x75), b(0x02),          //         Report Size (2)
-            b(0x95), b(0x01),          //         Report Count (1)
-            b(0xA4),                    //         PUSH
-            b(0xB1), b(0x02),          //         Feature (Data,Var,Abs)
-            b(0x09), b(0x38),          //         Usage (Wheel)
-            b(0x15), b(0x81),          //         Logical Minimum (-127)
-            b(0x25), b(0x7F),          //         Logical Maximum (127)
-            b(0x35), b(0x00),          //         Physical Minimum (0)
-            b(0x45), b(0x00),          //         Physical Maximum (0)
-            b(0x75), b(0x08),          //         Report Size (8)
-            b(0x81), b(0x06),          //         Input (Data,Var,Rel)
-            b(0xC0),                     //       End Collection
-            b(0xA1), b(0x02),          //       Collection (Logical) — Horizontal wheel
-            b(0x09), b(0x48),          //         Usage (Resolution Multiplier)
-            b(0xB4),                    //         POP
-            b(0xB1), b(0x02),          //         Feature (Data,Var,Abs)
-            b(0x35), b(0x00),          //         Physical Minimum (0)
-            b(0x45), b(0x00),          //         Physical Maximum (0)
-            b(0x75), b(0x04),          //         Report Size (4)
-            b(0xB1), b(0x03),          //         Feature (Const,Var,Abs)
-            b(0x05), b(0x0C),          //         Usage Page (Consumer Devices)
-            b(0x0A), b(0x38), b(0x02), //         Usage (AC Pan)
-            b(0x15), b(0x81),          //         Logical Minimum (-127)
-            b(0x25), b(0x7F),          //         Logical Maximum (127)
-            b(0x75), b(0x08),          //         Report Size (8)
-            b(0x81), b(0x06),          //         Input (Data,Var,Rel)
-            b(0xC0),                     //       End Collection
-            b(0xC0),                     //     End Collection (Physical)
+            b(0xC0),                     //     End Collection
+            b(0xA1), b(0x02),          //     Collection (Logical) — Horizontal wheel
+            b(0x85), b(0x14),          //       Report ID (20) — Resolution Multiplier feature
+            b(0x09), b(0x48),          //       Usage (Resolution Multiplier)
+            b(0x75), b(0x02),          //       Report Size (2)
+            b(0x15), b(0x00),          //       Logical Minimum (0)
+            b(0x25), b(0x01),          //       Logical Maximum (1)
+            b(0x35), b(0x01),          //       Physical Minimum (1)
+            b(0x45), b(0x78),          //       Physical Maximum (120)
+            b(0xB1), b(0x02),          //       Feature (Data,Var,Abs)
+            b(0x35), b(0x00),          //       Physical Minimum (0)
+            b(0x45), b(0x00),          //       Physical Maximum (0)
+            b(0x75), b(0x04),          //       Report Size (4)
+            b(0xB1), b(0x03),          //       Feature (Const,Var,Abs)
+            b(0x85), b(0x12),          //       Report ID (18) — back to the mouse input
+            b(0x05), b(0x0C),          //       Usage Page (Consumer Devices)
+            b(0x16), b(0x00), b(0x80), //       Logical Minimum (-32768)
+            b(0x26), b(0xFF), b(0x7F), //       Logical Maximum (32767)
+            b(0x75), b(0x10),          //       Report Size (16)
+            b(0x0A), b(0x38), b(0x02), //       Usage (AC Pan)
+            b(0x81), b(0x06),          //       Input (Data,Var,Rel)
+            b(0xC0),                     //     End Collection
+            b(0xC0),                     //   End Collection (Physical)
             b(0xC0),                     //   End Collection (Logical)
             b(0xC0),                     // End Collection
 
@@ -738,70 +768,81 @@ class ClassicHidTransport(
             b(0x81), b(0x00),          //   Input (Data,Array)
             b(0xC0),                     // End Collection
 
-            // MOUSE — Report ID 18 — high-resolution wheel (vertical + horizontal AC Pan)
+            // MOUSE — Report ID 18 (input) / Report ID 20 (Resolution Multiplier feature).
+            // Layout ported from GKMD's USB HID mouse descriptor
+            // (StaticProfileRegistry.MouseUsbReportDescriptor): 8 buttons, 16-bit X/Y,
+            // 16-bit wheel / AC Pan, 120-count multiplier. Per Microsoft's "Enhanced
+            // Wheel Support" spec the Resolution Multiplier Feature MUST live in its own
+            // report ID (their sample uses input 0x01 / feature 0x02), otherwise Windows
+            // never enables high-resolution scrolling — which is why the previous
+            // same-ID 8-count/8-bit shape moved in coarse detents.
             b(0x05), b(0x01),          // Usage Page (Generic Desktop)
             b(0x09), b(0x02),          // Usage (Mouse)
             b(0xA1), b(0x01),          // Collection (Application)
-            b(0x85), b(0x12),          //   Report ID (18)
+            b(0x05), b(0x01),          //   Usage Page (Generic Desktop)
             b(0x09), b(0x02),          //   Usage (Mouse)
             b(0xA1), b(0x02),          //   Collection (Logical)
+            b(0x85), b(0x12),          //     Report ID (18)
             b(0x09), b(0x01),          //     Usage (Pointer)
             b(0xA1), b(0x00),          //     Collection (Physical)
-            // Buttons (5) + padding (3) = 1 byte
-            b(0x05), b(0x09),          //       Usage Page (Button)
-            b(0x19), b(0x01),          //       Usage Minimum (Button 1)
-            b(0x29), b(0x05),          //       Usage Maximum (Button 5)
+            // Buttons (8) = 1 byte
+            b(0x05), b(0x09),          //     Usage Page (Button)
+            b(0x19), b(0x01),          //     Usage Minimum (Button 1)
+            b(0x29), b(0x08),          //     Usage Maximum (Button 8)
+            b(0x95), b(0x08),          //     Report Count (8)
+            b(0x75), b(0x01),          //     Report Size (1)
+            b(0x25), b(0x01),          //     Logical Maximum (1)
+            b(0x81), b(0x02),          //     Input (Data,Var,Abs)
+            // X, Y (16-bit)
+            b(0x05), b(0x01),          //     Usage Page (Generic Desktop)
+            b(0x09), b(0x30),          //     Usage (X)
+            b(0x09), b(0x31),          //     Usage (Y)
+            b(0x95), b(0x02),          //     Report Count (2)
+            b(0x75), b(0x10),          //     Report Size (16)
+            b(0x16), b(0x00), b(0x80), //     Logical Minimum (-32768)
+            b(0x26), b(0xFF), b(0x7F), //     Logical Maximum (32767)
+            b(0x81), b(0x06),          //     Input (Data,Var,Rel)
+            b(0xA1), b(0x02),          //     Collection (Logical) — Vertical wheel
+            b(0x85), b(0x14),          //       Report ID (20) — Resolution Multiplier feature
+            b(0x09), b(0x48),          //       Usage (Resolution Multiplier)
+            b(0x95), b(0x01),          //       Report Count (1)
+            b(0x75), b(0x02),          //       Report Size (2)
             b(0x15), b(0x00),          //       Logical Minimum (0)
             b(0x25), b(0x01),          //       Logical Maximum (1)
-            b(0x75), b(0x01),          //       Report Size (1)
-            b(0x95), b(0x05),          //       Report Count (5)
-            b(0x81), b(0x02),          //       Input (Data,Var,Abs)
-            b(0x75), b(0x03),          //       Report Size (3)
-            b(0x95), b(0x01),          //       Report Count (1)
-            b(0x81), b(0x03),          //       Input (Const,Var,Abs)
-            // X, Y
-            b(0x05), b(0x01),          //       Usage Page (Generic Desktop)
-            b(0x09), b(0x30),          //       Usage (X)
-            b(0x09), b(0x31),          //       Usage (Y)
-            b(0x15), b(0x81),          //       Logical Minimum (-127)
-            b(0x25), b(0x7F),          //       Logical Maximum (127)
-            b(0x75), b(0x08),          //       Report Size (8)
-            b(0x95), b(0x02),          //       Report Count (2)
+            b(0x35), b(0x01),          //       Physical Minimum (1)
+            b(0x45), b(0x78),          //       Physical Maximum (120)
+            b(0xB1), b(0x02),          //       Feature (Data,Var,Abs)
+            b(0x85), b(0x12),          //       Report ID (18) — back to the mouse input
+            b(0x09), b(0x38),          //       Usage (Wheel)
+            b(0x35), b(0x00),          //       Physical Minimum (0)
+            b(0x45), b(0x00),          //       Physical Maximum (0)
+            b(0x16), b(0x00), b(0x80), //       Logical Minimum (-32768)
+            b(0x26), b(0xFF), b(0x7F), //       Logical Maximum (32767)
+            b(0x75), b(0x10),          //       Report Size (16)
             b(0x81), b(0x06),          //       Input (Data,Var,Rel)
-            b(0xA1), b(0x02),          //       Collection (Logical) — Vertical wheel
-            b(0x09), b(0x48),          //         Usage (Resolution Multiplier)
-            b(0x15), b(0x00),          //         Logical Minimum (0)
-            b(0x25), b(0x02),          //         Logical Maximum (2)
-            b(0x35), b(0x01),          //         Physical Minimum (1)
-            b(0x45), b(0x08),          //         Physical Maximum (8)
-            b(0x75), b(0x02),          //         Report Size (2)
-            b(0x95), b(0x01),          //         Report Count (1)
-            b(0xA4),                    //         PUSH
-            b(0xB1), b(0x02),          //         Feature (Data,Var,Abs)
-            b(0x09), b(0x38),          //         Usage (Wheel)
-            b(0x15), b(0x81),          //         Logical Minimum (-127)
-            b(0x25), b(0x7F),          //         Logical Maximum (127)
-            b(0x35), b(0x00),          //         Physical Minimum (0)
-            b(0x45), b(0x00),          //         Physical Maximum (0)
-            b(0x75), b(0x08),          //         Report Size (8)
-            b(0x81), b(0x06),          //         Input (Data,Var,Rel)
-            b(0xC0),                     //       End Collection
-            b(0xA1), b(0x02),          //       Collection (Logical) — Horizontal wheel
-            b(0x09), b(0x48),          //         Usage (Resolution Multiplier)
-            b(0xB4),                    //         POP
-            b(0xB1), b(0x02),          //         Feature (Data,Var,Abs)
-            b(0x35), b(0x00),          //         Physical Minimum (0)
-            b(0x45), b(0x00),          //         Physical Maximum (0)
-            b(0x75), b(0x04),          //         Report Size (4)
-            b(0xB1), b(0x03),          //         Feature (Const,Var,Abs)
-            b(0x05), b(0x0C),          //         Usage Page (Consumer Devices)
-            b(0x0A), b(0x38), b(0x02), //         Usage (AC Pan)
-            b(0x15), b(0x81),          //         Logical Minimum (-127)
-            b(0x25), b(0x7F),          //         Logical Maximum (127)
-            b(0x75), b(0x08),          //         Report Size (8)
-            b(0x81), b(0x06),          //         Input (Data,Var,Rel)
-            b(0xC0),                     //       End Collection
-            b(0xC0),                     //     End Collection (Physical)
+            b(0xC0),                     //     End Collection
+            b(0xA1), b(0x02),          //     Collection (Logical) — Horizontal wheel
+            b(0x85), b(0x14),          //       Report ID (20) — Resolution Multiplier feature
+            b(0x09), b(0x48),          //       Usage (Resolution Multiplier)
+            b(0x75), b(0x02),          //       Report Size (2)
+            b(0x15), b(0x00),          //       Logical Minimum (0)
+            b(0x25), b(0x01),          //       Logical Maximum (1)
+            b(0x35), b(0x01),          //       Physical Minimum (1)
+            b(0x45), b(0x78),          //       Physical Maximum (120)
+            b(0xB1), b(0x02),          //       Feature (Data,Var,Abs)
+            b(0x35), b(0x00),          //       Physical Minimum (0)
+            b(0x45), b(0x00),          //       Physical Maximum (0)
+            b(0x75), b(0x04),          //       Report Size (4)
+            b(0xB1), b(0x03),          //       Feature (Const,Var,Abs)
+            b(0x85), b(0x12),          //       Report ID (18) — back to the mouse input
+            b(0x05), b(0x0C),          //       Usage Page (Consumer Devices)
+            b(0x16), b(0x00), b(0x80), //       Logical Minimum (-32768)
+            b(0x26), b(0xFF), b(0x7F), //       Logical Maximum (32767)
+            b(0x75), b(0x10),          //       Report Size (16)
+            b(0x0A), b(0x38), b(0x02), //       Usage (AC Pan)
+            b(0x81), b(0x06),          //       Input (Data,Var,Rel)
+            b(0xC0),                     //     End Collection
+            b(0xC0),                     //   End Collection (Physical)
             b(0xC0),                     //   End Collection (Logical)
             b(0xC0),                     // End Collection
 
@@ -905,70 +946,81 @@ class ClassicHidTransport(
             b(0x81), b(0x00),          //   Input (Data,Array)
             b(0xC0),                     // End Collection
 
-            // MOUSE — Report ID 18 — high-resolution wheel (vertical + horizontal AC Pan)
+            // MOUSE — Report ID 18 (input) / Report ID 20 (Resolution Multiplier feature).
+            // Layout ported from GKMD's USB HID mouse descriptor
+            // (StaticProfileRegistry.MouseUsbReportDescriptor): 8 buttons, 16-bit X/Y,
+            // 16-bit wheel / AC Pan, 120-count multiplier. Per Microsoft's "Enhanced
+            // Wheel Support" spec the Resolution Multiplier Feature MUST live in its own
+            // report ID (their sample uses input 0x01 / feature 0x02), otherwise Windows
+            // never enables high-resolution scrolling — which is why the previous
+            // same-ID 8-count/8-bit shape moved in coarse detents.
             b(0x05), b(0x01),          // Usage Page (Generic Desktop)
             b(0x09), b(0x02),          // Usage (Mouse)
             b(0xA1), b(0x01),          // Collection (Application)
-            b(0x85), b(0x12),          //   Report ID (18)
+            b(0x05), b(0x01),          //   Usage Page (Generic Desktop)
             b(0x09), b(0x02),          //   Usage (Mouse)
             b(0xA1), b(0x02),          //   Collection (Logical)
+            b(0x85), b(0x12),          //     Report ID (18)
             b(0x09), b(0x01),          //     Usage (Pointer)
             b(0xA1), b(0x00),          //     Collection (Physical)
-            // Buttons (5) + padding (3) = 1 byte
-            b(0x05), b(0x09),          //       Usage Page (Button)
-            b(0x19), b(0x01),          //       Usage Minimum (Button 1)
-            b(0x29), b(0x05),          //       Usage Maximum (Button 5)
+            // Buttons (8) = 1 byte
+            b(0x05), b(0x09),          //     Usage Page (Button)
+            b(0x19), b(0x01),          //     Usage Minimum (Button 1)
+            b(0x29), b(0x08),          //     Usage Maximum (Button 8)
+            b(0x95), b(0x08),          //     Report Count (8)
+            b(0x75), b(0x01),          //     Report Size (1)
+            b(0x25), b(0x01),          //     Logical Maximum (1)
+            b(0x81), b(0x02),          //     Input (Data,Var,Abs)
+            // X, Y (16-bit)
+            b(0x05), b(0x01),          //     Usage Page (Generic Desktop)
+            b(0x09), b(0x30),          //     Usage (X)
+            b(0x09), b(0x31),          //     Usage (Y)
+            b(0x95), b(0x02),          //     Report Count (2)
+            b(0x75), b(0x10),          //     Report Size (16)
+            b(0x16), b(0x00), b(0x80), //     Logical Minimum (-32768)
+            b(0x26), b(0xFF), b(0x7F), //     Logical Maximum (32767)
+            b(0x81), b(0x06),          //     Input (Data,Var,Rel)
+            b(0xA1), b(0x02),          //     Collection (Logical) — Vertical wheel
+            b(0x85), b(0x14),          //       Report ID (20) — Resolution Multiplier feature
+            b(0x09), b(0x48),          //       Usage (Resolution Multiplier)
+            b(0x95), b(0x01),          //       Report Count (1)
+            b(0x75), b(0x02),          //       Report Size (2)
             b(0x15), b(0x00),          //       Logical Minimum (0)
             b(0x25), b(0x01),          //       Logical Maximum (1)
-            b(0x75), b(0x01),          //       Report Size (1)
-            b(0x95), b(0x05),          //       Report Count (5)
-            b(0x81), b(0x02),          //       Input (Data,Var,Abs)
-            b(0x75), b(0x03),          //       Report Size (3)
-            b(0x95), b(0x01),          //       Report Count (1)
-            b(0x81), b(0x03),          //       Input (Const,Var,Abs)
-            // X, Y
-            b(0x05), b(0x01),          //       Usage Page (Generic Desktop)
-            b(0x09), b(0x30),          //       Usage (X)
-            b(0x09), b(0x31),          //       Usage (Y)
-            b(0x15), b(0x81),          //       Logical Minimum (-127)
-            b(0x25), b(0x7F),          //       Logical Maximum (127)
-            b(0x75), b(0x08),          //       Report Size (8)
-            b(0x95), b(0x02),          //       Report Count (2)
+            b(0x35), b(0x01),          //       Physical Minimum (1)
+            b(0x45), b(0x78),          //       Physical Maximum (120)
+            b(0xB1), b(0x02),          //       Feature (Data,Var,Abs)
+            b(0x85), b(0x12),          //       Report ID (18) — back to the mouse input
+            b(0x09), b(0x38),          //       Usage (Wheel)
+            b(0x35), b(0x00),          //       Physical Minimum (0)
+            b(0x45), b(0x00),          //       Physical Maximum (0)
+            b(0x16), b(0x00), b(0x80), //       Logical Minimum (-32768)
+            b(0x26), b(0xFF), b(0x7F), //       Logical Maximum (32767)
+            b(0x75), b(0x10),          //       Report Size (16)
             b(0x81), b(0x06),          //       Input (Data,Var,Rel)
-            b(0xA1), b(0x02),          //       Collection (Logical) — Vertical wheel
-            b(0x09), b(0x48),          //         Usage (Resolution Multiplier)
-            b(0x15), b(0x00),          //         Logical Minimum (0)
-            b(0x25), b(0x02),          //         Logical Maximum (2)
-            b(0x35), b(0x01),          //         Physical Minimum (1)
-            b(0x45), b(0x08),          //         Physical Maximum (8)
-            b(0x75), b(0x02),          //         Report Size (2)
-            b(0x95), b(0x01),          //         Report Count (1)
-            b(0xA4),                    //         PUSH
-            b(0xB1), b(0x02),          //         Feature (Data,Var,Abs)
-            b(0x09), b(0x38),          //         Usage (Wheel)
-            b(0x15), b(0x81),          //         Logical Minimum (-127)
-            b(0x25), b(0x7F),          //         Logical Maximum (127)
-            b(0x35), b(0x00),          //         Physical Minimum (0)
-            b(0x45), b(0x00),          //         Physical Maximum (0)
-            b(0x75), b(0x08),          //         Report Size (8)
-            b(0x81), b(0x06),          //         Input (Data,Var,Rel)
-            b(0xC0),                     //       End Collection
-            b(0xA1), b(0x02),          //       Collection (Logical) — Horizontal wheel
-            b(0x09), b(0x48),          //         Usage (Resolution Multiplier)
-            b(0xB4),                    //         POP
-            b(0xB1), b(0x02),          //         Feature (Data,Var,Abs)
-            b(0x35), b(0x00),          //         Physical Minimum (0)
-            b(0x45), b(0x00),          //         Physical Maximum (0)
-            b(0x75), b(0x04),          //         Report Size (4)
-            b(0xB1), b(0x03),          //         Feature (Const,Var,Abs)
-            b(0x05), b(0x0C),          //         Usage Page (Consumer Devices)
-            b(0x0A), b(0x38), b(0x02), //         Usage (AC Pan)
-            b(0x15), b(0x81),          //         Logical Minimum (-127)
-            b(0x25), b(0x7F),          //         Logical Maximum (127)
-            b(0x75), b(0x08),          //         Report Size (8)
-            b(0x81), b(0x06),          //         Input (Data,Var,Rel)
-            b(0xC0),                     //       End Collection
-            b(0xC0),                     //     End Collection (Physical)
+            b(0xC0),                     //     End Collection
+            b(0xA1), b(0x02),          //     Collection (Logical) — Horizontal wheel
+            b(0x85), b(0x14),          //       Report ID (20) — Resolution Multiplier feature
+            b(0x09), b(0x48),          //       Usage (Resolution Multiplier)
+            b(0x75), b(0x02),          //       Report Size (2)
+            b(0x15), b(0x00),          //       Logical Minimum (0)
+            b(0x25), b(0x01),          //       Logical Maximum (1)
+            b(0x35), b(0x01),          //       Physical Minimum (1)
+            b(0x45), b(0x78),          //       Physical Maximum (120)
+            b(0xB1), b(0x02),          //       Feature (Data,Var,Abs)
+            b(0x35), b(0x00),          //       Physical Minimum (0)
+            b(0x45), b(0x00),          //       Physical Maximum (0)
+            b(0x75), b(0x04),          //       Report Size (4)
+            b(0xB1), b(0x03),          //       Feature (Const,Var,Abs)
+            b(0x85), b(0x12),          //       Report ID (18) — back to the mouse input
+            b(0x05), b(0x0C),          //       Usage Page (Consumer Devices)
+            b(0x16), b(0x00), b(0x80), //       Logical Minimum (-32768)
+            b(0x26), b(0xFF), b(0x7F), //       Logical Maximum (32767)
+            b(0x75), b(0x10),          //       Report Size (16)
+            b(0x0A), b(0x38), b(0x02), //       Usage (AC Pan)
+            b(0x81), b(0x06),          //       Input (Data,Var,Rel)
+            b(0xC0),                     //     End Collection
+            b(0xC0),                     //   End Collection (Physical)
             b(0xC0),                     //   End Collection (Logical)
             b(0xC0),                     // End Collection
 
@@ -1072,70 +1124,81 @@ class ClassicHidTransport(
             b(0x81), b(0x00),          //   Input (Data,Array)
             b(0xC0),                     // End Collection
 
-            // MOUSE — Report ID 18 — high-resolution wheel (vertical + horizontal AC Pan)
+            // MOUSE — Report ID 18 (input) / Report ID 20 (Resolution Multiplier feature).
+            // Layout ported from GKMD's USB HID mouse descriptor
+            // (StaticProfileRegistry.MouseUsbReportDescriptor): 8 buttons, 16-bit X/Y,
+            // 16-bit wheel / AC Pan, 120-count multiplier. Per Microsoft's "Enhanced
+            // Wheel Support" spec the Resolution Multiplier Feature MUST live in its own
+            // report ID (their sample uses input 0x01 / feature 0x02), otherwise Windows
+            // never enables high-resolution scrolling — which is why the previous
+            // same-ID 8-count/8-bit shape moved in coarse detents.
             b(0x05), b(0x01),          // Usage Page (Generic Desktop)
             b(0x09), b(0x02),          // Usage (Mouse)
             b(0xA1), b(0x01),          // Collection (Application)
-            b(0x85), b(0x12),          //   Report ID (18)
+            b(0x05), b(0x01),          //   Usage Page (Generic Desktop)
             b(0x09), b(0x02),          //   Usage (Mouse)
             b(0xA1), b(0x02),          //   Collection (Logical)
+            b(0x85), b(0x12),          //     Report ID (18)
             b(0x09), b(0x01),          //     Usage (Pointer)
             b(0xA1), b(0x00),          //     Collection (Physical)
-            // Buttons (5) + padding (3) = 1 byte
-            b(0x05), b(0x09),          //       Usage Page (Button)
-            b(0x19), b(0x01),          //       Usage Minimum (Button 1)
-            b(0x29), b(0x05),          //       Usage Maximum (Button 5)
+            // Buttons (8) = 1 byte
+            b(0x05), b(0x09),          //     Usage Page (Button)
+            b(0x19), b(0x01),          //     Usage Minimum (Button 1)
+            b(0x29), b(0x08),          //     Usage Maximum (Button 8)
+            b(0x95), b(0x08),          //     Report Count (8)
+            b(0x75), b(0x01),          //     Report Size (1)
+            b(0x25), b(0x01),          //     Logical Maximum (1)
+            b(0x81), b(0x02),          //     Input (Data,Var,Abs)
+            // X, Y (16-bit)
+            b(0x05), b(0x01),          //     Usage Page (Generic Desktop)
+            b(0x09), b(0x30),          //     Usage (X)
+            b(0x09), b(0x31),          //     Usage (Y)
+            b(0x95), b(0x02),          //     Report Count (2)
+            b(0x75), b(0x10),          //     Report Size (16)
+            b(0x16), b(0x00), b(0x80), //     Logical Minimum (-32768)
+            b(0x26), b(0xFF), b(0x7F), //     Logical Maximum (32767)
+            b(0x81), b(0x06),          //     Input (Data,Var,Rel)
+            b(0xA1), b(0x02),          //     Collection (Logical) — Vertical wheel
+            b(0x85), b(0x14),          //       Report ID (20) — Resolution Multiplier feature
+            b(0x09), b(0x48),          //       Usage (Resolution Multiplier)
+            b(0x95), b(0x01),          //       Report Count (1)
+            b(0x75), b(0x02),          //       Report Size (2)
             b(0x15), b(0x00),          //       Logical Minimum (0)
             b(0x25), b(0x01),          //       Logical Maximum (1)
-            b(0x75), b(0x01),          //       Report Size (1)
-            b(0x95), b(0x05),          //       Report Count (5)
-            b(0x81), b(0x02),          //       Input (Data,Var,Abs)
-            b(0x75), b(0x03),          //       Report Size (3)
-            b(0x95), b(0x01),          //       Report Count (1)
-            b(0x81), b(0x03),          //       Input (Const,Var,Abs)
-            // X, Y
-            b(0x05), b(0x01),          //       Usage Page (Generic Desktop)
-            b(0x09), b(0x30),          //       Usage (X)
-            b(0x09), b(0x31),          //       Usage (Y)
-            b(0x15), b(0x81),          //       Logical Minimum (-127)
-            b(0x25), b(0x7F),          //       Logical Maximum (127)
-            b(0x75), b(0x08),          //       Report Size (8)
-            b(0x95), b(0x02),          //       Report Count (2)
+            b(0x35), b(0x01),          //       Physical Minimum (1)
+            b(0x45), b(0x78),          //       Physical Maximum (120)
+            b(0xB1), b(0x02),          //       Feature (Data,Var,Abs)
+            b(0x85), b(0x12),          //       Report ID (18) — back to the mouse input
+            b(0x09), b(0x38),          //       Usage (Wheel)
+            b(0x35), b(0x00),          //       Physical Minimum (0)
+            b(0x45), b(0x00),          //       Physical Maximum (0)
+            b(0x16), b(0x00), b(0x80), //       Logical Minimum (-32768)
+            b(0x26), b(0xFF), b(0x7F), //       Logical Maximum (32767)
+            b(0x75), b(0x10),          //       Report Size (16)
             b(0x81), b(0x06),          //       Input (Data,Var,Rel)
-            b(0xA1), b(0x02),          //       Collection (Logical) — Vertical wheel
-            b(0x09), b(0x48),          //         Usage (Resolution Multiplier)
-            b(0x15), b(0x00),          //         Logical Minimum (0)
-            b(0x25), b(0x02),          //         Logical Maximum (2)
-            b(0x35), b(0x01),          //         Physical Minimum (1)
-            b(0x45), b(0x08),          //         Physical Maximum (8)
-            b(0x75), b(0x02),          //         Report Size (2)
-            b(0x95), b(0x01),          //         Report Count (1)
-            b(0xA4),                    //         PUSH
-            b(0xB1), b(0x02),          //         Feature (Data,Var,Abs)
-            b(0x09), b(0x38),          //         Usage (Wheel)
-            b(0x15), b(0x81),          //         Logical Minimum (-127)
-            b(0x25), b(0x7F),          //         Logical Maximum (127)
-            b(0x35), b(0x00),          //         Physical Minimum (0)
-            b(0x45), b(0x00),          //         Physical Maximum (0)
-            b(0x75), b(0x08),          //         Report Size (8)
-            b(0x81), b(0x06),          //         Input (Data,Var,Rel)
-            b(0xC0),                     //       End Collection
-            b(0xA1), b(0x02),          //       Collection (Logical) — Horizontal wheel
-            b(0x09), b(0x48),          //         Usage (Resolution Multiplier)
-            b(0xB4),                    //         POP
-            b(0xB1), b(0x02),          //         Feature (Data,Var,Abs)
-            b(0x35), b(0x00),          //         Physical Minimum (0)
-            b(0x45), b(0x00),          //         Physical Maximum (0)
-            b(0x75), b(0x04),          //         Report Size (4)
-            b(0xB1), b(0x03),          //         Feature (Const,Var,Abs)
-            b(0x05), b(0x0C),          //         Usage Page (Consumer Devices)
-            b(0x0A), b(0x38), b(0x02), //         Usage (AC Pan)
-            b(0x15), b(0x81),          //         Logical Minimum (-127)
-            b(0x25), b(0x7F),          //         Logical Maximum (127)
-            b(0x75), b(0x08),          //         Report Size (8)
-            b(0x81), b(0x06),          //         Input (Data,Var,Rel)
-            b(0xC0),                     //       End Collection
-            b(0xC0),                     //     End Collection (Physical)
+            b(0xC0),                     //     End Collection
+            b(0xA1), b(0x02),          //     Collection (Logical) — Horizontal wheel
+            b(0x85), b(0x14),          //       Report ID (20) — Resolution Multiplier feature
+            b(0x09), b(0x48),          //       Usage (Resolution Multiplier)
+            b(0x75), b(0x02),          //       Report Size (2)
+            b(0x15), b(0x00),          //       Logical Minimum (0)
+            b(0x25), b(0x01),          //       Logical Maximum (1)
+            b(0x35), b(0x01),          //       Physical Minimum (1)
+            b(0x45), b(0x78),          //       Physical Maximum (120)
+            b(0xB1), b(0x02),          //       Feature (Data,Var,Abs)
+            b(0x35), b(0x00),          //       Physical Minimum (0)
+            b(0x45), b(0x00),          //       Physical Maximum (0)
+            b(0x75), b(0x04),          //       Report Size (4)
+            b(0xB1), b(0x03),          //       Feature (Const,Var,Abs)
+            b(0x85), b(0x12),          //       Report ID (18) — back to the mouse input
+            b(0x05), b(0x0C),          //       Usage Page (Consumer Devices)
+            b(0x16), b(0x00), b(0x80), //       Logical Minimum (-32768)
+            b(0x26), b(0xFF), b(0x7F), //       Logical Maximum (32767)
+            b(0x75), b(0x10),          //       Report Size (16)
+            b(0x0A), b(0x38), b(0x02), //       Usage (AC Pan)
+            b(0x81), b(0x06),          //       Input (Data,Var,Rel)
+            b(0xC0),                     //     End Collection
+            b(0xC0),                     //   End Collection (Physical)
             b(0xC0),                     //   End Collection (Logical)
             b(0xC0),                     // End Collection
         )

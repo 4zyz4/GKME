@@ -805,14 +805,14 @@ class ConnectionManager @Inject constructor(
 
     /** Send a mouse report for WiFi/UDP or USB mode. */
     fun sendMouseReport(
-        button: Byte, dx: Byte, dy: Byte, wheel: Byte, hWheel: Byte = 0
+        button: Byte, dx: Short, dy: Short, wheel: Short, hWheel: Short = 0
     ) {
         when (_settings.value.connectionMode) {
             ConnectionMode.BLUETOOTH -> {
                 val phase = _connectionState.value.phase
                 if (phase != ConnectionPhase.CONNECTED) return
                 var btn = button.toInt()
-                if (btn == 0 && (dx != 0.toByte() || dy != 0.toByte())) {
+                if (btn == 0 && (dx != 0.toShort() || dy != 0.toShort())) {
                     btn = _lastMouseButtonsBt
                 } else {
                     _lastMouseButtonsBt = btn
