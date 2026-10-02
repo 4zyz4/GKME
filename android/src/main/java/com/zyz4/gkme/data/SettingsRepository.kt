@@ -199,7 +199,7 @@ class SettingsRepository @Inject constructor(
             ),
             swapPhoneMotors = prefs[Keys.SWAP_PHONE_MOTORS] ?: false,
             swapControllerMotors = prefs[Keys.SWAP_CONTROLLER_MOTORS] ?: false,
-            hdVibrationEnabled = prefs[Keys.HD_VIBRATION_ENABLED] ?: false,
+            hdVibrationEnabled = prefs[Keys.HD_VIBRATION_ENABLED] ?: true,
             adaptiveTriggerDevice = AdaptiveTriggerDevice(
                 type = AdaptiveTriggerTargetType.entries.getOrElse(
                     prefs[Keys.ADAPTIVE_TRIGGER_DEVICE_TYPE] ?: AdaptiveTriggerTargetType.NONE.ordinal
