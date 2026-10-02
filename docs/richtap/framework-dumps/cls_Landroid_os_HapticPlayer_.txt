@@ -1,0 +1,412 @@
+﻿  Class descriptor  : 'Landroid/os/HapticPlayer;'
+  Access flags      : 0x0001 (PUBLIC)
+  Superclass        : 'Ljava/lang/Object;'
+  Interfaces        -
+  Static fields     -
+    #0              : (in Landroid/os/HapticPlayer;)
+      name          : 'TAG'
+      type          : 'Ljava/lang/String;'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : "HapticPlayer"
+    #1              : (in Landroid/os/HapticPlayer;)
+      name          : 'USAGE_DYNAMICEFFECT'
+      type          : 'I'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : -2
+    #2              : (in Landroid/os/HapticPlayer;)
+      name          : 'mExcutor'
+      type          : 'Ljava/util/concurrent/ExecutorService;'
+      access        : 0x000a (PRIVATE STATIC)
+      hiddenapi     : 0x0002 (BLOCKED)
+  Instance fields   -
+    #0              : (in Landroid/os/HapticPlayer;)
+      name          : 'displayId'
+      type          : 'I'
+      access        : 0x0012 (PRIVATE FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+    #1              : (in Landroid/os/HapticPlayer;)
+      name          : 'mAttributes'
+      type          : 'Landroid/os/VibrationAttributes;'
+      access        : 0x0002 (PRIVATE)
+      hiddenapi     : 0x0002 (BLOCKED)
+    #2              : (in Landroid/os/HapticPlayer;)
+      name          : 'mAvailable'
+      type          : 'Z'
+      access        : 0x0002 (PRIVATE)
+      hiddenapi     : 0x0002 (BLOCKED)
+    #3              : (in Landroid/os/HapticPlayer;)
+      name          : 'mEffect'
+      type          : 'Landroid/os/DynamicEffect;'
+      access        : 0x0002 (PRIVATE)
+      hiddenapi     : 0x0002 (BLOCKED)
+    #4              : (in Landroid/os/HapticPlayer;)
+      name          : 'mPackageName'
+      type          : 'Ljava/lang/String;'
+      access        : 0x0012 (PRIVATE FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+    #5              : (in Landroid/os/HapticPlayer;)
+      name          : 'mService'
+      type          : 'Landroid/os/IVibratorManagerService;'
+      access        : 0x0012 (PRIVATE FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+    #6              : (in Landroid/os/HapticPlayer;)
+      name          : 'mStarted'
+      type          : 'Z'
+      access        : 0x0002 (PRIVATE)
+      hiddenapi     : 0x0002 (BLOCKED)
+    #7              : (in Landroid/os/HapticPlayer;)
+      name          : 'mToken'
+      type          : 'Landroid/os/Binder;'
+      access        : 0x0012 (PRIVATE FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+  Direct methods    -
+    #0              : (in Landroid/os/HapticPlayer;)
+      name          : '-$$Nest$fgetdisplayId'
+      type          : '(Landroid/os/HapticPlayer;)I'
+      access        : 0x1048 (STATIC BRIDGE SYNTHETIC)
+      hiddenapi     : 0x0002 (BLOCKED)
+      code          -
+      registers     : 1
+      ins           : 1
+      outs          : 0
+      insns size    : 3 16-bit code units
+      catches       : (none)
+      positions     :
+      locals        :
+    #1              : (in Landroid/os/HapticPlayer;)
+      name          : '-$$Nest$fgetmAttributes'
+      type          : '(Landroid/os/HapticPlayer;)Landroid/os/VibrationAttributes;'
+      access        : 0x1048 (STATIC BRIDGE SYNTHETIC)
+      hiddenapi     : 0x0002 (BLOCKED)
+      code          -
+      registers     : 1
+      ins           : 1
+      outs          : 0
+      insns size    : 3 16-bit code units
+      catches       : (none)
+      positions     :
+      locals        :
+    #2              : (in Landroid/os/HapticPlayer;)
+      name          : '-$$Nest$fgetmEffect'
+      type          : '(Landroid/os/HapticPlayer;)Landroid/os/DynamicEffect;'
+      access        : 0x1048 (STATIC BRIDGE SYNTHETIC)
+      hiddenapi     : 0x0002 (BLOCKED)
+      code          -
+      registers     : 1
+      ins           : 1
+      outs          : 0
+      insns size    : 3 16-bit code units
+      catches       : (none)
+      positions     :
+      locals        :
+    #3              : (in Landroid/os/HapticPlayer;)
+      name          : '-$$Nest$fgetmPackageName'
+      type          : '(Landroid/os/HapticPlayer;)Ljava/lang/String;'
+      access        : 0x1048 (STATIC BRIDGE SYNTHETIC)
+      hiddenapi     : 0x0002 (BLOCKED)
+      code          -
+      registers     : 1
+      ins           : 1
+      outs          : 0
+      insns size    : 3 16-bit code units
+      catches       : (none)
+      positions     :
+      locals        :
+    #4              : (in Landroid/os/HapticPlayer;)
+      name          : '-$$Nest$fgetmService'
+      type          : '(Landroid/os/HapticPlayer;)Landroid/os/IVibratorManagerService;'
+      access        : 0x1048 (STATIC BRIDGE SYNTHETIC)
+      hiddenapi     : 0x0002 (BLOCKED)
+      code          -
+      registers     : 1
+      ins           : 1
+      outs          : 0
+      insns size    : 3 16-bit code units
+      catches       : (none)
+      positions     :
+      locals        :
+    #5              : (in Landroid/os/HapticPlayer;)
+      name          : '-$$Nest$fgetmToken'
+      type          : '(Landroid/os/HapticPlayer;)Landroid/os/Binder;'
+      access        : 0x1048 (STATIC BRIDGE SYNTHETIC)
+      hiddenapi     : 0x0002 (BLOCKED)
+      code          -
+      registers     : 1
+      ins           : 1
+      outs          : 0
+      insns size    : 3 16-bit code units
+      catches       : (none)
+      positions     :
+      locals        :
+    #6              : (in Landroid/os/HapticPlayer;)
+      name          : '-$$Nest$fputmStarted'
+      type          : '(Landroid/os/HapticPlayer;Z)V'
+      access        : 0x1048 (STATIC BRIDGE SYNTHETIC)
+      hiddenapi     : 0x0002 (BLOCKED)
+      code          -
+      registers     : 2
+      ins           : 2
+      outs          : 0
+      insns size    : 3 16-bit code units
+      catches       : (none)
+      positions     :
+      locals        :
+    #7              : (in Landroid/os/HapticPlayer;)
+      name          : '<clinit>'
+      type          : '()V'
+      access        : 0x10008 (STATIC CONSTRUCTOR)
+      hiddenapi     : 0x0002 (BLOCKED)
+      code          -
+      registers     : 1
+      ins           : 0
+      outs          : 0
+      insns size    : 7 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=26
+      locals        :
+    #8              : (in Landroid/os/HapticPlayer;)
+      name          : '<init>'
+      type          : '()V'
+      access        : 0x10001 (PUBLIC CONSTRUCTOR)
+      code          -
+      registers     : 3
+      ins           : 1
+      outs          : 2
+      insns size    : 58 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=37
+        0x0003 line=32
+        0x000a line=38
+        0x000d line=39
+        0x000f line=40
+        0x0015 line=41
+        0x0022 line=42
+        0x0028 line=43
+        0x0039 line=44
+      locals        :
+        0x0000 - 0x003a reg=2 this Landroid/os/HapticPlayer;
+    #9              : (in Landroid/os/HapticPlayer;)
+      name          : '<init>'
+      type          : '(Landroid/os/DynamicEffect;)V'
+      access        : 0x10001 (PUBLIC CONSTRUCTOR)
+      code          -
+      registers     : 2
+      ins           : 2
+      outs          : 2
+      insns size    : 7 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=47
+        0x0003 line=48
+        0x0006 line=49
+      locals        :
+        0x0000 - 0x0007 reg=0 this Landroid/os/HapticPlayer;
+        0x0000 - 0x0007 reg=1 effect Landroid/os/DynamicEffect;
+    #10              : (in Landroid/os/HapticPlayer;)
+      name          : 'getVersion'
+      type          : '()Ljava/lang/String;'
+      access        : 0x0009 (PUBLIC STATIC)
+      code          -
+      registers     : 2
+      ins           : 0
+      outs          : 2
+      insns size    : 10 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=71
+      locals        :
+    #11              : (in Landroid/os/HapticPlayer;)
+      name          : 'isAvailable'
+      type          : '()Z'
+      access        : 0x0009 (PUBLIC STATIC)
+      code          -
+      registers     : 2
+      ins           : 0
+      outs          : 2
+      insns size    : 27 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=61
+        0x0010 line=62
+        0x0012 line=64
+        0x0019 line=65
+      locals        :
+  Virtual methods   -
+    #0              : (in Landroid/os/HapticPlayer;)
+      name          : 'setDataSource'
+      type          : '(Landroid/os/DynamicEffect;)V'
+      access        : 0x0001 (PUBLIC)
+      code          -
+      registers     : 4
+      ins           : 2
+      outs          : 2
+      insns size    : 21 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=52
+        0x0004 line=53
+        0x0007 line=54
+        0x000a line=55
+        0x0012 line=57
+        0x0014 line=58
+      locals        :
+        0x0000 - 0x0015 reg=2 this Landroid/os/HapticPlayer;
+        0x0000 - 0x0015 reg=3 effect Landroid/os/DynamicEffect;
+    #1              : (in Landroid/os/HapticPlayer;)
+      name          : 'start'
+      type          : '()V'
+      access        : 0x0001 (PUBLIC)
+      code          -
+      registers     : 3
+      ins           : 1
+      outs          : 2
+      insns size    : 43 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=76
+        0x0006 line=77
+        0x000b line=78
+        0x000c line=79
+        0x0010 line=80
+        0x0015 line=81
+        0x0016 line=82
+        0x001a line=83
+        0x001f line=84
+        0x0020 line=87
+        0x002a line=98
+      locals        :
+        0x0000 - 0x002b reg=2 this Landroid/os/HapticPlayer;
+    #2              : (in Landroid/os/HapticPlayer;)
+      name          : 'start'
+      type          : '(I)V'
+      access        : 0x0001 (PUBLIC)
+      code          -
+      registers     : 6
+      ins           : 2
+      outs          : 2
+      insns size    : 110 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=101
+        0x0006 line=102
+        0x000b line=103
+        0x000c line=104
+        0x0010 line=105
+        0x0015 line=106
+        0x0016 line=107
+        0x001a line=108
+        0x001f line=109
+        0x0020 line=111
+        0x004b line=112
+        0x004e line=113
+        0x0055 line=114
+        0x005b line=115
+        0x005d line=117
+        0x0063 line=118
+        0x006d line=129
+      locals        :
+        0x0000 - 0x006e reg=4 this Landroid/os/HapticPlayer;
+        0x0000 - 0x006e reg=5 times I
+    #3              : (in Landroid/os/HapticPlayer;)
+      name          : 'start'
+      type          : '(III)V'
+      access        : 0x0001 (PUBLIC)
+      code          -
+      registers     : 9
+      ins           : 4
+      outs          : 2
+      insns size    : 33 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=132
+        0x0004 line=133
+        0x0006 line=134
+        0x0008 line=135
+        0x0009 line=137
+        0x000d line=138
+        0x0011 line=139
+        0x001d line=141
+        0x0020 line=142
+      locals        :
+        0x0000 - 0x0021 reg=5 this Landroid/os/HapticPlayer;
+        0x0000 - 0x0021 reg=6 loop I
+        0x0000 - 0x0021 reg=7 interval I
+        0x0000 - 0x0021 reg=8 amplitude I
+    #4              : (in Landroid/os/HapticPlayer;)
+      name          : 'start'
+      type          : '(IIII)V'
+      access        : 0x0001 (PUBLIC)
+      code          -
+      registers     : 8
+      ins           : 5
+      outs          : 4
+      insns size    : 81 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=145
+        0x0037 line=146
+        0x0047 line=147
+        0x004c line=148
+        0x004d line=150
+        0x0050 line=151
+      locals        :
+        0x0000 - 0x0051 reg=3 this Landroid/os/HapticPlayer;
+        0x0000 - 0x0051 reg=4 loop I
+        0x0000 - 0x0051 reg=5 interval I
+        0x0000 - 0x0051 reg=6 amplitude I
+        0x0000 - 0x0051 reg=7 freq I
+    #5              : (in Landroid/os/HapticPlayer;)
+      name          : 'start'
+      type          : '(Landroid/os/DynamicEffect;)V'
+      access        : 0x0001 (PUBLIC)
+      code          -
+      registers     : 4
+      ins           : 2
+      outs          : 2
+      insns size    : 44 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=210
+        0x0006 line=211
+        0x000b line=212
+        0x000c line=213
+        0x000e line=214
+        0x0013 line=215
+        0x0014 line=216
+        0x0018 line=217
+        0x001d line=218
+        0x001e line=220
+        0x0021 line=221
+        0x002b line=231
+      locals        :
+        0x0000 - 0x002c reg=2 this Landroid/os/HapticPlayer;
+        0x0000 - 0x002c reg=3 effect Landroid/os/DynamicEffect;
+    #6              : (in Landroid/os/HapticPlayer;)
+      name          : 'stop'
+      type          : '()V'
+      access        : 0x0001 (PUBLIC)
+      code          -
+      registers     : 4
+      ins           : 1
+      outs          : 2
+      insns size    : 58 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=154
+        0x0006 line=155
+        0x000b line=156
+        0x000c line=157
+        0x0010 line=158
+        0x0015 line=159
+        0x0016 line=161
+        0x002f line=162
+        0x0039 line=173
+      locals        :
+        0x0000 - 0x003a reg=3 this Landroid/os/HapticPlayer;
+  source_file_idx   : 11436 (HapticPlayer.java)
+
+Class #734            -

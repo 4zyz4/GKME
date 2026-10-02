@@ -1,0 +1,116 @@
+﻿  Class descriptor  : 'Landroid/os/DynamicEffect$PrimitiveEffect;'
+  Access flags      : 0x0001 (PUBLIC)
+  Superclass        : 'Ljava/lang/Object;'
+  Interfaces        -
+  Static fields     -
+  Instance fields   -
+    #0              : (in Landroid/os/DynamicEffect$PrimitiveEffect;)
+      name          : 'mCurves'
+      type          : 'Ljava/util/List;'
+      access        : 0x0001 (PUBLIC)
+    #1              : (in Landroid/os/DynamicEffect$PrimitiveEffect;)
+      name          : 'mDuration'
+      type          : 'I'
+      access        : 0x0001 (PUBLIC)
+    #2              : (in Landroid/os/DynamicEffect$PrimitiveEffect;)
+      name          : 'mIntensity'
+      type          : 'I'
+      access        : 0x0001 (PUBLIC)
+    #3              : (in Landroid/os/DynamicEffect$PrimitiveEffect;)
+      name          : 'mRelativeTime'
+      type          : 'I'
+      access        : 0x0001 (PUBLIC)
+    #4              : (in Landroid/os/DynamicEffect$PrimitiveEffect;)
+      name          : 'mSharpness'
+      type          : 'I'
+      access        : 0x0001 (PUBLIC)
+    #5              : (in Landroid/os/DynamicEffect$PrimitiveEffect;)
+      name          : 'mType'
+      type          : 'I'
+      access        : 0x0001 (PUBLIC)
+  Direct methods    -
+    #0              : (in Landroid/os/DynamicEffect$PrimitiveEffect;)
+      name          : '<init>'
+      type          : '()V'
+      access        : 0x10000 (CONSTRUCTOR)
+      hiddenapi     : 0x0002 (BLOCKED)
+      code          -
+      registers     : 2
+      ins           : 1
+      outs          : 1
+      insns size    : 11 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=113
+        0x0003 line=114
+        0x000a line=115
+      locals        :
+        0x0000 - 0x000b reg=1 this Landroid/os/DynamicEffect$PrimitiveEffect;
+    #1              : (in Landroid/os/DynamicEffect$PrimitiveEffect;)
+      name          : '<init>'
+      type          : '(IIIII)V'
+      access        : 0x10000 (CONSTRUCTOR)
+      hiddenapi     : 0x0002 (BLOCKED)
+      code          -
+      registers     : 6
+      ins           : 6
+      outs          : 1
+      insns size    : 14 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=118
+        0x0003 line=119
+        0x0005 line=120
+        0x0007 line=121
+        0x0009 line=122
+        0x000b line=123
+        0x000d line=124
+      locals        :
+        0x0000 - 0x000e reg=0 this Landroid/os/DynamicEffect$PrimitiveEffect;
+        0x0000 - 0x000e reg=1 type I
+        0x0000 - 0x000e reg=2 relativeTime I
+        0x0000 - 0x000e reg=3 intensity I
+        0x0000 - 0x000e reg=4 sharpness I
+        0x0000 - 0x000e reg=5 duration I
+  Virtual methods   -
+    #0              : (in Landroid/os/DynamicEffect$PrimitiveEffect;)
+      name          : 'addParameter'
+      type          : '(Landroid/os/DynamicEffect$Parameter;)Landroid/os/DynamicEffect$PrimitiveEffect;'
+      access        : 0x0001 (PUBLIC)
+      code          -
+      registers     : 4
+      ins           : 2
+      outs          : 2
+      insns size    : 8 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=127
+        0x0007 line=128
+      locals        :
+        0x0000 - 0x0008 reg=2 this Landroid/os/DynamicEffect$PrimitiveEffect;
+        0x0000 - 0x0008 reg=3 param Landroid/os/DynamicEffect$Parameter;
+    #1              : (in Landroid/os/DynamicEffect$PrimitiveEffect;)
+      name          : 'equals'
+      type          : '(Ljava/lang/Object;)Z'
+      access        : 0x0001 (PUBLIC)
+      hiddenapi     : 0x0030 (SDK,CORE-PLATFORM-API,TEST-API)
+      code          -
+      registers     : 6
+      ins           : 2
+      outs          : 2
+      insns size    : 38 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=133
+        0x0003 line=134
+        0x0004 line=136
+        0x0007 line=137
+        0x001d line=140
+        0x0025 line=137
+      locals        :
+        0x0007 - 0x0026 reg=1 other Landroid/os/DynamicEffect$PrimitiveEffect;
+        0x0000 - 0x0026 reg=4 this Landroid/os/DynamicEffect$PrimitiveEffect;
+        0x0000 - 0x0026 reg=5 obj Ljava/lang/Object;
+  source_file_idx   : 8363 (DynamicEffect.java)
+
+Class #725            -

@@ -1,0 +1,79 @@
+Summary for C:\Users\4zyz4\Desktop\DEV\RichTapDynamics\app\libs\extract\classes.jar
+Decompiled with CFR 0.152
+
+
+com.apprichtap.haptic.RichTapPlayer
+----------------------------
+
+isPlayerTypeAvailable(int )
+  Unable to fully structure code
+
+
+com.apprichtap.haptic.RichTapUtils
+----------------------------
+
+init(android.content.Context )
+  Unable to fully structure code
+quit()
+  Unable to fully structure code
+run()
+  Unable to fully structure code
+
+
+com.apprichtap.haptic.base.b
+----------------------------
+
+c(java.lang.String )
+  Unable to fully structure code
+d(java.lang.String )
+  Unable to fully structure code
+a(java.lang.String double )
+  Exception : org.benf.cfr.reader.util.ConfusedCFRException: Tried to end blocks [26[UNCONDITIONALDOLOOP]], but top level block is 21[TRYBLOCK]
+g(java.lang.String int )
+  Unable to fully structure code
+  Could not resolve type clashes
+f(java.lang.String int )
+  Exception : org.benf.cfr.reader.util.ConfusedCFRException: Tried to end blocks [24[UNCONDITIONALDOLOOP]], but top level block is 12[TRYBLOCK]
+g(java.lang.String )
+  Exception : org.benf.cfr.reader.util.ConfusedCFRException: Tried to end blocks [44[UNCONDITIONALDOLOOP], 41[UNCONDITIONALDOLOOP]], but top level block is 38[TRYBLOCK]
+a(java.lang.String int int int int int boolean )
+  Exception : org.benf.cfr.reader.util.ConfusedCFRException: Tried to end blocks [39[TRYBLOCK]], but top level block is 104[UNCONDITIONALDOLOOP]
+
+
+com.apprichtap.haptic.base.e
+----------------------------
+
+a(java.lang.String java.lang.String )
+  Exception : org.benf.cfr.reader.util.ConfusedCFRException: Back jump on a try block [egrp 11[TRYBLOCK] [21 : 165->175)] java.lang.Throwable
+a(java.io.File )
+  Unable to fully structure code
+
+
+com.apprichtap.haptic.player.CustomizableHapticPlayer
+----------------------------
+
+handleMessage(android.os.Message )
+  Exception : org.benf.cfr.reader.util.ConfusedCFRException: Tried to end blocks [57[CASE]], but top level block is 5[TRYBLOCK]
+
+
+com.apprichtap.haptic.player.b
+----------------------------
+
+start(java.lang.String )
+  Unable to fully structure code
+
+
+com.apprichtap.haptic.player.d
+----------------------------
+
+b()
+  Unable to fully structure code
+a()
+  Exception : org.benf.cfr.reader.util.ConfusedCFRException: Back jump on a try block [egrp 1[TRYBLOCK] [2 : 15->22)] java.lang.Throwable
+
+
+com.richtap.sdk.network.RTAPIService
+----------------------------
+
+run()
+  Unable to fully structure code

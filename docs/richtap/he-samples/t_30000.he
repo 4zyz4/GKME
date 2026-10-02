@@ -1,0 +1,1 @@
+{"Metadata":{"Created":"gkme","Description":"hd","Version":1},"Pattern":[{"Event":{"Type":"continuous","RelativeTime":0,"Duration":30000,"Parameters":{"Frequency":50,"Intensity":100,"Curve":[{"Frequency":0.0,"Intensity":1.0,"Time":0},{"Frequency":0.0,"Intensity":1.0,"Time":3750},{"Frequency":0.0,"Intensity":1.0,"Time":26250},{"Frequency":0.0,"Intensity":1.0,"Time":30000}]}}}]}

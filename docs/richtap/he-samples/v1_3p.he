@@ -1,0 +1,1 @@
+{"Metadata":{"Created":"p","Description":"p","Version":1},"Pattern":[{"Event":{"Type":"continuous","RelativeTime":0,"Duration":400,"Parameters":{"Frequency":60,"Intensity":80,"Curve":[{"Frequency":0,"Intensity":0.0,"Time":0},{"Frequency":0,"Intensity":1.0,"Time":200},{"Frequency":0,"Intensity":0.0,"Time":400}]}}}]}

@@ -14,6 +14,8 @@ also. **G**eneral **K**ey **M**apping **E**ngine
 
 软件QQ群：639317971
 
+开发者内部架构文档见 [`docs/`](docs/README.md)（协议、传输、输入、UI、震动、被控端与原生等）。
+
 ---
 
 ## 功能特性

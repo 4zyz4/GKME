@@ -1,0 +1,9 @@
+-dontwarn com.richtap.sdk.network.**
+-keep class com.richtap.sdk.network.** { *; }
+
+-keep class com.apprichtap.haptic.**{*;}
+-keep class com.sysrichtap.haptic.**{*;}
+-keep class android.os.DynamicEffect{*;}
+-keep class android.os.HapticPlayer{*;}
+-dontwarn android.os.VibrationAttributes
+-dontwarn android.os.VibrationEffect$Composition

@@ -317,12 +317,18 @@ adb logcat -d | grep -iE 'vibratorfeature|DynamicEffectThread|AACTrack|AGM|gsl'
 
 ---
 
-## 7. 附件（本次实验文件位置）
-- 探针与产物：`%TEMP%\opencode\haptic\`（`HapticProbe.java`、`hp.jar`、`v1_4p.he`、`sweep.he`、`f0.he`/`f100.he` 等）
-- 反编译源码：`%TEMP%\opencode\richtap_src\`
-- 框架 dex/dump：`%TEMP%\opencode\fw\`
-- 逆向工程仓库：`C:\Users\4zyz4\Desktop\DEV\RichTapDynamics`
-- 设备预置效果表：`/vendor/etc/Hapticsconfig.xml`
+## 7. 附件（已随仓库持久化）
+- 附件索引与说明：[`richtap/README.md`](richtap/README.md)
+- 探针源码：`richtap/probes/`（`HapticProbe.java`、`HeInfo.java`、`HeRec.java`、`HeStream.java` 等）
+- 脚本：`richtap/scripts/`（`gen_he.py`、`pcm_to_he.py`、`analyze_rec.py`、`mkjar.ps1` 等）
+- HE 样例：`richtap/he-samples/`（`v1_4p.he`、`sweep.he`、`f0.he`/`f100.he`、`he/*.json` 等）
+- 反编译源码：`richtap/decompiled/`
+- 框架隐藏类 dump：`richtap/framework-dumps/`
+- 逆向工程产物：`richtap/richtapdynamics-extract/`（原 `RichTapDynamics/app/libs/extract`）
+- 设备预置效果表：`richtap/Hapticsconfig.xml`（原 `/vendor/etc/Hapticsconfig.xml`）
+
+> 原始录音（`.pcm`/`.f32`，约 55MB）、编译产物（`jar/dex/class`）与框架全量 dump（约 488MB）体积过大，
+> 未纳入仓库；复现命令见 §6。
 
 ---
 
@@ -375,7 +381,7 @@ LRA 是**窄带共振器**（本机 f0≈170Hz，Q≈10），无法复现宽带�
   （N=17×事件数）/ `AACTrack created` / `Hed process Ok`；失败时看 `Invalid time param` /
   `Hed first frame get fail` / `no track has data left`。
 - 麦克风录音信噪比差（系统性噪声，多次平均无效），**不足以验证细粒度时序**；以此交叉验证。
-- 探针与产物：`%TEMP%\opencode\haptic\`（`HeInfo`、`HeRec`、`HeStream`、`pcm_to_he.py`、`analyze_rec.py`）。
+- 探针与产物：见 [`richtap/README.md`](richtap/README.md)（`probes/` 含 `HeInfo`、`HeRec`、`HeStream`；`scripts/` 含 `pcm_to_he.py`、`analyze_rec.py`）。
 
 ### 9.5 延迟、代价与边界
 > 延迟是第一优先级：**分块时长 = 每次起振的首帧延迟**。原 `50 × 16 ≈ 0.8s` 太大，
