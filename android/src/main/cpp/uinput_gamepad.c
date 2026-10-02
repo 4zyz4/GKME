@@ -104,6 +104,8 @@ typedef struct {
     pthread_mutex_t lock;
     int left;  /* 0..32767 */
     int right; /* 0..32767 */
+    /* 为 0 时仍暴露 FF 能力，但忽略震动数据（本机模式，避免回环）。 */
+    int rumble_enabled;
     unsigned char has_effect[GKME_MAX_FF];
     unsigned char playing[GKME_MAX_FF];
     struct ff_effect effects[GKME_MAX_FF];
@@ -307,13 +309,13 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeCreate(JNIEnv *env, jcla
         }
     }
 
+    /* 始终暴露 FF 能力：即便本机模式也要在系统/游戏里显示为带震动的设备，
+     * 是否把震动数据转发到手机由 rumbleEnabled（存于 dev->rumble_enabled）决定。 */
     uint32_t ff_max = 0;
-    if (rumbleEnabled) {
-        if (ioctl(fd, GKME_UI_SET_EVBIT, EV_FF) == 0 &&
-            ioctl(fd, GKME_UI_SET_FFBIT, FF_RUMBLE) == 0) {
-            ioctl(fd, GKME_UI_SET_FFBIT, FF_GAIN);
-            ff_max = GKME_MAX_FF;
-        }
+    if (ioctl(fd, GKME_UI_SET_EVBIT, EV_FF) == 0 &&
+        ioctl(fd, GKME_UI_SET_FFBIT, FF_RUMBLE) == 0) {
+        ioctl(fd, GKME_UI_SET_FFBIT, FF_GAIN);
+        ff_max = GKME_MAX_FF;
     }
 
     struct gkme_uinput_setup setup;
@@ -345,6 +347,7 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeCreate(JNIEnv *env, jcla
         return -ENOMEM;
     }
     dev->fd = fd;
+    dev->rumble_enabled = rumbleEnabled ? 1 : 0;
     dev->running = ff_max > 0 ? 1 : 0;
     pthread_mutex_init(&dev->lock, NULL);
     gkme_store_dev(fd, dev);
@@ -416,7 +419,7 @@ JNIEXPORT jlong JNICALL
 Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeRumble(JNIEnv *env, jclass clazz,
                                                               jint fd) {
     gkme_dev *dev = gkme_get_dev(fd);
-    if (!dev) return 0;
+    if (!dev || !dev->rumble_enabled) return 0;
     int left, right;
     pthread_mutex_lock(&dev->lock);
     left = dev->left;

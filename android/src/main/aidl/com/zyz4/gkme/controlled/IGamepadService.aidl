@@ -3,12 +3,23 @@
 package com.zyz4.gkme.controlled;
 
 interface IGamepadService {
-    /** 创建虚拟手柄，返回 0 表示成功，负数表示 -errno。 */
-    int create(boolean rumbleEnabled) = 1;
+    /**
+     * 创建虚拟手柄，返回 0 表示成功，负数表示 -errno。
+     * backend：0 = uinput（伪装 Xbox One S），1 = uhid（真实 HID 身份）。
+     * profile：backend=uhid 时选择身份，1 = DualShock 4，2 = DualSense，3 = Switch Pro。
+     * rumbleEnabled：是否把虚拟手柄的震动数据转发回控制端/手机。FF 能力始终暴露，
+     *   本机模式传 false 以忽略震动数据，避免“手机震动 ↔ 虚拟手柄”回环。
+     */
+    int create(int backend, int profile, boolean rumbleEnabled) = 1;
 
-    /** 写入一次手柄状态；buttons 使用 XInput wButtons 掩码。 */
+    /**
+     * 写入一次手柄状态；buttons 使用 XInput wButtons 掩码。
+     * gyro/accel 为运动传感器数据（rad/s、m/s²），仅 uhid 手柄使用；uinput 忽略。
+     */
     void update(int buttons, int leftTrigger, int rightTrigger,
-                int leftX, int leftY, int rightX, int rightY) = 2;
+                int leftX, int leftY, int rightX, int rightY,
+                float gyroX, float gyroY, float gyroZ,
+                float accelX, float accelY, float accelZ) = 2;
 
     /** 读取待回传的震动，高 16 位为左马达、低 16 位为右马达（0..32767）。无震动返回 0。 */
     long pumpRumble() = 3;

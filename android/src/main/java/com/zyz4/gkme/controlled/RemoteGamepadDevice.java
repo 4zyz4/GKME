@@ -69,4 +69,34 @@ public final class RemoteGamepadDevice {
 
     /** 销毁键盘/鼠标 uinput 设备（与手柄的 nativeDestroy 区分）。 */
     public static native void nativeDestroyInput(int fd);
+
+    // ── uhid 后端（真实 HID 身份，经 /dev/uhid）──────────────────────────
+
+    /**
+     * 通过 /dev/uhid 创建真实 HID 手柄，返回 fd（负数表示 -errno）。
+     *
+     * @param profile 1 = DualShock 4，2 = DualSense，3 = Switch Pro
+     */
+    public static native int nativeCreateUhid(int profile, int rumbleEnabled);
+
+    public static native void nativeWriteUhid(int fd, int buttons, int leftTrigger,
+                                              int rightTrigger, int leftX, int leftY,
+                                              int rightX, int rightY,
+                                              float gyroX, float gyroY, float gyroZ,
+                                              float accelX, float accelY, float accelZ);
+
+    public static native long nativeRumbleUhid(int fd);
+
+    public static native void nativeDestroyUhid(int fd);
+
+    public static native int nativeCreateKeyboardUhid();
+
+    public static native void nativeWriteKeyboardUhid(int fd, int modifiers, int[] usages);
+
+    public static native int nativeCreateMouseUhid();
+
+    public static native void nativeWriteMouseUhid(int fd, int dx, int dy, int wheel, int pan,
+                                                   int buttons);
+
+    public static native void nativeDestroyUhidInput(int fd);
 }

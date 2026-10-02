@@ -16,6 +16,8 @@ import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.model.TargetPlatform
 import com.zyz4.gkme.model.VibrationDeviceType
 import com.zyz4.gkme.model.gameVibrationDeviceFor
+import com.zyz4.gkme.model.virtualGamepadNativeBackend
+import com.zyz4.gkme.model.virtualGamepadUhidProfile
 import com.zyz4.gkme.model.voiceCoilDeviceFor
 import com.zyz4.gkme.proto.ClientToServer
 import com.zyz4.gkme.proto.GamepadInput
@@ -138,6 +140,10 @@ class ConnectionManager @Inject constructor(
             settingsRepository.settings.first()
         }
         PhoneHdHaptics.enabled = _settings.value.hdVibrationEnabled
+        GamepadInjector.configure(
+            _settings.value.virtualGamepadNativeBackend(),
+            _settings.value.virtualGamepadUhidProfile(),
+        )
         applyEffectiveAudioSettings()
         audioPlaybackService.onControllerMotorOutput = { controllerIndex, leftAmp, rightAmp ->
             onControllerVibrationRequest?.invoke(controllerIndex, leftAmp, rightAmp)
@@ -159,6 +165,10 @@ class ConnectionManager @Inject constructor(
 
     fun updateSettings(newSettings: AppSettings) {
         _settings.value = newSettings
+        GamepadInjector.configure(
+            newSettings.virtualGamepadNativeBackend(),
+            newSettings.virtualGamepadUhidProfile(),
+        )
         if (PhoneHdHaptics.enabled != newSettings.hdVibrationEnabled) {
             if (!newSettings.hdVibrationEnabled) {
                 PhoneHdHaptics.stop()

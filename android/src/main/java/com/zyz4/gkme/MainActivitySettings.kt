@@ -48,6 +48,7 @@ import com.zyz4.gkme.model.AdaptiveTriggerDevice
 import com.zyz4.gkme.model.AdaptiveTriggerTargetType
 import com.zyz4.gkme.model.ConnectionMode
 import com.zyz4.gkme.model.ControlType
+import com.zyz4.gkme.model.VirtualGamepadType
 import com.zyz4.gkme.controlled.ControlledActivity
 import com.zyz4.gkme.controlled.GamepadInjector
 import com.zyz4.gkme.controlled.HapticInjector
@@ -530,6 +531,14 @@ internal fun MainActivity.setupSettings() {
                     a.selectChipGroup(targetChipIds, idx)
                     a.viewModel.switchTargetPlatform(platform)
                 })
+        }
+    }
+
+    val vgTypeChipIds = listOf(R.id.btnVgXbox, R.id.btnVgDs4, R.id.btnVgDualsense, R.id.btnVgSwitch)
+    vgTypeChipIds.forEachIndexed { idx, id ->
+        a.findViewById<Button>(id).setOnClickListener {
+            a.selectChipGroup(vgTypeChipIds, idx)
+            a.viewModel.updateVirtualGamepadType(VirtualGamepadType.entries[idx])
         }
     }
 
@@ -1654,8 +1663,8 @@ internal fun MainActivity.startLocalMode() {
 internal fun MainActivity.tryStartLocalVirtualDevice(): Boolean {
     val a = this
     if (!a.localStartPending) return false
-    // 本机模式：不暴露震动能力（避免手机震动被重定向到虚拟手柄形成死循环），
-    // 也不创建虚拟鼠标（避免与屏幕触摸冲突）。
+    // 本机模式：仍暴露 FF（系统/游戏视其为带震动的设备），但忽略震动数据（避免手机
+    // 震动 ↔ 虚拟手柄死循环），也不创建虚拟鼠标（避免与屏幕触摸冲突）。
     if (!GamepadInjector.ensureReady(rumble = false, mouse = false)) {
         a.updateShizukuEntry()
         if (GamepadInjector.permissionDenied) {
@@ -1956,6 +1965,10 @@ internal fun MainActivity.updateSettingsVisibility(mode: ConnectionMode) {
     a.findViewById<View>(R.id.sectionControlType).visibility = if (isWifi) View.VISIBLE else View.GONE
     a.findViewById<View>(R.id.tvServerIp).visibility = if (isWifi) View.VISIBLE else View.GONE
     a.findViewById<View>(R.id.sectionShizuku).visibility = if (isLocal) View.VISIBLE else View.GONE
+    val showVirtualGamepad =
+        isLocal || (isWifi && a.viewModel.settings.value.controlType == ControlType.CONTROLLED)
+    a.findViewById<View>(R.id.sectionVirtualGamepad).visibility =
+        if (showVirtualGamepad) View.VISIBLE else View.GONE
     if (isLocal) {
         a.startShizukuPolling()
     } else {
@@ -2021,6 +2034,10 @@ internal fun MainActivity.syncSettingsUI() {
         R.id.btnTargetWindows, R.id.btnTargetAndroid, R.id.btnTargetLinux,
         R.id.btnTargetAndroidGamepad, R.id.btnTargetUniversalKm, R.id.btnTargetWindowsGamepad
     ), TargetPlatform.entries.indexOf(s.targetPlatform).coerceAtLeast(0))
+    a.selectChipGroup(
+        listOf(R.id.btnVgXbox, R.id.btnVgDs4, R.id.btnVgDualsense, R.id.btnVgSwitch),
+        VirtualGamepadType.entries.indexOf(s.virtualGamepadType).coerceAtLeast(0)
+    )
     val pollingRateOptions = listOf(30, 45, 60, 90, 100, 120, 200, 250, 300, 500, 750, 1000)
     val pollingRateIndex = pollingRateOptions.indexOf(s.pollingRate)
     if (pollingRateIndex >= 0) {

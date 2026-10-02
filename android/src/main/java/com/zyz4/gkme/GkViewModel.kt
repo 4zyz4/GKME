@@ -33,6 +33,7 @@ import com.zyz4.gkme.model.LayoutPreset
 import com.zyz4.gkme.model.LedAppearance
 import com.zyz4.gkme.model.PhysicalInputs
 import com.zyz4.gkme.model.TargetPlatform
+import com.zyz4.gkme.model.VirtualGamepadType
 import com.zyz4.gkme.model.VibrationDevice
 import com.zyz4.gkme.model.TouchPoint
 import com.zyz4.gkme.model.VibrationType
@@ -312,6 +313,10 @@ class GkViewModel @Inject constructor(
 
     fun switchTargetPlatform(platform: TargetPlatform) {
         connectionManager.switchTargetPlatform(platform)
+    }
+
+    fun updateVirtualGamepadType(type: VirtualGamepadType) {
+        connectionManager.updateSettings(settings.value.copy(virtualGamepadType = type))
     }
 
     fun createDefaultLayout(): LayoutPreset {

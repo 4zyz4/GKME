@@ -121,13 +121,21 @@ constexpr Uint64 HIDAPI_PREFER_MS = 3000;
 // may not support them, so fall back to the Android driver sooner.
 constexpr Uint64 HIDAPI_PREFER_SHORT_MS = 2000;
 
-// GKME's own uinput virtual gamepad (see uinput_gamepad.c). It registers as a normal
-// Android joystick/gamepad, so SDL enumerates it too; skip it here or the app would
-// read its own injected input back and treat it as a physical controller. The
-// name/vendor/product must match VirtualGamepad.kt and uinput_gamepad.c.
-constexpr Uint16 GKME_VIRTUAL_VENDOR = 0x045E;
-constexpr Uint16 GKME_VIRTUAL_PRODUCT = 0x02FD;
-constexpr const char *GKME_VIRTUAL_NAME = "Xbox One S Controller";
+// GKME's own virtual gamepads (uinput: uinput_gamepad.c; uhid: uhid_input.c). They
+// register as normal Android joystick/gamepad devices, so SDL enumerates them too; skip
+// them here or the app would read its own injected input back and treat it as a physical
+// controller. The uhid devices reuse real controller vendor/product IDs and SDL rewrites
+// device names, so match on the vendor/product pair only. Exclusion is enabled only while
+// GKME is actually running a virtual gamepad, so a real controller of the same model is
+// not hidden the rest of the time. Keys must match VirtualGamepad.kt.
+constexpr Uint32 GKME_VIRTUAL_KEYS[] = {
+    (0x045Eu << 16) | 0x02FDu, // uinput: Xbox One S
+    (0x054Cu << 16) | 0x09CCu, // uhid: DualShock 4
+    (0x054Cu << 16) | 0x0CE6u, // uhid: DualSense
+    (0x057Eu << 16) | 0x2009u, // uhid: Switch Pro
+};
+
+std::atomic<bool> g_excludeVirtualGamepads{false};
 
 std::mutex g_mutex;
 std::vector<Entry> g_gamepads;
@@ -212,15 +220,22 @@ bool isUsbDevice(Uint32 key) {
     return g_usbDeviceKeys.find(key) != g_usbDeviceKeys.end();
 }
 
-// True when SDL's device corresponds to GKME's own uinput virtual gamepad. Such a
-// device must never be exposed to the app as a physical controller.
+// True when SDL's device corresponds to one of GKME's own virtual gamepads. Such a
+// device must never be exposed to the app as a physical controller. Matches on the
+// vendor/product pair only (SDL rewrites device names), and only while exclusion is
+// enabled.
 bool isGkmeVirtualGamepad(SDL_JoystickID id) {
-    if (SDL_GetGamepadVendorForID(id) != GKME_VIRTUAL_VENDOR ||
-        SDL_GetGamepadProductForID(id) != GKME_VIRTUAL_PRODUCT) {
+    if (!g_excludeVirtualGamepads.load()) {
         return false;
     }
-    const char *name = SDL_GetGamepadNameForID(id);
-    return name != nullptr && SDL_strcmp(name, GKME_VIRTUAL_NAME) == 0;
+    const Uint32 key = (static_cast<Uint32>(SDL_GetGamepadVendorForID(id)) << 16) |
+                       static_cast<Uint32>(SDL_GetGamepadProductForID(id));
+    for (Uint32 known : GKME_VIRTUAL_KEYS) {
+        if (known == key) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void applyHints() {
@@ -1049,6 +1064,14 @@ Java_com_zyz4_gkme_input_SdlNative_nativeSetUsbDeviceIds(JNIEnv *env, jobject th
         g_usbDeviceKeys.insert(static_cast<Uint32>(values[i]));
     }
     env->ReleaseIntArrayElements(keys, values, JNI_ABORT);
+}
+
+JNIEXPORT void JNICALL
+Java_com_zyz4_gkme_input_SdlNative_nativeSetVirtualGamepadExclusion(JNIEnv *env, jobject thiz,
+                                                                    jboolean enabled) {
+    (void) env;
+    (void) thiz;
+    g_excludeVirtualGamepads.store(enabled == JNI_TRUE);
 }
 
 // ── SDL audio output (phone speaker path) ──

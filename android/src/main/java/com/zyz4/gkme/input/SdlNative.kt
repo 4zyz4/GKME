@@ -89,6 +89,13 @@ object SdlNative {
      */
     external fun nativeSetUsbDeviceIds(keys: IntArray)
 
+    /**
+     * Enables/disables hiding GKME's own virtual gamepads (uinput/uhid) from SDL.
+     * Should be enabled only while a virtual gamepad is actually running, so a real
+     * controller sharing the same vendor/product is not hidden.
+     */
+    external fun nativeSetVirtualGamepadExclusion(enabled: Boolean)
+
     // ── SDL audio output (phone speaker path) ──
 
     /** Initialises (or reuses) the SDL audio subsystem. Safe to call repeatedly. */

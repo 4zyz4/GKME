@@ -22,6 +22,7 @@ import com.zyz4.gkme.model.GyroActivateMode
 import com.zyz4.gkme.model.HapticEffect
 import com.zyz4.gkme.model.LedAppearance
 import com.zyz4.gkme.model.TargetPlatform
+import com.zyz4.gkme.model.VirtualGamepadType
 import com.zyz4.gkme.model.AudioDevice
 import com.zyz4.gkme.model.AudioDeviceType
 import com.zyz4.gkme.model.VibrationDevice
@@ -46,6 +47,10 @@ class SettingsRepository @Inject constructor(
         val CONNECTION_MODE = intPreferencesKey("connection_mode")
         val CONTROL_TYPE = intPreferencesKey("control_type")
         val TARGET_PLATFORM = intPreferencesKey("target_platform")
+        val VIRTUAL_GAMEPAD_TYPE = intPreferencesKey("virtual_gamepad_type")
+        // 旧版本遗留键，仅用于一次性迁移到 VIRTUAL_GAMEPAD_TYPE。
+        val LEGACY_VIRTUAL_GAMEPAD_BACKEND = intPreferencesKey("virtual_gamepad_backend")
+        val LEGACY_UHID_PROFILE = intPreferencesKey("uhid_profile")
         val POLLING_RATE = intPreferencesKey("polling_rate")
         val DEVICE_NAME = stringPreferencesKey("device_name")
         val CURRENT_PRESET_NAME = stringPreferencesKey("current_preset_name")
@@ -164,6 +169,17 @@ class SettingsRepository @Inject constructor(
             targetPlatform = TargetPlatform.entries.getOrElse(
                 prefs[Keys.TARGET_PLATFORM] ?: 0
             ) { TargetPlatform.WINDOWS },
+            virtualGamepadType = prefs[Keys.VIRTUAL_GAMEPAD_TYPE]?.let { v ->
+                VirtualGamepadType.entries.getOrElse(v) { VirtualGamepadType.XBOX_ONE_S }
+            } ?: run {
+                val legacyBackend = prefs[Keys.LEGACY_VIRTUAL_GAMEPAD_BACKEND] ?: 0
+                val legacyProfile = prefs[Keys.LEGACY_UHID_PROFILE] ?: 0
+                if (legacyBackend == 1) when (legacyProfile) {
+                    1 -> VirtualGamepadType.DUALSENSE
+                    2 -> VirtualGamepadType.SWITCH_PRO
+                    else -> VirtualGamepadType.DS4
+                } else VirtualGamepadType.XBOX_ONE_S
+            },
             pollingRate = prefs[Keys.POLLING_RATE] ?: 120,
             deviceName = prefs[Keys.DEVICE_NAME] ?: "GKME",
             currentPresetName = prefs[Keys.CURRENT_PRESET_NAME] ?: "完整控制器",
@@ -313,6 +329,7 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.CONNECTION_MODE] = settings.connectionMode.ordinal
             prefs[Keys.CONTROL_TYPE] = settings.controlType.ordinal
             prefs[Keys.TARGET_PLATFORM] = settings.targetPlatform.ordinal
+            prefs[Keys.VIRTUAL_GAMEPAD_TYPE] = settings.virtualGamepadType.ordinal
             prefs[Keys.POLLING_RATE] = settings.pollingRate
             prefs[Keys.DEVICE_NAME] = settings.deviceName
             prefs[Keys.CURRENT_PRESET_NAME] = settings.currentPresetName

@@ -2,6 +2,8 @@ package com.zyz4.gkme.controlled
 
 import android.content.Context
 import android.util.Log
+import com.zyz4.gkme.input.SdlNative
+import com.zyz4.gkme.input.VirtualGamepad
 import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.proto.GamepadInput
 
@@ -37,6 +39,13 @@ object GamepadInjector {
     @Volatile
     private var mouseEnabled = true
 
+    /** 当前虚拟手柄后端（0 = uinput，1 = uhid）与 uhid 身份（1 = DS4，2 = DualSense，3 = Switch Pro）。 */
+    @Volatile
+    private var backend = 0
+
+    @Volatile
+    private var profile = 1
+
     /** 虚拟键盘/鼠标的懒创建状态；仅在收到对应输入时创建。 */
     @Volatile
     private var keyboardCreated = false
@@ -69,12 +78,12 @@ object GamepadInjector {
             serviceClass = RemoteGamepadService::class.java,
             onConnected = { binder ->
                 service = IGamepadService.Stub.asInterface(binder)
-                created = false
+                setCreated(false)
                 lastError = null
             },
             onDisconnected = {
                 service = null
-                created = false
+                setCreated(false)
                 resetKeyboardMouse()
             },
         )
@@ -86,6 +95,34 @@ object GamepadInjector {
         binding?.requestPermission(force)
     }
 
+    /**
+     * 同步当前设置中的虚拟手柄类型（由 ConnectionManager 在设置变化时调用）。
+     *
+     * 若虚拟手柄当前已创建，会立即销毁并按新配置重建，保证切换设备类型后及时生效，
+     * 无需等到下次 [ensureReady]。
+     */
+    @Synchronized
+    fun configure(backendId: Int, profileId: Int) {
+        if (backend == backendId && profile == profileId) return
+        backend = backendId
+        profile = profileId
+        val svc = service
+        if (!created || svc == null) return
+        release()
+        try {
+            val r = svc.create(backend, profile, rumbleEnabled)
+            if (r == 0) {
+                setCreated(true)
+                lastError = null
+            } else {
+                lastError = "创建虚拟手柄失败 (code=$r)，可能需要以 root 启动 Shizuku"
+            }
+        } catch (t: Throwable) {
+            setCreated(false)
+            lastError = "创建虚拟手柄异常: ${t.message}"
+        }
+    }
+
     fun ensureBound() {
         binding?.ensureBound()
     }
@@ -94,12 +131,19 @@ object GamepadInjector {
      * 确保虚拟手柄已就绪。若 Shizuku 未运行/未授权/未绑定，则返回 false 并触发相应流程，
      * 调用方可稍后重试。
      *
-     * @param rumble 是否让虚拟手柄暴露震动（FF）能力。本机模式下必须为 false：系统会把
-     *   手机震动重定向到带 FF 的虚拟手柄，而虚拟手柄的震动又用手机马达，形成死循环。
+     * @param rumble 是否把虚拟手柄的震动数据转发回控制端/手机。FF 能力始终暴露（系统
+     *   与游戏仍视其为带震动的设备）；本机模式传 false 以忽略震动数据，避免手机马达
+     *   与虚拟手柄之间形成死循环。
      * @param mouse 是否按需创建虚拟鼠标。本机模式下必须为 false：虚拟鼠标会与屏幕触摸
      *   输入冲突。
      */
-    fun ensureReady(rumble: Boolean = true, mouse: Boolean = true): Boolean {
+    @Synchronized
+    fun ensureReady(
+        rumble: Boolean = true,
+        mouse: Boolean = true,
+        backendId: Int = backend,
+        profileId: Int = profile,
+    ): Boolean {
         val b = binding
         if (b == null || !b.binderAlive) {
             lastError = "Shizuku 未运行"
@@ -119,16 +163,22 @@ object GamepadInjector {
             return false
         }
         if (created) {
-            if (rumbleEnabled == rumble && mouseEnabled == mouse) return true
-            // 配置发生变化（例如从被控端切到本机模式）：销毁后按新配置重建。
+            if (rumbleEnabled == rumble && mouseEnabled == mouse &&
+                backend == backendId && profile == profileId
+            ) {
+                return true
+            }
+            // 配置发生变化（例如切换后端/身份、从被控端切到本机模式）：销毁后按新配置重建。
             release()
         }
         rumbleEnabled = rumble
         mouseEnabled = mouse
+        backend = backendId
+        profile = profileId
         return try {
-            val r = svc.create(rumble)
+            val r = svc.create(backendId, profileId, rumble)
             if (r == 0) {
-                created = true
+                setCreated(true)
                 lastError = null
                 true
             } else {
@@ -159,8 +209,23 @@ object GamepadInjector {
                 }
             }
         }
-        created = false
+        setCreated(false)
         resetKeyboardMouse()
+    }
+
+    /**
+     * 更新虚拟手柄的创建状态，并同步“隐藏 GKME 自身虚拟手柄”的开关。
+     *
+     * SDL 会改写设备名，且 uhid 手柄复用真实手柄的 vendor/product，所以排除只能按
+     * vendor/product，且仅在虚拟手柄确实运行时启用，避免隐藏同型号的真实手柄。
+     */
+    private fun setCreated(value: Boolean) {
+        created = value
+        try {
+            VirtualGamepad.virtualGamepadActive = value
+            SdlNative.nativeSetVirtualGamepadExclusion(value)
+        } catch (_: Throwable) {
+        }
     }
 
     /** 重置虚拟键盘/鼠标的懒创建状态（服务断开或释放后调用）。 */
@@ -183,6 +248,12 @@ object GamepadInjector {
                 input.leftStickY,
                 input.rightStickX,
                 input.rightStickY,
+                input.gyroX,
+                input.gyroY,
+                input.gyroZ,
+                input.accelX,
+                input.accelY,
+                input.accelZ,
             )
         } catch (_: Throwable) {
         }
@@ -293,7 +364,7 @@ object GamepadInjector {
         binding?.detach()
         binding = null
         service = null
-        created = false
+        setCreated(false)
         rumbleEnabled = true
         mouseEnabled = true
         resetKeyboardMouse()

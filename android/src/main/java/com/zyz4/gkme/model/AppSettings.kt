@@ -15,6 +15,20 @@ enum class ControlType(val displayName: String) {
 
 enum class TargetPlatform { WINDOWS, ANDROID, LINUX, ANDROID_GAMEPAD_ONLY, UNIVERSAL_KM, WINDOWS_GAMEPAD_ONLY }
 
+/** Shizuku 被控端/本机模式模拟的手柄类型。Xbox 走 uinput 后端，其余走 uhid 真实 HID。 */
+enum class VirtualGamepadType(
+    val displayName: String,
+    /** Native 后端 id：0 = uinput，1 = uhid（与 IGamepadService.create 的 backend 对应）。 */
+    val nativeBackend: Int,
+    /** uhid 身份 id：1 = DualShock 4，2 = DualSense，3 = Switch Pro；uinput 时忽略。 */
+    val uhidProfileId: Int,
+) {
+    XBOX_ONE_S("Xbox One S", 0, 0),
+    DS4("DualShock 4", 1, 1),
+    DUALSENSE("DualSense", 1, 2),
+    SWITCH_PRO("Switch Pro", 1, 3),
+}
+
 enum class DisplayMode { XBOX, PLAYSTATION, SWITCH }
 
 /** Which low-level stack drives the physical gamepads. */
@@ -173,6 +187,8 @@ data class AppSettings(
     /** WiFi 模式下的角色（控制端 / 被控端）。 */
     val controlType: ControlType = ControlType.CONTROLLER,
     val targetPlatform: TargetPlatform = TargetPlatform.WINDOWS,
+    /** Shizuku 模拟的手柄类型（仅影响本机模式与被控端模式）。 */
+    val virtualGamepadType: VirtualGamepadType = VirtualGamepadType.XBOX_ONE_S,
     val displayMode: DisplayMode = DisplayMode.XBOX,
     val pollingRate: Int = 120,
     val wifiServerIp: String = "",
@@ -326,3 +342,9 @@ fun AppSettings.gyroSourceFor(connected: Boolean): GyroSource {
         else -> GyroSource.NONE
     }
 }
+
+/** Native 后端 id：0 = uinput，1 = uhid（与 IGamepadService.create 的 backend 对应）。 */
+fun AppSettings.virtualGamepadNativeBackend(): Int = virtualGamepadType.nativeBackend
+
+/** uhid 身份 id（与 C 端常量对应）。 */
+fun AppSettings.virtualGamepadUhidProfile(): Int = virtualGamepadType.uhidProfileId
