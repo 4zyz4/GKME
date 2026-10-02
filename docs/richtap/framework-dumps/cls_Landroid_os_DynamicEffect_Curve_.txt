@@ -1,0 +1,73 @@
+﻿  Class descriptor  : 'Landroid/os/DynamicEffect$Curve;'
+  Access flags      : 0x0001 (PUBLIC)
+  Superclass        : 'Ljava/lang/Object;'
+  Interfaces        -
+  Static fields     -
+  Instance fields   -
+    #0              : (in Landroid/os/DynamicEffect$Curve;)
+      name          : 'mRelativeTime'
+      type          : 'I'
+      access        : 0x0001 (PUBLIC)
+    #1              : (in Landroid/os/DynamicEffect$Curve;)
+      name          : 'mTimings'
+      type          : 'Ljava/util/ArrayList;'
+      access        : 0x0001 (PUBLIC)
+    #2              : (in Landroid/os/DynamicEffect$Curve;)
+      name          : 'mType'
+      type          : 'I'
+      access        : 0x0001 (PUBLIC)
+    #3              : (in Landroid/os/DynamicEffect$Curve;)
+      name          : 'mValues'
+      type          : 'Ljava/util/ArrayList;'
+      access        : 0x0001 (PUBLIC)
+  Direct methods    -
+    #0              : (in Landroid/os/DynamicEffect$Curve;)
+      name          : '<init>'
+      type          : '(IILjava/util/ArrayList;Ljava/util/ArrayList;)V'
+      access        : 0x10001 (PUBLIC CONSTRUCTOR)
+      code          -
+      registers     : 5
+      ins           : 5
+      outs          : 1
+      insns size    : 12 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=161
+        0x0003 line=162
+        0x0005 line=163
+        0x0007 line=164
+        0x0009 line=165
+        0x000b line=166
+      locals        :
+        0x0000 - 0x000c reg=0 this Landroid/os/DynamicEffect$Curve;
+        0x0000 - 0x000c reg=1 type I
+        0x0000 - 0x000c reg=2 relativeTime I
+        0x0000 - 0x000c reg=3 timings Ljava/util/ArrayList; Ljava/util/ArrayList<Ljava/lang/Integer;>;
+        0x0000 - 0x000c reg=4 values Ljava/util/ArrayList; Ljava/util/ArrayList<Ljava/lang/Integer;>;
+  Virtual methods   -
+    #0              : (in Landroid/os/DynamicEffect$Curve;)
+      name          : 'equals'
+      type          : '(Ljava/lang/Object;)Z'
+      access        : 0x0001 (PUBLIC)
+      hiddenapi     : 0x0030 (SDK,CORE-PLATFORM-API,TEST-API)
+      code          -
+      registers     : 6
+      ins           : 2
+      outs          : 2
+      insns size    : 36 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=152
+        0x0003 line=153
+        0x0004 line=155
+        0x0007 line=156
+        0x0011 line=157
+        0x001b line=158
+        0x0023 line=156
+      locals        :
+        0x0007 - 0x0024 reg=1 other Landroid/os/DynamicEffect$Curve;
+        0x0000 - 0x0024 reg=4 this Landroid/os/DynamicEffect$Curve;
+        0x0000 - 0x0024 reg=5 obj Ljava/lang/Object;
+  source_file_idx   : 8363 (DynamicEffect.java)
+
+Class #723            -

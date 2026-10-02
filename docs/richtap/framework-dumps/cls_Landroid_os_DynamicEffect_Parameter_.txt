@@ -1,0 +1,32 @@
+﻿  Class descriptor  : 'Landroid/os/DynamicEffect$Parameter;'
+  Access flags      : 0x0001 (PUBLIC)
+  Superclass        : 'Ljava/lang/Object;'
+  Interfaces        -
+  Static fields     -
+  Instance fields   -
+    #0              : (in Landroid/os/DynamicEffect$Parameter;)
+      name          : 'mCurve'
+      type          : 'Landroid/os/DynamicEffect$Curve;'
+      access        : 0x0001 (PUBLIC)
+  Direct methods    -
+    #0              : (in Landroid/os/DynamicEffect$Parameter;)
+      name          : '<init>'
+      type          : '(Landroid/os/DynamicEffect$Curve;)V'
+      access        : 0x10001 (PUBLIC CONSTRUCTOR)
+      code          -
+      registers     : 2
+      ins           : 2
+      outs          : 1
+      insns size    : 6 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=171
+        0x0003 line=172
+        0x0005 line=173
+      locals        :
+        0x0000 - 0x0006 reg=0 this Landroid/os/DynamicEffect$Parameter;
+        0x0000 - 0x0006 reg=1 curve Landroid/os/DynamicEffect$Curve;
+  Virtual methods   -
+  source_file_idx   : 8363 (DynamicEffect.java)
+
+Class #724            -

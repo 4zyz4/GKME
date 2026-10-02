@@ -1,0 +1,1816 @@
+﻿  Class descriptor  : 'Landroid/os/DynamicEffect;'
+  Access flags      : 0x0001 (PUBLIC)
+  Superclass        : 'Landroid/os/CombinedVibration;'
+  Interfaces        -
+    #0              : 'Landroid/os/Parcelable;'
+  Static fields     -
+    #0              : (in Landroid/os/DynamicEffect;)
+      name          : 'CONTINUOUS'
+      type          : 'I'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : 1
+    #1              : (in Landroid/os/DynamicEffect;)
+      name          : 'CONTINUOUS_EVENT'
+      type          : 'I'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : 4096
+    #2              : (in Landroid/os/DynamicEffect;)
+      name          : 'CREATOR'
+      type          : 'Landroid/os/Parcelable$Creator;'
+      access        : 0x0019 (PUBLIC STATIC FINAL)
+      value         : null
+    #3              : (in Landroid/os/DynamicEffect;)
+      name          : 'DEBUG'
+      type          : 'Z'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : true
+    #4              : (in Landroid/os/DynamicEffect;)
+      name          : 'EVENT_KEY_DURATION'
+      type          : 'Ljava/lang/String;'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : "Duration"
+    #5              : (in Landroid/os/DynamicEffect;)
+      name          : 'EVENT_KEY_EVENT'
+      type          : 'Ljava/lang/String;'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : "Event"
+    #6              : (in Landroid/os/DynamicEffect;)
+      name          : 'EVENT_KEY_HE_CURVE'
+      type          : 'Ljava/lang/String;'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : "Curve"
+    #7              : (in Landroid/os/DynamicEffect;)
+      name          : 'EVENT_KEY_HE_CURVE_POINT_TIME'
+      type          : 'Ljava/lang/String;'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : "Time"
+    #8              : (in Landroid/os/DynamicEffect;)
+      name          : 'EVENT_KEY_HE_FREQUENCY'
+      type          : 'Ljava/lang/String;'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : "Frequency"
+    #9              : (in Landroid/os/DynamicEffect;)
+      name          : 'EVENT_KEY_HE_INTENSITY'
+      type          : 'Ljava/lang/String;'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : "Intensity"
+    #10              : (in Landroid/os/DynamicEffect;)
+      name          : 'EVENT_KEY_HE_PARAMETERS'
+      type          : 'Ljava/lang/String;'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : "Parameters"
+    #11              : (in Landroid/os/DynamicEffect;)
+      name          : 'EVENT_KEY_HE_TYPE'
+      type          : 'Ljava/lang/String;'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : "Type"
+    #12              : (in Landroid/os/DynamicEffect;)
+      name          : 'EVENT_KEY_RELATIVE_TIME'
+      type          : 'Ljava/lang/String;'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : "RelativeTime"
+    #13              : (in Landroid/os/DynamicEffect;)
+      name          : 'EVENT_TYPE_HE_CONTINUOUS_NAME'
+      type          : 'Ljava/lang/String;'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : "continuous"
+    #14              : (in Landroid/os/DynamicEffect;)
+      name          : 'EVENT_TYPE_HE_TRANSIENT_NAME'
+      type          : 'Ljava/lang/String;'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : "transient"
+    #15              : (in Landroid/os/DynamicEffect;)
+      name          : 'HE_META_DATA_KEY'
+      type          : 'Ljava/lang/String;'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : "Metadata"
+    #16              : (in Landroid/os/DynamicEffect;)
+      name          : 'HE_VERSION_KEY'
+      type          : 'Ljava/lang/String;'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : "Version"
+    #17              : (in Landroid/os/DynamicEffect;)
+      name          : 'INTENSITY'
+      type          : 'I'
+      access        : 0x0019 (PUBLIC STATIC FINAL)
+      value         : 0
+    #18              : (in Landroid/os/DynamicEffect;)
+      name          : 'MAX_EVENT_COUNT'
+      type          : 'I'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : 16
+    #19              : (in Landroid/os/DynamicEffect;)
+      name          : 'MAX_FREQ'
+      type          : 'I'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : 100
+    #20              : (in Landroid/os/DynamicEffect;)
+      name          : 'MAX_INTENSITY'
+      type          : 'I'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : 100
+    #21              : (in Landroid/os/DynamicEffect;)
+      name          : 'MAX_PATERN_EVENT_LAST_TIME'
+      type          : 'I'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : 5000
+    #22              : (in Landroid/os/DynamicEffect;)
+      name          : 'MAX_PATERN_LAST_TIME'
+      type          : 'I'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : 50000
+    #23              : (in Landroid/os/DynamicEffect;)
+      name          : 'MAX_POINT_COUNT'
+      type          : 'I'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : 16
+    #24              : (in Landroid/os/DynamicEffect;)
+      name          : 'PARCEL_TOKEN_DYNAMIC'
+      type          : 'I'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : 5
+    #25              : (in Landroid/os/DynamicEffect;)
+      name          : 'PATTERN_KEY_EVENT_VIB_ID'
+      type          : 'Ljava/lang/String;'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : "Index"
+    #26              : (in Landroid/os/DynamicEffect;)
+      name          : 'PATTERN_KEY_PATTERN'
+      type          : 'Ljava/lang/String;'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : "Pattern"
+    #27              : (in Landroid/os/DynamicEffect;)
+      name          : 'PATTERN_KEY_PATTERN_ABS_TIME'
+      type          : 'Ljava/lang/String;'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : "AbsoluteTime"
+    #28              : (in Landroid/os/DynamicEffect;)
+      name          : 'PATTERN_KEY_PATTERN_LIST'
+      type          : 'Ljava/lang/String;'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : "PatternList"
+    #29              : (in Landroid/os/DynamicEffect;)
+      name          : 'SHARPNESS'
+      type          : 'I'
+      access        : 0x0019 (PUBLIC STATIC FINAL)
+      value         : 1
+    #30              : (in Landroid/os/DynamicEffect;)
+      name          : 'TAG'
+      type          : 'Ljava/lang/String;'
+      access        : 0x0019 (PUBLIC STATIC FINAL)
+      value         : "DynamicEffect"
+    #31              : (in Landroid/os/DynamicEffect;)
+      name          : 'TRANSIENT'
+      type          : 'I'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : 0
+    #32              : (in Landroid/os/DynamicEffect;)
+      name          : 'TRANSIENT_EVENT'
+      type          : 'I'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : 4097
+    #33              : (in Landroid/os/DynamicEffect;)
+      name          : 'VERSION_MIHAPTIC'
+      type          : 'I'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : 0
+    #34              : (in Landroid/os/DynamicEffect;)
+      name          : 'VERSION_VHAPTIC'
+      type          : 'I'
+      access        : 0x001a (PRIVATE STATIC FINAL)
+      hiddenapi     : 0x0002 (BLOCKED)
+      value         : 1
+    #35              : (in Landroid/os/DynamicEffect;)
+      name          : 'mSeq'
+      type          : 'Ljava/util/concurrent/atomic/AtomicInteger;'
+      access        : 0x000a (PRIVATE STATIC)
+      hiddenapi     : 0x0002 (BLOCKED)
+    #36              : (in Landroid/os/DynamicEffect;)
+      name          : 'vhapticVersion'
+      type          : 'Ljava/lang/String;'
+      access        : 0x000a (PRIVATE STATIC)
+      hiddenapi     : 0x0002 (BLOCKED)
+  Instance fields   -
+    #0              : (in Landroid/os/DynamicEffect;)
+      name          : 'encapsulated'
+      type          : '[I'
+      access        : 0x0002 (PRIVATE)
+      hiddenapi     : 0x0002 (BLOCKED)
+    #1              : (in Landroid/os/DynamicEffect;)
+      name          : 'globalIntensity'
+      type          : 'I'
+      access        : 0x0001 (PUBLIC)
+    #2              : (in Landroid/os/DynamicEffect;)
+      name          : 'globalSharpness'
+      type          : 'I'
+      access        : 0x0001 (PUBLIC)
+    #3              : (in Landroid/os/DynamicEffect;)
+      name          : 'mEffects'
+      type          : 'Ljava/util/ArrayList;'
+      access        : 0x0001 (PUBLIC)
+    #4              : (in Landroid/os/DynamicEffect;)
+      name          : 'mGlobalCurve'
+      type          : 'Ljava/util/ArrayList;'
+      access        : 0x0001 (PUBLIC)
+    #5              : (in Landroid/os/DynamicEffect;)
+      name          : 'mInterval'
+      type          : 'I'
+      access        : 0x0001 (PUBLIC)
+    #6              : (in Landroid/os/DynamicEffect;)
+      name          : 'mLoop'
+      type          : 'I'
+      access        : 0x0001 (PUBLIC)
+    #7              : (in Landroid/os/DynamicEffect;)
+      name          : 'patternHeInfo'
+      type          : '[I'
+      access        : 0x0002 (PRIVATE)
+      hiddenapi     : 0x0002 (BLOCKED)
+    #8              : (in Landroid/os/DynamicEffect;)
+      name          : 'version'
+      type          : 'I'
+      access        : 0x0001 (PUBLIC)
+  Direct methods    -
+    #0              : (in Landroid/os/DynamicEffect;)
+      name          : '<clinit>'
+      type          : '()V'
+      access        : 0x10008 (STATIC CONSTRUCTOR)
+      hiddenapi     : 0x0002 (BLOCKED)
+      code          -
+      registers     : 2
+      ins           : 0
+      outs          : 2
+      insns size    : 26 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=49
+        0x000b line=52
+        0x0012 line=1049
+      locals        :
+    #1              : (in Landroid/os/DynamicEffect;)
+      name          : '<init>'
+      type          : '(I)V'
+      access        : 0x10002 (PRIVATE CONSTRUCTOR)
+      hiddenapi     : 0x0002 (BLOCKED)
+      code          -
+      registers     : 3
+      ins           : 2
+      outs          : 1
+      insns size    : 38 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=204
+        0x0003 line=37
+        0x0006 line=38
+        0x0008 line=41
+        0x000c line=42
+        0x0010 line=51
+        0x0013 line=97
+        0x0015 line=205
+        0x0017 line=206
+        0x001e line=207
+        0x0025 line=208
+      locals        :
+        0x0000 - 0x0026 reg=1 this Landroid/os/DynamicEffect;
+        0x0000 - 0x0026 reg=2 ver I
+    #2              : (in Landroid/os/DynamicEffect;)
+      name          : '<init>'
+      type          : '([III)V'
+      access        : 0x10001 (PUBLIC CONSTRUCTOR)
+      code          -
+      registers     : 5
+      ins           : 4
+      outs          : 1
+      insns size    : 28 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=99
+        0x0003 line=37
+        0x0006 line=38
+        0x0008 line=41
+        0x000c line=42
+        0x0010 line=51
+        0x0013 line=97
+        0x0015 line=100
+        0x0017 line=101
+        0x0019 line=102
+        0x001b line=103
+      locals        :
+        0x0000 - 0x001c reg=1 this Landroid/os/DynamicEffect;
+        0x0000 - 0x001c reg=2 encapsulate [I
+        0x0000 - 0x001c reg=3 loop I
+        0x0000 - 0x001c reg=4 interval I
+    #3              : (in Landroid/os/DynamicEffect;)
+      name          : 'between'
+      type          : '(III)Z'
+      access        : 0x000a (PRIVATE STATIC)
+      hiddenapi     : 0x0002 (BLOCKED)
+      code          -
+      registers     : 4
+      ins           : 3
+      outs          : 0
+      insns size    : 8 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=231
+      locals        :
+        0x0000 - 0x0008 reg=1 var1 I
+        0x0000 - 0x0008 reg=2 var2 I
+        0x0000 - 0x0008 reg=3 var3 I
+    #4              : (in Landroid/os/DynamicEffect;)
+      name          : 'create'
+      type          : '()Landroid/os/DynamicEffect;'
+      access        : 0x0009 (PUBLIC STATIC)
+      code          -
+      registers     : 2
+      ins           : 0
+      outs          : 2
+      insns size    : 7 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=222
+      locals        :
+    #5              : (in Landroid/os/DynamicEffect;)
+      name          : 'create'
+      type          : '(Ljava/lang/String;)Landroid/os/DynamicEffect;'
+      access        : 0x0009 (PUBLIC STATIC)
+      code          -
+      registers     : 40
+      ins           : 1
+      outs          : 6
+      insns size    : 752 16-bit code units
+      catches       : 3
+        0x0027 - 0x008c
+          Ljava/lang/Exception; -> 0x0246
+        0x0094 - 0x0238
+          Ljava/lang/Exception; -> 0x0246
+        0x025c - 0x02e5
+          Ljava/lang/Exception; -> 0x02e9
+      positions     :
+        0x0000 line=709
+        0x0010 line=710
+        0x0021 line=711
+        0x0027 line=713
+        0x002c line=714
+        0x002d line=715
+        0x0031 line=716
+        0x0035 line=717
+        0x0037 line=718
+        0x003d line=719
+        0x003e line=721
+        0x0044 line=722
+        0x0048 line=723
+        0x0049 line=724
+        0x004a line=725
+        0x004b line=726
+        0x0051 line=727
+        0x0057 line=728
+        0x0063 line=729
+        0x006b line=731
+        0x0075 line=732
+        0x0077 line=734
+        0x0080 line=735
+        0x0085 line=736
+        0x0087 line=738
+        0x0088 line=741
+        0x0092 line=742
+        0x00b6 line=743
+        0x00b9 line=745
+        0x00c1 line=748
+        0x00cb line=749
+        0x00d0 line=750
+        0x00d2 line=753
+        0x00d8 line=754
+        0x00de line=755
+        0x00e4 line=756
+        0x0104 line=761
+        0x0107 line=762
+        0x010d line=763
+        0x012b line=764
+        0x012d line=766
+        0x0131 line=769
+        0x0139 line=770
+        0x013e line=771
+        0x0140 line=774
+        0x014d line=776
+        0x0153 line=777
+        0x0158 line=778
+        0x015d line=779
+        0x0162 line=780
+        0x0169 line=782
+        0x0175 line=783
+        0x0179 line=784
+        0x0181 line=785
+        0x0187 line=786
+        0x0190 line=787
+        0x01a3 line=785
+        0x01a7 line=790
+        0x01ad line=791
+        0x01b4 line=792
+        0x01c2 line=790
+        0x01c4 line=782
+        0x01d5 line=795
+        0x01e3 line=796
+        0x01f4 line=797
+        0x0204 line=798
+        0x020f line=800
+        0x0214 line=726
+        0x022b line=756
+        0x0233 line=757
+        0x0238 line=758
+        0x0239 line=726
+        0x0246 line=802
+        0x0247 line=803
+        0x024a line=804
+        0x024c line=805
+        0x0256 line=806
+        0x025c line=808
+        0x0261 line=809
+        0x0262 line=810
+        0x0266 line=811
+        0x026a line=812
+        0x0270 line=813
+        0x0274 line=814
+        0x0277 line=815
+        0x027e line=816
+        0x0280 line=817
+        0x0287 line=819
+        0x029d line=821
+        0x02a1 line=822
+        0x02b7 line=823
+        0x02b9 line=826
+        0x02bf line=827
+        0x02e5 line=826
+        0x02e8 line=832
+        0x02e9 line=830
+        0x02ea line=831
+        0x02ef line=835
+      locals        :
+        0x002d - 0x0035 reg=12 heVersion I
+        0x002c - 0x0059 reg=7 json Lorg/json/JSONObject;
+        0x0057 - 0x005f reg=18 pattern Lorg/json/JSONObject;
+        0x0044 - 0x005f reg=8 jsonArray Lorg/json/JSONArray;
+        0x005f - 0x0065 reg=8 pattern Lorg/json/JSONObject;
+        0x0035 - 0x006d reg=9 heVersion I
+        0x0076 - 0x0077 reg=9 typeCode I
+        0x006b - 0x008e reg=8 type Ljava/lang/String;
+        0x0031 - 0x0094 reg=10 metaData Lorg/json/JSONObject;
+        0x0048 - 0x00a3 reg=12 numOfPattern I
+        0x0049 - 0x00b8 reg=13 relativeTime I
+        0x0094 - 0x00b9 reg=21 metaData Lorg/json/JSONObject;
+        0x00a3 - 0x00b9 reg=23 numOfPattern I
+        0x00b8 - 0x00b9 reg=10 relativeTime I
+        0x00b9 - 0x00bd reg=10 metaData Lorg/json/JSONObject;
+        0x00b9 - 0x00bd reg=12 numOfPattern I
+        0x00b9 - 0x00c1 reg=13 relativeTime I
+        0x00de - 0x00ec reg=24 intensity I
+        0x00c1 - 0x00ec reg=10 relativeTime I
+        0x00e4 - 0x00f6 reg=25 frequency I
+        0x00ec - 0x00f6 reg=10 intensity I
+        0x004a - 0x012c reg=14 duration I
+        0x012c - 0x012d reg=2 duration I
+        0x012d - 0x0131 reg=14 duration I
+        0x0131 - 0x0148 reg=2 duration I
+        0x00f6 - 0x0148 reg=10 frequency I
+        0x004b - 0x014d reg=15 effect Landroid/os/DynamicEffect$PrimitiveEffect;
+        0x004f - 0x017b reg=6 i I
+        0x0181 - 0x0189 reg=6 time I
+        0x0063 - 0x0198 reg=7 event Lorg/json/JSONObject;
+        0x0189 - 0x01a3 reg=24 time I
+        0x0198 - 0x01a3 reg=38 event Lorg/json/JSONObject;
+        0x01a3 - 0x01a7 reg=6 time I
+        0x01a3 - 0x01a7 reg=7 event Lorg/json/JSONObject;
+        0x0169 - 0x01be reg=25 freqValues Ljava/util/ArrayList; Ljava/util/ArrayList<Ljava/lang/Integer;>;
+        0x01be - 0x01c2 reg=7 freqValues Ljava/util/ArrayList; Ljava/util/ArrayList<Ljava/lang/Integer;>;
+        0x0179 - 0x01c4 reg=0 point Lorg/json/JSONObject;
+        0x01a7 - 0x01c4 reg=24 time I
+        0x01c2 - 0x01c4 reg=25 freqValues Ljava/util/ArrayList; Ljava/util/ArrayList<Ljava/lang/Integer;>;
+        0x017b - 0x01cf reg=33 i I
+        0x01a7 - 0x01cf reg=38 event Lorg/json/JSONObject;
+        0x01c4 - 0x01cf reg=7 freqValues Ljava/util/ArrayList; Ljava/util/ArrayList<Ljava/lang/Integer;>;
+        0x01cf - 0x01d5 reg=6 i I
+        0x016d - 0x01d5 reg=13 j I
+        0x01cf - 0x01d5 reg=25 freqValues Ljava/util/ArrayList; Ljava/util/ArrayList<Ljava/lang/Integer;>;
+        0x01cf - 0x01d5 reg=7 event Lorg/json/JSONObject;
+        0x01d5 - 0x01f7 reg=7 freqValues Ljava/util/ArrayList; Ljava/util/ArrayList<Ljava/lang/Integer;>;
+        0x0153 - 0x01f7 reg=8 curves Lorg/json/JSONArray;
+        0x0158 - 0x01f7 reg=10 intensityTimings Ljava/util/ArrayList; Ljava/util/ArrayList<Ljava/lang/Integer;>;
+        0x015d - 0x01f7 reg=14 intensityValues Ljava/util/ArrayList; Ljava/util/ArrayList<Ljava/lang/Integer;>;
+        0x0162 - 0x01f7 reg=15 freqTimings Ljava/util/ArrayList; Ljava/util/ArrayList<Ljava/lang/Integer;>;
+        0x014d - 0x01f8 reg=2 effect Landroid/os/DynamicEffect$PrimitiveEffect;
+        0x0148 - 0x01f8 reg=28 frequency I
+        0x0148 - 0x01f8 reg=29 duration I
+        0x01d5 - 0x01f8 reg=33 i I
+        0x01d5 - 0x01f8 reg=38 event Lorg/json/JSONObject;
+        0x01f8 - 0x0202 reg=6 i I
+        0x01f8 - 0x0202 reg=7 event Lorg/json/JSONObject;
+        0x01f8 - 0x0202 reg=10 frequency I
+        0x0088 - 0x0215 reg=9 typeCode I
+        0x00d8 - 0x0215 reg=12 parameters Lorg/json/JSONObject;
+        0x0065 - 0x0215 reg=18 pattern Lorg/json/JSONObject;
+        0x008e - 0x0215 reg=22 type Ljava/lang/String;
+        0x00f6 - 0x0215 reg=27 intensity I
+        0x0202 - 0x0215 reg=28 frequency I
+        0x0202 - 0x0215 reg=38 event Lorg/json/JSONObject;
+        0x0202 - 0x0229 reg=33 i I
+        0x0229 - 0x0233 reg=6 i I
+        0x022b - 0x0233 reg=7 event Lorg/json/JSONObject;
+        0x022b - 0x0233 reg=10 intensity I
+        0x022b - 0x0233 reg=25 frequency I
+        0x0059 - 0x0239 reg=17 json Lorg/json/JSONObject;
+        0x022b - 0x0239 reg=18 pattern Lorg/json/JSONObject;
+        0x005f - 0x0239 reg=19 jsonArray Lorg/json/JSONArray;
+        0x006d - 0x0239 reg=20 heVersion I
+        0x00bd - 0x0239 reg=21 metaData Lorg/json/JSONObject;
+        0x022b - 0x0239 reg=22 type Ljava/lang/String;
+        0x00bd - 0x0239 reg=23 numOfPattern I
+        0x00ec - 0x0239 reg=26 relativeTime I
+        0x0233 - 0x0239 reg=27 intensity I
+        0x0233 - 0x0239 reg=28 frequency I
+        0x0233 - 0x0239 reg=33 i I
+        0x0233 - 0x0239 reg=38 event Lorg/json/JSONObject;
+        0x022b - 0x0239 reg=9 typeCode I
+        0x022b - 0x0239 reg=12 parameters Lorg/json/JSONObject;
+        0x0239 - 0x0245 reg=6 i I
+        0x0239 - 0x0245 reg=7 json Lorg/json/JSONObject;
+        0x0239 - 0x0245 reg=8 jsonArray Lorg/json/JSONArray;
+        0x0239 - 0x0245 reg=9 heVersion I
+        0x0239 - 0x0245 reg=10 metaData Lorg/json/JSONObject;
+        0x0239 - 0x0245 reg=12 numOfPattern I
+        0x0239 - 0x0246 reg=13 relativeTime I
+        0x01f8 - 0x0246 reg=14 duration I
+        0x01f8 - 0x0246 reg=15 effect Landroid/os/DynamicEffect$PrimitiveEffect;
+        0x0245 - 0x0246 reg=17 json Lorg/json/JSONObject;
+        0x0245 - 0x0246 reg=19 jsonArray Lorg/json/JSONArray;
+        0x0245 - 0x0246 reg=20 heVersion I
+        0x0245 - 0x0246 reg=21 metaData Lorg/json/JSONObject;
+        0x0245 - 0x0246 reg=23 numOfPattern I
+        0x0245 - 0x0246 reg=33 i I
+        0x0247 - 0x024a reg=0 e Ljava/lang/Exception;
+        0x0262 - 0x026a reg=2 heVersion I
+        0x0261 - 0x02e8 reg=0 hapticObject Lorg/json/JSONObject;
+        0x0270 - 0x02e8 reg=2 seq I
+        0x0266 - 0x02e8 reg=3 metaData Lorg/json/JSONObject;
+        0x026a - 0x02e8 reg=4 heVersion I
+        0x0274 - 0x02e8 reg=6 pid I
+        0x02ba - 0x02e8 reg=7 i I
+        0x02ea - 0x02ef reg=0 e Ljava/lang/Exception;
+        0x0010 - 0x02f0 reg=5 ret Landroid/os/DynamicEffect;
+        0x0000 - 0x02f0 reg=39 jsonStr Ljava/lang/String;
+    #6              : (in Landroid/os/DynamicEffect;)
+      name          : 'create'
+      type          : '(Ljava/lang/String;F)Landroid/os/DynamicEffect;'
+      access        : 0x0009 (PUBLIC STATIC)
+      code          -
+      registers     : 11
+      ins           : 2
+      outs          : 3
+      insns size    : 113 16-bit code units
+      catches       : 2
+        0x0004 - 0x001e
+          Ljava/lang/Exception; -> 0x0067
+        0x0022 - 0x0066
+          Ljava/lang/Exception; -> 0x0067
+      positions     :
+        0x0000 line=307
+        0x000a line=308
+        0x000f line=309
+        0x0016 line=310
+        0x001a line=311
+        0x0022 line=312
+        0x002b line=313
+        0x0036 line=314
+        0x003e line=315
+        0x0047 line=316
+        0x0052 line=309
+        0x0055 line=319
+        0x0066 line=320
+        0x0067 line=321
+        0x0068 line=322
+        0x006f line=324
+      locals        :
+        0x002b - 0x0037 reg=7 time F
+        0x001a - 0x0052 reg=6 pattern Lorg/json/JSONObject;
+        0x0047 - 0x0052 reg=7 time F
+        0x0010 - 0x0055 reg=5 i I
+        0x000a - 0x0067 reg=2 ret Landroid/os/DynamicEffect;
+        0x000f - 0x0067 reg=4 patterns Lorg/json/JSONArray;
+        0x0068 - 0x006f reg=0 e Ljava/lang/Exception;
+        0x0000 - 0x0071 reg=9 jsonArray Ljava/lang/String;
+        0x0000 - 0x0071 reg=10 intensity F
+    #7              : (in Landroid/os/DynamicEffect;)
+      name          : 'create'
+      type          : '([I)Landroid/os/DynamicEffect;'
+      access        : 0x0009 (PUBLIC STATIC)
+      code          -
+      registers     : 5
+      ins           : 1
+      outs          : 2
+      insns size    : 48 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=839
+        0x0009 line=843
+        0x0013 line=844
+        0x001b line=845
+        0x0021 line=846
+        0x0023 line=847
+        0x0024 line=849
+        0x0029 line=850
+        0x002a line=840
+        0x002f line=841
+      locals        :
+        0x0021 - 0x0024 reg=0 ret Landroid/os/DynamicEffect;
+        0x0000 - 0x0030 reg=4 patternData [I
+    #8              : (in Landroid/os/DynamicEffect;)
+      name          : 'createContinuous'
+      type          : '(FFF)Landroid/os/DynamicEffect$PrimitiveEffect;'
+      access        : 0x0009 (PUBLIC STATIC)
+      code          -
+      registers     : 9
+      ins           : 3
+      outs          : 6
+      insns size    : 19 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=181
+      locals        :
+        0x0000 - 0x0013 reg=6 intensity F
+        0x0000 - 0x0013 reg=7 sharpness F
+        0x0000 - 0x0013 reg=8 duration F
+    #9              : (in Landroid/os/DynamicEffect;)
+      name          : 'createParameter'
+      type          : '(I[F[F)Landroid/os/DynamicEffect$Parameter;'
+      access        : 0x0009 (PUBLIC STATIC)
+      code          -
+      registers     : 8
+      ins           : 3
+      outs          : 5
+      insns size    : 55 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=211
+        0x0005 line=212
+        0x000a line=213
+        0x000e line=214
+        0x001b line=215
+        0x0028 line=213
+        0x002b line=217
+        0x0031 line=218
+      locals        :
+        0x000b - 0x002b reg=2 i I
+        0x0005 - 0x0037 reg=0 timingsInt Ljava/util/ArrayList; Ljava/util/ArrayList<Ljava/lang/Integer;>;
+        0x000a - 0x0037 reg=1 valuesInt Ljava/util/ArrayList; Ljava/util/ArrayList<Ljava/lang/Integer;>;
+        0x0031 - 0x0037 reg=2 curve Landroid/os/DynamicEffect$Curve;
+        0x0000 - 0x0037 reg=5 type I
+        0x0000 - 0x0037 reg=6 timings [F
+        0x0000 - 0x0037 reg=7 values [F
+    #10              : (in Landroid/os/DynamicEffect;)
+      name          : 'createTransient'
+      type          : '(FF)Landroid/os/DynamicEffect$PrimitiveEffect;'
+      access        : 0x0009 (PUBLIC STATIC)
+      code          -
+      registers     : 8
+      ins           : 2
+      outs          : 6
+      insns size    : 16 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=177
+      locals        :
+        0x0000 - 0x0010 reg=6 intensity F
+        0x0000 - 0x0010 reg=7 sharpness F
+    #11              : (in Landroid/os/DynamicEffect;)
+      name          : 'generateSerializationDataHe'
+      type          : '(III[Landroid/os/Pattern;)[I'
+      access        : 0x000a (PRIVATE STATIC)
+      hiddenapi     : 0x0002 (BLOCKED)
+      code          -
+      registers     : 14
+      ins           : 4
+      outs          : 5
+      insns size    : 61 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=329
+        0x0001 line=330
+        0x0002 line=331
+        0x0009 line=332
+        0x000e line=331
+        0x0011 line=334
+        0x0015 line=335
+        0x0018 line=336
+        0x001a line=337
+        0x001d line=338
+        0x0020 line=339
+        0x0024 line=340
+        0x0025 line=341
+        0x0026 line=342
+        0x002c line=343
+        0x0030 line=344
+        0x0034 line=345
+        0x0036 line=346
+        0x0039 line=342
+        0x003c line=348
+      locals        :
+        0x0009 - 0x000e reg=5 patternTmp Landroid/os/Pattern;
+        0x002c - 0x0037 reg=8 patternTmp Landroid/os/Pattern;
+        0x0001 - 0x003d reg=0 totalPatternLen I
+        0x0002 - 0x003d reg=1 patternOffset I
+        0x0015 - 0x003d reg=2 data [I
+        0x0025 - 0x003d reg=4 indexBase I
+        0x0026 - 0x003d reg=5 patternData [I
+        0x0000 - 0x003d reg=10 heVersion I
+        0x0000 - 0x003d reg=11 pid I
+        0x0000 - 0x003d reg=12 seq I
+        0x0000 - 0x003d reg=13 patternList [Landroid/os/Pattern;
+    #12              : (in Landroid/os/DynamicEffect;)
+      name          : 'getSerializationDataHe_1_0'
+      type          : '(Ljava/lang/String;II)[I'
+      access        : 0x000a (PRIVATE STATIC)
+      hiddenapi     : 0x0002 (BLOCKED)
+      code          -
+      registers     : 38
+      ins           : 3
+      outs          : 4
+      insns size    : 767 16-bit code units
+      catches       : 6
+        0x0007 - 0x0032
+          Ljava/lang/Exception; -> 0x02f4
+        0x0036 - 0x0041
+          Ljava/lang/Exception; -> 0x02f4
+        0x0043 - 0x004d
+          Ljava/lang/Exception; -> 0x02d4
+        0x004f - 0x008d
+          Ljava/lang/Exception; -> 0x02ee
+        0x0091 - 0x02e2
+          Ljava/lang/Exception; -> 0x02ee
+        0x02e7 - 0x02eb
+          Ljava/lang/Exception; -> 0x02ec
+      positions     :
+        0x0000 line=352
+        0x0007 line=355
+        0x000e line=356
+        0x0014 line=358
+        0x0018 line=359
+        0x001d line=360
+        0x0020 line=362
+        0x0028 line=363
+        0x0036 line=364
+        0x003b line=367
+        0x003c line=368
+        0x0043 line=369
+        0x0047 line=370
+        0x004d line=372
+        0x0055 line=374
+        0x005d line=375
+        0x005f line=376
+        0x0069 line=377
+        0x0072 line=378
+        0x0074 line=379
+        0x007d line=385
+        0x007e line=386
+        0x0089 line=387
+        0x0091 line=388
+        0x00a5 line=389
+        0x00a6 line=391
+        0x00aa line=392
+        0x00ae line=393
+        0x00c2 line=394
+        0x00c3 line=396
+        0x00c4 line=399
+        0x00d0 line=400
+        0x00e4 line=401
+        0x00e9 line=402
+        0x00ea line=405
+        0x00f0 line=406
+        0x00f4 line=407
+        0x00f8 line=408
+        0x011a line=412
+        0x0120 line=413
+        0x0126 line=414
+        0x012c line=415
+        0x0132 line=417
+        0x0136 line=418
+        0x013c line=419
+        0x0147 line=420
+        0x015d line=421
+        0x0162 line=422
+        0x0163 line=424
+        0x0169 line=425
+        0x016f line=426
+        0x017e line=427
+        0x018d line=428
+        0x01a3 line=430
+        0x01a9 line=432
+        0x01aa line=433
+        0x01ac line=434
+        0x01ae line=435
+        0x01bf line=436
+        0x01c3 line=437
+        0x01ca line=438
+        0x01d2 line=439
+        0x01df line=440
+        0x01e3 line=442
+        0x01e7 line=443
+        0x01fd line=444
+        0x01fe line=447
+        0x0202 line=448
+        0x0222 line=449
+        0x0223 line=451
+        0x0224 line=453
+        0x022a line=454
+        0x022e line=455
+        0x0232 line=456
+        0x0233 line=435
+        0x0241 line=458
+        0x024b line=459
+        0x0261 line=460
+        0x0262 line=462
+        0x026b line=417
+        0x027b line=368
+        0x028e line=408
+        0x029c line=409
+        0x02b2 line=410
+        0x02b3 line=381
+        0x02d3 line=382
+        0x02d4 line=468
+        0x02d8 line=368
+        0x02de line=465
+        0x02e2 line=466
+        0x02eb line=467
+        0x02ec line=468
+        0x02fb line=469
+        0x02fe line=471
+      locals        :
+        0x005f - 0x0069 reg=11 type I
+        0x0055 - 0x0080 reg=4 name Ljava/lang/String;
+        0x000e - 0x0086 reg=5 hapticObject Lorg/json/JSONObject;
+        0x00aa - 0x00c4 reg=4 eventTime I
+        0x0014 - 0x00fc reg=7 eventArray Lorg/json/JSONArray;
+        0x00f4 - 0x0141 reg=4 intensity I
+        0x00f0 - 0x0177 reg=2 parametersObject Lorg/json/JSONObject;
+        0x00f8 - 0x0187 reg=5 frequency I
+        0x01ac - 0x01b7 reg=17 pointInd I
+        0x007e - 0x01b7 reg=9 vibId I
+        0x01ae - 0x01b7 reg=26 pointLastTime I
+        0x003c - 0x01b9 reg=10 eventTimeLast I
+        0x016f - 0x01cc reg=4 curve Lorg/json/JSONArray;
+        0x0047 - 0x01dc reg=14 eventObject Lorg/json/JSONObject;
+        0x004d - 0x01dc reg=15 eventTemp Lorg/json/JSONObject;
+        0x01d2 - 0x0233 reg=4 pointTime I
+        0x01c3 - 0x0233 reg=10 curveObject Lorg/json/JSONObject;
+        0x01df - 0x0233 reg=14 pointIntensity I
+        0x01e3 - 0x0233 reg=15 pointFrequency I
+        0x01cc - 0x0241 reg=28 curve Lorg/json/JSONArray;
+        0x01dc - 0x0241 reg=33 eventObject Lorg/json/JSONObject;
+        0x01dc - 0x0241 reg=34 eventTemp Lorg/json/JSONObject;
+        0x0241 - 0x0249 reg=4 curve Lorg/json/JSONArray;
+        0x0241 - 0x0249 reg=14 eventObject Lorg/json/JSONObject;
+        0x0241 - 0x0249 reg=15 eventTemp Lorg/json/JSONObject;
+        0x013c - 0x026b reg=6 duration I
+        0x01aa - 0x026b reg=7 prevPointTime I
+        0x0141 - 0x026b reg=23 intensity I
+        0x0177 - 0x026b reg=24 parametersObject Lorg/json/JSONObject;
+        0x0187 - 0x026b reg=25 frequency I
+        0x01b7 - 0x026b reg=26 vibId I
+        0x01b9 - 0x026b reg=27 eventTimeLast I
+        0x0249 - 0x026b reg=28 curve Lorg/json/JSONArray;
+        0x0249 - 0x026b reg=33 eventObject Lorg/json/JSONObject;
+        0x0249 - 0x026b reg=34 eventTemp Lorg/json/JSONObject;
+        0x01a9 - 0x026b reg=2 pointArray [Landroid/os/Point;
+        0x01b7 - 0x026b reg=5 pointInd I
+        0x01b7 - 0x026b reg=9 pointLastTime I
+        0x026b - 0x027b reg=2 parametersObject Lorg/json/JSONObject;
+        0x026b - 0x027b reg=4 intensity I
+        0x026b - 0x027b reg=5 frequency I
+        0x026b - 0x027b reg=9 vibId I
+        0x026b - 0x027b reg=10 eventTimeLast I
+        0x0074 - 0x027b reg=11 type I
+        0x026b - 0x027b reg=14 eventObject Lorg/json/JSONObject;
+        0x026b - 0x027b reg=15 eventTemp Lorg/json/JSONObject;
+        0x0080 - 0x027b reg=19 name Ljava/lang/String;
+        0x027b - 0x028e reg=27 eventTimeLast I
+        0x028e - 0x029c reg=2 parametersObject Lorg/json/JSONObject;
+        0x028e - 0x029c reg=4 intensity I
+        0x028e - 0x029c reg=5 frequency I
+        0x028e - 0x029c reg=9 vibId I
+        0x028e - 0x029c reg=10 eventTimeLast I
+        0x028e - 0x029c reg=14 eventObject Lorg/json/JSONObject;
+        0x028e - 0x029c reg=15 eventTemp Lorg/json/JSONObject;
+        0x028e - 0x02b3 reg=11 type I
+        0x028e - 0x02b3 reg=19 name Ljava/lang/String;
+        0x0086 - 0x02b3 reg=20 hapticObject Lorg/json/JSONObject;
+        0x00fc - 0x02b3 reg=22 eventArray Lorg/json/JSONArray;
+        0x029c - 0x02b3 reg=23 intensity I
+        0x029c - 0x02b3 reg=24 parametersObject Lorg/json/JSONObject;
+        0x029c - 0x02b3 reg=25 frequency I
+        0x029c - 0x02b3 reg=26 vibId I
+        0x029c - 0x02b3 reg=27 eventTimeLast I
+        0x029c - 0x02b3 reg=33 eventObject Lorg/json/JSONObject;
+        0x029c - 0x02b3 reg=34 eventTemp Lorg/json/JSONObject;
+        0x02b3 - 0x02bd reg=4 name Ljava/lang/String;
+        0x02b3 - 0x02bd reg=5 hapticObject Lorg/json/JSONObject;
+        0x02b3 - 0x02bd reg=7 eventArray Lorg/json/JSONArray;
+        0x02b3 - 0x02bd reg=14 eventObject Lorg/json/JSONObject;
+        0x02b3 - 0x02bd reg=15 eventTemp Lorg/json/JSONObject;
+        0x001d - 0x02d4 reg=8 pattern Landroid/os/Pattern;
+        0x02b3 - 0x02d4 reg=10 eventTimeLast I
+        0x003d - 0x02d4 reg=13 eventInd I
+        0x02bd - 0x02d4 reg=19 name Ljava/lang/String;
+        0x02bd - 0x02d4 reg=20 hapticObject Lorg/json/JSONObject;
+        0x02bd - 0x02d4 reg=22 eventArray Lorg/json/JSONArray;
+        0x02bd - 0x02d4 reg=33 eventObject Lorg/json/JSONObject;
+        0x02bd - 0x02d4 reg=34 eventTemp Lorg/json/JSONObject;
+        0x02d8 - 0x02de reg=5 hapticObject Lorg/json/JSONObject;
+        0x02d8 - 0x02de reg=7 eventArray Lorg/json/JSONArray;
+        0x02d8 - 0x02de reg=13 eventInd I
+        0x02eb - 0x02ec reg=0 patternHe [I
+        0x02d8 - 0x02ec reg=8 pattern Landroid/os/Pattern;
+        0x02d8 - 0x02ec reg=10 eventTimeLast I
+        0x02de - 0x02ec reg=20 hapticObject Lorg/json/JSONObject;
+        0x02de - 0x02ec reg=22 eventArray Lorg/json/JSONArray;
+        0x02fb - 0x02fe reg=0 e Ljava/lang/Exception;
+        0x0007 - 0x02ff reg=3 patternList [Landroid/os/Pattern;
+        0x0000 - 0x02ff reg=35 patternString Ljava/lang/String;
+        0x0000 - 0x02ff reg=36 pid I
+        0x0000 - 0x02ff reg=37 seq I
+    #13              : (in Landroid/os/DynamicEffect;)
+      name          : 'getSerializationDataHe_2_0'
+      type          : '(Ljava/lang/String;II)[I'
+      access        : 0x000a (PRIVATE STATIC)
+      hiddenapi     : 0x0002 (BLOCKED)
+      code          -
+      registers     : 44
+      ins           : 3
+      outs          : 4
+      insns size    : 1074 16-bit code units
+      catches       : 23
+        0x0009 - 0x001c
+          Ljava/lang/Exception; -> 0x0427
+        0x0020 - 0x0031
+          Ljava/lang/Exception; -> 0x03fe
+        0x0037 - 0x004d
+          Ljava/lang/Exception; -> 0x0427
+        0x004e - 0x0054
+          Ljava/lang/Exception; -> 0x03fe
+        0x0056 - 0x0062
+          Ljava/lang/Exception; -> 0x03f8
+        0x0069 - 0x006d
+          Ljava/lang/Exception; -> 0x03ee
+        0x006f - 0x0085
+          Ljava/lang/Exception; -> 0x0086
+        0x0094 - 0x00b6
+          Ljava/lang/Exception; -> 0x03e5
+        0x00c0 - 0x00c9
+          Ljava/lang/Exception; -> 0x00cc
+        0x00d6 - 0x0103
+          Ljava/lang/Exception; -> 0x03e5
+        0x0107 - 0x0123
+          Ljava/lang/Exception; -> 0x00cc
+        0x0124 - 0x0128
+          Ljava/lang/Exception; -> 0x03e5
+        0x012c - 0x0148
+          Ljava/lang/Exception; -> 0x00cc
+        0x0150 - 0x0154
+          Ljava/lang/Exception; -> 0x03e5
+        0x0156 - 0x0177
+          Ljava/lang/Exception; -> 0x00cc
+        0x0178 - 0x0186
+          Ljava/lang/Exception; -> 0x03e5
+        0x018e - 0x01fb
+          Ljava/lang/Exception; -> 0x03dc
+        0x0201 - 0x0223
+          Ljava/lang/Exception; -> 0x0330
+        0x0225 - 0x0243
+          Ljava/lang/Exception; -> 0x03dc
+        0x0243 - 0x0249
+          Ljava/lang/Exception; -> 0x0330
+        0x0259 - 0x0322
+          Ljava/lang/Exception; -> 0x0325
+        0x036c - 0x03c6
+          Ljava/lang/Exception; -> 0x03dc
+        0x041d - 0x0421
+          Ljava/lang/Exception; -> 0x0422
+      positions     :
+        0x0000 line=475
+        0x0007 line=476
+        0x0008 line=478
+        0x0010 line=479
+        0x0016 line=480
+        0x001a line=481
+        0x001d line=482
+        0x0020 line=483
+        0x0025 line=484
+        0x0029 line=485
+        0x002f line=486
+        0x0031 line=488
+        0x0037 line=489
+        0x004d line=490
+        0x004e line=493
+        0x0054 line=494
+        0x005e line=496
+        0x006f line=497
+        0x0086 line=608
+        0x008f line=500
+        0x0090 line=501
+        0x009a line=502
+        0x009e line=503
+        0x00a6 line=505
+        0x00ae line=507
+        0x00bc line=508
+        0x00be line=509
+        0x00cc line=608
+        0x00d4 line=510
+        0x00df line=511
+        0x00e1 line=512
+        0x00ec line=518
+        0x00f4 line=519
+        0x00ff line=520
+        0x0107 line=521
+        0x0123 line=522
+        0x0124 line=524
+        0x0128 line=525
+        0x012c line=526
+        0x0148 line=527
+        0x0149 line=529
+        0x014a line=532
+        0x0156 line=533
+        0x0172 line=534
+        0x0177 line=535
+        0x0178 line=538
+        0x017e line=539
+        0x0182 line=540
+        0x0186 line=541
+        0x01a4 line=545
+        0x01aa line=546
+        0x01b0 line=547
+        0x01b6 line=548
+        0x01bc line=550
+        0x01c0 line=551
+        0x01c6 line=552
+        0x01d1 line=553
+        0x01ef line=554
+        0x01f4 line=555
+        0x01f5 line=557
+        0x01fb line=558
+        0x01ff line=559
+        0x0201 line=560
+        0x0207 line=561
+        0x0216 line=562
+        0x0225 line=563
+        0x0243 line=565
+        0x0249 line=567
+        0x024a line=568
+        0x024c line=569
+        0x024e line=570
+        0x025f line=571
+        0x0263 line=572
+        0x026a line=573
+        0x0272 line=574
+        0x027f line=575
+        0x0283 line=577
+        0x0287 line=578
+        0x02a7 line=579
+        0x02a8 line=577
+        0x02aa line=582
+        0x02ae line=583
+        0x02d6 line=584
+        0x02d7 line=586
+        0x02d8 line=588
+        0x02dc line=589
+        0x02e0 line=590
+        0x02e4 line=591
+        0x02e5 line=570
+        0x02f1 line=593
+        0x02f9 line=594
+        0x0317 line=595
+        0x0318 line=597
+        0x0322 line=598
+        0x0325 line=608
+        0x033d line=598
+        0x034b line=599
+        0x034d line=600
+        0x034e line=501
+        0x0364 line=541
+        0x036c line=542
+        0x038a line=543
+        0x038b line=514
+        0x03b3 line=515
+        0x03b4 line=501
+        0x03c4 line=603
+        0x03c6 line=604
+        0x03c9 line=605
+        0x03dc line=608
+        0x040a line=482
+        0x0416 line=606
+        0x0421 line=607
+        0x0422 line=608
+        0x042e line=609
+        0x0431 line=611
+      locals        :
+        0x0007 - 0x0064 reg=3 patternTimeLast I
+        0x0010 - 0x0068 reg=6 hapticObject Lorg/json/JSONObject;
+        0x0016 - 0x0086 reg=8 patternArray Lorg/json/JSONArray;
+        0x001a - 0x0086 reg=9 patternNum I
+        0x001e - 0x0086 reg=10 ind I
+        0x0025 - 0x0086 reg=11 pattern Landroid/os/Pattern;
+        0x0029 - 0x0086 reg=12 patternObject Lorg/json/JSONObject;
+        0x002f - 0x0086 reg=13 patternRelativeTime I
+        0x0054 - 0x0086 reg=15 eventArray Lorg/json/JSONArray;
+        0x0068 - 0x0086 reg=18 hapticObject Lorg/json/JSONObject;
+        0x0064 - 0x0094 reg=17 patternTimeLast I
+        0x008f - 0x00a0 reg=8 patternArray Lorg/json/JSONArray;
+        0x009e - 0x00a8 reg=7 eventObject Lorg/json/JSONObject;
+        0x008f - 0x00b0 reg=9 patternNum I
+        0x008f - 0x00c0 reg=12 patternObject Lorg/json/JSONObject;
+        0x0090 - 0x00cc reg=3 eventTimeLast I
+        0x0094 - 0x00cc reg=6 eventInd I
+        0x00ae - 0x00cc reg=7 name Ljava/lang/String;
+        0x00a6 - 0x00cc reg=8 eventTemp Lorg/json/JSONObject;
+        0x008f - 0x00cc reg=10 ind I
+        0x008f - 0x00cc reg=11 pattern Landroid/os/Pattern;
+        0x008f - 0x00cc reg=13 patternRelativeTime I
+        0x008f - 0x00cc reg=15 eventArray Lorg/json/JSONArray;
+        0x00a8 - 0x00cc reg=17 eventObject Lorg/json/JSONObject;
+        0x008f - 0x00cc reg=18 hapticObject Lorg/json/JSONObject;
+        0x00a0 - 0x00cc reg=20 patternArray Lorg/json/JSONArray;
+        0x00b0 - 0x00cc reg=21 patternNum I
+        0x00be - 0x00cc reg=22 type I
+        0x00c0 - 0x00cc reg=23 patternObject Lorg/json/JSONObject;
+        0x00d4 - 0x00d6 reg=12 patternObject Lorg/json/JSONObject;
+        0x00e1 - 0x00ec reg=22 type I
+        0x00d4 - 0x00ee reg=7 name Ljava/lang/String;
+        0x00d4 - 0x00f6 reg=13 patternRelativeTime I
+        0x00d4 - 0x00fc reg=15 eventArray Lorg/json/JSONArray;
+        0x0128 - 0x014a reg=13 eventTime I
+        0x00f4 - 0x0188 reg=7 vibId I
+        0x0008 - 0x018c reg=4 patternList [Landroid/os/Pattern;
+        0x00d4 - 0x01cb reg=8 eventTemp Lorg/json/JSONObject;
+        0x017e - 0x020f reg=2 parametersObject Lorg/json/JSONObject;
+        0x0182 - 0x021f reg=13 intensity I
+        0x024c - 0x0257 reg=19 pointInd I
+        0x0094 - 0x0257 reg=5 patternTimeLast I
+        0x024e - 0x0257 reg=32 pointLastTime I
+        0x0186 - 0x0259 reg=15 frequency I
+        0x0207 - 0x026c reg=7 curve Lorg/json/JSONArray;
+        0x0249 - 0x027c reg=2 pointArray [Landroid/os/Point;
+        0x0263 - 0x028e reg=15 curveObject Lorg/json/JSONObject;
+        0x028e - 0x02a8 reg=35 curveObject Lorg/json/JSONObject;
+        0x02a8 - 0x02aa reg=15 curveObject Lorg/json/JSONObject;
+        0x027f - 0x02e5 reg=1 pointIntensity I
+        0x0283 - 0x02e5 reg=2 pointFrequency I
+        0x0272 - 0x02e5 reg=7 pointTime I
+        0x02aa - 0x02e5 reg=35 curveObject Lorg/json/JSONObject;
+        0x026c - 0x02f1 reg=34 curve Lorg/json/JSONArray;
+        0x027c - 0x02f1 reg=40 pointArray [Landroid/os/Point;
+        0x02f1 - 0x02f7 reg=2 pointArray [Landroid/os/Point;
+        0x02f1 - 0x02f7 reg=7 curve Lorg/json/JSONArray;
+        0x02f7 - 0x0320 reg=40 pointArray [Landroid/os/Point;
+        0x0320 - 0x0322 reg=2 pointArray [Landroid/os/Point;
+        0x01c6 - 0x0322 reg=4 duration I
+        0x0257 - 0x0322 reg=5 pointLastTime I
+        0x024a - 0x0322 reg=8 prevPointTime I
+        0x0257 - 0x0322 reg=13 pointInd I
+        0x02f7 - 0x0322 reg=34 curve Lorg/json/JSONArray;
+        0x00d4 - 0x0325 reg=3 eventTimeLast I
+        0x00d4 - 0x0325 reg=6 eventInd I
+        0x00d4 - 0x0325 reg=10 ind I
+        0x00d4 - 0x0325 reg=11 pattern Landroid/os/Pattern;
+        0x00ec - 0x0325 reg=12 type I
+        0x00d4 - 0x0325 reg=17 eventObject Lorg/json/JSONObject;
+        0x00d4 - 0x0325 reg=18 hapticObject Lorg/json/JSONObject;
+        0x00d4 - 0x0325 reg=20 patternArray Lorg/json/JSONArray;
+        0x00d4 - 0x0325 reg=21 patternNum I
+        0x00ee - 0x0325 reg=22 name Ljava/lang/String;
+        0x00d6 - 0x0325 reg=23 patternObject Lorg/json/JSONObject;
+        0x00f6 - 0x0325 reg=24 patternRelativeTime I
+        0x00fc - 0x0325 reg=25 eventArray Lorg/json/JSONArray;
+        0x0188 - 0x0325 reg=27 vibId I
+        0x01cb - 0x0325 reg=29 eventTemp Lorg/json/JSONObject;
+        0x020f - 0x0325 reg=30 parametersObject Lorg/json/JSONObject;
+        0x021f - 0x0325 reg=31 intensity I
+        0x0259 - 0x0325 reg=33 frequency I
+        0x0257 - 0x0330 reg=32 patternTimeLast I
+        0x0330 - 0x033b reg=5 patternTimeLast I
+        0x033b - 0x033d reg=32 patternTimeLast I
+        0x033d - 0x0347 reg=2 parametersObject Lorg/json/JSONObject;
+        0x033d - 0x0347 reg=8 eventTemp Lorg/json/JSONObject;
+        0x033d - 0x0347 reg=13 intensity I
+        0x033d - 0x0347 reg=15 frequency I
+        0x033d - 0x034e reg=12 type I
+        0x033d - 0x034e reg=17 eventObject Lorg/json/JSONObject;
+        0x033d - 0x034e reg=22 name Ljava/lang/String;
+        0x033d - 0x034e reg=27 vibId I
+        0x0347 - 0x034e reg=29 eventTemp Lorg/json/JSONObject;
+        0x0347 - 0x034e reg=30 parametersObject Lorg/json/JSONObject;
+        0x0347 - 0x034e reg=31 intensity I
+        0x0347 - 0x034e reg=33 frequency I
+        0x0364 - 0x036c reg=2 parametersObject Lorg/json/JSONObject;
+        0x0364 - 0x036c reg=8 eventTemp Lorg/json/JSONObject;
+        0x0364 - 0x036c reg=13 intensity I
+        0x0364 - 0x036c reg=15 frequency I
+        0x0364 - 0x038b reg=12 type I
+        0x0364 - 0x038b reg=22 name Ljava/lang/String;
+        0x033d - 0x038b reg=24 patternRelativeTime I
+        0x033d - 0x038b reg=25 eventArray Lorg/json/JSONArray;
+        0x0364 - 0x038b reg=27 vibId I
+        0x018c - 0x038b reg=28 patternList [Landroid/os/Pattern;
+        0x036c - 0x038b reg=29 eventTemp Lorg/json/JSONObject;
+        0x036c - 0x038b reg=30 parametersObject Lorg/json/JSONObject;
+        0x036c - 0x038b reg=31 intensity I
+        0x036c - 0x038b reg=33 frequency I
+        0x038b - 0x0395 reg=4 patternList [Landroid/os/Pattern;
+        0x038b - 0x0395 reg=7 name Ljava/lang/String;
+        0x038b - 0x0395 reg=8 eventTemp Lorg/json/JSONObject;
+        0x038b - 0x0395 reg=13 patternRelativeTime I
+        0x038b - 0x0395 reg=15 eventArray Lorg/json/JSONArray;
+        0x0364 - 0x03b4 reg=17 eventObject Lorg/json/JSONObject;
+        0x033d - 0x03b4 reg=20 patternArray Lorg/json/JSONArray;
+        0x033d - 0x03b4 reg=21 patternNum I
+        0x0395 - 0x03b4 reg=22 name Ljava/lang/String;
+        0x033d - 0x03b4 reg=23 patternObject Lorg/json/JSONObject;
+        0x0395 - 0x03b4 reg=24 patternRelativeTime I
+        0x0395 - 0x03b4 reg=25 eventArray Lorg/json/JSONArray;
+        0x0395 - 0x03b4 reg=28 patternList [Landroid/os/Pattern;
+        0x0395 - 0x03b4 reg=29 eventTemp Lorg/json/JSONObject;
+        0x03b4 - 0x03c4 reg=4 patternList [Landroid/os/Pattern;
+        0x033d - 0x03c4 reg=6 eventInd I
+        0x03b4 - 0x03c4 reg=8 patternArray Lorg/json/JSONArray;
+        0x03b4 - 0x03c4 reg=9 patternNum I
+        0x03b4 - 0x03c4 reg=12 patternObject Lorg/json/JSONObject;
+        0x03b4 - 0x03c4 reg=13 patternRelativeTime I
+        0x03b4 - 0x03c4 reg=15 eventArray Lorg/json/JSONArray;
+        0x033d - 0x03c7 reg=3 eventTimeLast I
+        0x033d - 0x03c7 reg=11 pattern Landroid/os/Pattern;
+        0x03c4 - 0x03c7 reg=23 patternObject Lorg/json/JSONObject;
+        0x03c4 - 0x03c7 reg=24 patternRelativeTime I
+        0x03c4 - 0x03c7 reg=25 eventArray Lorg/json/JSONArray;
+        0x033d - 0x03dc reg=10 ind I
+        0x033d - 0x03dc reg=18 hapticObject Lorg/json/JSONObject;
+        0x03c4 - 0x03dc reg=20 patternArray Lorg/json/JSONArray;
+        0x03c4 - 0x03dc reg=21 patternNum I
+        0x03c4 - 0x03e5 reg=28 patternList [Landroid/os/Pattern;
+        0x03e5 - 0x03ed reg=4 patternList [Landroid/os/Pattern;
+        0x033d - 0x03ee reg=5 patternTimeLast I
+        0x03ed - 0x03ee reg=28 patternList [Landroid/os/Pattern;
+        0x03ee - 0x03f7 reg=4 patternList [Landroid/os/Pattern;
+        0x03ee - 0x03f8 reg=17 patternTimeLast I
+        0x03f7 - 0x03f8 reg=28 patternList [Landroid/os/Pattern;
+        0x03f8 - 0x0409 reg=3 patternTimeLast I
+        0x03f8 - 0x0409 reg=4 patternList [Landroid/os/Pattern;
+        0x0409 - 0x040a reg=17 patternTimeLast I
+        0x0409 - 0x040a reg=28 patternList [Landroid/os/Pattern;
+        0x040a - 0x0416 reg=3 patternTimeLast I
+        0x040a - 0x0416 reg=4 patternList [Landroid/os/Pattern;
+        0x040a - 0x0416 reg=6 hapticObject Lorg/json/JSONObject;
+        0x040a - 0x0416 reg=8 patternArray Lorg/json/JSONArray;
+        0x040a - 0x0416 reg=9 patternNum I
+        0x040a - 0x0416 reg=10 ind I
+        0x0416 - 0x041d reg=28 patternList [Landroid/os/Pattern;
+        0x0421 - 0x0422 reg=0 patternHe [I
+        0x0416 - 0x0422 reg=18 hapticObject Lorg/json/JSONObject;
+        0x0416 - 0x0422 reg=20 patternArray Lorg/json/JSONArray;
+        0x0416 - 0x0422 reg=21 patternNum I
+        0x041d - 0x0427 reg=10 patternList [Landroid/os/Pattern;
+        0x0416 - 0x0427 reg=17 patternTimeLast I
+        0x042e - 0x0431 reg=0 e Ljava/lang/Exception;
+        0x0427 - 0x0432 reg=3 patternTimeLast I
+        0x0427 - 0x0432 reg=4 patternList [Landroid/os/Pattern;
+        0x0000 - 0x0432 reg=41 patternString Ljava/lang/String;
+        0x0000 - 0x0432 reg=42 pid I
+        0x0000 - 0x0432 reg=43 seq I
+    #14              : (in Landroid/os/DynamicEffect;)
+      name          : 'lambda$encapsulate$0'
+      type          : '(Ljava/lang/Integer;)I'
+      access        : 0x1008 (STATIC SYNTHETIC)
+      hiddenapi     : 0x0002 (BLOCKED)
+      code          -
+      registers     : 2
+      ins           : 1
+      outs          : 1
+      insns size    : 5 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=994
+      locals        :
+        0x0000 - 0x0005 reg=1 i Ljava/lang/Integer;
+    #15              : (in Landroid/os/DynamicEffect;)
+      name          : 'parseParameter'
+      type          : '(Lorg/json/JSONObject;)Landroid/os/DynamicEffect$Parameter;'
+      access        : 0x000a (PRIVATE STATIC)
+      hiddenapi     : 0x0002 (BLOCKED)
+      code          -
+      registers     : 8
+      ins           : 1
+      outs          : 3
+      insns size    : 99 16-bit code units
+      catches       : 1
+        0x0000 - 0x0057
+          Ljava/lang/Exception; -> 0x0059
+      positions     :
+        0x0000 line=286
+        0x0006 line=287
+        0x000c line=288
+        0x0012 line=289
+        0x0018 line=290
+        0x001f line=291
+        0x002c line=292
+        0x0039 line=290
+        0x003c line=294
+        0x0044 line=295
+        0x004a line=296
+        0x0052 line=297
+        0x0058 line=301
+        0x0059 line=299
+        0x005a line=300
+        0x0061 line=302
+      locals        :
+        0x0019 - 0x003c reg=4 i I
+        0x0006 - 0x0058 reg=0 id Ljava/lang/String;
+        0x000c - 0x0058 reg=1 points Lorg/json/JSONArray;
+        0x0012 - 0x0058 reg=2 timings [F
+        0x0018 - 0x0058 reg=3 values [F
+        0x005a - 0x0061 reg=0 e Ljava/lang/Exception;
+        0x0000 - 0x0063 reg=7 curve Lorg/json/JSONObject;
+    #16              : (in Landroid/os/DynamicEffect;)
+      name          : 'parsePrimitive'
+      type          : '(Lorg/json/JSONObject;)Landroid/os/DynamicEffect$PrimitiveEffect;'
+      access        : 0x000a (PRIVATE STATIC)
+      hiddenapi     : 0x0002 (BLOCKED)
+      code          -
+      registers     : 21
+      ins           : 1
+      outs          : 3
+      insns size    : 237 16-bit code units
+      catches       : 1
+        0x0003 - 0x00e0
+          Ljava/lang/Exception; -> 0x00e4
+      positions     :
+        0x0000 line=235
+        0x0003 line=237
+        0x0009 line=238
+        0x0010 line=239
+        0x0016 line=240
+        0x001d line=241
+        0x0021 line=242
+        0x0027 line=243
+        0x002e line=244
+        0x0036 line=245
+        0x0038 line=246
+        0x0040 line=247
+        0x0042 line=248
+        0x004a line=249
+        0x004c line=250
+        0x0054 line=251
+        0x0056 line=252
+        0x005e line=253
+        0x005f line=240
+        0x0062 line=257
+        0x006a line=258
+        0x0071 line=259
+        0x007a line=260
+        0x007c line=261
+        0x0082 line=262
+        0x00a1 line=265
+        0x00a4 line=266
+        0x00b0 line=267
+        0x00b5 line=268
+        0x00c9 line=271
+        0x00cc line=272
+        0x00ce line=273
+        0x00d4 line=275
+        0x00dc line=276
+        0x00e2 line=275
+        0x00e3 line=280
+        0x00e4 line=278
+        0x00e5 line=279
+        0x00ec line=281
+      locals        :
+        0x0021 - 0x005f reg=11 parameter Lorg/json/JSONObject;
+        0x0027 - 0x005f reg=12 parameterId Ljava/lang/String;
+        0x002e - 0x005f reg=13 value F
+        0x0017 - 0x0062 reg=10 j I
+        0x00a1 - 0x00a5 reg=11 param Landroid/os/DynamicEffect$Parameter;
+        0x007c - 0x00a5 reg=12 sustainedDuration F
+        0x00c9 - 0x00cd reg=11 param Landroid/os/DynamicEffect$Parameter;
+        0x0003 - 0x00d3 reg=2 ret Landroid/os/DynamicEffect$PrimitiveEffect;
+        0x0071 - 0x00d4 reg=10 duration F
+        0x00d3 - 0x00d4 reg=11 ret Landroid/os/DynamicEffect$PrimitiveEffect;
+        0x0009 - 0x00e3 reg=0 eventType Ljava/lang/String;
+        0x000a - 0x00e3 reg=3 intensity F
+        0x000b - 0x00e3 reg=4 sharpness F
+        0x000c - 0x00e3 reg=5 attackTime F
+        0x000d - 0x00e3 reg=6 releaseTime F
+        0x000f - 0x00e3 reg=7 sustained F
+        0x0010 - 0x00e3 reg=8 decayTime F
+        0x0016 - 0x00e3 reg=9 parameters Lorg/json/JSONArray;
+        0x00e5 - 0x00ec reg=0 e Ljava/lang/Exception;
+        0x00d4 - 0x00ed reg=2 ret Landroid/os/DynamicEffect$PrimitiveEffect;
+        0x0000 - 0x00ed reg=20 event Lorg/json/JSONObject;
+  Virtual methods   -
+    #0              : (in Landroid/os/DynamicEffect;)
+      name          : 'adapt'
+      type          : '(Landroid/os/CombinedVibration$VibratorAdapter;)Landroid/os/CombinedVibration;'
+      access        : 0x0001 (PUBLIC)
+      hiddenapi     : 0x0002 (BLOCKED)
+      code          -
+      registers     : 3
+      ins           : 2
+      outs          : 0
+      insns size    : 2 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=1034
+      locals        :
+        0x0000 - 0x0002 reg=1 this Landroid/os/DynamicEffect;
+        0x0000 - 0x0002 reg=2 adapter Landroid/os/CombinedVibration$VibratorAdapter;
+    #1              : (in Landroid/os/DynamicEffect;)
+      name          : 'addParameter'
+      type          : '(FLandroid/os/DynamicEffect$Parameter;)Landroid/os/DynamicEffect;'
+      access        : 0x0001 (PUBLIC)
+      code          -
+      registers     : 5
+      ins           : 3
+      outs          : 2
+      insns size    : 38 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=195
+        0x0002 line=196
+        0x0016 line=198
+        0x001e line=199
+        0x0025 line=201
+      locals        :
+        0x0000 - 0x0026 reg=2 this Landroid/os/DynamicEffect;
+        0x0000 - 0x0026 reg=3 startTime F
+        0x0000 - 0x0026 reg=4 param Landroid/os/DynamicEffect$Parameter;
+    #2              : (in Landroid/os/DynamicEffect;)
+      name          : 'addPrimitive'
+      type          : '(FLandroid/os/DynamicEffect$PrimitiveEffect;)Landroid/os/DynamicEffect;'
+      access        : 0x0001 (PUBLIC)
+      code          -
+      registers     : 5
+      ins           : 3
+      outs          : 2
+      insns size    : 34 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=185
+        0x0002 line=186
+        0x0016 line=188
+        0x001c line=189
+        0x0021 line=191
+      locals        :
+        0x0000 - 0x0022 reg=2 this Landroid/os/DynamicEffect;
+        0x0000 - 0x0022 reg=3 startTime F
+        0x0000 - 0x0022 reg=4 effect Landroid/os/DynamicEffect$PrimitiveEffect;
+    #3              : (in Landroid/os/DynamicEffect;)
+      name          : 'clear'
+      type          : '()V'
+      access        : 0x0001 (PUBLIC)
+      code          -
+      registers     : 2
+      ins           : 1
+      outs          : 1
+      insns size    : 11 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=226
+        0x0005 line=227
+        0x000a line=228
+      locals        :
+        0x0000 - 0x000b reg=1 this Landroid/os/DynamicEffect;
+    #4              : (in Landroid/os/DynamicEffect;)
+      name          : 'describeContents'
+      type          : '()I'
+      access        : 0x0001 (PUBLIC)
+      hiddenapi     : 0x0020 (SDK,TEST-API)
+      code          -
+      registers     : 2
+      ins           : 1
+      outs          : 0
+      insns size    : 2 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=1022
+      locals        :
+        0x0000 - 0x0002 reg=1 this Landroid/os/DynamicEffect;
+    #5              : (in Landroid/os/DynamicEffect;)
+      name          : 'encapsulate'
+      type          : '()[I'
+      access        : 0x0001 (PUBLIC)
+      code          -
+      registers     : 10
+      ins           : 1
+      outs          : 5
+      insns size    : 441 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=899
+        0x0004 line=900
+        0x0007 line=930
+        0x0018 line=932
+        0x001c line=933
+        0x0023 line=934
+        0x0024 line=936
+        0x0027 line=937
+        0x0028 line=938
+        0x002c line=939
+        0x002f line=940
+        0x0033 line=941
+        0x0038 line=942
+        0x003d line=943
+        0x0046 line=944
+        0x0047 line=947
+        0x005e line=997
+        0x005f line=949
+        0x0064 line=950
+        0x006d line=951
+        0x0076 line=952
+        0x007f line=953
+        0x008c line=954
+        0x009e line=957
+        0x00a7 line=958
+        0x00b0 line=959
+        0x00bd line=960
+        0x00c6 line=961
+        0x00d1 line=962
+        0x00dc line=960
+        0x00df line=964
+        0x00e0 line=974
+        0x00ed line=975
+        0x00ff line=976
+        0x0108 line=977
+        0x0111 line=978
+        0x011a line=979
+        0x0123 line=980
+        0x012c line=981
+        0x0139 line=982
+        0x014b line=983
+        0x0154 line=984
+        0x015d line=985
+        0x016a line=986
+        0x0173 line=987
+        0x017e line=988
+        0x0189 line=986
+        0x018c line=990
+        0x018d line=991
+        0x018f line=992
+        0x019b line=993
+        0x01a3 line=994
+        0x01b6 line=995
+      locals        :
+        0x0027 - 0x0047 reg=0 len I
+        0x0028 - 0x0047 reg=1 encapsulate [I
+        0x009e - 0x00df reg=2 curve Landroid/os/DynamicEffect$Curve;
+        0x00be - 0x00df reg=5 i I
+        0x014b - 0x018c reg=6 curve Landroid/os/DynamicEffect$Curve;
+        0x016b - 0x018c reg=7 i I
+        0x00ff - 0x018d reg=2 effect Landroid/os/DynamicEffect$PrimitiveEffect;
+        0x0064 - 0x01b9 reg=0 encapsulate Ljava/util/ArrayList; Ljava/util/ArrayList<Ljava/lang/Integer;>;
+        0x0000 - 0x01b9 reg=9 this Landroid/os/DynamicEffect;
+    #6              : (in Landroid/os/DynamicEffect;)
+      name          : 'equals'
+      type          : '(Ljava/lang/Object;)Z'
+      access        : 0x0001 (PUBLIC)
+      hiddenapi     : 0x0030 (SDK,CORE-PLATFORM-API,TEST-API)
+      code          -
+      registers     : 6
+      ins           : 2
+      outs          : 2
+      insns size    : 38 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=877
+        0x0005 line=878
+        0x0006 line=879
+        0x0009 line=881
+        0x000d line=882
+        0x000e line=884
+        0x001c line=885
+        0x0025 line=884
+      locals        :
+        0x0009 - 0x0026 reg=0 other Landroid/os/DynamicEffect;
+        0x0000 - 0x0026 reg=4 this Landroid/os/DynamicEffect;
+        0x0000 - 0x0026 reg=5 o Ljava/lang/Object;
+    #7              : (in Landroid/os/DynamicEffect;)
+      name          : 'getDuration'
+      type          : '()J'
+      access        : 0x0001 (PUBLIC)
+      hiddenapi     : 0x0020 (SDK,TEST-API)
+      code          -
+      registers     : 3
+      ins           : 1
+      outs          : 0
+      insns size    : 3 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=856
+      locals        :
+        0x0000 - 0x0003 reg=2 this Landroid/os/DynamicEffect;
+    #8              : (in Landroid/os/DynamicEffect;)
+      name          : 'getDuration'
+      type          : '(Landroid/util/SparseArray;)J'
+      access        : 0x0001 (PUBLIC)
+      hiddenapi     : 0x0002 (BLOCKED)
+      code          -
+      registers     : 4
+      ins           : 2
+      outs          : 0
+      insns size    : 3 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=862
+      locals        :
+        0x0000 - 0x0003 reg=2 this Landroid/os/DynamicEffect;
+        0x0000 - 0x0003 reg=3 vibratorInfos Landroid/util/SparseArray; Landroid/util/SparseArray<Landroid/os/VibratorInfo;>;
+    #9              : (in Landroid/os/DynamicEffect;)
+      name          : 'hasVendorEffects'
+      type          : '()Z'
+      access        : 0x0001 (PUBLIC)
+      code          -
+      registers     : 2
+      ins           : 1
+      outs          : 0
+      insns size    : 2 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=872
+      locals        :
+        0x0000 - 0x0002 reg=1 this Landroid/os/DynamicEffect;
+    #10              : (in Landroid/os/DynamicEffect;)
+      name          : 'hasVibrator'
+      type          : '(I)Z'
+      access        : 0x0001 (PUBLIC)
+      code          -
+      registers     : 3
+      ins           : 2
+      outs          : 0
+      insns size    : 2 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=1027
+      locals        :
+        0x0000 - 0x0002 reg=1 this Landroid/os/DynamicEffect;
+        0x0000 - 0x0002 reg=2 vibratorId I
+    #11              : (in Landroid/os/DynamicEffect;)
+      name          : 'hashCode'
+      type          : '()I'
+      access        : 0x0001 (PUBLIC)
+      hiddenapi     : 0x0030 (SDK,CORE-PLATFORM-API,TEST-API)
+      code          -
+      registers     : 2
+      ins           : 1
+      outs          : 1
+      insns size    : 7 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=890
+      locals        :
+        0x0000 - 0x0007 reg=1 this Landroid/os/DynamicEffect;
+    #12              : (in Landroid/os/DynamicEffect;)
+      name          : 'resolve'
+      type          : '(I)Landroid/os/DynamicEffect;'
+      access        : 0x0001 (PUBLIC)
+      code          -
+      registers     : 2
+      ins           : 2
+      outs          : 0
+      insns size    : 3 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=1016
+        0x0002 line=1017
+      locals        :
+        0x0000 - 0x0003 reg=0 this Landroid/os/DynamicEffect;
+        0x0000 - 0x0003 reg=1 defaultAmplitude I
+    #13              : (in Landroid/os/DynamicEffect;)
+      name          : 'scale'
+      type          : '(F)Landroid/os/DynamicEffect;'
+      access        : 0x0001 (PUBLIC)
+      code          -
+      registers     : 3
+      ins           : 2
+      outs          : 0
+      insns size    : 8 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=1011
+        0x0007 line=1012
+      locals        :
+        0x0000 - 0x0008 reg=1 this Landroid/os/DynamicEffect;
+        0x0000 - 0x0008 reg=2 scaleFactor F
+    #14              : (in Landroid/os/DynamicEffect;)
+      name          : 'toDebugString'
+      type          : '()Ljava/lang/String;'
+      access        : 0x0001 (PUBLIC)
+      code          -
+      registers     : 2
+      ins           : 1
+      outs          : 0
+      insns size    : 2 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=1039
+      locals        :
+        0x0000 - 0x0002 reg=1 this Landroid/os/DynamicEffect;
+    #15              : (in Landroid/os/DynamicEffect;)
+      name          : 'toString'
+      type          : '()Ljava/lang/String;'
+      access        : 0x0001 (PUBLIC)
+      hiddenapi     : 0x0030 (SDK,CORE-PLATFORM-API,TEST-API)
+      code          -
+      registers     : 2
+      ins           : 1
+      outs          : 0
+      insns size    : 3 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=895
+      locals        :
+        0x0000 - 0x0003 reg=1 this Landroid/os/DynamicEffect;
+    #16              : (in Landroid/os/DynamicEffect;)
+      name          : 'transform'
+      type          : '(Landroid/os/VibrationEffect$Transformation;Ljava/lang/Object;)Landroid/os/CombinedVibration;'
+      access        : 0x0001 (PUBLIC)
+      hiddenapi     : 0x0002 (BLOCKED)
+      code          -
+      registers     : 4
+      ins           : 3
+      outs          : 0
+      insns size    : 2 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=1046
+      locals        :
+        0x0000 - 0x0002 reg=1 this Landroid/os/DynamicEffect;
+        0x0000 - 0x0002 reg=2 transformation Landroid/os/VibrationEffect$Transformation; Landroid/os/VibrationEffect$Transformation<TParamT;>;
+        0x0000 - 0x0002 reg=3 param Ljava/lang/Object; TParamT;
+    #17              : (in Landroid/os/DynamicEffect;)
+      name          : 'validate'
+      type          : '()V'
+      access        : 0x0001 (PUBLIC)
+      code          -
+      registers     : 1
+      ins           : 1
+      outs          : 0
+      insns size    : 1 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=867
+      locals        :
+        0x0000 - 0x0001 reg=0 this Landroid/os/DynamicEffect;
+    #18              : (in Landroid/os/DynamicEffect;)
+      name          : 'writeToParcel'
+      type          : '(Landroid/os/Parcel;I)V'
+      access        : 0x0001 (PUBLIC)
+      hiddenapi     : 0x0020 (SDK,TEST-API)
+      code          -
+      registers     : 4
+      ins           : 3
+      outs          : 2
+      insns size    : 22 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=1004
+        0x0004 line=1005
+        0x000b line=1006
+        0x0010 line=1007
+        0x0015 line=1008
+      locals        :
+        0x0000 - 0x0016 reg=1 this Landroid/os/DynamicEffect;
+        0x0000 - 0x0016 reg=2 out Landroid/os/Parcel;
+        0x0000 - 0x0016 reg=3 flags I
+  source_file_idx   : 8363 (DynamicEffect.java)
+
+Class #726            -

@@ -1,0 +1,199 @@
+﻿  Class descriptor  : 'Lmiui/os/DynamicEffect;'
+  Access flags      : 0x0001 (PUBLIC)
+  Superclass        : 'Ljava/lang/Object;'
+  Interfaces        -
+  Static fields     -
+    #0              : (in Lmiui/os/DynamicEffect;)
+      name          : 'INTENSITY'
+      type          : 'I'
+      access        : 0x0019 (PUBLIC STATIC FINAL)
+      value         : 0
+    #1              : (in Lmiui/os/DynamicEffect;)
+      name          : 'SHARPNESS'
+      type          : 'I'
+      access        : 0x0019 (PUBLIC STATIC FINAL)
+      value         : 1
+  Instance fields   -
+    #0              : (in Lmiui/os/DynamicEffect;)
+      name          : 'mEffect'
+      type          : 'Landroid/os/DynamicEffect;'
+      access        : 0x0002 (PRIVATE)
+      hiddenapi     : 0x0002 (BLOCKED)
+  Direct methods    -
+    #0              : (in Lmiui/os/DynamicEffect;)
+      name          : '<init>'
+      type          : '()V'
+      access        : 0x10002 (PRIVATE CONSTRUCTOR)
+      hiddenapi     : 0x0002 (BLOCKED)
+      code          -
+      registers     : 2
+      ins           : 1
+      outs          : 1
+      insns size    : 10 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=39
+        0x0003 line=40
+        0x0009 line=41
+      locals        :
+        0x0000 - 0x000a reg=1 this Lmiui/os/DynamicEffect;
+    #1              : (in Lmiui/os/DynamicEffect;)
+      name          : '<init>'
+      type          : '(Landroid/os/DynamicEffect;)V'
+      access        : 0x10002 (PRIVATE CONSTRUCTOR)
+      hiddenapi     : 0x0002 (BLOCKED)
+      code          -
+      registers     : 2
+      ins           : 2
+      outs          : 1
+      insns size    : 6 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=43
+        0x0003 line=44
+        0x0005 line=45
+      locals        :
+        0x0000 - 0x0006 reg=0 this Lmiui/os/DynamicEffect;
+        0x0000 - 0x0006 reg=1 effect Landroid/os/DynamicEffect;
+    #2              : (in Lmiui/os/DynamicEffect;)
+      name          : 'create'
+      type          : '(Ljava/lang/String;F)Lmiui/os/DynamicEffect;'
+      access        : 0x0009 (PUBLIC STATIC)
+      code          -
+      registers     : 4
+      ins           : 2
+      outs          : 2
+      insns size    : 10 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=78
+      locals        :
+        0x0000 - 0x000a reg=2 jsonArray Ljava/lang/String;
+        0x0000 - 0x000a reg=3 intensity F
+    #3              : (in Lmiui/os/DynamicEffect;)
+      name          : 'createContinuous'
+      type          : '(FFF)Lmiui/os/DynamicEffect$PrimitiveEffect;'
+      access        : 0x0009 (PUBLIC STATIC)
+      code          -
+      registers     : 5
+      ins           : 3
+      outs          : 3
+      insns size    : 10 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=56
+      locals        :
+        0x0000 - 0x000a reg=2 intensity F
+        0x0000 - 0x000a reg=3 sharpness F
+        0x0000 - 0x000a reg=4 duration F
+    #4              : (in Lmiui/os/DynamicEffect;)
+      name          : 'createParameter'
+      type          : '(I[F[F)Lmiui/os/DynamicEffect$Parameter;'
+      access        : 0x0009 (PUBLIC STATIC)
+      code          -
+      registers     : 5
+      ins           : 3
+      outs          : 3
+      insns size    : 10 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=64
+      locals        :
+        0x0000 - 0x000a reg=2 type I
+        0x0000 - 0x000a reg=3 timings [F
+        0x0000 - 0x000a reg=4 values [F
+    #5              : (in Lmiui/os/DynamicEffect;)
+      name          : 'createTransient'
+      type          : '(FF)Lmiui/os/DynamicEffect$PrimitiveEffect;'
+      access        : 0x0009 (PUBLIC STATIC)
+      code          -
+      registers     : 4
+      ins           : 2
+      outs          : 2
+      insns size    : 10 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=52
+      locals        :
+        0x0000 - 0x000a reg=2 intensity F
+        0x0000 - 0x000a reg=3 sharpness F
+    #6              : (in Lmiui/os/DynamicEffect;)
+      name          : 'startCompose'
+      type          : '()Lmiui/os/DynamicEffect;'
+      access        : 0x0009 (PUBLIC STATIC)
+      code          -
+      registers     : 1
+      ins           : 0
+      outs          : 1
+      insns size    : 6 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=60
+      locals        :
+  Virtual methods   -
+    #0              : (in Lmiui/os/DynamicEffect;)
+      name          : 'addParameter'
+      type          : '(FLmiui/os/DynamicEffect$Parameter;)Lmiui/os/DynamicEffect;'
+      access        : 0x0001 (PUBLIC)
+      code          -
+      registers     : 5
+      ins           : 3
+      outs          : 3
+      insns size    : 10 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=68
+        0x0009 line=69
+      locals        :
+        0x0000 - 0x000a reg=2 this Lmiui/os/DynamicEffect;
+        0x0000 - 0x000a reg=3 startTime F
+        0x0000 - 0x000a reg=4 param Lmiui/os/DynamicEffect$Parameter;
+    #1              : (in Lmiui/os/DynamicEffect;)
+      name          : 'addPrimitive'
+      type          : '(FLmiui/os/DynamicEffect$PrimitiveEffect;)Lmiui/os/DynamicEffect;'
+      access        : 0x0001 (PUBLIC)
+      code          -
+      registers     : 5
+      ins           : 3
+      outs          : 3
+      insns size    : 10 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=73
+        0x0009 line=74
+      locals        :
+        0x0000 - 0x000a reg=2 this Lmiui/os/DynamicEffect;
+        0x0000 - 0x000a reg=3 startTime F
+        0x0000 - 0x000a reg=4 effect Lmiui/os/DynamicEffect$PrimitiveEffect;
+    #2              : (in Lmiui/os/DynamicEffect;)
+      name          : 'clear'
+      type          : '()V'
+      access        : 0x0001 (PUBLIC)
+      code          -
+      registers     : 2
+      ins           : 1
+      outs          : 1
+      insns size    : 6 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=48
+        0x0005 line=49
+      locals        :
+        0x0000 - 0x0006 reg=1 this Lmiui/os/DynamicEffect;
+    #3              : (in Lmiui/os/DynamicEffect;)
+      name          : 'get'
+      type          : '()Landroid/os/DynamicEffect;'
+      access        : 0x0001 (PUBLIC)
+      code          -
+      registers     : 2
+      ins           : 1
+      outs          : 0
+      insns size    : 3 16-bit code units
+      catches       : (none)
+      positions     :
+        0x0000 line=12
+      locals        :
+        0x0000 - 0x0003 reg=1 this Lmiui/os/DynamicEffect;
+  source_file_idx   : 8363 (DynamicEffect.java)
+
+Class #3578            -
