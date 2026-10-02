@@ -94,7 +94,7 @@ object SlotMatcher {
         releasedCandidateIndex: Int? = null,
     ): List<TouchCandidate> {
         return pointers.mapIndexed { idx, p ->
-            TouchCandidate(p.id, p.x / 1920f, p.y / 942f, releasedCandidateIndex == idx)
+            TouchCandidate(p.id, p.x / 1919f, p.y / 942f, releasedCandidateIndex == idx)
         }
     }
 

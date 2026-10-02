@@ -39,17 +39,8 @@ object SwipeTriggerStrategy {
             for (pointer in pointers) {
                 if (pointer.x >= rect.left && pointer.x <= rect.right &&
                     pointer.y >= rect.top && pointer.y <= rect.bottom) {
-                    // Non-overlapping check: if not overlapTrigger, skip if
-                    // another non-follow-area child also exists at this point.
-                    // This is handled by the caller via filterOverlapChildren
-                    // before passing childBounds.
-                    if (!pos.overlapTrigger) {
-                        // Check if this exact point is also inside another
-                        // child (handled by caller — we assume childBounds
-                        // already passed the overlap filter).
-                        // For simplicity in the pure function, we rely on
-                        // the caller to have filtered.
-                    }
+                    // 非 overlapTrigger 的重叠过滤由调用方在传入 childBounds 前
+                    // 完成，本纯函数只负责命中判断。
                     newlyActive.add(pos.id)
                     break
                 }

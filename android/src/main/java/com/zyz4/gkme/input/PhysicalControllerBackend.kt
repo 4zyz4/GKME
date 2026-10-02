@@ -38,7 +38,7 @@ interface PhysicalControllerBackend {
     val accelData: StateFlow<FloatArray>
 
     var controllerGyroEnabled: Boolean
-    var controllerHasGyro: Boolean
+    val controllerHasGyro: Boolean
 
     /** Index into [connectedControllers] used as the input source; -1 disables controller input. */
     var inputControllerIndex: Int

@@ -83,9 +83,8 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
         get() = storedControllerGyroEnabled
         set(value) { storedControllerGyroEnabled = value; backend?.controllerGyroEnabled = value }
 
-    override var controllerHasGyro: Boolean
+    override val controllerHasGyro: Boolean
         get() = backend?.controllerHasGyro ?: false
-        set(_) { }
 
     override var inputControllerIndex: Int
         get() = storedInputControllerIndex

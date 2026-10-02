@@ -324,8 +324,9 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeCreate(JNIEnv *env, jcla
     setup.id.vendor = 0x045E;  /* Microsoft */
     setup.id.product = 0x02FD; /* Xbox One S 手柄 */
     setup.id.version = 0x0001;
-    /* 使用被模拟设备的本身名称（虚拟 Xbox One S）。该名称是 App 识别并排除自己
-     * 创建的虚拟手柄的依据，需与 VirtualGamepad.kt / sdl_bridge.cpp 保持一致。 */
+    /* 使用被模拟设备的名称（虚拟 Xbox One S）。App 排除自己创建的虚拟手柄时
+     * 只依据 vendor/product（SDL 会改写设备名，名称不可靠），见 VirtualGamepad.kt /
+     * sdl_bridge.cpp。此处的名称仅用于系统展示。 */
     snprintf(setup.name, sizeof(setup.name), "%s", "Xbox One S Controller");
     setup.ff_effects_max = ff_max;
 

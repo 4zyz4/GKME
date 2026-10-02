@@ -57,12 +57,6 @@ object DsuConstants {
             else -> BATTERY_DYING
         }
     }
-
-    fun isBroadcastPacket(data: ByteArray): Boolean {
-        if (data.size < 4) return false
-        return data[0].toInt() and 0xFF == 192 &&
-                data[1].toInt() and 0xFF == 168
-    }
 }
 
 class DsuCodec {
