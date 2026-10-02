@@ -273,13 +273,13 @@ Java 声明 5 个 native 方法（`nativeConnectHaptics`、`nativeEnableHaptics`
 
 | 问题 | 证据 |
 |------|------|
-| 重启不可用：`stopped=true` 后不复位，且 start 前不清空端点，二次 start 误报 duplicate endpoint | `AbstractXboxController.java:26,113-138,164`；`AbstractDualSenseController.java` |
+| [已修复] 重启不可用：`stopped=true` 后不复位，且 start 前不清空端点，二次 start 误报 duplicate endpoint | `AbstractXboxController.java:26,113-138,164`；`AbstractDualSenseController.java` |
 | [已修复] DS4/DualSense `handleRead` 混用游标与绝对索引，游标实际无效 | `Dualshock4Controller.java:54-56` |
 | [已修复] `ProConController.sendSubcommand` 重试语义有缺陷（`COMMAND_RETRIES=10` 形同虚设） | `ProConController.java:157-179` |
 | [已修复] ProCon 普通 rumble 位运算优先级可疑（`&` 与 `>>`） | `ProConController.java:285-286` |
-| HD rumble 与普通 rumble 共用 `0x10` 报文/计数器，非线程安全 | `ProConController.java:149-151,279-281,321-323` |
+| [已修复] HD rumble 与普通 rumble 共用 `0x10` 报文/计数器，非线程安全 | `ProConController.java:149-151,279-281,321-323` |
 | 传感器轴定义三套实现各不相同，改动需谨慎 | DS4/DualSense vs ProCon vs ProCon2 |
-| 触摸板分辨率不一致（DS4 1920×920 / DualSense 1920×1080 / Kotlin 1919×942） | 各控制器 |
+| [已修复] 触摸板分辨率不一致（DS4 1920×920 / DualSense 1920×1080 / Kotlin 1919×942；Kotlin 输出域已提为命名常量，各机型按原生分辨率归一化） | 各控制器 |
 | claim 策略差异：Xbox 跳过 AUDIO 接口，DualSense 强制 claim 全部（含音频） | `AbstractXboxController.java:108-111`；`AbstractDualSenseController.java:187-199` |
 | 内核能力启发式基于 `os.version` 猜测，无法确认 xpad LED 配置 | `UsbDriverService.java:267-310` |
 | Haptic 缓冲三层约束（4096 / 3920 / native 3920）需保持一致 | `DualSenseHapticSender.java:149`；`AbstractDualSenseController.java:367` |

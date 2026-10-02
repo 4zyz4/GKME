@@ -102,8 +102,8 @@ typedef struct {
     volatile int running;
     pthread_t thread;
     pthread_mutex_t lock;
-    int left;  /* 0..32767 */
-    int right; /* 0..32767 */
+    int left;  /* 0..65535（Linux ff_rumble strong_magnitude） */
+    int right; /* 0..65535（Linux ff_rumble weak_magnitude） */
     /* 为 0 时仍暴露 FF 能力，但忽略震动数据（本机模式，避免回环）。 */
     int rumble_enabled;
     unsigned char has_effect[GKME_MAX_FF];

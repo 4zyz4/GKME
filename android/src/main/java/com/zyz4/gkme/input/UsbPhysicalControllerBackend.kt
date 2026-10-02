@@ -367,6 +367,11 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
         synchronized(lock) { list = controllerList }
         val infos = list.map { c ->
             val capabilities = c.getCapabilities().toInt()
+            val supportedButtons = if ((capabilities and GkmeBridge.LI_CCAP_TOUCHPAD.toInt()) != 0) {
+                PhysicalInputs.STANDARD_BUTTON_MASK
+            } else {
+                PhysicalInputs.STANDARD_BUTTON_MASK and GamepadState.TOUCHPAD_CLICK.inv()
+            }
             ControllerInfo(
                 id = c.getControllerId(),
                 name = displayName(c),
@@ -376,7 +381,7 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
                 hasGyro = (capabilities and GkmeBridge.LI_CCAP_GYRO.toInt()) != 0,
                 hasAnalogTrigger = (capabilities and GkmeBridge.LI_CCAP_ANALOG_TRIGGERS.toInt()) != 0,
                 hasTouchpad = (capabilities and GkmeBridge.LI_CCAP_TOUCHPAD.toInt()) != 0,
-                supportedButtons = PhysicalInputs.STANDARD_BUTTON_MASK,
+                supportedButtons = supportedButtons,
             )
         }
         _connectedControllers.value = infos

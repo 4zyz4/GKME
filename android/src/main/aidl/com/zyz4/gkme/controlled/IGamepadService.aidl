@@ -24,7 +24,7 @@ interface IGamepadService {
                 float accelX, float accelY, float accelZ,
                 in int[] touches) = 2;
 
-    /** 读取待回传的震动，高 16 位为左马达、低 16 位为右马达（0..32767）。无震动返回 0。 */
+    /** 读取待回传的震动，高 16 位为左马达、低 16 位为右马达（0..65535）。无震动返回 0。 */
     long pumpRumble() = 3;
 
     /** 销毁虚拟手柄。 */

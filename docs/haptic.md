@@ -311,9 +311,9 @@ native 模式下空闲补 10ms 静音帧（见 [usb-drivers.md §4](usb-drivers.
 |------|------|
 | [已修复] `HeJson` 对 `Curve.Frequency` 用 `optInt`，小数偏移会被截断 | `HeJson.kt:35` |
 | type2 `startEffect` 并非真正“无全局覆盖”：仍传 `amplitude=255, freq=0` | `RemoteHapticService.kt:127-135` |
-| type2 `swapVibrationIndex` 未接入设置 | `RemoteHapticService.kt:78-80` |
+| [已修复] type2 `swapVibrationIndex` 未接入设置（已删除未接线的字段，保留 SDK 默认不交换） | `RemoteHapticService.kt:78-80` |
 | [已修复] `RichTapHe.pattern` 只 `take(4)` 不补齐，少于 4 点会产出非法曲线（当前生产者都固定 4 点） | `RichTapHe.kt:112` |
-| 被高优先级占用时 `HdPcmStreamer.resetBuffer()` 直接丢缓冲，解禁后损失约 0.2s | `HdPcmStreamer.kt:119-124` |
+| [已修复] 被高优先级占用时 `HdPcmStreamer.resetBuffer()` 直接丢缓冲，解禁后损失约 0.2s（改为限时保留） | `HdPcmStreamer.kt:119-124` |
 | [已修复] 主线程卡顿 >40ms 时真实流逝时间被 `MAX_DT_MS` 截断，时间轴压缩/滞后（文档原表述为"跳桶"，已更正） | `HdPcmStreamer.kt:60-64,137,162` |
 | `EVENT_MS` 可否进一步缩短、HAL 最短事件时长，待真机标定 | `HdPcmStreamer.kt:38-49` |
 | `Q`、`MAX_FREQ_COMPENSATION`、`SEAM_BOOST`、`ONSET_*`、`BURST_*` 建议按真机手感标定 | 各文件 |

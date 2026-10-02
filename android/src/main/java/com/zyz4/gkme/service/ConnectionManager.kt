@@ -37,7 +37,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
@@ -68,11 +67,13 @@ class ConnectionManager @Inject constructor(
     private val context: Context,
     private val pairingStateRepository: PairingStateRepository,
     private val settingsRepository: SettingsRepository,
+    val audioPlaybackService: AudioPlaybackService,
 ) {
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
-    val audioPlaybackService = AudioPlaybackService().also { it.initContext(context) }
+    /** 一旦用户通过 [updateSettings] 提供设置，迟到的初始加载不得覆盖它。 */
+    private val settingsReady = java.util.concurrent.atomic.AtomicBoolean(false)
 
     val pairedDeviceName: StateFlow<String?> = pairingStateRepository.pairedDeviceName
         .stateIn(scope, SharingStarted.Eagerly, null)
@@ -86,6 +87,11 @@ class ConnectionManager @Inject constructor(
     private var watchdogJob: Job? = null
     private var reconnectJob: Job? = null
 
+    /**
+     * 当前生效的传输协议。WiFi(UDP) 与 Emotion(DSU) 在设计上互斥（只有一个生效），
+     * 后连接的真实客户端会接管；@Volatile 保证跨线程可见性。
+     */
+    @Volatile
     private var activeProtocol = ActiveProtocol.NONE
 
     // 持久化的鼠标按键电平状态。普通手柄状态包会以较高速率持续发送，
@@ -136,15 +142,20 @@ class ConnectionManager @Inject constructor(
     )
 
     init {
-        _settings.value = runBlocking(Dispatchers.IO) {
-            settingsRepository.settings.first()
+        // 异步读取持久化设置，避免在主线程 runBlocking 读 DataStore 触发 ANR。
+        // 若用户在读取完成前已通过 updateSettings 提供设置，则丢弃本次加载结果。
+        scope.launch {
+            val loaded = settingsRepository.settings.first()
+            if (settingsReady.compareAndSet(false, true)) {
+                _settings.value = loaded
+                PhoneHdHaptics.enabled = loaded.hdVibrationEnabled
+                GamepadInjector.configure(
+                    loaded.virtualGamepadNativeBackend(),
+                    loaded.virtualGamepadUhidProfile(),
+                )
+                applyEffectiveAudioSettings()
+            }
         }
-        PhoneHdHaptics.enabled = _settings.value.hdVibrationEnabled
-        GamepadInjector.configure(
-            _settings.value.virtualGamepadNativeBackend(),
-            _settings.value.virtualGamepadUhidProfile(),
-        )
-        applyEffectiveAudioSettings()
         audioPlaybackService.onControllerMotorOutput = { controllerIndex, leftAmp, rightAmp ->
             onControllerVibrationRequest?.invoke(controllerIndex, leftAmp, rightAmp)
         }
@@ -164,6 +175,8 @@ class ConnectionManager @Inject constructor(
     }
 
     fun updateSettings(newSettings: AppSettings) {
+        // 用户提供的设置优先，阻止迟到的初始加载覆盖它。
+        settingsReady.set(true)
         _settings.value = newSettings
         GamepadInjector.configure(
             newSettings.virtualGamepadNativeBackend(),
@@ -470,12 +483,10 @@ class ConnectionManager @Inject constructor(
     private fun updateBtState(phase: ConnectionPhase) {
         val (connected, text) = when (phase) {
             ConnectionPhase.IDLE -> false to "未启动"
-            ConnectionPhase.REQUESTING_PERMISSIONS -> false to "请求蓝牙权限..."
             ConnectionPhase.REGISTERING_PROFILE -> false to "正在注册 HID 配置文件..."
             ConnectionPhase.RECONNECTING -> false to "正在自动回连已配对设备..."
             ConnectionPhase.LISTENING -> false to "等待主机连接..."
             ConnectionPhase.DISCOVERABLE -> false to "等待主机连接 — 手机可被发现 (蓝牙)"
-            ConnectionPhase.PAIRING -> false to "正在配对..."
             ConnectionPhase.CONNECTED -> true to "已连接 (蓝牙)"
             ConnectionPhase.DISCONNECTED -> false to "主机已断开"
             ConnectionPhase.ERROR -> false to "蓝牙错误"
@@ -856,6 +867,7 @@ class ConnectionManager @Inject constructor(
                 bluetoothService?.sendKeyboardReport(modifier, keys)
             }
             ConnectionMode.WIFI -> {
+                if (activeProtocol != ActiveProtocol.WIFI) return
                 scope.launch {
                     udpService.sendKeyboardReport(modifier, keys)
                 }

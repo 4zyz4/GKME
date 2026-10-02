@@ -23,8 +23,15 @@ import com.zyz4.gkme.model.VibrationDeviceType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicBoolean
+
+/** 触摸板归一化输出域：x ∈ 0..1919、y ∈ 0..942（与 uhid/AIDL 约定一致）。 */
+private const val TOUCHPAD_MAX_X = 1919
+private const val TOUCHPAD_MAX_Y = 942
+private const val TOUCHPAD_MAX_XF = 1919f
+private const val TOUCHPAD_MAX_YF = 942f
 
 data class PhysicalControllerState(
     val buttons: UInt = 0u,
@@ -129,11 +136,18 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
     private var sensorAppliedEnabled = false
 
     // Touchpad state captured from Android MotionEvents (Bluetooth DS4/DS5), merged
-    // with the touchpad state SDL reports for HIDAPI controllers.
+    // with the touchpad state SDL reports for HIDAPI controllers. Written on the Main
+    // thread, read on the poll thread, hence @Volatile; the RMW into _controllerState
+    // uses update{} so the poll thread cannot drop a click update.
+    @Volatile
     private var localTouchX = 0f
+    @Volatile
     private var localTouchY = 0f
+    @Volatile
     private var localTouchActive = false
+    @Volatile
     private var localClick = false
+    @Volatile
     private var localTouches: List<TouchPoint> = emptyList()
 
     private var lastPhoneAmp = -1
@@ -754,8 +768,8 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
                 candidates.add(
                     TouchPoint(
                         id = i,
-                        x = v[9 + i * 2].coerceIn(0, 1919),
-                        y = v[10 + i * 2].coerceIn(0, 942),
+                        x = v[9 + i * 2].coerceIn(0, TOUCHPAD_MAX_X),
+                        y = v[10 + i * 2].coerceIn(0, TOUCHPAD_MAX_Y),
                         active = true,
                     )
                 )
@@ -763,8 +777,8 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
             val (s0, s1) = assignSlots(activeSlot(0), activeSlot(1), candidates)
             touches = canonicalSlots(s0, s1)
             val primary = s0 ?: s1
-            tx = if (primary != null) primary.x / 1919f else 0f
-            ty = if (primary != null) primary.y / 942f else 0f
+            tx = if (primary != null) primary.x / TOUCHPAD_MAX_XF else 0f
+            ty = if (primary != null) primary.y / TOUCHPAD_MAX_YF else 0f
             touchActive = primary != null
         } else {
             touches = localTouches
@@ -832,17 +846,18 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
         localTouchActive = touchpadTouch
         localClick = touchpadClick
         localTouches = touches
-        val current = _controllerState.value
-        val newButtons = if (touchpadClick) {
-            current.buttons or GamepadState.TOUCHPAD_CLICK.toUInt()
-        } else {
-            current.buttons and GamepadState.TOUCHPAD_CLICK.toUInt().inv()
+        _controllerState.update { current ->
+            val newButtons = if (touchpadClick) {
+                current.buttons or GamepadState.TOUCHPAD_CLICK.toUInt()
+            } else {
+                current.buttons and GamepadState.TOUCHPAD_CLICK.toUInt().inv()
+            }
+            current.copy(
+                touchpadX = normalizedX, touchpadY = normalizedY,
+                touchpadTouch = touchpadTouch, touchpadClick = touchpadClick,
+                touches = touches, buttons = newButtons,
+            )
         }
-        _controllerState.value = current.copy(
-            touchpadX = normalizedX, touchpadY = normalizedY,
-            touchpadTouch = touchpadTouch, touchpadClick = touchpadClick,
-            touches = touches, buttons = newButtons,
-        )
     }
 
     /** Currently active touch occupying the given stable slot (0 or 1), if any. */
@@ -909,16 +924,21 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
         val old0 = activeSlot(0)
         val old1 = activeSlot(1)
 
-        val candidates = (0 until event.pointerCount).map { i ->
-            val nx = ((event.getX(i) - minX) / rangeX).coerceIn(0f, 1f)
-            val ny = ((event.getY(i) - minY) / rangeY).coerceIn(0f, 1f)
-            TouchPoint(
-                id = event.getPointerId(i),
-                x = (nx * 1919).toInt().coerceIn(0, 1919),
-                y = (ny * 942).toInt().coerceIn(0, 942),
-                active = true,
-            )
-        }
+        // ACTION_POINTER_UP 时 event.pointerCount 仍包含即将抬起的手指；必须把它
+        // 从候选中排除，否则它占用的槽位不会被释放（表现为松开一指后虚拟手柄该槽位仍按住）。
+        val liftedIndex = if (action == MotionEvent.ACTION_POINTER_UP) event.actionIndex else -1
+        val candidates = (0 until event.pointerCount)
+            .filter { it != liftedIndex }
+            .map { i ->
+                val nx = ((event.getX(i) - minX) / rangeX).coerceIn(0f, 1f)
+                val ny = ((event.getY(i) - minY) / rangeY).coerceIn(0f, 1f)
+                TouchPoint(
+                    id = event.getPointerId(i),
+                    x = (nx * TOUCHPAD_MAX_X).toInt().coerceIn(0, TOUCHPAD_MAX_X),
+                    y = (ny * TOUCHPAD_MAX_Y).toInt().coerceIn(0, TOUCHPAD_MAX_Y),
+                    active = true,
+                )
+            }
         val (s0, s1) = assignSlots(old0, old1, candidates)
 
         when (action) {
@@ -929,15 +949,16 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
                 commitTouchpad(x, y, true, localClick, canonicalSlots(s0, s1))
             }
             MotionEvent.ACTION_POINTER_UP -> {
-                if (event.pointerCount == 0) {
-                    commitTouchpad(0f, 0f, false, localClick, emptyList())
-                } else {
-                    val primary = s0 ?: s1
+                // 已被排除抬起手指：primary 为剩余手指（若还有），其余槽位置为 inactive。
+                val primary = s0 ?: s1
+                if (primary != null) {
                     commitTouchpad(
-                        if (primary != null) (primary.x / 1919f).coerceIn(0f, 1f) else localTouchX,
-                        if (primary != null) (primary.y / 942f).coerceIn(0f, 1f) else localTouchY,
+                        (primary.x / TOUCHPAD_MAX_XF).coerceIn(0f, 1f),
+                        (primary.y / TOUCHPAD_MAX_YF).coerceIn(0f, 1f),
                         true, localClick, canonicalSlots(s0, s1),
                     )
+                } else {
+                    commitTouchpad(0f, 0f, false, localClick, emptyList())
                 }
             }
             MotionEvent.ACTION_UP -> commitTouchpad(0f, 0f, false, localClick, emptyList())
@@ -945,8 +966,8 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
                 val primary = s0 ?: s1
                 if (primary != null) {
                     commitTouchpad(
-                        (primary.x / 1919f).coerceIn(0f, 1f),
-                        (primary.y / 942f).coerceIn(0f, 1f),
+                        (primary.x / TOUCHPAD_MAX_XF).coerceIn(0f, 1f),
+                        (primary.y / TOUCHPAD_MAX_YF).coerceIn(0f, 1f),
                         true, localClick, canonicalSlots(s0, s1),
                     )
                 }
@@ -978,17 +999,18 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
         localTouchActive = touch
         localClick = click
         localTouches = touches
-        val current = _controllerState.value
-        val newButtons = if (click) {
-            current.buttons or GamepadState.TOUCHPAD_CLICK.toUInt()
-        } else {
-            current.buttons and GamepadState.TOUCHPAD_CLICK.toUInt().inv()
+        _controllerState.update { current ->
+            val newButtons = if (click) {
+                current.buttons or GamepadState.TOUCHPAD_CLICK.toUInt()
+            } else {
+                current.buttons and GamepadState.TOUCHPAD_CLICK.toUInt().inv()
+            }
+            current.copy(
+                touchpadX = x, touchpadY = y,
+                touchpadTouch = touch, touchpadClick = click,
+                touches = touches, buttons = newButtons,
+            )
         }
-        _controllerState.value = current.copy(
-            touchpadX = x, touchpadY = y,
-            touchpadTouch = touch, touchpadClick = click,
-            touches = touches, buttons = newButtons,
-        )
     }
 
     // ── LED passthrough ────────────────────────────────────

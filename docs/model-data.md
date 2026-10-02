@@ -249,11 +249,11 @@ sequenceDiagram
 |------|------|
 | `LayoutPreset` 的 `lockAspect`/`isKeyboard` 由硬编码表重建，新增控件必须同步维护两张表 | `LayoutPreset.kt:14-34,156-162`；`MainActivityControls.allControls` |
 | 键位/外观字段新增时需同时更新 `LayoutRepository` 的迁移默认值，否则旧预设可能缺字段 | `LayoutPreset.fromJson` |
-| `AudioDevice.PHONE_SPEAKER` 仅靠 ordinal 兼容，UI 不再提供 | `AppSettings.kt:101-102` |
+| [已修复] `AudioDevice.PHONE_SPEAKER` 仅靠 ordinal 兼容，UI 不再提供（已加稳定 `persistId` + `fromPersistId` 迁移） | `AppSettings.kt:101-102` |
 | `virtualGamepadType` 旧键迁移只在缺失新键时执行 | `SettingsRepository.kt:172-182` |
 | 内置预设 checksum 变化（升级）会 invalidate 缓存，用户对内置预设的修改不会覆盖 raw | `LayoutRepository.kt:107-116` |
 | [已修复] `createAllBuiltInPresets()` 为空实现 | `LayoutRepository.kt:241-243` |
-| `ConnectionManager` 内部分依赖手动 `new`，Hilt 图不完整 | `AppModule.kt`；`ConnectionManager.kt:75` |
+| [部分修复] `ConnectionManager` 内部分依赖手动 `new`，Hilt 图不完整（`AudioPlaybackService` 已改为构造注入；`UdpService`/`UsbService`/`DsuService` 仍手动 new） | `AppModule.kt`；`ConnectionManager.kt:75` |
 
 ---
 

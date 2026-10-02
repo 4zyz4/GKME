@@ -276,15 +276,15 @@ protobuf `GamepadInput`。要点：
 |------|------|
 | [已修复] `SensorHandler` 旋转矢量分支 `quat[3]` 恒 0，且绕过 `remapToOrientation` | `SensorHandler.kt:152-183` |
 | [已修复] `TYPE_ROTATION_VECTOR` 注册但无处理分支 | `SensorHandler.kt:64` |
-| `SdlPhysicalControllerBackend` 的触摸板状态存在 Main/pollLoop 竞争 | `commitTouchpad` vs `updateStateFromNative` |
-| SDL 触摸坐标硬编码 1919/942 | `SdlPhysicalControllerBackend.kt:757-758, 917-918` |
+| [已修复] `SdlPhysicalControllerBackend` 的触摸板状态存在 Main/pollLoop 竞争 | `commitTouchpad` vs `updateStateFromNative` |
+| [已修复] SDL 触摸坐标硬编码 1919/942 | `SdlPhysicalControllerBackend.kt:757-758, 917-918` |
 | `nativeGetControllerMotorCount` 为占位值，实际优先 Android 马达数 | `SdlPhysicalControllerBackend.kt:259-263` |
 | [已修复] `PhysicalControllerHandler.controllerHasGyro` setter 为空 | `PhysicalControllerHandler.kt:88` |
-| USB 后端 `supportedButtons` 恒为 `STANDARD_BUTTON_MASK`，不反映真实能力 | `UsbPhysicalControllerBackend.kt:377` |
+| [已修复] USB 后端 `supportedButtons` 恒为 `STANDARD_BUTTON_MASK`，不反映真实能力 | `UsbPhysicalControllerBackend.kt:377` |
 | `inputControllerIndex` 是“连接列表索引”，backend 重建后语义可能漂移 | `PhysicalControllerHandler` |
 | `AdaptiveTriggerHandler` 频率取“较响通道”，GALLOPING/MACHINE 两通道频率可能不同 | `AdaptiveTriggerHandler.kt:152-165` |
 | `GamepadState.buttons` 为 `UInt` 而部分常量是 `Int` | `GamepadState.kt:44-65` |
-| `SensorHandler.computeWorldDelta` 含线性加速度耦合 | `SensorHandler.kt:93-128` |
+| [已修复] `SensorHandler.computeWorldDelta` 含线性加速度耦合 | `SensorHandler.kt:93-128` |
 
 ---
 
