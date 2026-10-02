@@ -44,6 +44,16 @@ object HapticInjector {
     var version: String = ""
         private set
 
+    /** 当前 backend 类型（对齐 SDK `PlayerType`）：0 无、1 TencentPerformer、2 RichTapPerformer。 */
+    @Volatile
+    var playerType: Int = 0
+        private set
+
+    /** 是否支持 type 2 的实时调参（`createHapticParameter`）。 */
+    @Volatile
+    var realtimeAdjust: Boolean = false
+        private set
+
     private var binding: ShizukuServiceBinding? = null
 
     @Volatile
@@ -66,6 +76,8 @@ object HapticInjector {
             onDisconnected = {
                 service = null
                 available = false
+                playerType = 0
+                realtimeAdjust = false
             },
         )
         binding = b
@@ -84,6 +96,17 @@ object HapticInjector {
             svc.version ?: ""
         } catch (_: Throwable) {
             ""
+        }
+        // 这些事务是后加的；旧版用户服务没有，会抛异常，逐个兜底。
+        playerType = try {
+            svc.playerType
+        } catch (_: Throwable) {
+            0
+        }
+        realtimeAdjust = try {
+            svc.supportsRealtimeAdjustment()
+        } catch (_: Throwable) {
+            false
         }
     }
 
@@ -164,6 +187,22 @@ object HapticInjector {
         return started
     }
 
+    /**
+     * type 2 专用：实时调整当前效果的全局强度/频率（`createHapticParameter`），无需 stop+start。
+     * [amplitude] 0-255 会换算成引擎的 0-100 强度。仅当 [realtimeAdjust] 为 true 时有效。
+     */
+    fun updateParameter(amplitude: Int, frequency: Int): Boolean {
+        val svc = service ?: return false
+        if (!available || !realtimeAdjust) return false
+        val intensity = (amplitude.coerceIn(0, 255) * 100 / 255)
+        return try {
+            svc.updateParameter(intensity, frequency.coerceIn(0, 100))
+        } catch (t: Throwable) {
+            Log.w(TAG, "updateParameter 失败", t)
+            false
+        }
+    }
+
     /** 播放持续震动（游戏 rumble / 自适应扳机 / 音圈）。[amplitude] 0-255，[frequency] 0-100。
      *  单次只投递一段效果，持续由 PhoneHdHaptics 定时重投递实现（见 continuous duration 注释）。 */
     fun startContinuous(amplitude: Int, frequency: Int, source: HapticSource): Boolean = startPattern(
@@ -204,7 +243,15 @@ object HapticInjector {
             !b.permissionGranted -> "Shizuku 未授权"
             service == null -> "正在启动用户服务…"
             !available -> "本机不支持 HD 震动"
-            else -> if (version.isNotEmpty()) "HD 已就绪 ($version)" else "HD 已就绪"
+            else -> {
+                val type = when (playerType) {
+                    2 -> "type2 RichTap"
+                    1 -> "type1 Tencent"
+                    else -> "type?"
+                }
+                val v = version.ifEmpty { type }
+                "HD 已就绪 ($v)"
+            }
         }
     }
 
@@ -218,6 +265,8 @@ object HapticInjector {
         binding = null
         service = null
         available = false
+        playerType = 0
+        realtimeAdjust = false
         initialized = false
     }
 }

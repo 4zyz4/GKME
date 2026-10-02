@@ -32,6 +32,23 @@ interface IHapticService {
      */
     boolean startEffect(String heJson) = 5;
 
+    /**
+     * 当前选用的 RichTap backend 类型（对齐 SDK `PlayerType`）：
+     * 0 = GooglePerformer（普通 VibrationEffect）、1 = TencentPerformer（DynamicEffect/HapticPlayer）、
+     * 2 = RichTapPerformer（RichTapVibrationEffect/PhonyVibrationEffect）。
+     */
+    int getPlayerType() = 6;
+
+    /** 是否支持 type 2 的实时调参（core 主版本 ≥ 32）。 */
+    boolean supportsRealtimeAdjustment() = 7;
+
+    /**
+     * 实时调整当前效果的全局强度/频率（type 2 专用，`createHapticParameter`）。
+     * @param intensity 强度 0-100；@param frequency 频率 0-100。
+     * @return 是否成功提交。
+     */
+    boolean updateParameter(int intensity, int frequency) = 8;
+
     /** 用户服务退出（Shizuku 约定事务号）。 */
     void exitService() = 16777114;
 }

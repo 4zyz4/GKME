@@ -264,12 +264,29 @@ object PhoneHdHaptics {
         val changed = appliedAmp != wantAmp || appliedFreq != wantFreq ||
             appliedLowHz != wantLowHz || appliedSource != source
         val lowFreq = wantLowHz > 0.0
+        var submitted = false
         if (changed) {
-            // 低频脉冲串单次覆盖时长短，参数变化时不必等满 MIN_RESUBMIT，避免中间空档。
-            val minResubmit = if (lowFreq) refreshIntervalNs() else MIN_RESUBMIT_NS
-            if (now - lastSubmitNs >= minResubmit) submit(source)
-        } else if (now - lastSubmitNs >= refreshIntervalNs()) {
-            // 延续效果：在单次效果结束前重投递。
+            // type 2 且 core ≥ 32 时，参数变化走实时调参，避免 stop+start 拖弱输出。
+            val realtime = HapticInjector.realtimeAdjust && !lowFreq && appliedLowHz <= 0.0 &&
+                appliedSource == source && appliedAmp >= 0
+            if (realtime) {
+                if (HapticInjector.updateParameter(wantAmp, wantFreq)) {
+                    appliedAmp = wantAmp
+                    appliedFreq = wantFreq
+                    appliedLowHz = 0.0
+                    appliedSource = source
+                    // 不刷新 lastSubmitNs：仍靠下方周期重投递延续效果时长。
+                } else if (now - lastSubmitNs >= MIN_RESUBMIT_NS) {
+                    submitted = submit(source)
+                }
+            } else {
+                // 低频脉冲串单次覆盖时长短，参数变化时不必等满 MIN_RESUBMIT，避免中间空档。
+                val minResubmit = if (lowFreq) refreshIntervalNs() else MIN_RESUBMIT_NS
+                if (now - lastSubmitNs >= minResubmit) submitted = submit(source)
+            }
+        }
+        // 延续效果：在单次效果结束前重投递；也在实时调参期间兜底刷新效果时长。
+        if (!submitted && now - lastSubmitNs >= refreshIntervalNs()) {
             submit(source)
         }
     }
