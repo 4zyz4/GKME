@@ -41,6 +41,14 @@
             android:layout_marginTop="2dp"
             android:textColor="@color/text_secondary"
             android:textSize="11sp" />
+
+        <Spinner
+            android:id="@+id/spinnerDeviceMode"
+            android:layout_width="match_parent"
+            android:layout_height="36dp"
+            android:layout_marginTop="6dp"
+            android:minWidth="120dp"
+            android:visibility="gone" />
     </LinearLayout>
 
     <Button

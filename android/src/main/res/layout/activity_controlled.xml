@@ -64,63 +64,6 @@
             android:text="下载 Shizuku" />
     </LinearLayout>
 
-    <!-- 模拟手柄类型（与设置页一致，切换后立即重建本地虚拟手柄） -->
-    <LinearLayout
-        android:id="@+id/sectionVirtualGamepad"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:background="@color/bg_surface"
-        android:padding="12dp"
-        android:layout_marginBottom="12dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="模拟手柄类型"
-            android:textColor="@color/text_primary"
-            android:textSize="14sp"
-            android:fontFamily="sans-serif-medium"
-            android:layout_marginBottom="8dp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center"
-            android:layout_marginBottom="8dp">
-
-            <Button
-                android:id="@+id/btnVgXbox"
-                style="@style/GamepadChip"
-                android:layout_marginEnd="6dp"
-                android:text="Xbox One S" />
-
-            <Button
-                android:id="@+id/btnVgDs4"
-                style="@style/GamepadChip"
-                android:text="DualShock 4" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center">
-
-            <Button
-                android:id="@+id/btnVgDualsense"
-                style="@style/GamepadChip"
-                android:layout_marginEnd="6dp"
-                android:text="DualSense" />
-
-            <Button
-                android:id="@+id/btnVgSwitch"
-                style="@style/GamepadChip"
-                android:text="Switch Pro" />
-        </LinearLayout>
-    </LinearLayout>
-
     <!-- 手动 IP 卡片 -->
     <LinearLayout
         android:layout_width="match_parent"

@@ -9,9 +9,12 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.Spinner
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
@@ -22,6 +25,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.zyz4.gkme.CustomDialog
 import com.zyz4.gkme.R
+import com.zyz4.gkme.data.ControlledDeviceModeRepository
 import com.zyz4.gkme.model.VirtualGamepadType
 import com.zyz4.gkme.service.ConnectionManager
 import dagger.hilt.android.AndroidEntryPoint
@@ -39,15 +43,17 @@ class ControlledActivity : ComponentActivity() {
     @Inject
     lateinit var connectionManager: ConnectionManager
 
+    @Inject
+    lateinit var deviceModeRepository: ControlledDeviceModeRepository
+
     private lateinit var deviceList: LinearLayout
     private lateinit var tvStatus: TextView
     private lateinit var btnShizukuAction: Button
     private lateinit var etManualIp: EditText
     private var exitDialogShowing = false
 
-    private val vgTypeChipIds = listOf(
-        R.id.btnVgXbox, R.id.btnVgDs4, R.id.btnVgDualsense, R.id.btnVgSwitch,
-    )
+    /** 每台已发现控制端（按 MAC/IP）各自记忆的模拟手柄类型。 */
+    private var deviceModes: Map<String, VirtualGamepadType> = emptyMap()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,46 +78,84 @@ class ControlledActivity : ComponentActivity() {
             showToast("正在扫描…")
         }
         findViewById<Button>(R.id.btnManualConnect).setOnClickListener {
-            ControlledHostManager.connectManual(etManualIp.text.toString())
+            val ip = etManualIp.text.toString().trim()
+            val type = deviceModes[ip]
+            if (type != null && connectionManager.settings.value.virtualGamepadType != type) {
+                connectionManager.updateSettings(
+                    connectionManager.settings.value.copy(virtualGamepadType = type)
+                )
+            }
+            ControlledHostManager.connectManual(ip)
         }
         btnShizukuAction.setOnClickListener { onShizukuAction() }
 
-        setupVirtualGamepadTypeSelector()
         startHostWithNotificationPermission()
         updateShizukuAction()
         observe()
+        loadDeviceModes()
     }
 
-    /**
-     * 本地虚拟手柄类型选择器。与设置页「模拟手柄类型」保持同一组选项和样式；
-     * 切换后立即持久化并重建已创建的虚拟手柄，无需重新连接。
-     */
-    private fun setupVirtualGamepadTypeSelector() {
-        vgTypeChipIds.forEachIndexed { idx, id ->
-            findViewById<Button>(id).setOnClickListener {
-                selectVgTypeChip(idx)
-                connectionManager.updateSettings(
-                    connectionManager.settings.value.copy(
-                        virtualGamepadType = VirtualGamepadType.entries[idx],
-                    )
-                )
+    /** 读取每台控制端各自记忆的手柄类型，读完刷新列表以恢复已连接卡片的下拉框。 */
+    private fun loadDeviceModes() {
+        lifecycleScope.launch {
+            deviceModes = deviceModeRepository.getModes()
+            renderDevices(ControlledHostManager.devices.value)
+        }
+    }
+
+    /** 返回某个物理设备（MAC/IP）当前应使用的手柄类型，未记录时沿用全局设置作为默认。 */
+    private fun modeFor(groupKey: String): VirtualGamepadType =
+        deviceModes[groupKey] ?: connectionManager.settings.value.virtualGamepadType
+
+    /** 连接前先把该设备记忆的手柄类型同步给虚拟手柄后端，确保按设备生效。 */
+    private fun connectDevice(device: ControlledDevice, groupKey: String) {
+        val type = modeFor(groupKey)
+        if (connectionManager.settings.value.virtualGamepadType != type) {
+            connectionManager.updateSettings(
+                connectionManager.settings.value.copy(virtualGamepadType = type)
+            )
+        }
+        ControlledHostManager.connect(device)
+    }
+
+    /** 绑定已连接设备卡片上的类型下拉框：切换后按设备持久化并立即重建虚拟手柄。 */
+    private fun bindDeviceModeSpinner(spinner: Spinner, groupKey: String) {
+        val names = VirtualGamepadType.entries.map { it.displayName }.toTypedArray()
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, names)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinner.adapter = adapter
+        spinner.setSelection(
+            VirtualGamepadType.entries.indexOf(modeFor(groupKey)).coerceAtLeast(0),
+            false,
+        )
+        var userSelecting = false
+        spinner.setOnTouchListener { _, _ ->
+            userSelecting = true
+            false
+        }
+        spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                if (!userSelecting) return
+                userSelecting = false
+                val type = VirtualGamepadType.entries.getOrNull(pos) ?: return
+                onDeviceModeSelected(groupKey, type)
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+                userSelecting = false
             }
         }
-        selectVgTypeChip(currentVgTypeIndex())
     }
 
-    private fun selectVgTypeChip(index: Int) {
-        vgTypeChipIds.forEachIndexed { i, id ->
-            findViewById<Button>(id).setBackgroundResource(
-                if (i == index) R.drawable.bg_chip_selected else R.drawable.bg_chip
+    private fun onDeviceModeSelected(groupKey: String, type: VirtualGamepadType) {
+        deviceModes = deviceModes + (groupKey to type)
+        lifecycleScope.launch { deviceModeRepository.setMode(groupKey, type) }
+        if (ControlledHostManager.session.value?.groupKey == groupKey) {
+            connectionManager.updateSettings(
+                connectionManager.settings.value.copy(virtualGamepadType = type)
             )
         }
     }
-
-    private fun currentVgTypeIndex(): Int =
-        VirtualGamepadType.entries
-            .indexOf(connectionManager.settings.value.virtualGamepadType)
-            .coerceAtLeast(0)
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -173,13 +217,6 @@ class ControlledActivity : ComponentActivity() {
                 launch {
                     ControlledHostManager.connectingIp.collect { renderDevices(ControlledHostManager.devices.value) }
                 }
-                launch {
-                    connectionManager.settings.collect { s ->
-                        selectVgTypeChip(
-                            VirtualGamepadType.entries.indexOf(s.virtualGamepadType).coerceAtLeast(0)
-                        )
-                    }
-                }
             }
         }
     }
@@ -221,7 +258,7 @@ class ControlledActivity : ComponentActivity() {
                 btnConnect.text = "连接中…"
                 btnConnect.isEnabled = false
             }
-            btnConnect.setOnClickListener { ControlledHostManager.connect(endpoint) }
+            btnConnect.setOnClickListener { connectDevice(endpoint, card.groupKey) }
             endpointList.addView(row)
         }
         deviceList.addView(item)
@@ -249,8 +286,15 @@ class ControlledActivity : ComponentActivity() {
         val btnDisconnect = item.findViewById<Button>(R.id.btnDeviceDisconnect)
         btnConnect.visibility = if (isActive) View.GONE else View.VISIBLE
         btnDisconnect.visibility = if (isActive) View.VISIBLE else View.GONE
-        btnConnect.setOnClickListener { ControlledHostManager.connect(device) }
+        btnConnect.setOnClickListener { connectDevice(device, card.groupKey) }
         btnDisconnect.setOnClickListener { ControlledHostManager.disconnect() }
+        val spinner = item.findViewById<Spinner>(R.id.spinnerDeviceMode)
+        if (isActive) {
+            spinner.visibility = View.VISIBLE
+            bindDeviceModeSpinner(spinner, card.groupKey)
+        } else {
+            spinner.visibility = View.GONE
+        }
         deviceList.addView(item)
     }
 
