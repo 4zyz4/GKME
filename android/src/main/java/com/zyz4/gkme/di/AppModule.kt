@@ -3,6 +3,7 @@ package com.zyz4.gkme.di
 import android.content.Context
 import com.zyz4.gkme.data.PairingStateRepository
 import com.zyz4.gkme.data.SettingsRepository
+import com.zyz4.gkme.service.AudioPlaybackService
 import com.zyz4.gkme.service.ConnectionManager
 import dagger.Module
 import dagger.Provides
@@ -21,5 +22,6 @@ object AppModule {
         @ApplicationContext context: Context,
         pairingStateRepository: PairingStateRepository,
         settingsRepository: SettingsRepository,
-    ): ConnectionManager = ConnectionManager(context, pairingStateRepository, settingsRepository)
+        audioPlaybackService: AudioPlaybackService,
+    ): ConnectionManager = ConnectionManager(context, pairingStateRepository, settingsRepository, audioPlaybackService)
 }

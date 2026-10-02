@@ -38,6 +38,11 @@ class SensorHandler(private val context: Context) : SensorEventListener {
     private var _accelZ = 0f
     private var _worldDx = 0f
     private var _worldDy = 0f
+    // 低通估计的重力方向，用于把线性加速度从加速度计读数中分离出来。
+    private var _gravX = 0f
+    private var _gravY = 0f
+    private var _gravZ = 0f
+    private var _gravInit = false
 
     private val _sensorData = MutableStateFlow(SensorData())
     val sensorData: StateFlow<SensorData> = _sensorData.asStateFlow()
@@ -68,6 +73,9 @@ class SensorHandler(private val context: Context) : SensorEventListener {
     }
 
     companion object {
+        /** 重力低通系数：越小越平滑、跟随越慢。SENSOR_DELAY_GAME 下约数百 ms 收敛。 */
+        private const val GRAVITY_ALPHA = 0.08f
+
         fun computeWorldDelta(
             gx: Float, gy: Float, gz: Float,
             ax: Float, ay: Float, az: Float,
@@ -122,7 +130,18 @@ class SensorHandler(private val context: Context) : SensorEventListener {
                 _accelY = ay
                 _accelZ = az
 
-                val (wdx, wdy) = computeWorldDelta(_gyroX, _gyroY, _gyroZ, _accelX, _accelY, _accelZ)
+                // 用低通估计重力方向，避免把运动中的线性加速度当成重力。
+                if (!_gravInit) {
+                    _gravX = ax
+                    _gravY = ay
+                    _gravZ = az
+                    _gravInit = true
+                } else {
+                    _gravX += GRAVITY_ALPHA * (ax - _gravX)
+                    _gravY += GRAVITY_ALPHA * (ay - _gravY)
+                    _gravZ += GRAVITY_ALPHA * (az - _gravZ)
+                }
+                val (wdx, wdy) = computeWorldDelta(_gyroX, _gyroY, _gyroZ, _gravX, _gravY, _gravZ)
                 _worldDx = wdx
                 _worldDy = wdy
             }

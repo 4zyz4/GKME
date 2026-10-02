@@ -41,6 +41,8 @@ public class ProConController extends AbstractController {
     private Thread inputThread;
     private boolean stopped = false;
     private byte sendPacketCount = 0;
+    /** 串行化普通/HD rumble 的“计数器自增 + 组装 + bulkTransfer”，共用 0x10 报文。 */
+    private final Object outputLock = new Object();
     private final int[][][] stickCalibration = new int[2][2][3]; // [stick][axis][min, center, max]
     private final float[][][] stickExtends = new float[2][2][2]; // Pre-calculated scale for each axis
 
@@ -118,6 +120,17 @@ public class ProConController extends AbstractController {
         return connection.bulkTransfer(outEndpt, data, size, 100) == size;
     }
 
+    /** 原子地取下一个 0..0xF 的报文计数器。 */
+    private byte nextCounter() {
+        synchronized (outputLock) {
+            byte c = sendPacketCount++;
+            if (sendPacketCount > 0xF) {
+                sendPacketCount = 0;
+            }
+            return c;
+        }
+    }
+
     private boolean sendCommand(byte id, boolean waitReply) {
         byte[] data = new byte[] {(byte)0x80, id};
         for (int i = 0; i < COMMAND_RETRIES; i++) {
@@ -146,10 +159,7 @@ public class ProConController extends AbstractController {
     private boolean sendSubcommand(byte subcommand, byte[] payload, byte[] buffer) {
         byte[] data = new byte[11 + payload.length];
         data[0] = 0x01;  // Rumble and subcommand
-        data[1] = sendPacketCount++;  // Counter (increments per call)
-        if (sendPacketCount > 0xF) {
-            sendPacketCount = 0;
-        }
+        data[1] = nextCounter();  // Counter (increments per call)
 
         data[10] = subcommand;
         System.arraycopy(payload, 0, data, 11, payload.length);
@@ -213,6 +223,9 @@ public class ProConController extends AbstractController {
     private List<UsbInterface> ifaces=new ArrayList<>();
 
     public boolean start() {
+        stopped = false;
+        inEndpt = null;
+        outEndpt = null;
         ifaces.clear();
         for (int i = 0; i < device.getInterfaceCount(); i++) {
             UsbInterface iface = device.getInterface(i);
@@ -275,29 +288,28 @@ public class ProConController extends AbstractController {
     @Override
     public void rumble(short lowFreqMotor, short highFreqMotor) {
         byte[] data = new byte[10];
-        data[0] = 0x10;  // Rumble command
-        data[1] = sendPacketCount++;  // Counter (increments per call)
-        if (sendPacketCount > 0xF) {
-            sendPacketCount = 0;
-        }
+        synchronized (outputLock) {
+            data[0] = 0x10;  // Rumble command
+            data[1] = nextCounter();  // Counter (increments per call)
 
-        if (lowFreqMotor != 0) {
-            data[4] = data[8] = (byte)(0x50 - ((lowFreqMotor & 0xFFFF) >> 12));
-            data[5] = data[9] = (byte)((((lowFreqMotor & 0xFFFF) >> 8) / 5) + 0x40);
-        }
-        if (highFreqMotor != 0) {
-            data[6] = (byte)((0x70 - ((highFreqMotor & 0xFFFF) >> 10) & -0x04));
-            data[7] = (byte)(((highFreqMotor & 0xFFFF) >> 8) * 0xC8 / 0xFF);
-        }
+            if (lowFreqMotor != 0) {
+                data[4] = data[8] = (byte)(0x50 - ((lowFreqMotor & 0xFFFF) >> 12));
+                data[5] = data[9] = (byte)((((lowFreqMotor & 0xFFFF) >> 8) / 5) + 0x40);
+            }
+            if (highFreqMotor != 0) {
+                data[6] = (byte)((0x70 - ((highFreqMotor & 0xFFFF) >> 10) & -0x04));
+                data[7] = (byte)(((highFreqMotor & 0xFFFF) >> 8) * 0xC8 / 0xFF);
+            }
 
-        data[2] |= 0x00;
-        data[3] |= 0x01;
-        data[5] |= 0x40;
-        data[6] |= 0x00;
-        data[7] |= 0x01;
-        data[9] |= 0x40;
+            data[2] |= 0x00;
+            data[3] |= 0x01;
+            data[5] |= 0x40;
+            data[6] |= 0x00;
+            data[7] |= 0x01;
+            data[9] |= 0x40;
 
-        sendData(data, data.length);
+            sendData(data, data.length);
+        }
     }
 
     @Override
@@ -317,14 +329,13 @@ public class ProConController extends AbstractController {
                             float rightLowFreq, float rightLowAmp) {
         // Rumble-only output report 0x10: counter + two classic 4-byte HD sides.
         byte[] data = new byte[10];
-        data[0] = 0x10;
-        data[1] = sendPacketCount++;
-        if (sendPacketCount > 0xF) {
-            sendPacketCount = 0;
+        synchronized (outputLock) {
+            data[0] = 0x10;
+            data[1] = nextCounter();
+            HdRumbleCodec.writeClassicSide(data, 2, leftHighFreq, leftHighAmp, leftLowFreq, leftLowAmp);
+            HdRumbleCodec.writeClassicSide(data, 6, rightHighFreq, rightHighAmp, rightLowFreq, rightLowAmp);
+            sendData(data, data.length);
         }
-        HdRumbleCodec.writeClassicSide(data, 2, leftHighFreq, leftHighAmp, leftLowFreq, leftLowAmp);
-        HdRumbleCodec.writeClassicSide(data, 6, rightHighFreq, rightHighAmp, rightLowFreq, rightLowAmp);
-        sendData(data, data.length);
     }
 
     protected boolean handleRead(ByteBuffer buffer) {

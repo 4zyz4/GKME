@@ -176,6 +176,7 @@ public abstract class AbstractDualSenseController extends AbstractController {
     private List<UsbInterface> ifaces=new ArrayList<>();
 
     public boolean start() {
+        stopped = false;
         ifaces.clear();
         advancedAudioHapticsRequested = false;
         advancedAudioHapticsPrimed = false;

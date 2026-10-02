@@ -11,9 +11,11 @@ import com.zyz4.gkme.input.SdlNative
 import com.zyz4.gkme.haptic.HdPcmStreamer
 import com.zyz4.gkme.model.AudioDevice
 import com.zyz4.gkme.model.AudioDeviceType
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import javax.inject.Inject
 import javax.inject.Singleton
 
 data class AudioTrackInfo(
@@ -23,14 +25,9 @@ data class AudioTrackInfo(
 )
 
 @Singleton
-class AudioPlaybackService {
-
-    @Volatile
-    private lateinit var androidContext: android.content.Context
-
-    fun initContext(context: android.content.Context) {
-        androidContext = context
-    }
+class AudioPlaybackService @Inject constructor(
+    @param:ApplicationContext private val androidContext: android.content.Context,
+) {
 
     companion object {
         private const val TAG = "AudioPlayback"
@@ -384,6 +381,7 @@ class AudioPlaybackService {
     }
 
     /** Silences and clears the HD rumble output for the selected controller. */
+    @Synchronized
     private fun stopHdOutput() {
         if (hdOutputActive && hdOutputIndex >= 0) {
             onHdRumble?.invoke(hdOutputIndex, HdBands.SILENT)

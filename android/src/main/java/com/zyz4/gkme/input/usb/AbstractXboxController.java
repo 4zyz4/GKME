@@ -100,6 +100,10 @@ public abstract class AbstractXboxController extends AbstractController {
     private List<UsbInterface> ifaces=new ArrayList<>();
 
     public boolean start() {
+        // 支持同一实例二次 start：复位停止标志与端点，否则会误报 duplicate endpoint。
+        stopped = false;
+        inEndpt = null;
+        outEndpt = null;
         ifaces.clear();
         // Force claim all interfaces except audio so the system can handle the headset jack
         for (int i = 0; i < device.getInterfaceCount(); i++) {

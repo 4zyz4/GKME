@@ -298,7 +298,7 @@ class SettingsRepository @Inject constructor(
             voiceCoilDevice = prefs[Keys.VOICE_COIL_DEVICE_TYPE]?.let { typeOrdinal ->
                 AudioDevice(
                     type = sanitizeVoiceCoilType(
-                        AudioDeviceType.entries.getOrElse(typeOrdinal) { AudioDeviceType.PHONE_MOTOR }
+                        AudioDeviceType.fromPersistId(typeOrdinal)
                     ),
                     controllerIndex = prefs[Keys.VOICE_COIL_CONTROLLER_INDEX] ?: 0,
                     deviceId = prefs[Keys.VOICE_COIL_DEVICE_ID] ?: AudioDevice.AUTO_SOUND_DEVICE_ID,
@@ -310,9 +310,10 @@ class SettingsRepository @Inject constructor(
             ),
             voiceCoilDeviceConnected = AudioDevice(
                 type = sanitizeVoiceCoilType(
-                    AudioDeviceType.entries.getOrElse(
-                        prefs[Keys.VOICE_COIL_DEVICE_CONNECTED_TYPE] ?: AudioDeviceType.CONTROLLER.ordinal
-                    ) { AudioDeviceType.CONTROLLER }
+                    AudioDeviceType.fromPersistId(
+                        prefs[Keys.VOICE_COIL_DEVICE_CONNECTED_TYPE] ?: AudioDeviceType.CONTROLLER.ordinal,
+                        AudioDeviceType.CONTROLLER,
+                    )
                 ),
                 controllerIndex = prefs[Keys.VOICE_COIL_CONTROLLER_CONNECTED_INDEX] ?: 0,
                 deviceId = prefs[Keys.VOICE_COIL_DEVICE_CONNECTED_ID] ?: AudioDevice.AUTO_SOUND_DEVICE_ID,
@@ -411,16 +412,16 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.TP_OUTLINE_WIDTH] = settings.tpOutlineWidth
             prefs[Keys.ICON_MAX_SIZE] = settings.iconMaxSize
             prefs[Keys.LED_BOUND_COLORS] = gson.toJson(settings.ledBoundColors)
-            prefs[Keys.VOICE_COIL_DEVICE_TYPE] = settings.voiceCoilDevice.type.ordinal
+            prefs[Keys.VOICE_COIL_DEVICE_TYPE] = settings.voiceCoilDevice.type.persistId
             prefs[Keys.VOICE_COIL_CONTROLLER_INDEX] = settings.voiceCoilDevice.controllerIndex
             prefs[Keys.VOICE_COIL_DEVICE_ID] = settings.voiceCoilDevice.deviceId
             prefs[Keys.VOICE_COIL_DEVICE_NAME] = settings.voiceCoilDevice.deviceName
-            prefs[Keys.VOICE_COIL_DEVICE_CONNECTED_TYPE] = settings.voiceCoilDeviceConnected.type.ordinal
+            prefs[Keys.VOICE_COIL_DEVICE_CONNECTED_TYPE] = settings.voiceCoilDeviceConnected.type.persistId
             prefs[Keys.VOICE_COIL_CONTROLLER_CONNECTED_INDEX] = settings.voiceCoilDeviceConnected.controllerIndex
             prefs[Keys.VOICE_COIL_DEVICE_CONNECTED_ID] = settings.voiceCoilDeviceConnected.deviceId
             prefs[Keys.VOICE_COIL_DEVICE_CONNECTED_NAME] = settings.voiceCoilDeviceConnected.deviceName
             prefs[Keys.SWAP_VOICE_COIL_MOTORS] = settings.swapVoiceCoilMotors
-            prefs[Keys.CONTROLLER_AUDIO_DEVICE_TYPE] = settings.controllerAudioDevice.type.ordinal
+            prefs[Keys.CONTROLLER_AUDIO_DEVICE_TYPE] = settings.controllerAudioDevice.type.persistId
             prefs[Keys.CONTROLLER_AUDIO_DEVICE_CONTROLLER_INDEX] = settings.controllerAudioDevice.controllerIndex
             prefs[Keys.CONTROLLER_AUDIO_DEVICE_ID] = settings.controllerAudioDevice.deviceId
             prefs[Keys.CONTROLLER_AUDIO_DEVICE_NAME] = settings.controllerAudioDevice.deviceName
@@ -443,7 +444,7 @@ class SettingsRepository @Inject constructor(
         val typeOrdinal = prefs[Keys.CONTROLLER_AUDIO_DEVICE_TYPE]
         if (typeOrdinal != null) {
             return AudioDevice(
-                type = AudioDeviceType.entries.getOrElse(typeOrdinal) { AudioDeviceType.SOUND_DEVICE },
+                type = AudioDeviceType.fromPersistId(typeOrdinal, AudioDeviceType.SOUND_DEVICE),
                 controllerIndex = prefs[Keys.CONTROLLER_AUDIO_DEVICE_CONTROLLER_INDEX] ?: 0,
                 deviceId = prefs[Keys.CONTROLLER_AUDIO_DEVICE_ID] ?: AudioDevice.AUTO_SOUND_DEVICE_ID,
                 deviceName = prefs[Keys.CONTROLLER_AUDIO_DEVICE_NAME] ?: "",

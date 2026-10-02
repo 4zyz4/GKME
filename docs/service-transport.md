@@ -280,17 +280,17 @@ LOCAL          -> GamepadInjector.update(state)
 
 | 问题 | 证据 |
 |------|------|
-| `activeProtocol` 为普通 `var`，多线程无同步，UDP 与 DSU 可能互相抢占覆盖 | `ConnectionManager.kt:47, 89, 532-551` |
+| [已修复] `activeProtocol` 为普通 `var`，多线程无同步（WiFi/UDP 与 Emotion/DSU 在设计上互斥、后连接客户端接管；已加 `@Volatile` 保证可见性） | `ConnectionManager.kt:47, 89, 532-551` |
 | 蓝牙主机到设备的输出报告（振动）为空实现，被丢弃 | `ConnectionManager.kt:490-491` |
-| `AudioPlaybackService` 手动 new 且标 `@Singleton`，未经 Hilt | `ConnectionManager.kt:75`；`AudioPlaybackService.kt:25` |
+| [已修复] `AudioPlaybackService` 手动 new 且标 `@Singleton`，未经 Hilt | `ConnectionManager.kt:75`；`AudioPlaybackService.kt:25` |
 | UDP `pcAddress` 端口硬编码 | `UdpService.kt:255` |
 | [已修复] DSU CRC 不校验、`isBroadcastPacket` 死代码 | `DsuCodec.kt:114-135, 61-65` |
 | [已修复] `getDeviceId()`（原 `getMacAddress()`）实为 `ANDROID_ID` | `ConnectionManager.kt:884-892` |
 | USB 无自动重连，`onPeerClosed` 后不重启 server socket | `UsbService.kt:119-154` |
-| `init` 中 `runBlocking` 读 DataStore，可能卡主线程 | `ConnectionManager.kt:138-141` |
-| `sendKeyboardReport` WiFi 分支未检查 `activeProtocol`/`pcAddress` | `UdpService.kt:192-195` |
-| `ConnectionPhase.REQUESTING_PERMISSIONS/PAIRING` 无赋值点 | `ConnectionPhase.kt:5, 8` |
-| `PcmResampler`/`PcmHdRumbleAnalyzer`/`UsbFrameChunker` 有状态，需单线程串行使用 | 见各类注释 |
+| [已修复] `init` 中 `runBlocking` 读 DataStore，可能卡主线程 | `ConnectionManager.kt:138-141` |
+| [已修复] `sendKeyboardReport` WiFi 分支未检查 `activeProtocol`/`pcAddress` | `UdpService.kt:192-195` |
+| [已修复] `ConnectionPhase.REQUESTING_PERMISSIONS/PAIRING` 无赋值点 | `ConnectionPhase.kt:5, 8` |
+| [已修复] `PcmResampler`/`PcmHdRumbleAnalyzer`/`UsbFrameChunker` 有状态，需单线程串行使用（`stopHdOutput` 已加锁） | 见各类注释 |
 | 音频/输出队列满时 `DiscardOldestPolicy` 丢最旧帧（有意的延迟上界） | `ConnectionManager.kt:119-136` |
 
 ---

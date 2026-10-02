@@ -76,8 +76,23 @@ data class AdaptiveTriggerDevice(
 }
 
 /** Target device for the DualSense voice-coil (left/right motor) channels. Controllers are
- *  addressed by their index in the list of currently connected gamepad devices. */
-enum class AudioDeviceType { NONE, PHONE_MOTOR, PHONE_SPEAKER, CONTROLLER, SOUND_DEVICE }
+ *  addressed by their index in the list of currently connected gamepad devices.
+ *
+ *  [persistId] is a stable on-disk id: enum reordering or removing an entry must not
+ *  reinterpret previously saved values. 旧版本按 ordinal 存储，二者当前一致，可平滑迁移。 */
+enum class AudioDeviceType(val persistId: Int) {
+    NONE(0),
+    PHONE_MOTOR(1),
+    PHONE_SPEAKER(2),
+    CONTROLLER(3),
+    SOUND_DEVICE(4);
+
+    companion object {
+        /** 按持久化 id 还原；未知/已删除的 id 回退到 [default]。 */
+        fun fromPersistId(id: Int, default: AudioDeviceType = PHONE_MOTOR): AudioDeviceType =
+            entries.firstOrNull { it.persistId == id } ?: default
+    }
+}
 
 /**
  * A selectable audio target. [PHONE_SPEAKER] is retained only so previously saved

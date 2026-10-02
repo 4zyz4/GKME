@@ -300,9 +300,9 @@ flowchart TB
 | 问题 | 证据 |
 |------|------|
 | `ensureReady` 默认 `rumble=true, mouse=true`；仅本机模式显式关闭，改动需留意 | `GamepadInjector.kt:141-146`；`MainActivitySettings.kt:1668` |
-| 震动数值范围注释不一致（AIDL 写 0..32767，被控端按 65535 归一） | `IGamepadService.aidl:27`；`ControlledHostManager.kt:483-484` |
+| [已修复] 震动数值范围注释不一致（AIDL/注释已统一为 0..65535） | `IGamepadService.aidl:27`；`ControlledHostManager.kt:483-484` |
 | `configure()` 重建沿用旧 `rumbleEnabled`，未重新同步 `mouseEnabled` | `GamepadInjector.kt:113` |
-| `swapVibrationIndex` 未接入设置 | `RemoteHapticService.kt:78-80` |
+| [已修复] `swapVibrationIndex` 未接入设置（已删除未接线的字段） | `RemoteHapticService.kt:78-80` |
 | `ensureReady` 自动流程只弹一次权限，拒绝后需用户手动 `force` | `ShizukuServiceBinding.kt:150-155` |
 | `VirtualGamepad` 仅含 4 个手柄身份，不含 GKME 键鼠；按 vendor/product 限定运行期排除 | `VirtualGamepad.kt:21-26` |
 | [已修复] uinput Xbox 名称仅用于展示；运行期排除依据是 vendor/product，不依赖名称（文档已更正） | `uinput_gamepad.c:327-328`；`VirtualGamepad.kt:21-26` |

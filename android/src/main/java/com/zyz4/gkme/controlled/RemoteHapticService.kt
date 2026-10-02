@@ -75,10 +75,6 @@ class RemoteHapticService @JvmOverloads constructor(
     private var coreMajor = -1
     private var coreMinor = -1
 
-    /** 开关：逆序交换左右马达（暂未接入设置，保留与 SDK 对齐）。 */
-    @Volatile
-    private var swapVibrationIndex = false
-
     private val pid = Process.myPid()
     private var senderSeq = 0
 
@@ -230,7 +226,8 @@ class RemoteHapticService @JvmOverloads constructor(
             minorRichTap = coreMinor,
             pid = pid,
             sid = nextSid(),
-            swapVibrationIndex = swapVibrationIndex,
+            // 左右马达交换未接入 UI；保留 SDK 的默认（不交换）。
+            swapVibrationIndex = false,
         ) ?: return false
         synchronized(lock) {
             return try {

@@ -71,6 +71,9 @@ object HdPcmStreamer {
      */
     private const val AUDIO_RELEASE_MS = 120L
 
+    /** 被更高优先级占用时最多保留缓冲的时长；超过则丢弃，避免解禁后补发陈旧音频。 */
+    private const val HOLD_MAX_MS = 300L
+
     /** 看门狗检查周期。 */
     private const val WATCHDOG_INTERVAL_MS = 50L
 
@@ -96,6 +99,7 @@ object HdPcmStreamer {
     private val encoder = PcmHeEncoder(EVENTS_PER_CHUNK, EVENT_MS, SEAM_BOOST, ONSET_ACCENT_MS, BURST_MS)
     private var lastNs = 0L
     private var pending = false
+    private var heldSinceNs = 0L
 
     /** 上一次有效输出（[amp] ≥ [AUDIO_ACTIVE_AMP]）的时间戳；看门狗据此释放优先级。 */
     @Volatile
@@ -116,12 +120,28 @@ object HdPcmStreamer {
         if (!HapticInjector.isHapticReady()) return false
         ensureWatchdog()
 
-        // 被更高优先级来源（自适应扳机）占用：静默并清空缓冲，避免解禁后补发陈旧音频；
+        // 被更高优先级来源（自适应扳机）占用：暂停累积并保留缓冲，解禁后继续，
+        // 避免直接丢弃已累积的分块（原实现损失约 0.2s）；但保留时长有上界，
+        // 超过 [HOLD_MAX_MS] 则丢弃，防止长时间占满后突然补发一段陈旧音频。
         // 返回 true 让 AudioPlaybackService 不要回退系统震动。
         if (!HapticInjector.canPlay(HapticSource.AUDIO)) {
-            resetBuffer()
+            val nowNs = System.nanoTime()
+            synchronized(lock) {
+                if (pending || encoder.isBurstActive) {
+                    if (heldSinceNs == 0L) heldSinceNs = nowNs
+                    if (nowNs - heldSinceNs > HOLD_MAX_MS * 1_000_000L) {
+                        encoder.reset()
+                        pending = false
+                        lastNs = 0L
+                        heldSinceNs = 0L
+                    } else {
+                        lastNs = nowNs
+                    }
+                }
+            }
             return true
         }
+        heldSinceNs = 0L
 
         val amp = maxOf(left, right).coerceIn(0, 255)
         val now = System.nanoTime()
