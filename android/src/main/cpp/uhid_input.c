@@ -794,13 +794,13 @@ static int gkme_uk_create(const uint8_t *desc, int desc_len, const char *name,
     dev->sw_imu = 0;
     dev->sw_device_type = 3; /* Pro */
     dev->index = g_uk_index++;
+    dev->rumble_enabled = rumble_enabled;
     gkme_uk_store(fd, dev);
     pthread_create(&dev->reader, NULL, gkme_uk_reader, dev);
     if (profile == GKME_PROFILE_SWITCH_PRO) {
         dev->has_streamer = 1;
         pthread_create(&dev->streamer, NULL, gkme_uk_streamer, dev);
     }
-    dev->rumble_enabled = rumble_enabled;
     return fd;
 }
 

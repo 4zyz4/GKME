@@ -371,8 +371,8 @@ HID 修饰位掩码。键盘报告在 WiFi/USB 下复用 `GamepadInput`（type `
 | 问题 | 证据 |
 |------|------|
 | UDP `pcAddress` 端口硬编码为 `PORT`，忽略实际源端口 | `UdpService.kt:255` |
-| DSU 收到 CRC 错误包仍处理；`isBroadcastPacket` 为死代码 | `DsuCodec.kt:114-135, 61-65` |
-| `Hello.mac_address` 名为 MAC 实为 `ANDROID_ID` | `ConnectionManager.kt:884-892` |
+| [已修复] DSU 收到 CRC 错误包仍处理；`isBroadcastPacket` 为死代码 | `DsuCodec.kt:114-135, 61-65` |
+| [已修复] `Hello.mac_address` 名为 MAC 实为 `ANDROID_ID`（本地方法已改名为 `getDeviceId`，协议字段名保留） | `ConnectionManager.kt:884-892` |
 | 蓝牙主机到设备输出报告（振动）未处理 | `ConnectionManager.handleBtOutputReport` 空实现 |
 | `GamepadState.buttons` 为 `UInt`，部分常量声明为 `Int`，比较需 `toUInt()` | `GamepadState.kt:44-65` |
 | AIDL `pumpRumble` 注释写 0..32767，被控端按 65535 归一 | `IGamepadService.aidl:27`；`ControlledHostManager.kt:483-484` |

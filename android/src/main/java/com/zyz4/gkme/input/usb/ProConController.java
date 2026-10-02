@@ -173,7 +173,7 @@ public class ProConController extends AbstractController {
                 }
             } while (retries < 20 && res > 0 && !Thread.currentThread().isInterrupted() && !stopped);
             LimeLog.warning("ProCon: Failed to get subcmd reply: " + res + " bytes received, " + String.format((Locale)null, "0x%02x, 0x%02x", buffer[0], buffer[14]));
-            return false;
+            continue;
         }
 
         return false;
@@ -282,7 +282,7 @@ public class ProConController extends AbstractController {
         }
 
         if (lowFreqMotor != 0) {
-            data[4] = data[8] = (byte)(0x50 - (lowFreqMotor & 0xFFFF >> 12));
+            data[4] = data[8] = (byte)(0x50 - ((lowFreqMotor & 0xFFFF) >> 12));
             data[5] = data[9] = (byte)((((lowFreqMotor & 0xFFFF) >> 8) / 5) + 0x40);
         }
         if (highFreqMotor != 0) {

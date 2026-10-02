@@ -102,7 +102,7 @@ class DsuService(
                         if (from in allLocalAddresses) continue
                         if (data.size >= 20) {
                             val header = codec.decodeHeader(data)
-                            if (header != null) {
+                            if (header != null && header.crcValid) {
                                 handleDsuPacket(ds, from, port, header)
                             }
                         }
@@ -121,7 +121,7 @@ class DsuService(
                     dt.receive(packet)
                     val data = packet.data.copyOf(packet.length)
                     val header = codec.decodeHeader(data)
-                    if (header != null) {
+                    if (header != null && header.crcValid) {
                         handleDsuPacket(dt, packet.address, packet.port, header)
                     }
                 } catch (_: Exception) {

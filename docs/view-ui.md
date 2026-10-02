@@ -371,11 +371,11 @@ Activity **不直接改 ViewModel 内部状态**：
 | 问题 | 证据 |
 |------|------|
 | 设置页惰性 inflation，观察者必须在 `settingsInflated` 为 false 时跳过 UI 更新 | `MainActivitySettings.kt:113` |
-| `MouseInputDispatcher` 的 `ACTION_POINTER_DOWN` 未右移 `ACTION_POINTER_INDEX_SHIFT` 就当索引 | `MouseInputDispatcher.kt:91-95` |
-| `MouseInputDispatcher` 拖拽判定要求 dx、dy 同时非零，可能漏纯水平/垂直拖动 | `MouseInputDispatcher.kt:129` |
-| `SlotMatcher` 硬编码 1920/942，与调用方 1919/942 差 1px | `SlotMatcher.kt:97` |
-| `FollowAreaStrategy` 重叠/非重叠分支完全相同 | `FollowAreaStrategy.kt:43-56` |
-| `SwipeTriggerStrategy` 的 overlapTrigger 分支为空 | `SwipeTriggerStrategy.kt:46-52` |
+| [已修复] `MouseInputDispatcher` 的 `ACTION_POINTER_DOWN` 未右移 `ACTION_POINTER_INDEX_SHIFT` 就当索引 | `MouseInputDispatcher.kt:91-95` |
+| [已修复] `MouseInputDispatcher` 拖拽判定要求 dx、dy 同时非零，可能漏纯水平/垂直拖动 | `MouseInputDispatcher.kt:129` |
+| [已修复] `SlotMatcher` 硬编码 1920/942，与调用方 1919/942 差 1px | `SlotMatcher.kt:97` |
+| [已修复] `FollowAreaStrategy` 重叠/非重叠分支完全相同 | `FollowAreaStrategy.kt:43-56` |
+| [已修复] `SwipeTriggerStrategy` 的 overlapTrigger 分支为空 | `SwipeTriggerStrategy.kt:46-52` |
 | settings 按钮置顶必须用 `translationZ`，`bringChildToFront` 会被 elevation 抵消 | `GamepadLayout.kt:850-867` |
 | 编辑模式必须整树重建，否则 `applyPreset` 堆叠重复 settings 按钮 | `MainActivityEditor.kt:924-944` |
 | 鼠标键位需取并集，避免“按住屏幕按钮再点鼠标板把它松开” | `GkViewModel.kt:1005-1006,1272-1275` |

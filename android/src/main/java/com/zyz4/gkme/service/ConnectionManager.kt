@@ -354,7 +354,7 @@ class ConnectionManager @Inject constructor(
                 }
                 return
             }
-            udpService.start(getRealDeviceName(), getMacAddress()) { msg ->
+            udpService.start(getRealDeviceName(), getDeviceId()) { msg ->
                 handleServerToClient(msg)
             }
             if (udpService.portInUse) {
@@ -721,7 +721,7 @@ class ConnectionManager @Inject constructor(
         val hello = Hello.newBuilder()
             .setProtocolVersion(1)
             .setDeviceName(getRealDeviceName())
-            .setMacAddress(getMacAddress())
+            .setMacAddress(getDeviceId())
             .build()
         return ClientToServer.newBuilder()
             .setHello(hello)
@@ -878,10 +878,12 @@ class ConnectionManager @Inject constructor(
         }
     }
 
-    /** Stable identity of the physical phone, broadcast to the PC (the "MAC"
-     *  field of `GKME|name|mac`). Uses ANDROID_ID, which survives reboots and app
-     *  updates and is unique per app-signing-key + user. */
-    fun getMacAddress(): String {
+    /** Stable identity of the physical phone, broadcast to the PC. Despite the
+     *  protocol field being named the "MAC" (`Hello.mac_address` / `GKME|name|mac`),
+     *  it actually carries ANDROID_ID, which survives reboots and app updates and
+     *  is unique per app-signing-key + user. Renamed from `getMacAddress` to avoid
+     *  the false implication of a real hardware MAC. */
+    fun getDeviceId(): String {
         return try {
             Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
                 ?.uppercase()

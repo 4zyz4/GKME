@@ -238,10 +238,6 @@ class LayoutRepository @Inject constructor(
         return getPresetFromRaw(R.raw.full_con, "full_con")
     }
 
-    fun createAllBuiltInPresets() {
-        // No-op: built-in presets are loaded directly from raw resources.
-    }
-
     private fun getPresetFromRaw(rawId: Int, name: String): LayoutPreset {
         // Check memory cache first
         memoryCache[name]?.let { return it }

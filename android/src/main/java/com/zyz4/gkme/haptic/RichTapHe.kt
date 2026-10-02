@@ -63,7 +63,7 @@ object RichTapHe {
     fun curve(durationMs: Int, baseFreq: Int, points: List<CurvePoint>): String {
         val dur = durationMs.coerceAtLeast(1)
         val base = baseFreq.coerceIn(0, 100)
-        val pts = points.take(POINT_COUNT).joinToString(",") { p ->
+        val pts = normalize(points, dur).joinToString(",") { p ->
             "{\"Frequency\":${fmt(p.freqOffset)},\"Intensity\":${fmt(p.intensity.coerceIn(0.0, 1.0))},\"Time\":${p.timeMs.coerceIn(0, dur)}}"
         }
         return "{" +
@@ -109,7 +109,7 @@ object RichTapHe {
     fun pattern(events: List<Event>): String {
         val body = events.joinToString(",") { e ->
             val dur = e.durationMs.coerceIn(1, 5000)
-            val pts = e.points.take(POINT_COUNT).joinToString(",") { p ->
+            val pts = normalize(e.points, dur).joinToString(",") { p ->
                 "{\"Frequency\":${fmt(p.freqOffset)}," +
                     "\"Intensity\":${fmt(p.intensity.coerceIn(0.0, 1.0))}," +
                     "\"Time\":${p.timeMs.coerceIn(0, dur)}}"
@@ -137,9 +137,10 @@ object RichTapHe {
         intensity: Int,
         curve: List<Pair<Int, Double>>,
     ): String {
-        val pts = curve.take(POINT_COUNT).joinToString(",") { (t, v) ->
-            "{\"Frequency\":0.0,\"Intensity\":${fmt(v)},\"Time\":$t}"
-        }
+        val pts = normalize(curve.map { CurvePoint(it.first, it.second, 0.0) }, durationMs)
+            .joinToString(",") { (t, v, _) ->
+                "{\"Frequency\":0.0,\"Intensity\":${fmt(v)},\"Time\":$t}"
+            }
         return "{" +
             "\"Metadata\":{\"Created\":\"gkme\",\"Description\":\"hd\",\"Version\":1}," +
             "\"Pattern\":[{" +
@@ -152,6 +153,21 @@ object RichTapHe {
             "\"Intensity\":${intensity.coerceIn(0, 100)}," +
             "\"Curve\":[$pts]" +
             "}}}]}"
+    }
+
+    /**
+     * 把控制点补齐到恰好 [POINT_COUNT] 个：多于 4 点截断，少于 4 点用最后一点在 `dur` 处补位。
+     *
+     * 真机实测：`Curve` 少于 4 点会使 HAL 报 `Invalid time param` 并导致整条效果无输出。
+     */
+    private fun normalize(points: List<CurvePoint>, dur: Int): List<CurvePoint> {
+        val taken = points.take(POINT_COUNT)
+        if (taken.size == POINT_COUNT) return taken
+        if (taken.isEmpty()) return List(POINT_COUNT) { CurvePoint(0, 0.0, 0.0) }
+        val last = taken.last()
+        return taken + List(POINT_COUNT - taken.size) {
+            CurvePoint(dur, last.intensity, last.freqOffset)
+        }
     }
 
     private fun fmt(v: Double): String =

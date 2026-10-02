@@ -89,7 +89,7 @@ object MouseInputDispatcher {
             }
 
             MotionEvent.ACTION_POINTER_DOWN -> {
-                val idx = actionMasked and MotionEvent.ACTION_POINTER_INDEX_MASK
+                val idx = event.actionIndex
                 val pid = event.getPointerId(idx)
                 val px = event.getX(idx)
                 val py = event.getY(idx)
@@ -126,10 +126,6 @@ object MouseInputDispatcher {
                             val cy = event.getY(0)
                             dx = ((cx - hx) * sensitivity).toInt().toShort()
                             dy = ((cy - hy) * sensitivity).toInt().toShort()
-                            if (dx != 0.toShort() && dy != 0.toShort() && keepLeftDown && newS.dragButton == 0.toByte()) {
-                                newS = newS.copy(dragButton = 1)
-                                buttonDown = 1
-                            }
                         } else {
                             val hx = if (hasHistory) event.getHistoricalX(0, 0) else event.getX(0)
                             val hy = if (hasHistory) event.getHistoricalY(0, 0) else event.getY(0)
@@ -164,7 +160,7 @@ object MouseInputDispatcher {
             }
 
             MotionEvent.ACTION_POINTER_UP -> {
-                val liftedIdx = actionMasked and MotionEvent.ACTION_POINTER_INDEX_MASK
+                val liftedIdx = event.actionIndex
                 val liftedPid = event.getPointerId(liftedIdx)
 
                 when (pointerCount) {

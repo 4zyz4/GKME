@@ -252,7 +252,7 @@ sequenceDiagram
 | `AudioDevice.PHONE_SPEAKER` 仅靠 ordinal 兼容，UI 不再提供 | `AppSettings.kt:101-102` |
 | `virtualGamepadType` 旧键迁移只在缺失新键时执行 | `SettingsRepository.kt:172-182` |
 | 内置预设 checksum 变化（升级）会 invalidate 缓存，用户对内置预设的修改不会覆盖 raw | `LayoutRepository.kt:107-116` |
-| `createAllBuiltInPresets()` 为空实现 | `LayoutRepository.kt:241-243` |
+| [已修复] `createAllBuiltInPresets()` 为空实现 | `LayoutRepository.kt:241-243` |
 | `ConnectionManager` 内部分依赖手动 `new`，Hilt 图不完整 | `AppModule.kt`；`ConnectionManager.kt:75` |
 
 ---

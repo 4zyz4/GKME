@@ -1,6 +1,7 @@
 package com.zyz4.gkme.haptic
 
 import org.json.JSONObject
+import kotlin.math.roundToInt
 
 /**
  * 把 GKME 产出的 HE1.0 JSON（见 [RichTapHe]）解析成 [RichTapRawCodec] 的事件模型。
@@ -32,7 +33,7 @@ object HeJson {
                         RichTapRawCodec.CurvePoint(
                             timeMs = pt.optInt("Time", 0),
                             scale = pt.optDouble("Intensity", 0.0),
-                            freqOffset = pt.optInt("Frequency", 0),
+                            freqOffset = pt.optDouble("Frequency", 0.0).roundToInt(),
                         )
                     )
                 }

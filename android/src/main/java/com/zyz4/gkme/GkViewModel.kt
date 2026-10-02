@@ -170,7 +170,6 @@ class GkViewModel @Inject constructor(
     }
 
     private fun initializeLayouts() {
-        layoutRepository.createAllBuiltInPresets()
         val name = settings.value.currentPresetName
         val loaded = layoutRepository.loadPreset(name)
         if (loaded != null) {

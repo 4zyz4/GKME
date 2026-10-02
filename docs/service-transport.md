@@ -284,8 +284,8 @@ LOCAL          -> GamepadInjector.update(state)
 | 蓝牙主机到设备的输出报告（振动）为空实现，被丢弃 | `ConnectionManager.kt:490-491` |
 | `AudioPlaybackService` 手动 new 且标 `@Singleton`，未经 Hilt | `ConnectionManager.kt:75`；`AudioPlaybackService.kt:25` |
 | UDP `pcAddress` 端口硬编码 | `UdpService.kt:255` |
-| DSU CRC 不校验、`isBroadcastPacket` 死代码 | `DsuCodec.kt:114-135, 61-65` |
-| `getMacAddress()` 实为 `ANDROID_ID` | `ConnectionManager.kt:884-892` |
+| [已修复] DSU CRC 不校验、`isBroadcastPacket` 死代码 | `DsuCodec.kt:114-135, 61-65` |
+| [已修复] `getDeviceId()`（原 `getMacAddress()`）实为 `ANDROID_ID` | `ConnectionManager.kt:884-892` |
 | USB 无自动重连，`onPeerClosed` 后不重启 server socket | `UsbService.kt:119-154` |
 | `init` 中 `runBlocking` 读 DataStore，可能卡主线程 | `ConnectionManager.kt:138-141` |
 | `sendKeyboardReport` WiFi 分支未检查 `activeProtocol`/`pcAddress` | `UdpService.kt:192-195` |

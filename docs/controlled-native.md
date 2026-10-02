@@ -305,10 +305,10 @@ flowchart TB
 | `swapVibrationIndex` 未接入设置 | `RemoteHapticService.kt:78-80` |
 | `ensureReady` 自动流程只弹一次权限，拒绝后需用户手动 `force` | `ShizukuServiceBinding.kt:150-155` |
 | `VirtualGamepad` 仅含 4 个手柄身份，不含 GKME 键鼠；按 vendor/product 限定运行期排除 | `VirtualGamepad.kt:21-26` |
-| uinput Xbox 名称 `"Xbox One S Controller"` 是排除依据，需三处一致 | `uinput_gamepad.c:327-328` |
-| uhid 创建竞态：先起 reader 线程、后设 `rumble_enabled` | `uhid_input.c:798-803` |
+| [已修复] uinput Xbox 名称仅用于展示；运行期排除依据是 vendor/product，不依赖名称（文档已更正） | `uinput_gamepad.c:327-328`；`VirtualGamepad.kt:21-26` |
+| [已修复] uhid 创建竞态：先起 reader 线程、后设 `rumble_enabled` | `uhid_input.c:798-803` |
 | `last_report/last_len` 在 uhid 仅赋值未使用（预留） | `uhid_input.c:145-147,886-889` |
-| Watchdog 只释放手柄不销毁会话，等待 Hello 重建 | `ControlledHostManager.kt:449-464` |
+| [已修复] Watchdog 释放手柄并进入 RECONNECTING，保留会话等待 Hello 重建（设计如此，文档已更正） | `ControlledHostManager.kt:449-464` |
 | 前台服务需 `PROPERTY_SPECIAL_USE_FGS_SUBTYPE`（Android 14+） | `AndroidManifest.xml:70-77` |
 | 鼠标高精度 30 单位/格为实测值，不同 ROM 可能不同 | `uinput_gamepad.c:564-566` |
 | uinput FF 能力恒暴露，本机/被控模式在系统里都显示为“带震动设备” | `uinput_gamepad.c:312-319` |

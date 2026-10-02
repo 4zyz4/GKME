@@ -252,8 +252,10 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
                     val slot = pointerSlots.remove(pointerId)
                     if (slot != null) touchSlots[slot] = null
                 }
+                // 触摸板点击（BUTTON_ONLY）仅通过按钮位派生，不更新坐标也不分配 slot。
+                GkmeBridge.LI_TOUCH_EVENT_BUTTON_ONLY -> Unit
                 GkmeBridge.LI_TOUCH_EVENT_DOWN, GkmeBridge.LI_TOUCH_EVENT_MOVE,
-                GkmeBridge.LI_TOUCH_EVENT_HOVER, GkmeBridge.LI_TOUCH_EVENT_BUTTON_ONLY -> {
+                GkmeBridge.LI_TOUCH_EVENT_HOVER -> {
                     val nx = x.coerceIn(0f, 1f)
                     val ny = y.coerceIn(0f, 1f)
                     touchX = nx

@@ -38,21 +38,10 @@ object FollowAreaStrategy {
             if (isTouchpadId(pos.id)) continue
             if (!pos.followAreaEnabled) continue
 
-            // For follow-area-overlap-trigger buttons, only activate if
-            // overlapTrigger is true.
-            if (!pos.followAreaOverlapTrigger) {
-                // Normal follow-area: finger must be inside rect AND no
-                // non-follow-area child at that point (handled by caller
-                // filtering childBounds before passing to this function).
-                if (isAnyPointerInArea(pos, cellW, cellH, pointers)) {
-                    activated.add(pos.id)
-                }
-            } else {
-                // Overlap-trigger: finger inside rect, regardless of other
-                // overlapping children.
-                if (isAnyPointerInArea(pos, cellW, cellH, pointers)) {
-                    activated.add(pos.id)
-                }
+            // 非 overlapTrigger 的“该点不得存在其它子控件”语义由调用方
+            // 过滤 childBounds 后保证，这里只做矩形命中判断即可。
+            if (isAnyPointerInArea(pos, cellW, cellH, pointers)) {
+                activated.add(pos.id)
             }
         }
 

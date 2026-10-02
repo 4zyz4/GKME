@@ -51,8 +51,7 @@ public class Dualshock4Controller extends AbstractDualSenseController {
          return false;
       }
 
-      // Skip first byte
-      buffer.get();
+      // 输入报文按绝对字节索引解析（buffer.get(i)/getShort(i)），无需移动游标。
 
       // Process D-pad (buttons0 & 0x0F)
       int dpad = buffer.get(5) & 0x0F;
