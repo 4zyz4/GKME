@@ -80,6 +80,7 @@ class RemoteGamepadService @JvmOverloads constructor(
         accelX: Float,
         accelY: Float,
         accelZ: Float,
+        touches: IntArray?,
     ) {
         val f = fd.get()
         if (f < 0 || !RemoteGamepadDevice.isLoaded()) return
@@ -87,7 +88,7 @@ class RemoteGamepadService @JvmOverloads constructor(
             if (backend == BACKEND_UHID) {
                 RemoteGamepadDevice.nativeWriteUhid(
                     f, buttons, leftTrigger, rightTrigger, leftX, leftY, rightX, rightY,
-                    gyroX, gyroY, gyroZ, accelX, accelY, accelZ,
+                    gyroX, gyroY, gyroZ, accelX, accelY, accelZ, touches,
                 )
             } else {
                 RemoteGamepadDevice.nativeWrite(

@@ -254,6 +254,7 @@ object GamepadInjector {
                 input.accelX,
                 input.accelY,
                 input.accelZ,
+                buildTouches(input),
             )
         } catch (_: Throwable) {
         }
@@ -370,6 +371,24 @@ object GamepadInjector {
         resetKeyboardMouse()
     }
 
+    /**
+     * 把 [GamepadInput] 的触摸板数据编码为 native 需要的格式：最多 2 个触点，
+     * 每点 4 个 int [id, x, y, active]（x/y 为 0..1919/0..942）。仅 DS4/DualSense
+     * 使用该数据。
+     */
+    private fun buildTouches(input: GamepadInput): IntArray {
+        val list = input.touchesList
+        val arr = IntArray(8)
+        for (i in 0 until minOf(2, list.size)) {
+            val tp = list[i]
+            arr[i * 4] = tp.id
+            arr[i * 4 + 1] = tp.x
+            arr[i * 4 + 2] = tp.y
+            arr[i * 4 + 3] = if (tp.active) 1 else 0
+        }
+        return arr
+    }
+
     /** 把 GKME 的按键位布局翻译成 XInput wButtons 掩码（含十字键低 4 位）。 */
     private fun toXInputButtons(input: GamepadInput): Int {
         val b = input.buttons.toInt()
@@ -385,6 +404,8 @@ object GamepadInjector {
         if (b and GamepadState.L3 != 0) x = x or 0x0040
         if (b and GamepadState.R3 != 0) x = x or 0x0080
         if (b and GamepadState.HOME != 0) x = x or 0x0400
+        // 触摸板点击不属于 XInput，用保留位 bit17（0x20000）透传给 native 打包。
+        if (b and GamepadState.TOUCHPAD_CLICK != 0) x = x or 0x20000
         // 兼容把十字键编码进 buttons bit12..15 的输入源。
         if (b and GamepadState.DPAD_BIT_UP != 0) x = x or 0x1
         if (b and GamepadState.DPAD_BIT_DOWN != 0) x = x or 0x2

@@ -13,13 +13,16 @@ interface IGamepadService {
     int create(int backend, int profile, boolean rumbleEnabled) = 1;
 
     /**
-     * 写入一次手柄状态；buttons 使用 XInput wButtons 掩码。
+     * 写入一次手柄状态；buttons 使用 XInput wButtons 掩码（bit17 = 触摸板点击）。
      * gyro/accel 为运动传感器数据（rad/s、m/s²），仅 uhid 手柄使用；uinput 忽略。
+     * touches 为触摸板数据：最多 2 个触点，每点 4 个 int [id, x, y, active]，
+     * x/y 为 0..1919/0..942；仅 DS4/DualSense 使用，可传 null/空数组。
      */
     void update(int buttons, int leftTrigger, int rightTrigger,
                 int leftX, int leftY, int rightX, int rightY,
                 float gyroX, float gyroY, float gyroZ,
-                float accelX, float accelY, float accelZ) = 2;
+                float accelX, float accelY, float accelZ,
+                in int[] touches) = 2;
 
     /** 读取待回传的震动，高 16 位为左马达、低 16 位为右马达（0..32767）。无震动返回 0。 */
     long pumpRumble() = 3;

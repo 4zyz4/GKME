@@ -132,6 +132,10 @@ typedef struct {
     float gyro[3];
     float accel[3];
 
+    /* 触摸板（DS4/DualSense）：2 个触点，每点 [id, x, y, active]，x/y 为 0..1919/0..942。 */
+    int touch[2][4];
+    uint8_t touch_seq;
+
     /* Switch 状态 */
     uint8_t sw_body[48];
     int sw_imu;
@@ -277,7 +281,29 @@ static int gkme_switch_gyro_raw(float rad_s) {
     return (int)(rad_s * 938.0f);
 }
 
-static void gkme_pack_ds4(uint8_t rpt[64], const float gyro[3], const float accel[3],
+/* 写入 2 个触摸点到 DS4/DualSense input 报告（每点 4 字节 + 1 字节序号）。
+ * y 按 yscale_num/yscale_den 缩放：DS4 触板 1920x943，DualSense 1920x1080。
+ * 每点编码：byte0 = bit7 未触摸标志 + 7 位 id；byte1 = X 低 8 位；
+ * byte2 = X 高 4 位 | Y 高 4 位；byte3 = Y 低 8 位。 */
+static void gkme_write_touch(uint8_t *rpt, int offset, gkme_uk_dev *dev,
+                             int yscale_num, int yscale_den) {
+    for (int i = 0; i < 2; i++) {
+        int id = dev->touch[i][0] & 0x7F;
+        int x = dev->touch[i][1] & 0x0FFF;
+        int y = (dev->touch[i][2] * yscale_num) / yscale_den;
+        if (y < 0) y = 0;
+        if (y > 0x0FFF) y = 0x0FFF;
+        int active = dev->touch[i][3];
+        uint8_t *p = rpt + offset + i * 4;
+        p[0] = active ? (uint8_t)id : (uint8_t)(0x80 | id);
+        p[1] = (uint8_t)(x & 0xFF);
+        p[2] = (uint8_t)((((x >> 8) & 0x0F) << 4) | ((y >> 8) & 0x0F));
+        p[3] = (uint8_t)(y & 0xFF);
+    }
+    rpt[offset + 8] = dev->touch_seq++;
+}
+
+static void gkme_pack_ds4(uint8_t rpt[64], gkme_uk_dev *dev,
                           int buttons, int lt, int rt,
                           int lx, int ly, int rx, int ry) {
     memset(rpt, 0, 64);
@@ -303,20 +329,22 @@ static void gkme_pack_ds4(uint8_t rpt[64], const float gyro[3], const float acce
     if (buttons & 0x0080) b2 |= 0x80; /* R3 */
     rpt[6] = b2;
     if (buttons & 0x0400) rpt[7] |= 0x01; /* Guide */
+    if (buttons & 0x20000) rpt[7] |= 0x02; /* 触摸板点击 */
     rpt[8] = (uint8_t)gkme_trig_u8(lt);
     rpt[9] = (uint8_t)gkme_trig_u8(rt);
     /* 运动传感器：gyro X/Y/Z 在 13..18，accel X/Y/Z 在 19..24（hid-playstation）。 */
-    gkme_put_s16(rpt + 13, gkme_gyro_raw(gyro[0]));
-    gkme_put_s16(rpt + 15, gkme_gyro_raw(gyro[1]));
-    gkme_put_s16(rpt + 17, gkme_gyro_raw(gyro[2]));
-    gkme_put_s16(rpt + 19, gkme_accel_raw(accel[0]));
-    gkme_put_s16(rpt + 21, gkme_accel_raw(accel[1]));
-    gkme_put_s16(rpt + 23, gkme_accel_raw(accel[2]));
+    gkme_put_s16(rpt + 13, gkme_gyro_raw(dev->gyro[0]));
+    gkme_put_s16(rpt + 15, gkme_gyro_raw(dev->gyro[1]));
+    gkme_put_s16(rpt + 17, gkme_gyro_raw(dev->gyro[2]));
+    gkme_put_s16(rpt + 19, gkme_accel_raw(dev->accel[0]));
+    gkme_put_s16(rpt + 21, gkme_accel_raw(dev->accel[1]));
+    gkme_put_s16(rpt + 23, gkme_accel_raw(dev->accel[2]));
     rpt[30] = 0x05; /* battery: full-ish */
-    rpt[33] = 0x0A;
+    /* 触摸板：2 个触点，DS4 触板 1920x943。 */
+    gkme_write_touch(rpt, 33, dev, 1, 1);
 }
 
-static void gkme_pack_dualsense(uint8_t rpt[64], const float gyro[3], const float accel[3],
+static void gkme_pack_dualsense(uint8_t rpt[64], gkme_uk_dev *dev,
                                 int buttons, int lt, int rt,
                                 int lx, int ly, int rx, int ry) {
     memset(rpt, 0, 64);
@@ -345,14 +373,17 @@ static void gkme_pack_dualsense(uint8_t rpt[64], const float gyro[3], const floa
     if (buttons & 0x0080) b2 |= 0x80;
     rpt[9] = b2;
     if (buttons & 0x0400) rpt[10] |= 0x01;
+    if (buttons & 0x20000) rpt[10] |= 0x02; /* 触摸板点击 */
     /* 运动传感器：gyro X/Y/Z 在 16..21，accel X/Y/Z 在 22..27（hid-playstation）。 */
-    gkme_put_s16(rpt + 16, gkme_gyro_raw(gyro[0]));
-    gkme_put_s16(rpt + 18, gkme_gyro_raw(gyro[1]));
-    gkme_put_s16(rpt + 20, gkme_gyro_raw(gyro[2]));
-    gkme_put_s16(rpt + 22, gkme_accel_raw(accel[0]));
-    gkme_put_s16(rpt + 24, gkme_accel_raw(accel[1]));
-    gkme_put_s16(rpt + 26, gkme_accel_raw(accel[2]));
+    gkme_put_s16(rpt + 16, gkme_gyro_raw(dev->gyro[0]));
+    gkme_put_s16(rpt + 18, gkme_gyro_raw(dev->gyro[1]));
+    gkme_put_s16(rpt + 20, gkme_gyro_raw(dev->gyro[2]));
+    gkme_put_s16(rpt + 22, gkme_accel_raw(dev->accel[0]));
+    gkme_put_s16(rpt + 24, gkme_accel_raw(dev->accel[1]));
+    gkme_put_s16(rpt + 26, gkme_accel_raw(dev->accel[2]));
     rpt[53] = 0x05;
+    /* 触摸板：DualSense 触板 1920x1080，把 0..942 的输入 y 缩放过去。 */
+    gkme_write_touch(rpt, 33, dev, 1080, 943);
 }
 
 /* Switch 12 位摇杆（little-nibble 打包）。 */
@@ -811,7 +842,7 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWriteUhid(
         JNIEnv *env, jclass clazz, jint fd, jint buttons, jint leftTrigger,
         jint rightTrigger, jint leftX, jint leftY, jint rightX, jint rightY,
         jfloat gyroX, jfloat gyroY, jfloat gyroZ,
-        jfloat accelX, jfloat accelY, jfloat accelZ) {
+        jfloat accelX, jfloat accelY, jfloat accelZ, jintArray touches) {
     gkme_uk_dev *dev = gkme_uk_get(fd);
     if (!dev) return;
     uint8_t rpt[64];
@@ -819,11 +850,31 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWriteUhid(
     pthread_mutex_lock(&dev->lock);
     dev->gyro[0] = gyroX; dev->gyro[1] = gyroY; dev->gyro[2] = gyroZ;
     dev->accel[0] = accelX; dev->accel[1] = accelY; dev->accel[2] = accelZ;
+    if (touches) {
+        jsize n = (*env)->GetArrayLength(env, touches);
+        if (n > 0) {
+            jint *tv = (*env)->GetIntArrayElements(env, touches, NULL);
+            if (tv) {
+                for (int i = 0; i < 2; i++) {
+                    int base = i * 4;
+                    if (base + 3 < (int)n) {
+                        dev->touch[i][0] = tv[base];
+                        dev->touch[i][1] = tv[base + 1];
+                        dev->touch[i][2] = tv[base + 2];
+                        dev->touch[i][3] = tv[base + 3];
+                    } else {
+                        dev->touch[i][3] = 0;
+                    }
+                }
+                (*env)->ReleaseIntArrayElements(env, touches, tv, JNI_ABORT);
+            }
+        }
+    }
     if (dev->profile == GKME_PROFILE_DS4) {
-        gkme_pack_ds4(rpt, dev->gyro, dev->accel, buttons, leftTrigger, rightTrigger,
+        gkme_pack_ds4(rpt, dev, buttons, leftTrigger, rightTrigger,
                       leftX, leftY, rightX, rightY);
     } else if (dev->profile == GKME_PROFILE_DUALSENSE) {
-        gkme_pack_dualsense(rpt, dev->gyro, dev->accel, buttons, leftTrigger, rightTrigger,
+        gkme_pack_dualsense(rpt, dev, buttons, leftTrigger, rightTrigger,
                             leftX, leftY, rightX, rightY);
     } else if (dev->profile == GKME_PROFILE_SWITCH_PRO) {
         gkme_switch_fill_body(dev, buttons, leftTrigger, rightTrigger, leftX, leftY, rightX, rightY);

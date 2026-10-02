@@ -79,11 +79,18 @@ public final class RemoteGamepadDevice {
      */
     public static native int nativeCreateUhid(int profile, int rumbleEnabled);
 
+    /**
+     * 写入一次 uhid 手柄状态。
+     *
+     * @param touches 触摸板数据，最多 2 个触点，每点 4 个 int：[id, x, y, active]，
+     *                x/y 为 0..1919/0..942；仅 DS4/DualSense 使用，可传 null。
+     */
     public static native void nativeWriteUhid(int fd, int buttons, int leftTrigger,
                                               int rightTrigger, int leftX, int leftY,
                                               int rightX, int rightY,
                                               float gyroX, float gyroY, float gyroZ,
-                                              float accelX, float accelY, float accelZ);
+                                              float accelX, float accelY, float accelZ,
+                                              int[] touches);
 
     public static native long nativeRumbleUhid(int fd);
 
