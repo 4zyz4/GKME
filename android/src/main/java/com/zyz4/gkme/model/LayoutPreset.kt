@@ -14,7 +14,7 @@ private val gson = Gson()
 private val LOCK_ASPECT_FALSE_IDS = setOf(
     "btnLB", "btnRB", "btnLT", "btnRT",
     "touchpad", "mousepad", "btnCustomRect",
-    "btnMouseLMB", "btnMouseRMB", "btnMouseMMB",
+    "btnMouseLMB", "btnMouseRMB", "btnMouseMMB", "btnMouseBack", "btnMouseForward",
 )
 
 private val IS_KEYBOARD_IDS = setOf(
