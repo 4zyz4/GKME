@@ -58,6 +58,8 @@ object KeepAliveInjector {
             tag = TAG,
             processNameSuffix = "gkme_keepalive",
             serviceClass = RemoteKeepAliveService::class.java,
+            // 保活服务必须是 daemon：App 进程被 ROM 杀掉后它仍要存活，才能把 App 拉回来。
+            daemon = true,
             onConnected = { binder ->
                 service = IKeepAliveService.Stub.asInterface(binder)
                 scope.launch { ensureActive() }
@@ -79,20 +81,25 @@ object KeepAliveInjector {
         scope.launch { ensureActive() }
     }
 
-    /** 退出被控端时撤销保活白名单。 */
+    /**
+     * 退出被控端时撤销保活：停止守护进程的复活看门狗、移除白名单，并彻底结束 daemon
+     * 用户服务。先 `disable`（停看门狗 + 撤白名单）再 `removeService`（杀进程），避免
+     * 进程被杀后看门狗仍在运行。
+     */
     fun deactivate() {
         desiredPackage = null
         val pkg = activatedPackage
         activatedPackage = null
         val wasActive = active
         active = false
-        if (wasActive && pkg != null) {
-            scope.launch {
-                try {
-                    service?.disable(pkg)
-                } catch (t: Throwable) {
-                    Log.w(TAG, "撤销保活失败: ${t.message}")
-                }
+        val b = binding
+        scope.launch {
+            try {
+                if (wasActive && pkg != null) service?.disable(pkg)
+            } catch (t: Throwable) {
+                Log.w(TAG, "撤销保活失败: ${t.message}")
+            } finally {
+                b?.removeService()
             }
         }
     }
@@ -143,8 +150,12 @@ object KeepAliveInjector {
         return when {
             !b.binderAlive -> "保活：Shizuku 未运行"
             !b.permissionGranted -> "保活：Shizuku 未授权"
-            service == null -> "保活：正在启动保活服务…"
-            active -> "Shizuku 保活已生效"
+            service == null -> if (b.bindFailed) {
+                "保活：${ShizukuServiceBinding.BIND_FAILED_MESSAGE}"
+            } else {
+                "保活：正在启动保活服务…"
+            }
+            active -> "Shizuku 保活已生效（守护中）"
             desiredPackage == null -> "保活：未启用"
             lastError != null -> "保活：$lastError"
             else -> "保活：正在启用…"
@@ -155,6 +166,7 @@ object KeepAliveInjector {
         binding?.requiredAction(context) ?: ShizukuServiceBinding.Action.NONE
 
     fun destroy() {
+        binding?.removeService()
         binding?.detach()
         binding = null
         service = null

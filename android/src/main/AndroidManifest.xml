@@ -76,9 +76,10 @@
                 android:value="controlled_host_keepalive" />
         </service>
 
-        <!-- Shizuku（提供 shell/root 身份运行 UserService） -->
+        <!-- Shizuku（提供 shell/root 身份运行 UserService）。
+             使用本项目子类以串行化并发下发的 binder，规避 Shizuku 库的 onBinderReceived 竞态。 -->
         <provider
-            android:name="rikka.shizuku.ShizukuProvider"
+            android:name=".GkmeShizukuProvider"
             android:authorities="${applicationId}.shizuku"
             android:multiprocess="false"
             android:enabled="true"
