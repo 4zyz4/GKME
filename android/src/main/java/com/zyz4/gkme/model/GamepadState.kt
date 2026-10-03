@@ -63,6 +63,9 @@ data class GamepadState(
         const val MOUSE_LMB = 0x80000  // bit 19
         const val MOUSE_RMB = 0x100000  // bit 20
         const val MOUSE_MMB = 0x200000  // bit 21
+        // 鼠标侧键：bit 26/27（避开物理输入专用的 paddle 位 22-25）
+        const val MOUSE_BACK = 0x4000000  // bit 26 鼠标后退键（Windows Button 4）
+        const val MOUSE_FORWARD = 0x8000000  // bit 27 鼠标前进键（Windows Button 5）
         const val DPAD_UP = 1
         const val DPAD_DOWN = 2
         const val DPAD_LEFT = 4
