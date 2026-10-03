@@ -19,7 +19,6 @@ import com.zyz4.gkme.haptic.RichTapPrebaked
 object HapticInjector {
 
     private const val TAG = "GKME_HapticInjector"
-    private const val REQUEST_CODE = 0x5A18
 
     /**
      * 连续效果的单次时长。
@@ -66,7 +65,6 @@ object HapticInjector {
         val b = ShizukuServiceBinding(
             tag = TAG,
             processNameSuffix = "gkme_haptic",
-            requestCode = REQUEST_CODE,
             serviceClass = RemoteHapticService::class.java,
             onConnected = { binder ->
                 val svc = IHapticService.Stub.asInterface(binder)

@@ -18,13 +18,16 @@ flowchart TB
         CHM["ControlledHostManager<br/>UDP 37284"]
         GI["GamepadInjector"]
         HI["HapticInjector"]
+        KI["KeepAliveInjector"]
         SB1["ShizukuServiceBinding"]
         SB2["ShizukuServiceBinding"]
+        SB3["ShizukuServiceBinding"]
     end
 
     subgraph SHELL["shell/root 用户服务进程"]
         RGS["RemoteGamepadService<br/>IGamepadService.Stub"]
         RHS["RemoteHapticService<br/>IHapticService.Stub"]
+        RKA["RemoteKeepAliveService<br/>IKeepAliveService.Stub"]
         RGD["RemoteGamepadDevice<br/>System.loadLibrary(gkme_uinput)"]
     end
 
@@ -35,16 +38,19 @@ flowchart TB
 
     CA --> CHM
     CHM -->|awaitInjectorReady/update| GI
+    CHM -->|ensureActive/status| KI
     CA --> GI
+    CA --> KI
     GI --> SB1 --> RGS
     HI --> SB2 --> RHS
+    KI --> SB3 --> RKA
     RGS --> RGD
     RGD --> UI
     RGD --> UH
 ```
 
-- **两个独立的 Shizuku 用户服务**：手柄（`IGamepadService`）与震动（`IHapticService`），
-  各自维护 binder 与权限状态。
+- **三个独立的 Shizuku 用户服务**：手柄（`IGamepadService`）、震动（`IHapticService`）与
+  保活（`IKeepAliveService`），各自维护 binder；Shizuku 权限为应用级一次授权，由三者共享申请。
 - **两条原生路径**：uinput（伪装 Xbox One S，Linux FF 震动）与 uhid（真实 HID 身份 + HID 键鼠）。
 
 ---
@@ -55,16 +61,20 @@ flowchart TB
 
 `controlled/ShizukuServiceBinding.kt`。与业务解耦的“授权 + 绑定”封装。
 
-构造参数：`tag / processNameSuffix / requestCode / serviceClass / onConnected / onDisconnected`。
+构造参数：`tag / processNameSuffix / serviceClass / onConnected / onDisconnected`。
 
+- **应用级权限共享**：Shizuku 权限是应用级一次授权。所有 binding 共用 companion 中的
+  `REQUEST_CODE = 0x5A17` 与全局 `permissionRequestInFlight` / `autoPrompted`，保证同一时刻
+  只有一个 binding 真正调用 `Shizuku.requestPermission`；结果回调会分发给所有注册了该
+  requestCode 的实例，避免手柄/震动/保活各自申请造成重复弹窗。
 - 状态：`binderAlive`、`permissionGranted`、`permissionDenied`、`bound`、`lastError`。
 - init：
   1. 主线程 `Handler`；
   2. `Shizuku.UserServiceArgs(ComponentName(app.packageName, serviceClass.name))`，设置
      `daemon(false)`、`processNameSuffix`、`debuggable(false)`、`version(1)`、`tag`；
   3. 注册 `addBinderReceivedListenerSticky`、`addBinderDeadListener`、`addRequestPermissionResultListener`。
-- `requestPermission(force)`：主线程执行；已授权直接 `ensureBound`；`permissionRequestInFlight` 防重入；
-  `autoPrompted && !force` 时不再弹窗（避免轮询反复弹窗）；`force` 重置 `permissionDenied`。
+- `requestPermission(force)`：主线程执行；已授权直接 `ensureBound`；全局 `permissionRequestInFlight` 防重入；
+  全局 `autoPrompted && !force` 时不再弹窗（避免反复弹窗）；`force` 重置 `permissionDenied`。
 - `ensureBound`：`!binderAlive` 返回；未授权则先申请；否则 `Shizuku.bindUserService(args, connection)`。
 - `connection`：`onServiceConnected → onConnected(binder)`；`onServiceDisconnected → bound=false + onDisconnected()`。
 - `detach`：移除监听并 `unbind`。
@@ -73,19 +83,23 @@ flowchart TB
 
 ### 2.2 AIDL 实现与退出
 
-- `RemoteGamepadService : IGamepadService.Stub()`；`RemoteHapticService : IHapticService.Stub()`。
-- 两者都支持带 `Context` 的构造器（Shizuku v13 优先）。
+- `RemoteGamepadService : IGamepadService.Stub()`；`RemoteHapticService : IHapticService.Stub()`；
+  `RemoteKeepAliveService : IKeepAliveService.Stub()`。
+- 三者都支持带 `Context` 的构造器（Shizuku v13 优先）。
 - App 通过 `Stub.asInterface(binder)` 拿代理。
 - 退出事务 `exitService() = 16777114`（实际事务号 16777115）；`exitService()` 会先
   `release()/stop()` 再 `Process.killProcess(Process.myPid())`，因为 Shizuku 不会自动杀用户服务进程。
 - 接口细节见 [protocol.md §7](protocol.md#7-aidl-接口被控端--本机模式)。
 
-### 2.3 两个业务封装的绑定参数
+### 2.3 三个业务封装的绑定参数
 
-| 封装 | 进程后缀 | requestCode | 服务类 |
-|------|----------|-------------|--------|
-| `GamepadInjector` | `gkme_remote_input` | `0x5A17` | `RemoteGamepadService` |
-| `HapticInjector` | `gkme_haptic` | `0x5A18` | `RemoteHapticService` |
+| 封装 | 进程后缀 | 服务类 |
+|------|----------|--------|
+| `GamepadInjector` | `gkme_remote_input` | `RemoteGamepadService` |
+| `HapticInjector` | `gkme_haptic` | `RemoteHapticService` |
+| `KeepAliveInjector` | `gkme_keepalive` | `RemoteKeepAliveService` |
+
+三者共用 `ShizukuServiceBinding.REQUEST_CODE`，绑定参数不再各自携带 requestCode。
 
 ---
 
@@ -131,6 +145,30 @@ flowchart TB
 - `release()` 先 `releaseKeyboardMouse()` 再销毁手柄。
 - `RemoteHapticService`：`tryInitType2()` 失败才 `tryInitType1()`。
 
+### 3.4 KeepAliveInjector 与 RemoteKeepAliveService
+
+**保活**：WiFi 被控端在熄屏/后台时可能被系统 Doze、待机桶或电池优化限制网络与唤醒。
+借助 Shizuku 的 shell/root 身份把应用加入白名单并提升待机桶，可显著降低掉线概率。
+
+- `controlled/KeepAliveInjector.kt`。object，维护 `desiredPackage`（期望保活的应用包名）与
+  `active`（是否已生效），授权/绑定同样委托 [ShizukuServiceBinding]（见 §2.3）。
+  - `activate(packageName)`：记录期望包名并 `ensureBound()`，随后在内部 IO scope 尝试启用；
+    Shizuku 未就绪时会等到绑定/授权完成后再补上。
+  - `ensureActive()`：若期望启用但尚未生效则调用 `svc.enable(pkg)`；`@Synchronized` 且用
+    `applying` 去重，可在 IO 线程重复调用兜底重试。`ControlledHostManager.pruneLoop`
+    每秒调用一次。
+  - `deactivate()`：清空期望包名并异步调用 `svc.disable(pkg)` 撤销白名单。
+  - `statusText()`：按 `initialized/binderAlive/permissionGranted/service/active/desired/lastError`
+    给出可读状态，供被控端界面展示。
+- `controlled/RemoteKeepAliveService.kt`。`IKeepAliveService.Stub()`，运行在 shell/root 进程。
+  - `enable(pkg)`：`cmd deviceidle whitelist +<pkg>`（加入 Doze/电池优化白名单，即系统
+    「未优化应用」列表）与 `am set-standby-bucket <pkg> active`（待机桶 active）。
+    白名单成功返回 0；待机桶命令在 Android 9 以下不存在，仅记为失败而不影响整体。
+  - `disable(pkg)`：`cmd deviceidle whitelist -<pkg>` 移除白名单。
+  - 包名以 `[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)+` 校验，防止 shell 注入；命令经
+    `/system/bin/sh -c` 执行并显式设置 `PATH`（UserService 进程环境可能不含 `/system/bin`）。
+  - 返回码：`0` 成功、`-1` 执行失败、`-2` 包名非法。
+
 ---
 
 ## 4. ControlledHostManager 与 ControlledHostService
@@ -169,16 +207,16 @@ flowchart TB
 - `ACTION_STOP="com.zyz4.gkme.action.STOP_CONTROLLED"`、`CHANNEL_ID="controlled_mode"`、
   `NOTIFICATION_ID=4102`。
 - `start/stop` 用 `ContextCompat.startForegroundService` / `stopService`；`onBind` 返回 null。
-- `onStartCommand`：STOP 则 `stopSelf()`；否则 `startForeground`，兜底 `GamepadInjector.init/ensureBound`
-  与 `ControlledHostManager.start()`；`START_STICKY`。
-- `onDestroy`：取消通知任务、`ControlledHostManager.stop()`。
+- `onStartCommand`：STOP 则 `stopSelf()`；否则 `startForeground`，兜底 `GamepadInjector.init/ensureBound`、
+  `KeepAliveInjector.init/activate(packageName)` 与 `ControlledHostManager.start()`；`START_STICKY`。
+- `onDestroy`：取消通知任务、`KeepAliveInjector.deactivate()`、`ControlledHostManager.stop()`。
 - 通知收集 `ControlledHostManager.state` 刷新常驻通知（`IMPORTANCE_LOW`），含“停止” action 与
   点击回 `ControlledActivity`。
 
 ### 4.3 ControlledActivity / ControlledDevice / ControlledDeviceCard
 
-- `ControlledActivity`：初始化并绑定 injector、启动前台服务、虚拟手柄类型选择器、订阅 Flow；
-  退出确认框后停服务。
+- `ControlledActivity`：初始化并绑定 injector、初始化 `KeepAliveInjector` 并展示保活状态
+  （`tvKeepAliveStatus`）、启动前台服务、虚拟手柄类型选择器、订阅 Flow；退出确认框后停服务。
 - `ControlledDevice`：单 IP 端点，`groupKey=mac 否则 ip`。
 - `ControlledDeviceCard`：同 MAC 多 IP 合并，`hasMultipleEndpoints` 决定是否展开。
 
@@ -282,8 +320,8 @@ flowchart TB
 | 包类型 | 0x00 C2S / 0x01 S2C / 0x02 GamepadInput |
 | 设备超时 / 输入超时 | 15s / 3s |
 | Shizuku 包名 | `moe.shizuku.privileged.api` |
-| Gamepad / Haptic requestCode | `0x5A17` / `0x5A18` |
-| 用户服务进程后缀 | `gkme_remote_input` / `gkme_haptic` |
+| Shizuku 权限 requestCode（全局共享） | `0x5A17` |
+| 用户服务进程后缀 | `gkme_remote_input` / `gkme_haptic` / `gkme_keepalive` |
 | 退出事务号 | 16777114 |
 | 原生库名 | `gkme_uinput` |
 | 通知 id / 渠道 | 4102 / `controlled_mode` |
@@ -310,6 +348,9 @@ flowchart TB
 | `last_report/last_len` 在 uhid 仅赋值未使用（预留） | `uhid_input.c:145-147,886-889` |
 | [已修复] Watchdog 释放手柄并进入 RECONNECTING，保留会话等待 Hello 重建（设计如此，文档已更正） | `ControlledHostManager.kt:449-464` |
 | 前台服务需 `PROPERTY_SPECIAL_USE_FGS_SUBTYPE`（Android 14+） | `AndroidManifest.xml:70-77` |
+| 保活依赖 Shizuku 授权；未授权时仅前台服务生效（无白名单/待机桶提升） | `KeepAliveInjector.kt` |
+| `deactivate` 仅移除 Doze 白名单，不改回待机桶（系统无标准 reset）；退出被控端后白名单已撤销 | `RemoteKeepAliveService.kt` |
+| `am set-standby-bucket` 需 Android 9+；低版本仅白名单生效 | `RemoteKeepAliveService.kt` |
 | 鼠标高精度 30 单位/格为实测值，不同 ROM 可能不同 | `uinput_gamepad.c:564-566` |
 | uinput FF 能力恒暴露，本机/被控模式在系统里都显示为“带震动设备” | `uinput_gamepad.c:312-319` |
 

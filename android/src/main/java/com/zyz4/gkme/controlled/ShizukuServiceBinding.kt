@@ -21,7 +21,6 @@ import rikka.shizuku.Shizuku
 class ShizukuServiceBinding(
     private val tag: String,
     private val processNameSuffix: String,
-    private val requestCode: Int,
     private val serviceClass: Class<*>,
     private val onConnected: (IBinder) -> Unit,
     private val onDisconnected: () -> Unit,
@@ -54,10 +53,6 @@ class ShizukuServiceBinding(
     private var handler: Handler? = null
     private var args: Shizuku.UserServiceArgs? = null
     private var initialized = false
-    private var permissionRequestInFlight = false
-
-    /** 是否已自动发起过一次授权申请；未通过前不再自动重复申请（避免反复弹窗）。 */
-    private var autoPrompted = false
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
@@ -95,7 +90,7 @@ class ShizukuServiceBinding(
 
     private val permissionResultListener =
         Shizuku.OnRequestPermissionResultListener { code, grantResult ->
-            if (code != requestCode) return@OnRequestPermissionResultListener
+            if (code != REQUEST_CODE) return@OnRequestPermissionResultListener
             permissionRequestInFlight = false
             permissionGranted = grantResult == PackageManager.PERMISSION_GRANTED
             if (permissionGranted) {
@@ -173,7 +168,7 @@ class ShizukuServiceBinding(
                 if (force) permissionDenied = false
                 autoPrompted = true
                 permissionRequestInFlight = true
-                Shizuku.requestPermission(requestCode)
+                Shizuku.requestPermission(REQUEST_CODE)
             } catch (t: Throwable) {
                 permissionRequestInFlight = false
                 lastError = "申请 Shizuku 权限失败: ${t.message}"
@@ -249,6 +244,20 @@ class ShizukuServiceBinding(
     companion object {
         const val SHIZUKU_PACKAGE = "moe.shizuku.privileged.api"
         const val SHIZUKU_DOWNLOAD_URL = "https://shizuku.rikka.app/download/"
+
+        /**
+         * Shizuku 权限是**应用级一次授权**，所有用户服务（手柄/震动/保活）共用同一个
+         * requestCode 与申请状态，避免各功能各自 `requestPermission` 造成重复弹窗。
+         */
+        const val REQUEST_CODE = 0x5A17
+
+        /** 是否有权限申请在途（跨实例共享，保证同一时刻只申请一次）。 */
+        @Volatile
+        private var permissionRequestInFlight = false
+
+        /** 是否已自动发起过一次授权申请；未通过前不再自动重复（跨实例共享）。 */
+        @Volatile
+        private var autoPrompted = false
 
         fun isShizukuInstalled(context: Context): Boolean = try {
             context.packageManager.getPackageInfo(SHIZUKU_PACKAGE, 0)

@@ -48,6 +48,7 @@ class ControlledActivity : ComponentActivity() {
 
     private lateinit var deviceList: LinearLayout
     private lateinit var tvStatus: TextView
+    private lateinit var tvKeepAliveStatus: TextView
     private lateinit var btnShizukuAction: Button
     private lateinit var etManualIp: EditText
     private var exitDialogShowing = false
@@ -63,11 +64,15 @@ class ControlledActivity : ComponentActivity() {
 
         deviceList = findViewById(R.id.deviceListContainer)
         tvStatus = findViewById(R.id.tvControlledStatus)
+        tvKeepAliveStatus = findViewById(R.id.tvKeepAliveStatus)
         btnShizukuAction = findViewById(R.id.btnShizukuAction)
         etManualIp = findViewById(R.id.etManualIp)
 
         GamepadInjector.init(this)
         GamepadInjector.ensureBound()
+        // 保活由前台服务负责启用；这里初始化以便实时展示状态。
+        KeepAliveInjector.init(this)
+        tvKeepAliveStatus.text = KeepAliveInjector.statusText()
 
         findViewById<Button>(R.id.btnControlledBack).setOnClickListener { exitControlled() }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -210,6 +215,11 @@ class ControlledActivity : ComponentActivity() {
                 }
                 launch {
                     ControlledHostManager.shizukuStatus.collect { updateShizukuAction() }
+                }
+                launch {
+                    ControlledHostManager.keepAliveStatus.collect {
+                        tvKeepAliveStatus.text = it.ifBlank { KeepAliveInjector.statusText() }
+                    }
                 }
                 launch {
                     ControlledHostManager.session.collect { renderDevices(ControlledHostManager.devices.value) }
