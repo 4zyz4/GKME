@@ -23,8 +23,8 @@ android {
         minSdk = 26
         //noinspection OldTargetApi
         targetSdk = 36
-        versionCode = 4400
-        versionName = "4.4.0"
+        versionCode = 4410
+        versionName = "4.4.1"
 
         externalNativeBuild {
             cmake {
