@@ -25,6 +25,9 @@ import com.zyz4.gkme.model.GyroOrientation
  */
 class GamepadLayoutApplier {
 
+    /** 上次测量尺寸缓存：尺寸未变且控件未请求重新布局时跳过 measure，减少重复测量。 */
+    private val lastMeasuredSize = java.util.WeakHashMap<View, Long>()
+
     /**
      * Apply layout configuration to all children of a GamepadLayout.
      *
@@ -49,6 +52,7 @@ class GamepadLayoutApplier {
         contentCapPx: (View, com.zyz4.gkme.model.AppSettings?) -> Int?,
         applyContentTextCap: (Button, Int) -> Unit,
         getRotation: (String) -> Int,
+        appearanceSettings: com.zyz4.gkme.model.AppSettings?,
     ) {
         val pressedBits = getPressedBits()
         for (i in 0 until childCount) {
@@ -66,7 +70,10 @@ class GamepadLayoutApplier {
             }
             if (child.visibility != View.VISIBLE) child.visibility = View.VISIBLE
 
-            applyChildLayout(child, pos, cellW, cellH, getRotation)
+            applyChildLayout(
+                child, pos, id, cellW, cellH, getRotation,
+                isAdaptiveContentButton, contentCapPx, applyContentTextCap, appearanceSettings,
+            )
 
             if (isAdaptiveContentButton(id, child)) {
                 // Note: child.width/height may be 0 at this point; caller handles this
@@ -88,9 +95,14 @@ class GamepadLayoutApplier {
     private fun applyChildLayout(
         child: View,
         pos: ButtonPosition,
+        id: String,
         cellW: Float,
         cellH: Float,
         getRotation: (String) -> Int,
+        isAdaptiveContentButton: (String, View) -> Boolean,
+        contentCapPx: (View, com.zyz4.gkme.model.AppSettings?) -> Int?,
+        applyContentTextCap: (Button, Int) -> Unit,
+        appearanceSettings: com.zyz4.gkme.model.AppSettings?,
     ) {
         val isSwapped = !pos.lockAspect && (pos.rotation == 90 || pos.rotation == 270)
         val childW = ((if (isSwapped) pos.height else pos.width) * cellW).toInt()
@@ -98,10 +110,29 @@ class GamepadLayoutApplier {
         val left = (pos.x * cellW).toInt()
         val top = (pos.y * cellH).toInt()
 
-        child.measure(
-            View.MeasureSpec.makeMeasureSpec(childW, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(childH, View.MeasureSpec.EXACTLY),
-        )
+        // 在测量之前先把自适应内边距与文本自适应上限设好，避免测量后 setPadding /
+        // 重设 autosize 触发 requestLayout 导致多一次布局遍历（启动时会翻倍 onLayout 成本）。
+        if (isAdaptiveContentButton(id, child)) {
+            val pad = (minOf(childW, childH) * 0.1f).toInt()
+            if (child.paddingLeft != pad || child.paddingTop != pad) {
+                child.setPadding(pad, pad, pad, pad)
+            }
+        }
+        if (child is Button && !child.text.isNullOrEmpty()) {
+            val maxDim = maxOf(childW, childH).coerceAtLeast(1)
+            val capPx = contentCapPx(child, appearanceSettings)
+            val effectiveCap = capPx?.let { minOf(it, maxDim) } ?: maxDim
+            applyContentTextCap(child, effectiveCap)
+        }
+
+        val sizeKey = (childW.toLong() shl 32) or (childH.toLong() and 0xFFFFFFFFL)
+        if (child.isLayoutRequested || lastMeasuredSize[child] != sizeKey) {
+            child.measure(
+                View.MeasureSpec.makeMeasureSpec(childW, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(childH, View.MeasureSpec.EXACTLY),
+            )
+            lastMeasuredSize[child] = sizeKey
+        }
         child.layout(left, top, left + childW, top + childH)
 
         // Rotation

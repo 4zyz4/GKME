@@ -203,10 +203,6 @@ class MainActivity : ComponentActivity() {
         gamepadLayout = findViewById(R.id.gamepadLayout)
         floatingController = FloatingModeController(this)
         physicalControllerHandler = PhysicalControllerHandler(this)
-        // 注册 Shizuku 监听（本机模式使用），以便连接页正确显示授权条目状态。
-        GamepadInjector.init(this)
-        // 高清震动（HD）Shizuku 用户服务；不可用时自动回退普通震动。
-        HapticInjector.init(this)
         setupMediaSession()
         setupGamepadLayoutListener()
         viewModel.onHapticFeedbackPress = { performHaptic(isPress = true) }
@@ -218,6 +214,12 @@ class MainActivity : ComponentActivity() {
         // first frame stays fast.
         setupAppearanceImageLaunchers()
         Handler(Looper.getMainLooper()).postDelayed({
+            // 首帧之后再初始化 Shizuku 监听与 RichTap 预置资源，避免拖慢启动。
+            // 注册 Shizuku 监听（本机模式使用），以便连接页正确显示授权条目状态。
+            GamepadInjector.init(this)
+            // 高清震动（HD）Shizuku 用户服务；不可用时自动回退普通震动。
+            HapticInjector.init(this)
+            physicalControllerHandler.start()
             ensureSettingsInflated()
         }, 500L)
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -255,7 +257,6 @@ class MainActivity : ComponentActivity() {
         // phone-speaker path then falls back to AudioTrack.
         runCatching { SdlPlatform.ensureCore(this) }
         SdlAudio.ensureInit()
-        physicalControllerHandler.start()
     }
 
     private fun setupUsbAudioCallbacks() {
