@@ -37,6 +37,7 @@ class JoystickView @JvmOverloads constructor(
     var activeOpacity: Int = 100
     var sensitivityCurve: List<Float>? = null
     var joystickSensitivity: Int = 100
+    var touchpadMode: Boolean = false
     var deadZone: Int = 0
     var reverseDeadZone: Int = 0
     var showDeadZoneIndicator: Boolean = false
@@ -90,6 +91,32 @@ class JoystickView @JvmOverloads constructor(
     private var isDoubleClick = false
     private val handler = Handler(Looper.getMainLooper())
     private val doubleTapTimeout = Runnable { firstTapTime = 0 }
+
+    // ── 触摸板（速度）模式状态 ──
+    private var fingerX = 0f
+    private var fingerY = 0f
+    private var sampleX = 0f
+    private var sampleY = 0f
+    private var sampleTime = 0L
+    private var velocityX = 0f
+    private var velocityY = 0f
+    private val velocitySampleRunnable = object : Runnable {
+        override fun run() {
+            if (!isTouching || !touchpadMode) return
+            val now = System.currentTimeMillis()
+            val dtMs = (now - sampleTime).coerceAtLeast(1L)
+            val instVx = (fingerX - sampleX) / dtMs * 1000f
+            val instVy = (fingerY - sampleY) / dtMs * 1000f
+            sampleX = fingerX
+            sampleY = fingerY
+            sampleTime = now
+            // 直接使用瞬时速度：手指停下时速度立即为 0，摇杆瞬间回中。
+            velocityX = instVx
+            velocityY = instVy
+            applyVelocity(velocityX, velocityY)
+            handler.postDelayed(this, SAMPLE_INTERVAL_MS)
+        }
+    }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
@@ -195,13 +222,22 @@ class JoystickView @JvmOverloads constructor(
                     effectiveCenterX = event.x
                     effectiveCenterY = event.y
                 }
-                moveKnob(event.x, event.y)
+                if (touchpadMode) {
+                    startVelocityTracking(event.x, event.y)
+                } else {
+                    moveKnob(event.x, event.y)
+                }
                 onGyroActivateDown?.invoke()
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
                 if (isTouching) {
-                    moveKnob(event.x, event.y)
+                    if (touchpadMode) {
+                        fingerX = event.x
+                        fingerY = event.y
+                    } else {
+                        moveKnob(event.x, event.y)
+                    }
                 }
                 if (firstTapTime != 0L) {
                     val dx = event.x - firstTapX
@@ -217,6 +253,9 @@ class JoystickView @JvmOverloads constructor(
                 isTouching = false
                 isClicking = false
                 alpha = idleOpacity.coerceIn(0, 100) / 100f
+                if (touchpadMode) {
+                    stopVelocityTracking()
+                }
                 if (forceFollowFinger) {
                     effectiveCenterX = centerX
                     effectiveCenterY = centerY
@@ -255,17 +294,7 @@ class JoystickView @JvmOverloads constructor(
         val sens = (joystickSensitivity / 100f).coerceIn(0.01f, 10f)
         val rawNorm = if (maxD > 0f) dist / maxD else 0f
         val normalized = (rawNorm * sens).coerceAtMost(1f)
-
-        // Apply dead zone
-        val dz = (deadZone / 100f).coerceIn(0f, 0.99f)
-        val afterDeadZone = if (normalized <= dz) 0f
-                            else (normalized - dz) / (1f - dz)
-
-        // Apply reverse dead zone
-        val rdz = (reverseDeadZone / 100f).coerceIn(0f, 0.99f)
-        val afterReverseDeadZone = if (afterDeadZone == 0f) rdz
-                                   else afterDeadZone * (1f - rdz) + rdz
-        val afterCurve = evaluateCurve(afterReverseDeadZone)
+        val afterCurve = shapeNormalized(normalized)
         val finalDist = afterCurve * maxD
 
         val scale = if (dist > 0f) finalDist / dist else 0f
@@ -273,9 +302,54 @@ class JoystickView @JvmOverloads constructor(
         knobY = effectiveCenterY + cdy * scale
         invalidate()
 
-        val dirScale = if (dist > 0f) afterCurve / dist else 0f
-        var sx = if (maxD > 0f) ((dx * dirScale * 32767).toInt()).toShort() else 0
-        var sy = if (maxD > 0f) ((dy * dirScale * 32767).toInt()).toShort() else 0
+        if (maxD > 0f) emitStick(dx, dy, dist, afterCurve) else onStickMoved?.invoke(0, 0)
+    }
+
+    /** 触摸板模式：把手指速度矢量映射为摇杆偏移；速度归零时摇杆回到中心。 */
+    private fun applyVelocity(vx: Float, vy: Float) {
+        val maxD = baseRadius - knobRadius
+        if (maxD <= 0f) return
+        val speed = sqrt(vx * vx + vy * vy)
+
+        // 与绝对模式同一条管线：先按最大行程 + 时间常数归一化，再乘灵敏度，
+        // 然后依次经过死区 / 反死区 / 曲线。
+        val sens = (joystickSensitivity / 100f).coerceIn(0.01f, 10f)
+        val rawNorm = speed * VELOCITY_TIME_CONSTANT / maxD * sens
+        val normalized = rawNorm.coerceAtMost(1f)
+        val afterCurve = shapeNormalized(normalized)
+        val finalDist = afterCurve * maxD
+
+        val r = axisRotation * Math.PI / 180.0
+        val cosR = Math.cos(-r).toFloat()
+        val sinR = Math.sin(-r).toFloat()
+        val cvx = vx * cosR - vy * sinR
+        val cvy = vx * sinR + vy * cosR
+
+        val scale = if (speed > 0f) finalDist / speed else 0f
+        knobX = effectiveCenterX + cvx * scale
+        knobY = effectiveCenterY + cvy * scale
+        invalidate()
+
+        emitStick(vx, vy, speed, afterCurve)
+    }
+
+    /** 死区 → 反死区 → 灵敏度曲线，输入/输出均为归一化量 (0..1)。 */
+    private fun shapeNormalized(normalized: Float): Float {
+        val dz = (deadZone / 100f).coerceIn(0f, 0.99f)
+        val afterDeadZone = if (normalized <= dz) 0f
+                            else (normalized - dz) / (1f - dz)
+
+        val rdz = (reverseDeadZone / 100f).coerceIn(0f, 0.99f)
+        val afterReverseDeadZone = if (afterDeadZone == 0f) rdz
+                                   else afterDeadZone * (1f - rdz) + rdz
+        return evaluateCurve(afterReverseDeadZone)
+    }
+
+    /** 按方向矢量与曲线后幅度生成 16 位摇杆输出，并施加旋转映射。 */
+    private fun emitStick(vx: Float, vy: Float, magnitude: Float, afterCurve: Float) {
+        val dirScale = if (magnitude > 0f) afterCurve / magnitude else 0f
+        var sx = (vx * dirScale * 32767).toInt().toShort()
+        var sy = (vy * dirScale * 32767).toInt().toShort()
 
         when (axisRotation % 360) {
             90 -> { val tmp = sx; sx = sy; sy = (-tmp).toShort() }
@@ -283,6 +357,30 @@ class JoystickView @JvmOverloads constructor(
             270 -> { val tmp = sx; sx = (-sy).toShort(); sy = tmp }
         }
         onStickMoved?.invoke(sx, sy)
+    }
+
+    private fun startVelocityTracking(x: Float, y: Float) {
+        fingerX = x
+        fingerY = y
+        sampleX = x
+        sampleY = y
+        sampleTime = System.currentTimeMillis()
+        velocityX = 0f
+        velocityY = 0f
+        handler.removeCallbacks(velocitySampleRunnable)
+        handler.post(velocitySampleRunnable)
+    }
+
+    private fun stopVelocityTracking() {
+        handler.removeCallbacks(velocitySampleRunnable)
+        velocityX = 0f
+        velocityY = 0f
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        handler.removeCallbacks(velocitySampleRunnable)
+        handler.removeCallbacks(doubleTapTimeout)
     }
 
     private fun evaluateCurve(t: Float): Float =
@@ -293,5 +391,12 @@ class JoystickView @JvmOverloads constructor(
         val g = (Color.green(color) + (255 - Color.green(color)) * factor).toInt().coerceIn(0, 255)
         val b = (Color.blue(color) + (255 - Color.blue(color)) * factor).toInt().coerceIn(0, 255)
         return Color.rgb(r, g, b)
+    }
+
+    companion object {
+        // 触摸板模式增益：摇杆偏移 = 手指速度 × 该时间常数（再按最大行程归一化、乘灵敏度）。
+        // 100% 灵敏度下，手指以当前速度再移动 0.1s 的距离恰好对应满量程。
+        private const val VELOCITY_TIME_CONSTANT = 0.1f
+        private const val SAMPLE_INTERVAL_MS = 16L
     }
 }

@@ -187,6 +187,7 @@ class GamepadLayoutApplier {
     ) {
         if (child is JoystickView) {
             child.joystickSensitivity = pos.joystickSensitivity
+            child.touchpadMode = pos.touchpadMode
             child.deadZone = pos.deadZone
             child.reverseDeadZone = pos.reverseDeadZone
             child.showDeadZoneIndicator = isEditMode && id == selectedButtonId

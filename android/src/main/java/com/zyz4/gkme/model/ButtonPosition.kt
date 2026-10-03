@@ -25,6 +25,9 @@ data class ButtonPosition(
     val sensitivityCurve: List<Float>? = null,
     // 摇杆灵敏度百分比 (10-300)，100 = 手指位移与输出距离 1:1；在死区之前应用
     val joystickSensitivity: Int = 100,
+    // 触摸板模式：不以手指绝对位置映射摇杆，而以手指速度映射；手指停下即回中。
+    // 灵敏度/死区/反死区/曲线仍照常生效（作用于速度换算出的归一化偏移）。
+    val touchpadMode: Boolean = false,
     val deadZone: Int = 0,
     val reverseDeadZone: Int = 0,
     // 不透明度百分比 (0-100)，100 = 完全不透明
