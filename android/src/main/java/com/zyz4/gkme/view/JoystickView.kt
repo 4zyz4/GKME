@@ -38,6 +38,7 @@ class JoystickView @JvmOverloads constructor(
     var sensitivityCurve: List<Float>? = null
     var joystickSensitivity: Int = 100
     var touchpadMode: Boolean = false
+    var prediction: Boolean = false
     var deadZone: Int = 0
     var reverseDeadZone: Int = 0
     var showDeadZoneIndicator: Boolean = false
@@ -100,6 +101,10 @@ class JoystickView @JvmOverloads constructor(
     private var sampleTime = 0L
     private var velocityX = 0f
     private var velocityY = 0f
+    // ── 绝对模式预测：记录上一次触摸样本，用速度外推下一帧位置 ──
+    private var lastTouchX = 0f
+    private var lastTouchY = 0f
+    private var lastTouchTime = 0L
     private val velocitySampleRunnable = object : Runnable {
         override fun run() {
             if (!isTouching || !touchpadMode) return
@@ -225,6 +230,9 @@ class JoystickView @JvmOverloads constructor(
                 if (touchpadMode) {
                     startVelocityTracking(event.x, event.y)
                 } else {
+                    lastTouchX = event.x
+                    lastTouchY = event.y
+                    lastTouchTime = event.eventTime
                     moveKnob(event.x, event.y)
                 }
                 onGyroActivateDown?.invoke()
@@ -235,6 +243,8 @@ class JoystickView @JvmOverloads constructor(
                     if (touchpadMode) {
                         fingerX = event.x
                         fingerY = event.y
+                    } else if (prediction) {
+                        moveKnobPredicted(event.x, event.y, event.eventTime)
                     } else {
                         moveKnob(event.x, event.y)
                     }
@@ -303,6 +313,18 @@ class JoystickView @JvmOverloads constructor(
         invalidate()
 
         if (maxD > 0f) emitStick(dx, dy, dist, afterCurve) else onStickMoved?.invoke(0, 0)
+    }
+
+    /** 绝对模式预测：用相邻样本的速度外推下一帧手指位置，再送入 [moveKnob]。 */
+    private fun moveKnobPredicted(tx: Float, ty: Float, eventTime: Long) {
+        val dtMs = (eventTime - lastTouchTime).coerceAtLeast(1L)
+        val vx = (tx - lastTouchX) / dtMs
+        val vy = (ty - lastTouchY) / dtMs
+        lastTouchX = tx
+        lastTouchY = ty
+        lastTouchTime = eventTime
+        val frame = com.zyz4.gkme.model.ButtonPosition.PREDICTION_FRAME_MS
+        moveKnob(tx + vx * frame, ty + vy * frame)
     }
 
     /** 触摸板模式：把手指速度矢量映射为摇杆偏移；速度归零时摇杆回到中心。 */

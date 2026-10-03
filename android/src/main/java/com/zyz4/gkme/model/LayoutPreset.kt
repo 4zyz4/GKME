@@ -111,6 +111,7 @@ data class LayoutPreset(
                     if (!btnObj.has("reverseDeadZone")) btnObj.addProperty("reverseDeadZone", 0)
                     if (!btnObj.has("joystickSensitivity")) btnObj.addProperty("joystickSensitivity", 100)
                     if (!btnObj.has("touchpadMode")) btnObj.addProperty("touchpadMode", false)
+                    if (!btnObj.has("prediction")) btnObj.addProperty("prediction", false)
                     if (!btnObj.has("mouseSensitivity")) btnObj.addProperty("mouseSensitivity", 1.0)
                     if (!btnObj.has("mouseMoveSlop")) btnObj.addProperty("mouseMoveSlop", 4)
                     if (!btnObj.has("scrollSensitivity")) btnObj.addProperty("scrollSensitivity", 0.1)
@@ -237,6 +238,7 @@ data class LayoutPreset(
                     m["sensitivityCurve"] = b.sensitivityCurve
                 }
             }
+            if (b.prediction) m["prediction"] = b.prediction
             if (baseId in AREA_IDS) {
                 if (b.followAreaEnabled) {
                     m["followAreaEnabled"] = b.followAreaEnabled

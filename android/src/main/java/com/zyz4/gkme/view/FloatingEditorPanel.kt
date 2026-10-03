@@ -1040,6 +1040,18 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             }
             buttonParamsInner.addView(cbTouchpadMode, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
 
+            val cbPrediction = CheckBox(context).apply {
+                text = "快速响应模式"
+                setTextColor(-0x444445)
+                textSize = 14f
+                isChecked = button.prediction
+                setOnCheckedChangeListener { _, isChecked ->
+                    currentButton = currentButton?.copy(prediction = isChecked)
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                }
+            }
+            buttonParamsInner.addView(cbPrediction, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+
             val curveH = (200f * density).toInt()
 
             val btnSensSeekbar = createSimpleSeekbar("灵敏度(%)", button.joystickSensitivity, 10, 300, { value ->
@@ -1344,6 +1356,18 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 })
                 linearContainer.addView(travelSeekbar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
 
+                val cbLinearPrediction = CheckBox(context).apply {
+                    text = "快速响应模式"
+                    setTextColor(-0x444445)
+                    textSize = 14f
+                    isChecked = button.prediction
+                    setOnCheckedChangeListener { _, isChecked ->
+                        currentButton = currentButton?.copy(prediction = isChecked)
+                        currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                    }
+                }
+                linearContainer.addView(cbLinearPrediction, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
+
                 // visibility controlled dynamically
                 val updateLinearVisibility = { enabled: Boolean ->
                     val vis = if (enabled) View.VISIBLE else View.GONE
@@ -1351,6 +1375,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                     directionSpinner.visibility = vis
                     tvTravel.visibility = vis
                     travelSeekbar.visibility = vis
+                    cbLinearPrediction.visibility = vis
                 }
                 // set initial visibility
                 if (button.linearTriggerEnabled) {

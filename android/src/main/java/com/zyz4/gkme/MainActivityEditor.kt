@@ -977,6 +977,7 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
                 this.travelDistance = pos.travelDistance
                 this.idleOpacity = pos.idleOpacity
                 this.activeOpacity = pos.activeOpacity
+                this.prediction = pos.prediction
                 onValueChange = { value ->
                     if (baseId == "btnLT") {
                         viewModel.onLeftTrigger(value)
@@ -1411,6 +1412,7 @@ internal fun MainActivity.recreateViewForButton(buttonId: String, pos: ButtonPos
             travelDistance = pos.travelDistance
             idleOpacity = pos.idleOpacity
             activeOpacity = pos.activeOpacity
+            prediction = pos.prediction
             onValueChange = { value ->
                 val baseId = pos.id.substringBefore("_")
                 if (baseId == "btnLT") {

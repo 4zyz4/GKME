@@ -41,6 +41,9 @@ class LinearTriggerView @JvmOverloads constructor(
             field = value
         }
 
+    /** 预测：用滑杆位移速度外推下一帧行程，加快模拟扳机响应。 */
+    var prediction: Boolean = false
+
     var onValueChange: ((value: Int) -> Unit)? = null
     var onTriggerBottomVibrate: () -> Unit = {}
     var onButtonDown: (() -> Unit)? = null
@@ -53,6 +56,10 @@ class LinearTriggerView @JvmOverloads constructor(
     private var initialTouchY = 0f
     private var currentValue = 0
     private var wasAtMax = false
+    // ── 预测：上一次位移样本 ──
+    private var lastOffset = 0f
+    private var lastOffsetTime = 0L
+    private var hasOffsetSample = false
 
     fun getCellSize(): Float {
         var p = parent
@@ -117,6 +124,9 @@ class LinearTriggerView @JvmOverloads constructor(
                 setTranslationY(0f)
                 currentValue = 0
                 wasAtMax = false
+                lastOffset = 0f
+                lastOffsetTime = event.eventTime
+                hasOffsetSample = true
                 isPressed = true
                 invalidate()
                 onValueChange?.invoke(currentValue)
@@ -158,7 +168,16 @@ class LinearTriggerView @JvmOverloads constructor(
                     SlideDirection.DOWN, SlideDirection.UP -> translationY
                     SlideDirection.LEFT, SlideDirection.RIGHT -> translationX
                 }
-                val normalized = abs(absOffset) / travelPx
+                val effectiveOffset = if (prediction) {
+                    val dtMs = (event.eventTime - lastOffsetTime).coerceAtLeast(1L)
+                    val velocity = if (hasOffsetSample) (absOffset - lastOffset) / dtMs else 0f
+                    lastOffset = absOffset
+                    lastOffsetTime = event.eventTime
+                    absOffset + velocity * com.zyz4.gkme.model.ButtonPosition.PREDICTION_FRAME_MS
+                } else {
+                    absOffset
+                }
+                val normalized = (abs(effectiveOffset) / travelPx).coerceAtMost(1f)
                 val newValue = if (normalized < 0.004f) 0 else (normalized * 255).toInt().coerceIn(0, 255)
 
                 invalidate()
@@ -189,6 +208,7 @@ class LinearTriggerView @JvmOverloads constructor(
                     setTranslationX(0f)
                     setTranslationY(0f)
                     wasAtMax = false
+                    hasOffsetSample = false
                     if (currentValue > 0) {
                         onButtonUp?.invoke()
                     }
@@ -230,5 +250,6 @@ class LinearTriggerView @JvmOverloads constructor(
         travelDistance = button.travelDistance
         idleOpacity = button.idleOpacity
         activeOpacity = button.activeOpacity
+        prediction = button.prediction
     }
 }
