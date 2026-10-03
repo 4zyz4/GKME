@@ -757,6 +757,8 @@ class GkViewModel @Inject constructor(
         if ((outputBitsInt and GamepadState.MOUSE_LMB) != 0) mouseButtons = mouseButtons or 1
         if ((outputBitsInt and GamepadState.MOUSE_RMB) != 0) mouseButtons = mouseButtons or 2
         if ((outputBitsInt and GamepadState.MOUSE_MMB) != 0) mouseButtons = mouseButtons or 4
+        if ((outputBitsInt and GamepadState.MOUSE_BACK) != 0) mouseButtons = mouseButtons or 8
+        if ((outputBitsInt and GamepadState.MOUSE_FORWARD) != 0) mouseButtons = mouseButtons or 16
         physicalMappedMouseButtons = mouseButtons
         syncPhysicalMappedKeyboard(kbCodes.toList())
         if (gyroActive != physicalGyroActive) {
@@ -1236,13 +1238,15 @@ class GkViewModel @Inject constructor(
             GamepadState.MOUSE_LMB -> _gamepadState.value.mouseButtons or 1
             GamepadState.MOUSE_RMB -> _gamepadState.value.mouseButtons or 2
             GamepadState.MOUSE_MMB -> _gamepadState.value.mouseButtons or 4
+            GamepadState.MOUSE_BACK -> _gamepadState.value.mouseButtons or 8
+            GamepadState.MOUSE_FORWARD -> _gamepadState.value.mouseButtons or 16
             else -> _gamepadState.value.mouseButtons
         }
         _gamepadState.value = _gamepadState.value.copy(
             buttons = newButtons,
             mouseButtons = newMouseButtons,
         )
-        val isMouseButton = (bit == GamepadState.MOUSE_LMB || bit == GamepadState.MOUSE_RMB || bit == GamepadState.MOUSE_MMB)
+        val isMouseButton = (bit == GamepadState.MOUSE_LMB || bit == GamepadState.MOUSE_RMB || bit == GamepadState.MOUSE_MMB || bit == GamepadState.MOUSE_BACK || bit == GamepadState.MOUSE_FORWARD)
         if (settings.value.connectionMode == ConnectionMode.BLUETOOTH && isMouseButton) {
             viewModelScope.launch {
                 connectionManager.sendMouseReport(
@@ -1261,13 +1265,15 @@ class GkViewModel @Inject constructor(
             GamepadState.MOUSE_LMB -> _gamepadState.value.mouseButtons and 1.inv()
             GamepadState.MOUSE_RMB -> _gamepadState.value.mouseButtons and 2.inv()
             GamepadState.MOUSE_MMB -> _gamepadState.value.mouseButtons and 4.inv()
+            GamepadState.MOUSE_BACK -> _gamepadState.value.mouseButtons and 8.inv()
+            GamepadState.MOUSE_FORWARD -> _gamepadState.value.mouseButtons and 16.inv()
             else -> _gamepadState.value.mouseButtons
         }
         _gamepadState.value = _gamepadState.value.copy(
             buttons = newButtons,
             mouseButtons = newMouseButtons,
         )
-        val isMouseButton = (bit == GamepadState.MOUSE_LMB || bit == GamepadState.MOUSE_RMB || bit == GamepadState.MOUSE_MMB)
+        val isMouseButton = (bit == GamepadState.MOUSE_LMB || bit == GamepadState.MOUSE_RMB || bit == GamepadState.MOUSE_MMB || bit == GamepadState.MOUSE_BACK || bit == GamepadState.MOUSE_FORWARD)
         if (settings.value.connectionMode == ConnectionMode.BLUETOOTH && isMouseButton) {
             viewModelScope.launch {
                 connectionManager.sendMouseReport(

@@ -232,6 +232,8 @@ internal object BitNameMapper {
             GamepadState.MOUSE_LMB -> "鼠标：LMB"
             GamepadState.MOUSE_RMB -> "鼠标：RMB"
             GamepadState.MOUSE_MMB -> "鼠标：MMB"
+            GamepadState.MOUSE_BACK -> "鼠标：后退"
+            GamepadState.MOUSE_FORWARD -> "鼠标：前进"
             else -> "位$bit"
         }
     }
@@ -318,6 +320,8 @@ internal val ctrlEntryBitMap: Map<String, Int> = listOf(
     "btnMouseLMB" to GamepadState.MOUSE_LMB,
     "btnMouseRMB" to GamepadState.MOUSE_RMB,
     "btnMouseMMB" to GamepadState.MOUSE_MMB,
+    "btnMouseBack" to GamepadState.MOUSE_BACK,
+    "btnMouseForward" to GamepadState.MOUSE_FORWARD,
     "btnDpadUp" to GamepadState.DPAD_BIT_UP, "btnDpadDown" to GamepadState.DPAD_BIT_DOWN,
     "btnDpadLeft" to GamepadState.DPAD_BIT_LEFT, "btnDpadRight" to GamepadState.DPAD_BIT_RIGHT,
 ).toMap()
@@ -355,6 +359,8 @@ internal val allControls = listOf(
     CtrlEntry("btnMouseLMB", "鼠标：LMB", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, bit = GamepadState.MOUSE_LMB, w = 9, h = 9, lockAspect = false),
     CtrlEntry("btnMouseRMB", "鼠标：RMB", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, bit = GamepadState.MOUSE_RMB, w = 9, h = 9, lockAspect = false),
     CtrlEntry("btnMouseMMB", "鼠标：MMB", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, bit = GamepadState.MOUSE_MMB, w = 9, h = 9, lockAspect = false),
+    CtrlEntry("btnMouseBack", "鼠标：后退", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, bit = GamepadState.MOUSE_BACK, w = 9, h = 9, lockAspect = false),
+    CtrlEntry("btnMouseForward", "鼠标：前进", R.drawable.button_rounded_rect, R.drawable.button_rounded_rect, bit = GamepadState.MOUSE_FORWARD, w = 9, h = 9, lockAspect = false),
     
     // ── Keyboard keys ──
     // Modifiers
@@ -1559,12 +1565,14 @@ internal fun MainActivity.updateButtonLabels(mode: DisplayMode) {
                     foreground = null
                 }
             }
-            baseId in listOf("btnMouseLMB", "btnMouseRMB", "btnMouseMMB") -> {
+            baseId in listOf("btnMouseLMB", "btnMouseRMB", "btnMouseMMB", "btnMouseBack", "btnMouseForward") -> {
                 (child as? Button)?.apply {
                     text = when (baseId) {
                         "btnMouseLMB" -> "LMB"
                         "btnMouseRMB" -> "RMB"
                         "btnMouseMMB" -> "MMB"
+                        "btnMouseBack" -> "BACK"
+                        "btnMouseForward" -> "FWD"
                         else -> "MOUSE"
                     }
                     textSize = 12f
