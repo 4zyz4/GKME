@@ -2,25 +2,37 @@
   <img src="android/src/main/res/mipmap/icon.png" alt="GKME" width="128"/>
 </p>
 
-# GKME
+<h1 align="center">GKME</h1>
 
-**G**amepad **K**eyboard **M**ouse **E**mulator
+<p align="center">
+  <strong>G</strong>amepad <strong>K</strong>eyboard <strong>M</strong>ouse <strong>E</strong>mulator<br/>
+  also. <strong>G</strong>eneral <strong>K</strong>ey <strong>M</strong>apping <strong>E</strong>ngine
+</p>
 
-also. **G**eneral **K**ey **M**apping **E**ngine
-
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3"/></a>
+  <a href="https://github.com/4zyz4/GKME/releases"><img src="https://img.shields.io/badge/download-Releases-blue?logo=github" alt="Download Releases"/></a>
+</p>
 
 把你的 Android 手机变成一台虚拟游戏手柄！也可以是虚拟键盘、鼠标！支持 WiFi 局域网、USB 直连与蓝牙直连。
 
-软件QQ群：639317971
+- 💬 软件 QQ 群：**639317971**
+- 📖 开发者内部架构文档见 [`docs/`](docs/README.md)（协议、传输、输入、UI、震动、被控端与原生等）
 
-开发者内部架构文档见 [`docs/`](docs/README.md)（协议、传输、输入、UI、震动、被控端与原生等）。
+## 目录
+
+- [功能特性](#功能特性)
+- [快速上手](#快速上手)
+- [下载与构建](#下载与构建)
+- [系统要求](#系统要求)
+- [开源协议](#开源协议)
+- [鸣谢](#鸣谢)
 
 ---
 
 ## 功能特性
 
-### 连接方式
+### 🔌 连接方式
 
 | 功能 | 说明 |
 |------|------|
@@ -34,7 +46,7 @@ also. **G**eneral **K**ey **M**apping **E**ngine
 | **WiFi 控制类型** | 可切换「作为控制端」（默认）或「作为被控端」，被控端扫描到同一设备多个 IP 时使用合并卡片 |
 | **设备标识** | 广播与握手携带设备标识 (ANDROID_ID)，便于多设备区分与连接 |
 
-### 设备模拟
+### 🎮 设备模拟
 
 | 功能 | 说明 |
 |------|------|
@@ -45,7 +57,7 @@ also. **G**eneral **K**ey **M**apping **E**ngine
 | **键盘和鼠标** | 完整键盘映射和鼠标控制，触摸板支持多点触控、滚轮与 7 种可自定义手势，滑动判定距离可配置；自定义按键盘支持四向 / 八向模式 |
 | **音量键映射** | 支持为手机音量键设置组合键 |
 
-### 自定义与外观
+### 🎨 自定义与外观
 
 | 功能 | 说明 |
 |------|------|
@@ -56,7 +68,7 @@ also. **G**eneral **K**ey **M**apping **E**ngine
 | **布局全局设置** | 陀螺仪设置升级为全屏全局设置页，实体手柄与音量键映射迁入其中，配置随布局预设保存 |
 | **过渡动画** | 设置页切换、编辑布局浮窗与参数切换均带过渡动画 |
 
-### 高级功能
+### ⚡ 高级功能
 
 | 功能 | 说明 |
 |------|------|
@@ -80,7 +92,7 @@ also. **G**eneral **K**ey **M**apping **E**ngine
 
 ### WiFi 连接
 
-手机和电脑连上同一个 WiFi，打开 App ，点击启动服务即可被发现，电脑端点击连接即可。也可以手动输入 IP 连接。
+手机和电脑连上同一个 WiFi，打开 App，点击启动服务即可被发现，电脑端点击连接即可。也可以手动输入 IP 连接。
 
 ### 蓝牙连接
 
@@ -98,7 +110,11 @@ also. **G**eneral **K**ey **M**apping **E**ngine
 
 ### 本机模式 (Shizuku)
 
-连接方式选择「本机」，点击「启动服务」后，App 会经 Shizuku 授权在当前设备创建虚拟手柄并进入悬浮模式，无需任何电脑或其他设备。首次使用需安装并启动 [Shizuku](https://shizuku.rikka.app/)，连接页会引导完成授权；未就绪时会持续轮询并在授权后自动继续启动。服务运行期间每次最小化应用都会自动回到悬浮模式。本机模式不创建虚拟鼠标以避免与屏幕触摸冲突，也不暴露震动能力以避免手机震动与虚拟手柄形成死循环。
+连接方式选择「本机」，点击「启动服务」后，App 会经 Shizuku 授权在当前设备创建虚拟手柄并进入悬浮模式，无需任何电脑或其他设备。
+
+- 首次使用需安装并启动 [Shizuku](https://shizuku.rikka.app/)，连接页会引导完成授权；未就绪时会持续轮询并在授权后自动继续启动。
+- 服务运行期间每次最小化应用都会自动回到悬浮模式。
+- 本机模式不创建虚拟鼠标以避免与屏幕触摸冲突，也不暴露震动能力以避免手机震动与虚拟手柄形成死循环。
 
 ### 被控端模式
 
@@ -120,11 +136,13 @@ also. **G**eneral **K**ey **M**apping **E**ngine
 
 ---
 
-## 下载
+## 下载与构建
 
-[![GitHub Releases](https://img.shields.io/badge/download-Releases-blue?logo=github)](https://github.com/4zyz4/GKME/releases)
+### 下载发行版
 
-或自行构建：
+前往 [GitHub Releases](https://github.com/4zyz4/GKME/releases) 下载最新版本。
+
+### 自行构建
 
 ```bash
 git clone https://github.com/4zyz4/GKME.git
@@ -136,13 +154,14 @@ cd GKME
 
 ## 系统要求
 
-- Android **8.0 (API 26)** 及以上
-- 蓝牙模式需要 Android **9+ (API 28)**
-- 推荐分辨率 1080p+
-- 多马达支持需要 Android S+ (API 31)
-- 悬浮模式需要「显示在其他应用上层」（悬浮窗）权限
-- USB 模式需要电脑端具备 adb（Android SDK platform-tools）；也可把 `platform-tools` 放到电脑端程序目录作为内置 adb（内置版仅保留 adb）
-- 本机模式与被控端模式需要安装并启动 [Shizuku](https://shizuku.rikka.app/)（通过 Shizuku + uinput 创建虚拟手柄）
+| 项目 | 要求 |
+|------|------|
+| 基础 | Android **8.0 (API 26)** 及以上，推荐分辨率 1080p+ |
+| 蓝牙模式 | Android **9+ (API 28)** |
+| 多马达支持 | Android S+ (API 31) |
+| 悬浮模式 | 「显示在其他应用上层」（悬浮窗）权限 |
+| USB 模式 | 电脑端具备 adb（Android SDK platform-tools）；也可把 `platform-tools` 放到电脑端程序目录作为内置 adb（内置版仅保留 adb） |
+| 本机模式 / 被控端模式 | 安装并启动 [Shizuku](https://shizuku.rikka.app/)（通过 Shizuku + uinput 创建虚拟手柄） |
 
 ---
 
@@ -154,9 +173,11 @@ cd GKME
 
 ## 鸣谢
 
-- [**HIDMaestro**](https://github.com/hifihedgehog/HIDMaestro) - 虚拟手柄驱动框架
-- [**usbip-win2**](https://github.com/vadimgrn/usbip-win2) - 电脑端虚拟 HID 设备桥接驱动
-- [**Moonlight**](https://github.com/moonlight-stream/moonlight-android) - DualSense 触摸板识别算法参考
-- [**Axixi2233/moonlight-android**](https://github.com/Axixi2233/moonlight-android) - 实体手柄 USB 驱动来源
-- [**SDL**](https://libsdl.org/) - 实体手柄输入与 HIDAPI 支持
-- [Dagger Hilt](https://dagger.dev/hilt/) - 依赖注入框架
+| 项目 | 用途 |
+|------|------|
+| [**HIDMaestro**](https://github.com/hifihedgehog/HIDMaestro) | 虚拟手柄驱动框架 |
+| [**usbip-win2**](https://github.com/vadimgrn/usbip-win2) | 电脑端虚拟 HID 设备桥接驱动 |
+| [**Moonlight**](https://github.com/moonlight-stream/moonlight-android) | DualSense 触摸板识别算法参考 |
+| [**Axixi2233/moonlight-android**](https://github.com/Axixi2233/moonlight-android) | 实体手柄 USB 驱动来源 |
+| [**SDL**](https://libsdl.org/) | 实体手柄输入与 HIDAPI 支持 |
+| [Dagger Hilt](https://dagger.dev/hilt/) | 依赖注入框架 |
