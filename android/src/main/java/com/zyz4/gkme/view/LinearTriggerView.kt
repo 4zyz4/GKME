@@ -60,6 +60,10 @@ class LinearTriggerView @JvmOverloads constructor(
     private var lastOffset = 0f
     private var lastOffsetTime = 0L
     private var hasOffsetSample = false
+    // 触控采样率识别：快速响应模式的外推时长与之同步。
+    private val sampleRate = TouchSampleRateTracker(TAG)
+    // 是否已获得有效移动样本（跳过 DOWN→首次 MOVE）。
+    private var hasMoveSample = false
 
     fun getCellSize(): Float {
         var p = parent
@@ -127,6 +131,8 @@ class LinearTriggerView @JvmOverloads constructor(
                 lastOffset = 0f
                 lastOffsetTime = event.eventTime
                 hasOffsetSample = true
+                hasMoveSample = false
+                if (prediction) sampleRate.reset()
                 isPressed = true
                 invalidate()
                 onValueChange?.invoke(currentValue)
@@ -171,9 +177,19 @@ class LinearTriggerView @JvmOverloads constructor(
                 val effectiveOffset = if (prediction) {
                     val dtMs = (event.eventTime - lastOffsetTime).coerceAtLeast(1L)
                     val velocity = if (hasOffsetSample) (absOffset - lastOffset) / dtMs else 0f
+                    // 采样间隔优先取批处理中的历史样本；首个移动样本（DOWN→首次 MOVE）不可靠，跳过。
+                    val history = event.historySize
+                    if (history > 0) {
+                        sampleRate.update((event.eventTime - event.getHistoricalEventTime(history - 1)).coerceAtLeast(1L).toFloat())
+                    } else if (hasMoveSample) {
+                        sampleRate.update(dtMs.toFloat())
+                    }
+                    hasMoveSample = true
                     lastOffset = absOffset
                     lastOffsetTime = event.eventTime
-                    absOffset + velocity * com.zyz4.gkme.model.ButtonPosition.PREDICTION_FRAME_MS
+                    // 外推时长与识别到的触控采样间隔同步；未识别时退回固定帧长。
+                    val frame = sampleRate.intervalOr(com.zyz4.gkme.model.ButtonPosition.PREDICTION_FRAME_MS)
+                    absOffset + velocity * frame
                 } else {
                     absOffset
                 }
@@ -209,6 +225,8 @@ class LinearTriggerView @JvmOverloads constructor(
                     setTranslationY(0f)
                     wasAtMax = false
                     hasOffsetSample = false
+                    hasMoveSample = false
+                    sampleRate.reset()
                     if (currentValue > 0) {
                         onButtonUp?.invoke()
                     }
@@ -251,5 +269,9 @@ class LinearTriggerView @JvmOverloads constructor(
         idleOpacity = button.idleOpacity
         activeOpacity = button.activeOpacity
         prediction = button.prediction
+    }
+
+    private companion object {
+        private const val TAG = "LinearTriggerView"
     }
 }
