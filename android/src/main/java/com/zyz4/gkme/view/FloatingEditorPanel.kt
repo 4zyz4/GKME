@@ -1028,6 +1028,18 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 buttonParamsInner.addView(btnRow)
             }
 
+            val cbTouchpadMode = CheckBox(context).apply {
+                text = "触摸板模式"
+                setTextColor(-0x444445)
+                textSize = 14f
+                isChecked = button.touchpadMode
+                setOnCheckedChangeListener { _, isChecked ->
+                    currentButton = currentButton?.copy(touchpadMode = isChecked)
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                }
+            }
+            buttonParamsInner.addView(cbTouchpadMode, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+
             val curveH = (200f * density).toInt()
 
             val btnSensSeekbar = createSimpleSeekbar("灵敏度(%)", button.joystickSensitivity, 10, 300, { value ->

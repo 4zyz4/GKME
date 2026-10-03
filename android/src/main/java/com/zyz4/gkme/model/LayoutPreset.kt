@@ -110,6 +110,7 @@ data class LayoutPreset(
                     if (!btnObj.has("deadZone")) btnObj.addProperty("deadZone", 0)
                     if (!btnObj.has("reverseDeadZone")) btnObj.addProperty("reverseDeadZone", 0)
                     if (!btnObj.has("joystickSensitivity")) btnObj.addProperty("joystickSensitivity", 100)
+                    if (!btnObj.has("touchpadMode")) btnObj.addProperty("touchpadMode", false)
                     if (!btnObj.has("mouseSensitivity")) btnObj.addProperty("mouseSensitivity", 1.0)
                     if (!btnObj.has("mouseMoveSlop")) btnObj.addProperty("mouseMoveSlop", 4)
                     if (!btnObj.has("scrollSensitivity")) btnObj.addProperty("scrollSensitivity", 0.1)
@@ -229,6 +230,7 @@ data class LayoutPreset(
             }
             if (baseId in JOYSTICK_IDS) {
                 if (b.joystickSensitivity != 100) m["joystickSensitivity"] = b.joystickSensitivity
+                if (b.touchpadMode) m["touchpadMode"] = b.touchpadMode
                 if (b.deadZone != 0) m["deadZone"] = b.deadZone
                 if (b.reverseDeadZone != 0) m["reverseDeadZone"] = b.reverseDeadZone
                 if (b.sensitivityCurve != null && b.sensitivityCurve!!.isNotEmpty()) {
