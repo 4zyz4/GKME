@@ -72,8 +72,6 @@ class MainActivity : ComponentActivity() {
     internal var audioPollingJob: kotlinx.coroutines.Job? = null
     internal var shizukuPollingJob: kotlinx.coroutines.Job? = null
     internal var localStartPending = false
-    /** 用户点击“启动服务”后因缺少蓝牙权限而挂起的蓝牙模式启动请求。 */
-    internal var pendingBluetoothStart = false
     internal var lastAppliedSettings: AppSettings? = null
     internal var lastPresetInfos: Any? = null
     internal var lastPresetCurrentName: String? = null
@@ -105,44 +103,9 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { granted ->
         if (granted.all { it.value }) {
-            // 仅在“启动蓝牙模式”流程中申请：授权成功后继续启动服务。
-            if (pendingBluetoothStart) {
-                pendingBluetoothStart = false
-                checkBluetoothOnAndStart()
-            }
+            viewModel.startServer()
         } else {
-            pendingBluetoothStart = false
             showToast("需要蓝牙权限才能使用蓝牙模式")
-        }
-    }
-
-    /** 蓝牙运行时权限（Android 12+）是否已全部授予。低版本安装时即授予，无需申请。 */
-    internal fun hasBluetoothRuntimePermissions(): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
-        return android.Manifest.permission.BLUETOOTH_CONNECT.let {
-            ContextCompat.checkSelfPermission(this, it) ==
-                android.content.pm.PackageManager.PERMISSION_GRANTED
-        } && android.Manifest.permission.BLUETOOTH_ADVERTISE.let {
-            ContextCompat.checkSelfPermission(this, it) ==
-                android.content.pm.PackageManager.PERMISSION_GRANTED
-        }
-    }
-
-    /**
-     * 启动蓝牙模式：应用启动时不申请蓝牙权限，只有用户启动蓝牙模式时才在此处按需申请；
-     * 已授权则直接检查蓝牙开关并启动服务。
-     */
-    internal fun startBluetoothModeWithPermission() {
-        if (hasBluetoothRuntimePermissions()) {
-            checkBluetoothOnAndStart()
-        } else {
-            pendingBluetoothStart = true
-            bluetoothPermissionLauncher.launch(
-                arrayOf(
-                    android.Manifest.permission.BLUETOOTH_CONNECT,
-                    android.Manifest.permission.BLUETOOTH_ADVERTISE,
-                )
-            )
         }
     }
 

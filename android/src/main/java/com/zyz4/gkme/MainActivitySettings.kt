@@ -1598,9 +1598,25 @@ internal fun MainActivity.setupConnectionPage() {
                 a.launchControlledMode()
                 return@setOnClickListener
             }
-            if (s.connectionMode == ConnectionMode.BLUETOOTH) {
-                // 蓝牙权限只在启动蓝牙模式时按需申请（应用启动时不申请）。
-                a.startBluetoothModeWithPermission()
+            if (s.connectionMode == ConnectionMode.BLUETOOTH
+                && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+            ) {
+                val connectGranted = ContextCompat.checkSelfPermission(
+                    a, Manifest.permission.BLUETOOTH_CONNECT
+                ) == PackageManager.PERMISSION_GRANTED
+                val advertiseGranted = ContextCompat.checkSelfPermission(
+                    a, Manifest.permission.BLUETOOTH_ADVERTISE
+                ) == PackageManager.PERMISSION_GRANTED
+                if (connectGranted && advertiseGranted) {
+                    a.checkBluetoothOnAndStart()
+                } else {
+                    a.bluetoothPermissionLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.BLUETOOTH_CONNECT,
+                            Manifest.permission.BLUETOOTH_ADVERTISE,
+                        )
+                    )
+                }
             } else if (s.connectionMode == ConnectionMode.USB) {
                 a.checkUsbAdbAndStart()
             } else {
@@ -1815,8 +1831,15 @@ internal fun MainActivity.autoStartService() {
     // 本机模式需要 Shizuku 授权并进入悬浮模式，由用户点击“启动服务”触发。
     if (s.connectionMode == ConnectionMode.LOCAL) return
     if (s.connectionMode == ConnectionMode.BLUETOOTH) {
-        // 应用启动时不申请蓝牙权限：未授权则跳过自动启动，等用户点击“启动服务”时再按需申请。
-        if (!a.hasBluetoothRuntimePermissions()) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val connectGranted = ContextCompat.checkSelfPermission(
+                a, Manifest.permission.BLUETOOTH_CONNECT
+            ) == PackageManager.PERMISSION_GRANTED
+            val advertiseGranted = ContextCompat.checkSelfPermission(
+                a, Manifest.permission.BLUETOOTH_ADVERTISE
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!connectGranted || !advertiseGranted) return
+        }
         a.checkBluetoothOnAndStart()
     } else if (s.connectionMode == ConnectionMode.USB) {
         a.checkUsbAdbAndStart()
