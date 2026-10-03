@@ -636,7 +636,10 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
     @Volatile private var _lastTriggerTypeR: Byte = 0
     @Volatile private var _lastTriggerDataL: ByteArray? = null
     @Volatile private var _lastTriggerDataR: ByteArray? = null
-    @Volatile private var _lastTriggerActive = false
+    // Trigger flag bits (0x04 right / 0x08 left) still owed to the pad. They are folded
+    // into the next combined report and cleared once transmitted, so a report caused by
+    // rumble/LED alone does not re-write triggers that have not changed.
+    @Volatile private var _pendingTriggerFlags = 0
     @Volatile private var _lastLedColor = 0
     @Volatile private var _lastPlayerLed = 0
 
@@ -677,12 +680,13 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
             motor0, motor1,
             _lastTriggerTypeL, _lastTriggerTypeR,
             _lastTriggerDataL, _lastTriggerDataR,
-            _lastTriggerActive, r, g, b, playerPattern,
+            _pendingTriggerFlags.toByte(), r, g, b, playerPattern,
             // While the voice coil is streaming, the report must not carry the
             // motor flags: that would switch the DS5 back to compatible-vibration
             // mode and cut off audio haptics (the audio/rumble ping-pong).
             !voiceCoilActive,
         )
+        _pendingTriggerFlags = 0
         controller.sendCommand(report)
     }
 
@@ -699,7 +703,7 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
             _lastTriggerTypeR = typeRight
             _lastTriggerDataL = left
             _lastTriggerDataR = right
-            _lastTriggerActive = true
+            _pendingTriggerFlags = _pendingTriggerFlags or (eventFlags.toInt() and TRIGGER_FLAG_MASK)
             synchronized(this) { sendCombinedReport() }
         } else {
             synchronized(this) {
@@ -816,6 +820,11 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
         private const val TRIGGER_DIGITAL_THRESHOLD = 0.5f
         private const val VOICE_COIL_SILENCE_TIMEOUT_NS = 200_000_000L // 200ms
 
+        // DualSense VALID_FLAG0 trigger bits (mirror DualSenseOutputReport).
+        private const val TRIGGER_FLAG_RIGHT = 0x04
+        private const val TRIGGER_FLAG_LEFT = 0x08
+        private const val TRIGGER_FLAG_MASK = TRIGGER_FLAG_LEFT or TRIGGER_FLAG_RIGHT
+
         // Sunshine / Limelight button flags produced by the USB driver.
         private const val USB_UP = 0x0001
         private const val USB_DOWN = 0x0002
@@ -855,7 +864,7 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
                 _lastTriggerDataR = triggerDataRight
                 if (triggerTypeLeft.toInt() != 0 || triggerTypeRight.toInt() != 0 ||
                     triggerDataLeft != null || triggerDataRight != null) {
-                    _lastTriggerActive = true
+                    _pendingTriggerFlags = _pendingTriggerFlags or (eventFlags.toInt() and TRIGGER_FLAG_MASK)
                 }
                 _lastLedColor = ledColor
                 _lastPlayerLed = playerLed

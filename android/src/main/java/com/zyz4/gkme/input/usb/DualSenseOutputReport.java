@@ -177,29 +177,30 @@ public final class DualSenseOutputReport {
      * (COMPATIBLE_VIBRATION / HAPTICS_SELECT) as a switch into compatible-vibration mode,
      * which immediately stops audio haptics; omitting the flags lets trigger and lightbar
      * updates through without disturbing the audio path.
+     *
+     * <p>[triggerFlags] carries only the triggers that actually changed (bits
+     * {@link #ENABLE_LEFT_TRIGGER} / {@link #ENABLE_RIGHT_TRIGGER}); the untouched
+     * trigger latches its previous effect on the pad and is left out of the report.
      */
     public static byte[] compactFrame(
             int lowMotor, int highMotor,
             byte triggerTypeLeft, byte triggerTypeRight,
             byte[] triggerDataLeft, byte[] triggerDataRight,
-            boolean hasTriggers,
+            byte triggerFlags,
             byte ledRed, byte ledGreen, byte ledBlue,
             int playerLedPattern,
             boolean enableRumble) {
         byte[] report = emptyReport();
-        // Build VALID_FLAG0: rumble (0x03, only when allowed) + trigger flags
-        byte flag0 = enableRumble ? ENABLE_RUMBLE : 0;
-        if (hasTriggers) {
-            flag0 |= ENABLE_LEFT_TRIGGER;
-            flag0 |= ENABLE_RIGHT_TRIGGER;
-            if ((triggerTypeLeft & 0xFF) != 0) {
-                report[LEFT_TRIGGER_TYPE_INDEX] = triggerTypeLeft;
-                copyPayload(triggerDataLeft, 0, report, LEFT_TRIGGER_DATA_INDEX);
-            }
-            if ((triggerTypeRight & 0xFF) != 0) {
-                report[RIGHT_TRIGGER_TYPE_INDEX] = triggerTypeRight;
-                copyPayload(triggerDataRight, 0, report, RIGHT_TRIGGER_DATA_INDEX);
-            }
+        // Build VALID_FLAG0: rumble (0x03, only when allowed) + changed triggers only.
+        byte flag0 = (byte) ((enableRumble ? ENABLE_RUMBLE : 0) |
+                (triggerFlags & (ENABLE_LEFT_TRIGGER | ENABLE_RIGHT_TRIGGER)));
+        if ((flag0 & ENABLE_LEFT_TRIGGER) != 0) {
+            report[LEFT_TRIGGER_TYPE_INDEX] = triggerTypeLeft;
+            copyPayload(triggerDataLeft, 0, report, LEFT_TRIGGER_DATA_INDEX);
+        }
+        if ((flag0 & ENABLE_RIGHT_TRIGGER) != 0) {
+            report[RIGHT_TRIGGER_TYPE_INDEX] = triggerTypeRight;
+            copyPayload(triggerDataRight, 0, report, RIGHT_TRIGGER_DATA_INDEX);
         }
         report[VALID_FLAG0_INDEX] = flag0;
         // Motor intensities (ignored by the pad unless flag0 carries ENABLE_RUMBLE)
