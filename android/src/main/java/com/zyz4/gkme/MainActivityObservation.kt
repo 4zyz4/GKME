@@ -119,10 +119,15 @@ internal fun MainActivity.observeState() {
                 }
             }
             launch {
+                var appliedOnce = false
                 a.viewModel.currentPreset.collect { preset ->
-                    // 持久化设置加载完成前 currentPreset 是空布局，应用它只会在默认位置
-                    // 闪出一个设置按钮；等真实布局就绪后再渲染，避免启动时的跳变。
-                    if (!a.viewModel.connectionManager.settingsLoaded.value) return@collect
+                    // 初始 currentPreset 是空布局，应用它只会在默认位置闪出一个设置按钮，
+                    // 故跳过第一次空布局；之后（含用户主动使用的空布局）都正常渲染。
+                    // 这里不能再依赖 settingsLoaded：StateFlow 在生命周期切换期间会合并只投递
+                    // 最新值，若投递真实布局时 settingsLoaded 恰好仍为 false，真实布局会被丢弃，
+                    // 导致偶发启动后手柄空白。
+                    if (!appliedOnce && preset.buttons.isEmpty()) return@collect
+                    appliedOnce = true
                     a.viewModel.applyLayoutGyroSettings(preset)
                     if (!a.gamepadLayout.isEditModeActive()) {
                         a.applyPreset(preset)
