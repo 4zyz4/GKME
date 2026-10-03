@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
@@ -72,8 +73,13 @@ class ConnectionManager @Inject constructor(
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
-    /** 一旦用户通过 [updateSettings] 提供设置，迟到的初始加载不得覆盖它。 */
-    private val settingsReady = java.util.concurrent.atomic.AtomicBoolean(false)
+    /**
+     * 持久化设置是否已加载完成。在此之前 [settings] 仍是默认 [AppSettings]；任何
+     * 基于它构造的 [updateSettings] 都会把默认值写回磁盘、覆盖用户配置，因此必须
+     * 丢弃（各调用方在加载完成后会重新应用，见 GkViewModel 的 settingsLoaded 等待）。
+     */
+    private val _settingsLoaded = MutableStateFlow(false)
+    val settingsLoaded: StateFlow<Boolean> = _settingsLoaded.asStateFlow()
 
     val pairedDeviceName: StateFlow<String?> = pairingStateRepository.pairedDeviceName
         .stateIn(scope, SharingStarted.Eagerly, null)
@@ -143,18 +149,26 @@ class ConnectionManager @Inject constructor(
 
     init {
         // 异步读取持久化设置，避免在主线程 runBlocking 读 DataStore 触发 ANR。
-        // 若用户在读取完成前已通过 updateSettings 提供设置，则丢弃本次加载结果。
         scope.launch {
-            val loaded = settingsRepository.settings.first()
-            if (settingsReady.compareAndSet(false, true)) {
-                _settings.value = loaded
-                PhoneHdHaptics.enabled = loaded.hdVibrationEnabled
-                GamepadInjector.configure(
-                    loaded.virtualGamepadNativeBackend(),
-                    loaded.virtualGamepadUhidProfile(),
-                )
-                applyEffectiveAudioSettings()
+            val loaded = try {
+                settingsRepository.settings.first()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // 读取失败不应卡住整个应用：退回默认值并继续，避免 settingsLoaded 永假。
+                AppSettings()
             }
+            _settings.value = loaded
+            _settingsLoaded.value = true
+            // 先让设置收集方（MainActivity 的 collect / GkViewModel 的初始化）应用加载结果，
+            // 再执行这几个可能阻塞主线程的硬件/音频副作用，避免恢复用户设置被拖慢。
+            yield()
+            PhoneHdHaptics.enabled = loaded.hdVibrationEnabled
+            GamepadInjector.configure(
+                loaded.virtualGamepadNativeBackend(),
+                loaded.virtualGamepadUhidProfile(),
+            )
+            applyEffectiveAudioSettings()
         }
         audioPlaybackService.onControllerMotorOutput = { controllerIndex, leftAmp, rightAmp ->
             onControllerVibrationRequest?.invoke(controllerIndex, leftAmp, rightAmp)
@@ -175,8 +189,9 @@ class ConnectionManager @Inject constructor(
     }
 
     fun updateSettings(newSettings: AppSettings) {
-        // 用户提供的设置优先，阻止迟到的初始加载覆盖它。
-        settingsReady.set(true)
+        // 首次加载完成前，内存/磁盘都是默认值；此时调用方拿到的 settings.value 也是
+        // 默认值，写回会覆盖用户配置。直接丢弃，加载完成后各初始化逻辑会重新应用。
+        if (!_settingsLoaded.value) return
         _settings.value = newSettings
         GamepadInjector.configure(
             newSettings.virtualGamepadNativeBackend(),

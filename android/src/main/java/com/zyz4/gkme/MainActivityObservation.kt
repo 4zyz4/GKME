@@ -120,6 +120,9 @@ internal fun MainActivity.observeState() {
             }
             launch {
                 a.viewModel.currentPreset.collect { preset ->
+                    // 持久化设置加载完成前 currentPreset 是空布局，应用它只会在默认位置
+                    // 闪出一个设置按钮；等真实布局就绪后再渲染，避免启动时的跳变。
+                    if (!a.viewModel.connectionManager.settingsLoaded.value) return@collect
                     a.viewModel.applyLayoutGyroSettings(preset)
                     if (!a.gamepadLayout.isEditModeActive()) {
                         a.applyPreset(preset)

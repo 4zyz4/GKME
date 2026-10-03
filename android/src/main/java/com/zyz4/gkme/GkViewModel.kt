@@ -47,6 +47,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -155,6 +156,15 @@ class GkViewModel @Inject constructor(
     var onHapticFeedbackRelease: (() -> Unit)? = null
 
     init {
+        // ConnectionManager 异步加载持久化设置；在加载完成前 settings 仍是默认值，
+        // 若此时初始化会把默认设置写回持久化，覆盖用户配置。故等待加载完成再初始化。
+        viewModelScope.launch {
+            connectionManager.settingsLoaded.first { it }
+            applyInitialSettings()
+        }
+    }
+
+    private fun applyInitialSettings() {
         _displayMode.value = settings.value.displayMode
         initializeLayouts()
         if (settings.value.gyroEnabled) {
