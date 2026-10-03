@@ -470,6 +470,10 @@ class GkViewModel @Inject constructor(
         connectionManager.updateSettings(settings.value.copy(floatingOpacity = opacity.coerceIn(0, 100)))
     }
 
+    fun updateFloatingKeepAlive(enabled: Boolean) {
+        connectionManager.updateSettings(settings.value.copy(floatingKeepAlive = enabled))
+    }
+
     // ── Physical-controller remapping ──
 
     fun updateGyroOrientation(orientation: GyroOrientation) {

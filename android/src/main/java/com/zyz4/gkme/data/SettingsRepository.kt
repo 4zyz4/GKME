@@ -91,6 +91,7 @@ class SettingsRepository @Inject constructor(
         val GYRO_STICK_CURVE = stringPreferencesKey("gyro_stick_curve")
         val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val FLOATING_OPACITY = intPreferencesKey("floating_opacity")
+        val FLOATING_KEEP_ALIVE = booleanPreferencesKey("floating_keep_alive")
         val GYRO_ACTIVATE_MODE = intPreferencesKey("gyro_activate_mode")
         val CONTROLLER_GYRO_ENABLED = booleanPreferencesKey("controller_gyro_enabled")
         val CONTROLLER_GYRO_ENABLED_CONNECTED = booleanPreferencesKey("controller_gyro_enabled_connected")
@@ -261,6 +262,7 @@ class SettingsRepository @Inject constructor(
             ) { GyroCoordinateSystem.YAW_ROLL },
             keepScreenOn = prefs[Keys.KEEP_SCREEN_ON] ?: false,
             floatingOpacity = (prefs[Keys.FLOATING_OPACITY] ?: 50).coerceIn(0, 100),
+            floatingKeepAlive = prefs[Keys.FLOATING_KEEP_ALIVE] ?: false,
             gyroActivateMode = GyroActivateMode.entries.getOrElse(
                 prefs[Keys.GYRO_ACTIVATE_MODE] ?: 0
             ) { GyroActivateMode.ALWAYS },
@@ -393,6 +395,7 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.GYRO_COORDINATE_SYSTEM] = settings.gyroCoordinateSystem.ordinal
             prefs[Keys.KEEP_SCREEN_ON] = settings.keepScreenOn
             prefs[Keys.FLOATING_OPACITY] = settings.floatingOpacity
+            prefs[Keys.FLOATING_KEEP_ALIVE] = settings.floatingKeepAlive
             prefs[Keys.GYRO_ACTIVATE_MODE] = settings.gyroActivateMode.ordinal
             prefs[Keys.CONTROLLER_GYRO_ENABLED] = settings.controllerGyroEnabled
             prefs[Keys.CONTROLLER_GYRO_ENABLED_CONNECTED] = settings.controllerGyroEnabledConnected

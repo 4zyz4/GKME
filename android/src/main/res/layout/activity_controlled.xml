@@ -64,18 +64,30 @@
             android:text="下载 Shizuku" />
     </LinearLayout>
 
-    <!-- Shizuku 增强保活状态（跟随被控端自动启用） -->
-    <TextView
-        android:id="@+id/tvKeepAliveStatus"
+    <!-- 悬浮窗保活开关（可选，关闭时不影响前台服务） -->
+    <LinearLayout
+        android:id="@+id/rowFloatingKeepAlive"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="48dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
         android:background="@color/bg_surface"
         android:paddingHorizontal="12dp"
-        android:paddingVertical="8dp"
-        android:layout_marginBottom="12dp"
-        android:text="保活：未启用"
-        android:textColor="@color/text_secondary"
-        android:textSize="12sp" />
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="悬浮窗保活"
+            android:textColor="@color/text_primary"
+            android:textSize="14sp" />
+
+        <Switch
+            android:id="@+id/switchFloatingKeepAlive"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+    </LinearLayout>
 
     <!-- 手动 IP 卡片 -->
     <LinearLayout
