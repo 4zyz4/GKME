@@ -147,6 +147,15 @@ class SettingsRepository @Inject constructor(
         val TP_IMAGE_PATH = stringPreferencesKey("tp_image_path")
         val TP_OUTLINE_COLOR = intPreferencesKey("tp_outline_color")
         val TP_OUTLINE_WIDTH = intPreferencesKey("tp_outline_width")
+        val LINEAR_TRIGGER_BOX_OUTLINE_COLOR = intPreferencesKey("linear_trigger_box_outline_color")
+        val LINEAR_TRIGGER_BOX_OUTLINE_WIDTH = intPreferencesKey("linear_trigger_box_outline_width")
+        val DPAD_PAD_FILL_TYPE = intPreferencesKey("dpad_pad_fill_type")
+        val DPAD_PAD_COLOR = intPreferencesKey("dpad_pad_color")
+        val DPAD_PAD_IMAGE_PATH = stringPreferencesKey("dpad_pad_image_path")
+        val DPAD_PAD_OUTLINE_COLOR = intPreferencesKey("dpad_pad_outline_color")
+        val DPAD_PAD_OUTLINE_WIDTH = intPreferencesKey("dpad_pad_outline_width")
+        val DPAD_PAD_TRIGGER_OUTLINE_COLOR = intPreferencesKey("dpad_pad_trigger_outline_color")
+        val DPAD_PAD_TRIGGER_OUTLINE_WIDTH = intPreferencesKey("dpad_pad_trigger_outline_width")
         val ICON_MAX_SIZE = intPreferencesKey("icon_max_size")
         val LED_BOUND_COLORS = stringPreferencesKey("led_bound_colors")
     }
@@ -291,6 +300,15 @@ class SettingsRepository @Inject constructor(
             tpImagePath = prefs[Keys.TP_IMAGE_PATH],
             tpOutlineColor = prefs[Keys.TP_OUTLINE_COLOR] ?: 0xFF666666.toInt(),
             tpOutlineWidth = prefs[Keys.TP_OUTLINE_WIDTH] ?: 4,
+            linearTriggerBoxOutlineColor = prefs[Keys.LINEAR_TRIGGER_BOX_OUTLINE_COLOR] ?: 0xFF888888.toInt(),
+            linearTriggerBoxOutlineWidth = prefs[Keys.LINEAR_TRIGGER_BOX_OUTLINE_WIDTH] ?: 4,
+            dpadPadFillType = FillType.entries.getOrElse(prefs[Keys.DPAD_PAD_FILL_TYPE] ?: 0) { FillType.SOLID_COLOR },
+            dpadPadColor = prefs[Keys.DPAD_PAD_COLOR] ?: 0xFF1A1A1A.toInt(),
+            dpadPadImagePath = prefs[Keys.DPAD_PAD_IMAGE_PATH],
+            dpadPadOutlineColor = prefs[Keys.DPAD_PAD_OUTLINE_COLOR] ?: 0xFF666666.toInt(),
+            dpadPadOutlineWidth = prefs[Keys.DPAD_PAD_OUTLINE_WIDTH] ?: 4,
+            dpadPadTriggerOutlineColor = prefs[Keys.DPAD_PAD_TRIGGER_OUTLINE_COLOR] ?: -0x666667,
+            dpadPadTriggerOutlineWidth = prefs[Keys.DPAD_PAD_TRIGGER_OUTLINE_WIDTH] ?: 4,
             iconMaxSize = prefs[Keys.ICON_MAX_SIZE] ?: 24,
             ledBoundColors = prefs[Keys.LED_BOUND_COLORS]
                 ?.let { parseStringSet(it) }
@@ -410,6 +428,15 @@ class SettingsRepository @Inject constructor(
             if (settings.tpImagePath != null) prefs[Keys.TP_IMAGE_PATH] = settings.tpImagePath else prefs.remove(Keys.TP_IMAGE_PATH)
             prefs[Keys.TP_OUTLINE_COLOR] = settings.tpOutlineColor
             prefs[Keys.TP_OUTLINE_WIDTH] = settings.tpOutlineWidth
+            prefs[Keys.LINEAR_TRIGGER_BOX_OUTLINE_COLOR] = settings.linearTriggerBoxOutlineColor
+            prefs[Keys.LINEAR_TRIGGER_BOX_OUTLINE_WIDTH] = settings.linearTriggerBoxOutlineWidth
+            prefs[Keys.DPAD_PAD_FILL_TYPE] = settings.dpadPadFillType.ordinal
+            prefs[Keys.DPAD_PAD_COLOR] = settings.dpadPadColor
+            if (settings.dpadPadImagePath != null) prefs[Keys.DPAD_PAD_IMAGE_PATH] = settings.dpadPadImagePath else prefs.remove(Keys.DPAD_PAD_IMAGE_PATH)
+            prefs[Keys.DPAD_PAD_OUTLINE_COLOR] = settings.dpadPadOutlineColor
+            prefs[Keys.DPAD_PAD_OUTLINE_WIDTH] = settings.dpadPadOutlineWidth
+            prefs[Keys.DPAD_PAD_TRIGGER_OUTLINE_COLOR] = settings.dpadPadTriggerOutlineColor
+            prefs[Keys.DPAD_PAD_TRIGGER_OUTLINE_WIDTH] = settings.dpadPadTriggerOutlineWidth
             prefs[Keys.ICON_MAX_SIZE] = settings.iconMaxSize
             prefs[Keys.LED_BOUND_COLORS] = gson.toJson(settings.ledBoundColors)
             prefs[Keys.VOICE_COIL_DEVICE_TYPE] = settings.voiceCoilDevice.type.persistId
