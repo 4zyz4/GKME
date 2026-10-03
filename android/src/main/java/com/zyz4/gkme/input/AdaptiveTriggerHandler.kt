@@ -43,7 +43,11 @@ class AdaptiveTriggerHandler(
 
     private var lastOutLeft = -1
     private var lastOutRight = -1
-    private var lastNativeKey: String? = null
+
+    // Last native effect actually written to the pad, tracked per trigger so an update
+    // that only changes one side writes that trigger's flag instead of re-sending both.
+    private var lastLeftNativeKey: Int? = null
+    private var lastRightNativeKey: Int? = null
 
     /** Selects the output actuator; stops the previous one. */
     @Synchronized
@@ -56,7 +60,8 @@ class AdaptiveTriggerHandler(
         rightRising = false
         lastOutLeft = -1
         lastOutRight = -1
-        lastNativeKey = null
+        lastLeftNativeKey = null
+        lastRightNativeKey = null
         render(force = true)
     }
 
@@ -177,7 +182,7 @@ class AdaptiveTriggerHandler(
         val output = motorOutput()
         when {
             info?.hasAdaptiveTrigger == true ->
-                emitAdaptiveTrigger(target, force, output.left, output.right)
+                emitAdaptiveTrigger(target, output.left, output.right)
             info?.hasTriggerRumble == true ->
                 emitTriggerRumble(target, force, output.left, output.right)
             else -> emitControllerMotor(target, force, output.left, output.right)
@@ -186,12 +191,13 @@ class AdaptiveTriggerHandler(
 
     /** Native DualSense output: raw effect blocks for the effect source, or a synthesised
      *  0x26 Vibration effect when the active source is Xbox trigger rumble. */
-    private fun emitAdaptiveTrigger(target: AdaptiveTriggerDevice, force: Boolean, left: Int, right: Int) {
-        val key: String
+    private fun emitAdaptiveTrigger(target: AdaptiveTriggerDevice, left: Int, right: Int) {
         val typeLeft: Byte
         val typeRight: Byte
         val dataLeft: ByteArray?
         val dataRight: ByteArray?
+        val keyLeft: Int
+        val keyRight: Int
         if (rumbleActive) {
             val l = AdaptiveTriggerEffect.vibrationPacket(left)
             val r = AdaptiveTriggerEffect.vibrationPacket(right)
@@ -199,7 +205,8 @@ class AdaptiveTriggerHandler(
             typeRight = r[0]
             dataLeft = l.copyOfRange(1, l.size)
             dataRight = r.copyOfRange(1, r.size)
-            key = "r:$left:$right"
+            keyLeft = l.contentHashCode()
+            keyRight = r.contentHashCode()
         } else {
             val l = if (swap) rightRaw else leftRaw
             val r = if (swap) leftRaw else rightRaw
@@ -207,12 +214,18 @@ class AdaptiveTriggerHandler(
             typeRight = (r?.getOrNull(0) ?: 0).toByte()
             dataLeft = payload(l)
             dataRight = payload(r)
-            key = nativeKey()
+            keyLeft = l?.contentHashCode() ?: 0
+            keyRight = r?.contentHashCode() ?: 0
         }
-        if (!force && key == lastNativeKey) return
-        lastNativeKey = key
+        // Only flag the triggers whose effect actually changed; the pad latches the rest.
+        var eventFlags = 0
+        if (keyLeft != lastLeftNativeKey) eventFlags = eventFlags or TRIGGER_FLAG_LEFT
+        if (keyRight != lastRightNativeKey) eventFlags = eventFlags or TRIGGER_FLAG_RIGHT
+        if (eventFlags == 0) return
+        lastLeftNativeKey = keyLeft
+        lastRightNativeKey = keyRight
         controllerHandler.setAdaptiveTriggerEffects(
-            target.controllerIndex, 0x0F, typeLeft, typeRight, dataLeft, dataRight,
+            target.controllerIndex, eventFlags.toByte(), typeLeft, typeRight, dataLeft, dataRight,
         )
     }
 
@@ -230,12 +243,6 @@ class AdaptiveTriggerHandler(
         controllerHandler.setControllerMotorsVibration(target.controllerIndex, left, right)
     }
 
-    private fun nativeKey(): String {
-        val l = if (swap) rightRaw else leftRaw
-        val r = if (swap) leftRaw else rightRaw
-        return "${l?.contentHashCode() ?: 0}:${r?.contentHashCode() ?: 0}"
-    }
-
     private fun payload(raw: ByteArray?): ByteArray? =
         if (raw != null && raw.size > 1) raw.copyOfRange(1, raw.size) else null
 
@@ -246,13 +253,22 @@ class AdaptiveTriggerHandler(
             AdaptiveTriggerTargetType.CONTROLLER_MOTOR ->
                 controllerHandler.setControllerMotorsVibration(target.controllerIndex, 0, 0)
             AdaptiveTriggerTargetType.CONTROLLER_TRIGGER -> {
-                controllerHandler.setAdaptiveTriggerEffects(target.controllerIndex, 0x0F, 0, 0, null, null)
+                controllerHandler.setAdaptiveTriggerEffects(
+                    target.controllerIndex, TRIGGER_FLAG_MASK.toByte(), 0, 0, null, null,
+                )
                 controllerHandler.setTriggerRumble(target.controllerIndex, 0, 0)
                 controllerHandler.setControllerMotorsVibration(target.controllerIndex, 0, 0)
             }
         }
         lastOutLeft = -1
         lastOutRight = -1
-        lastNativeKey = null
+        lastLeftNativeKey = null
+        lastRightNativeKey = null
+    }
+
+    private companion object {
+        const val TRIGGER_FLAG_RIGHT = 0x04
+        const val TRIGGER_FLAG_LEFT = 0x08
+        const val TRIGGER_FLAG_MASK = TRIGGER_FLAG_LEFT or TRIGGER_FLAG_RIGHT
     }
 }

@@ -11,31 +11,40 @@ import org.junit.Test
  */
 class DualSenseOutputReportTest {
 
-    private fun report(hasTriggers: Boolean, enableRumble: Boolean): ByteArray =
+    private val bothTriggers =
+        (DualSenseOutputReport.ENABLE_LEFT_TRIGGER.toInt() or
+            DualSenseOutputReport.ENABLE_RIGHT_TRIGGER.toInt())
+
+    private fun report(triggerFlags: Int, enableRumble: Boolean): ByteArray =
         DualSenseOutputReport.compactFrame(
             0, 0,
             0x01.toByte(), 0x01.toByte(),
             ByteArray(10), ByteArray(10),
-            hasTriggers,
+            triggerFlags.toByte(),
             1, 2, 3, 0,
             enableRumble,
         )
 
     @Test
     fun compactFrame_withRumble_setsMotorFlags() {
-        val r = report(hasTriggers = false, enableRumble = true)
+        val r = report(triggerFlags = 0, enableRumble = true)
         assertEquals(DualSenseOutputReport.ENABLE_RUMBLE.toInt(), r[1].toInt() and 0x03)
     }
 
     @Test
     fun compactFrame_withoutRumble_omitsMotorFlagsButKeepsTriggers() {
-        val r = report(hasTriggers = true, enableRumble = false)
+        val r = report(triggerFlags = bothTriggers, enableRumble = false)
         assertEquals(0, r[1].toInt() and 0x03)
-        assertEquals(
-            (DualSenseOutputReport.ENABLE_LEFT_TRIGGER.toInt() or
-                DualSenseOutputReport.ENABLE_RIGHT_TRIGGER.toInt()),
-            r[1].toInt() and 0x0C,
-        )
+        assertEquals(bothTriggers, r[1].toInt() and 0x0C)
+    }
+
+    @Test
+    fun compactFrame_onlyChangedTrigger_setsThatFlagOnly() {
+        val leftOnly = DualSenseOutputReport.ENABLE_LEFT_TRIGGER.toInt()
+        val r = report(triggerFlags = leftOnly, enableRumble = false)
+        assertEquals(leftOnly, r[1].toInt() and 0x0C)
+        assertEquals(0x01, r[22].toInt() and 0xFF)
+        assertEquals(0, r[11].toInt() and 0xFF)
     }
 
     @Test
