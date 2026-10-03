@@ -116,6 +116,8 @@ protobuf `GamepadInput`。要点：
 - 曲线格式：扁平 `[x0,y0,x1,y1,...]`，与 `view/CurveEditorView` 强耦合。
 - 使用点：屏幕摇杆（`JoystickView`）、陀螺仪转摇杆（`GkViewModel`）、加速度计转向（`AccelSteeringMapper`）。
 - 应用顺序统一为“死区之后、灵敏度/缩放之前”。
+- 屏幕摇杆另有 `joystickSensitivity`（10-300%）**在死区之前**应用：手指位移归一化后按比例缩放，
+  <100% 时手指可超出控件范围继续推动摇杆，直到达到满量程才到边界。
 
 ### 3.3 AccelSteeringMapper
 

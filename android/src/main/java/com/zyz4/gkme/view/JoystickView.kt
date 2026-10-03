@@ -36,6 +36,7 @@ class JoystickView @JvmOverloads constructor(
     var idleOpacity: Int = 100
     var activeOpacity: Int = 100
     var sensitivityCurve: List<Float>? = null
+    var joystickSensitivity: Int = 100
     var deadZone: Int = 0
     var reverseDeadZone: Int = 0
     var showDeadZoneIndicator: Boolean = false
@@ -249,8 +250,11 @@ class JoystickView @JvmOverloads constructor(
         val cdx = dx * cosR - dy * sinR
         val cdy = dx * sinR + dy * cosR
 
-val clampedDist = if (dist > maxD) maxD else dist
-        val normalized = if (maxD > 0f) clampedDist / maxD else 0f
+        // 灵敏度：手指位移归一化后乘以灵敏度，再在死区之前应用。
+        // 小于 100% 时手指可超出 view 继续推动摇杆，直到达到满量程才到达边界。
+        val sens = (joystickSensitivity / 100f).coerceIn(0.01f, 10f)
+        val rawNorm = if (maxD > 0f) dist / maxD else 0f
+        val normalized = (rawNorm * sens).coerceAtMost(1f)
 
         // Apply dead zone
         val dz = (deadZone / 100f).coerceIn(0f, 0.99f)
