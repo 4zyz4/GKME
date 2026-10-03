@@ -28,6 +28,8 @@ data class ButtonPosition(
     // 触摸板模式：不以手指绝对位置映射摇杆，而以手指速度映射；手指停下即回中。
     // 灵敏度/死区/反死区/曲线仍照常生效（作用于速度换算出的归一化偏移）。
     val touchpadMode: Boolean = false,
+    // 预测：用输入（手指/滑杆）速度外推下一帧位置，加快响应。适用于摇杆、触摸板、鼠标板、线性扳机。
+    val prediction: Boolean = false,
     val deadZone: Int = 0,
     val reverseDeadZone: Int = 0,
     // 不透明度百分比 (0-100)，100 = 完全不透明
@@ -66,6 +68,8 @@ data class ButtonPosition(
     val isKeyboard: Boolean = false,
 ) {
     companion object {
+        // 预测外推时间（约一帧，60fps）：预测位置 = 当前位置 + 速度 × 该时间。
+        const val PREDICTION_FRAME_MS = 16f
         const val KEYPAD_BASE_ID = "customKeypad"
         // 基础区域：0=上, 1=下, 2=左, 3=右, 4=中心
         const val KEYPAD_COUNT = 5

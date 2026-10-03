@@ -113,7 +113,7 @@ fun AppSettings.virtualGamepadUhidProfile(): Int     // 1 DS4 / 2 DS5 / 3 Switch
 `ButtonPosition` 字段（关键）：`id`、网格坐标 `x/y/width/height`、`visible`、`lockAspect`、
 `swipeTrigger`、`rotation`、`isCustom/customText/customBits`、`roundShape`、`doubleClickEnable`、
 `isKeypad/keypadTexts/keypadBits/keypadEightWay`、`centerShape`、`sensitivityCurve`、
-`joystickSensitivity`、`touchpadMode`、`deadZone/reverseDeadZone`、`idleOpacity/activeOpacity/followAreaOpacity`、
+`joystickSensitivity`、`touchpadMode`、`prediction`、`deadZone/reverseDeadZone`、`idleOpacity/activeOpacity/followAreaOpacity`、
 `followAreaEnabled/X/Y/W/H`、`overlapTrigger/followAreaOverlapTrigger`、鼠标板字段
 （`mouseSensitivity/Acceleration/scrollSensitivity/mouseMoveSlop/invertScroll*` 与 7 个手势动作）、
 `linearTriggerEnabled/slideDirection/travelDistance`、`gyroActivate`、`autoHold`、`isKeyboard`。
@@ -123,7 +123,7 @@ fun AppSettings.virtualGamepadUhidProfile(): Int     // 1 DS4 / 2 DS5 / 3 Switch
 `LayoutPreset.fromJson` / `toJson` 手写（非直接 Gson 反射），承担**旧版本迁移**：
 
 - 移除 `lockAspect`/`isKeyboard` 并**从硬编码表重建**（`LOCK_ASPECT_FALSE_IDS`、`IS_KEYBOARD_IDS`）。
-- 为缺失字段补默认（`overlapTrigger`、`followArea*`、`deadZone`、`joystickSensitivity`、`touchpadMode`、鼠标板字段、`keypad*`、
+- 为缺失字段补默认（`overlapTrigger`、`followArea*`、`deadZone`、`joystickSensitivity`、`touchpadMode`、`prediction`、鼠标板字段、`keypad*`、
   `gyroActivate`、`autoHold` 等）。
 - `migrateLegacyOpacity`：旧透明度（0 不透明 / 255 全透明）→ 不透明度（100 不透明 / 0 透明），
   处理 `idleTransparency`/`activeTransparency`/`followAreaTransparency`。
