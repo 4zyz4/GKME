@@ -17,8 +17,6 @@ object GamepadInjector {
 
     private const val TAG = "GKME_GamepadInjector"
 
-    /** Shizuku 权限申请码。 */
-    const val REQUEST_CODE = 0x5A17
     const val SHIZUKU_PACKAGE = ShizukuServiceBinding.SHIZUKU_PACKAGE
     const val SHIZUKU_DOWNLOAD_URL = ShizukuServiceBinding.SHIZUKU_DOWNLOAD_URL
 
@@ -74,7 +72,6 @@ object GamepadInjector {
         val b = ShizukuServiceBinding(
             tag = TAG,
             processNameSuffix = "gkme_remote_input",
-            requestCode = REQUEST_CODE,
             serviceClass = RemoteGamepadService::class.java,
             onConnected = { binder ->
                 service = IGamepadService.Stub.asInterface(binder)

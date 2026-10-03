@@ -44,3 +44,9 @@
 -keep class com.zyz4.gkme.controlled.IHapticService { *; }
 -keep class com.zyz4.gkme.controlled.IHapticService$* { *; }
 
+# 保活：RemoteKeepAliveService 同样由 Shizuku 通过类名反射实例化，
+# IKeepAliveService 的 AIDL Stub 需跨进程调用，release 混淆后必须保留原名与成员。
+-keep class com.zyz4.gkme.controlled.RemoteKeepAliveService { *; }
+-keep class com.zyz4.gkme.controlled.IKeepAliveService { *; }
+-keep class com.zyz4.gkme.controlled.IKeepAliveService$* { *; }
+

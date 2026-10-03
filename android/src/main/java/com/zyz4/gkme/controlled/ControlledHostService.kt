@@ -64,6 +64,9 @@ class ControlledHostService : Service() {
         // 进程被系统重建时 Activity 可能尚未创建，这里兜底初始化 Shizuku 环境。
         GamepadInjector.init(this)
         GamepadInjector.ensureBound()
+        // 跟随被控端启动 Shizuku 增强保活（Doze 白名单 + 待机桶 active）。
+        KeepAliveInjector.init(this)
+        KeepAliveInjector.activate(packageName)
         ControlledHostManager.start()
         startNotificationUpdates()
         return START_STICKY
@@ -74,6 +77,7 @@ class ControlledHostService : Service() {
         notifyJob = null
         scope?.cancel()
         scope = null
+        KeepAliveInjector.deactivate()
         ControlledHostManager.stop()
         super.onDestroy()
     }

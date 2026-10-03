@@ -176,7 +176,8 @@ flowchart TB
 
 `controlled/HapticInjector.kt`。Shizuku 用户服务封装、所有权/下发。
 
-- `init`：加载预置 HE，绑定 `RemoteHapticService`（进程后缀 `gkme_haptic`，requestCode `0x5A18`）。
+- `init`：加载预置 HE，绑定 `RemoteHapticService`（进程后缀 `gkme_haptic`；Shizuku 权限申请码
+  由 `ShizukuServiceBinding.REQUEST_CODE` 全局共享，不再单独指定）。
 - `onConnected`：`IHapticService.Stub.asInterface` + `refreshCapabilities`（`isAvailable/version/playerType/realtimeAdjust`），
   每个新事务都 try/catch 兼容旧用户服务。
 - 内嵌 `HapticArbiter`；`startPattern` / `startEffect` 先 `acquire(source)`。
