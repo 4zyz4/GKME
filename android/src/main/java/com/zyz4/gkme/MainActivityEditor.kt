@@ -904,6 +904,8 @@ internal fun MainActivity.setupKeyboardTouchHandler(view: View, keyCode: Int, po
 internal fun MainActivity.applyPreset(preset: com.zyz4.gkme.model.LayoutPreset) {
     gamepadLayout.loadPreset(preset)
     ensureViewsForAllPresetButtons()
+    // 首次布局构建完成后挂一次性 pre-draw 监听，随后台首帧绘制上报启动总耗时。
+    AppStartupTracker.reportLayoutLoadedOnce(gamepadLayout)
 }
 
 fun parseSuffix(id: String): Int? {
