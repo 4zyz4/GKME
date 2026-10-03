@@ -239,7 +239,11 @@ object HapticInjector {
         return when {
             !b.binderAlive -> "Shizuku 未运行"
             !b.permissionGranted -> "Shizuku 未授权"
-            service == null -> "正在启动用户服务…"
+            service == null -> if (b.bindFailed) {
+                ShizukuServiceBinding.BIND_FAILED_MESSAGE
+            } else {
+                "正在启动用户服务…"
+            }
             !available -> "本机不支持 HD 震动"
             else -> {
                 val type = when (playerType) {

@@ -446,6 +446,8 @@ object ControlledHostManager {
                 }
             }
             if (changed) publish()
+            // 手柄用户服务未连上时兜底重试，保证长时间连接失败也能触发状态提示。
+            GamepadInjector.ensureBound()
             _shizukuStatus.value = GamepadInjector.statusText()
             // 保活若尚未生效（Shizuku 刚授权/服务刚连上），在这里兜底重试并刷新状态。
             KeepAliveInjector.ensureActive()

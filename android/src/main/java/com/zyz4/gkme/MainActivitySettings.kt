@@ -1657,6 +1657,12 @@ internal fun MainActivity.tryStartLocalVirtualDevice(): Boolean {
             a.stopShizukuPolling()
             a.updateShizukuEntry()
             a.viewModel.setLocalModeStatus("Shizuku 授权失败，请在 Shizuku 中手动授权后重试")
+        } else if (GamepadInjector.bindFailed) {
+            // 已授权但用户服务始终连不上（疑似 Shizuku 存在重复实例），停止轮询并提示重启。
+            a.localStartPending = false
+            a.stopShizukuPolling()
+            a.updateShizukuEntry()
+            a.viewModel.setLocalModeStatus(ShizukuServiceBinding.BIND_FAILED_MESSAGE)
         }
         return false
     }
