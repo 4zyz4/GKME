@@ -314,6 +314,8 @@ internal fun MainActivity.getPreviewText(entry: CtrlEntry, mode: DisplayMode): S
         "btnMouseLMB" -> "LMB"
         "btnMouseRMB" -> "RMB"
         "btnMouseMMB" -> "MMB"
+        "btnMouseBack" -> "BACK"
+        "btnMouseForward" -> "FWD"
         "btnCustomCircle", "btnCustomRect" -> "自定义"
         else -> null
     }
@@ -324,7 +326,7 @@ internal fun MainActivity.getPreviewIcon(entry: CtrlEntry, mode: DisplayMode): I
     if (text != null) {
         return when (entry.baseId) {
             "btnLB", "btnRB", "btnLT", "btnRT" -> R.drawable.button_rounded_rect
-            "btnCustomRect", "btnMouseLMB", "btnMouseRMB", "btnMouseMMB" -> R.drawable.button_rounded_rect
+            "btnCustomRect", "btnMouseLMB", "btnMouseRMB", "btnMouseMMB", "btnMouseBack", "btnMouseForward" -> R.drawable.button_rounded_rect
             else -> R.drawable.button_circle
         }
     }
@@ -670,6 +672,8 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
                 "btnMouseLMB" -> "LMB"
                 "btnMouseRMB" -> "RMB"
                 "btnMouseMMB" -> "MMB"
+                "btnMouseBack" -> "BACK"
+                "btnMouseForward" -> "FWD"
                 else -> entry.name
             }
             setAllCaps(false)
@@ -703,6 +707,8 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
         "btnMouseLMB" to "LMB",
         "btnMouseRMB" to "RMB",
         "btnMouseMMB" to "MMB",
+        "btnMouseBack" to "BACK",
+        "btnMouseForward" to "FWD",
     )
     val pos = if (entry.isKeypad) {
         ButtonPosition(
@@ -1141,6 +1147,8 @@ internal fun MainActivity.getBitForEntry(entry: CtrlEntry): Int? {
         "btnMouseLMB" -> GamepadState.MOUSE_LMB
         "btnMouseRMB" -> GamepadState.MOUSE_RMB
         "btnMouseMMB" -> GamepadState.MOUSE_MMB
+        "btnMouseBack" -> GamepadState.MOUSE_BACK
+        "btnMouseForward" -> GamepadState.MOUSE_FORWARD
         else -> if (entry.bit != 0) entry.bit else null
     }
 }
@@ -1156,7 +1164,7 @@ internal fun MainActivity.showOutputValuePicker(currentBits: List<Int>, onResult
 
     val gamepadBits = allControls.filter { !it.baseId.startsWith("btnMouse") && it.baseId != "mousepad" && it.baseId != "btnCustomCircle" && it.baseId != "btnCustomRect" && it.baseId != "customKeypad" && !it.isJoystick && !it.isTouchpad && !it.isMousepad && !it.isKeyboard }
     val keyboardBits = allControls.filter { it.isKeyboard }
-    val mouseBits = listOf("btnMouseLMB", "btnMouseRMB", "btnMouseMMB")
+    val mouseBits = listOf("btnMouseLMB", "btnMouseRMB", "btnMouseMMB", "btnMouseBack", "btnMouseForward")
     val customBitsControls = allControls.filter { it.baseId == "btnCustomCircle" || it.baseId == "btnCustomRect" }
 
     fun getBit(entry: CtrlEntry): Int? {
@@ -1319,6 +1327,8 @@ val labelText = entry.name
         allControls.find { it.baseId == "btnMouseLMB" },
         allControls.find { it.baseId == "btnMouseRMB" },
         allControls.find { it.baseId == "btnMouseMMB" },
+        allControls.find { it.baseId == "btnMouseBack" },
+        allControls.find { it.baseId == "btnMouseForward" },
         allControls.find { it.baseId == "mousepad" }
     )
     val actualDatas = arrayOf(gamepadBits, mouseControls, keyboardBits)
@@ -1423,6 +1433,8 @@ internal fun MainActivity.recreateViewForButton(buttonId: String, pos: ButtonPos
                 "btnMouseLMB" -> "LMB"
                 "btnMouseRMB" -> "RMB"
                 "btnMouseMMB" -> "MMB"
+                "btnMouseBack" -> "BACK"
+                "btnMouseForward" -> "FWD"
                 else -> customText ?: "按钮"
             }
         } else {

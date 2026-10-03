@@ -78,7 +78,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         "btnLT", "btnLB", "btnRT", "btnRB",
         "btnSelect", "btnHome", "btnMenu",
         "btnTouchpad", "btnLS", "btnRS", "btnMic",
-        "btnMouseLMB", "btnMouseRMB", "btnMouseMMB",
+        "btnMouseLMB", "btnMouseRMB", "btnMouseMMB", "btnMouseBack", "btnMouseForward",
     )
 
     private val KEYBOARD_IDS = setOf(
@@ -238,6 +238,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             "btnMouseLMB" -> "鼠标：左键"
             "btnMouseRMB" -> "鼠标：右键"
             "btnMouseMMB" -> "鼠标：中键"
+            "btnMouseBack" -> "鼠标：后退"
+            "btnMouseForward" -> "鼠标：前进"
             "btnSettings" -> "设置按钮"
             "btn" -> "按钮"
             "joystick" -> "摇杆"
