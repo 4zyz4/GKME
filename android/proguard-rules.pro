@@ -37,3 +37,10 @@
 -keep class com.zyz4.gkme.controlled.IGamepadService { *; }
 -keep class com.zyz4.gkme.controlled.IGamepadService$* { *; }
 
+# 高清震动：RemoteHapticService 同样由 Shizuku 通过类名反射实例化（见
+# ShizukuServiceBinding 的 serviceClass.name），IHapticService 的 AIDL Stub 需跨进程
+# 调用，release 混淆后必须保留原名与成员，否则 HD 震动用户服务绑定失败、功能失效。
+-keep class com.zyz4.gkme.controlled.RemoteHapticService { *; }
+-keep class com.zyz4.gkme.controlled.IHapticService { *; }
+-keep class com.zyz4.gkme.controlled.IHapticService$* { *; }
+
