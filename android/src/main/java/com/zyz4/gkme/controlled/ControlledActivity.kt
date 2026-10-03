@@ -1,9 +1,12 @@
 package com.zyz4.gkme.controlled
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowInsets
@@ -15,6 +18,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Spinner
+import android.widget.Switch
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
@@ -48,10 +52,13 @@ class ControlledActivity : ComponentActivity() {
 
     private lateinit var deviceList: LinearLayout
     private lateinit var tvStatus: TextView
-    private lateinit var tvKeepAliveStatus: TextView
+    private lateinit var switchFloatingKeepAlive: Switch
     private lateinit var btnShizukuAction: Button
     private lateinit var etManualIp: EditText
     private var exitDialogShowing = false
+
+    /** 观察设置回填开关时抑制监听器，避免误触发权限申请。 */
+    private var suppressKeepAliveListener = false
 
     /** 每台已发现控制端（按 MAC/IP）各自记忆的模拟手柄类型。 */
     private var deviceModes: Map<String, VirtualGamepadType> = emptyMap()
@@ -64,15 +71,12 @@ class ControlledActivity : ComponentActivity() {
 
         deviceList = findViewById(R.id.deviceListContainer)
         tvStatus = findViewById(R.id.tvControlledStatus)
-        tvKeepAliveStatus = findViewById(R.id.tvKeepAliveStatus)
+        switchFloatingKeepAlive = findViewById(R.id.switchFloatingKeepAlive)
         btnShizukuAction = findViewById(R.id.btnShizukuAction)
         etManualIp = findViewById(R.id.etManualIp)
 
         GamepadInjector.init(this)
         GamepadInjector.ensureBound()
-        // 保活由前台服务负责启用；这里初始化以便实时展示状态。
-        KeepAliveInjector.init(this)
-        tvKeepAliveStatus.text = KeepAliveInjector.statusText()
 
         findViewById<Button>(R.id.btnControlledBack).setOnClickListener { exitControlled() }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -93,6 +97,10 @@ class ControlledActivity : ComponentActivity() {
             ControlledHostManager.connectManual(ip)
         }
         btnShizukuAction.setOnClickListener { onShizukuAction() }
+        switchFloatingKeepAlive.setOnCheckedChangeListener { _, isChecked ->
+            if (suppressKeepAliveListener) return@setOnCheckedChangeListener
+            onFloatingKeepAliveToggled(isChecked)
+        }
 
         startHostWithNotificationPermission()
         updateShizukuAction()
@@ -181,6 +189,59 @@ class ControlledActivity : ComponentActivity() {
         }
     }
 
+    private val overlayPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (FloatingKeepAlive.canDrawOverlays(this)) {
+            applyFloatingKeepAlive(true)
+        } else {
+            syncFloatingKeepAliveSwitch()
+            showToast("未授予悬浮窗权限，无法启用悬浮窗保活")
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // 用户可能在系统设置中授予了悬浮窗权限，回到页面时补挂窗口。
+        if (connectionManager.settings.value.floatingKeepAlive &&
+            FloatingKeepAlive.canDrawOverlays(this) &&
+            !FloatingKeepAlive.isActive()
+        ) {
+            FloatingKeepAlive.start(this)
+        }
+    }
+
+    /** 开关变化：缺权限时先引导授权，授权成功后再落库并挂窗。 */
+    private fun onFloatingKeepAliveToggled(enabled: Boolean) {
+        if (enabled && !FloatingKeepAlive.canDrawOverlays(this)) {
+            requestOverlayPermission()
+            return
+        }
+        applyFloatingKeepAlive(enabled)
+    }
+
+    private fun applyFloatingKeepAlive(enabled: Boolean) {
+        connectionManager.updateSettings(
+            connectionManager.settings.value.copy(floatingKeepAlive = enabled)
+        )
+        if (enabled) FloatingKeepAlive.start(this) else FloatingKeepAlive.stop()
+    }
+
+    private fun requestOverlayPermission() {
+        val intent = Intent(
+            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            Uri.parse("package:$packageName"),
+        )
+        runCatching { overlayPermissionLauncher.launch(intent) }
+            .onFailure { showToast("无法打开悬浮窗权限设置") }
+    }
+
+    private fun syncFloatingKeepAliveSwitch() {
+        suppressKeepAliveListener = true
+        switchFloatingKeepAlive.isChecked = connectionManager.settings.value.floatingKeepAlive
+        suppressKeepAliveListener = false
+    }
+
     /** 返回：先弹确认框（返回后将停止服务），确认后再结束被控端并关闭页面。 */
     private fun exitControlled() {
         if (exitDialogShowing) return
@@ -217,8 +278,11 @@ class ControlledActivity : ComponentActivity() {
                     ControlledHostManager.shizukuStatus.collect { updateShizukuAction() }
                 }
                 launch {
-                    ControlledHostManager.keepAliveStatus.collect {
-                        tvKeepAliveStatus.text = it.ifBlank { KeepAliveInjector.statusText() }
+                    connectionManager.settings.collect { settings ->
+                        suppressKeepAliveListener = true
+                        switchFloatingKeepAlive.isChecked = settings.floatingKeepAlive
+                        suppressKeepAliveListener = false
+                        if (!settings.floatingKeepAlive) FloatingKeepAlive.stop()
                     }
                 }
                 launch {

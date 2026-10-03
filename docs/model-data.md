@@ -56,7 +56,7 @@ flowchart TB
 | 物理手柄 | `controllerDriver`、`inputControllerIndex` |
 | 音频 | `voiceCoilDevice(Connected)`、`swapVoiceCoilMotors`、`controllerAudioDevice` |
 | 外观 | `bg*/btn*/joy*/tp*/dpadPad*` 的颜色/填充/描边/图片路径、`iconMaxSize`、`ledBoundColors` |
-| 杂项 | `keepScreenOn`、`floatingOpacity`、`autoStartEnabled` |
+| 杂项 | `keepScreenOn`、`floatingOpacity`、`floatingKeepAlive`、`autoStartEnabled` |
 
 #### 双态设置（连接/未连接）
 

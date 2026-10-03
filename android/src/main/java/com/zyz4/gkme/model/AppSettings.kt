@@ -253,6 +253,8 @@ data class AppSettings(
     /** Opacity (0-100) applied to all floating-mode buttons (multiplied with each button's
      *  own idle/active opacity). */
     val floatingOpacity: Int = 50,
+    /** 被控端是否启用「悬浮窗保活」（挂一个透明 1×1 悬浮窗降低后台被杀概率）。 */
+    val floatingKeepAlive: Boolean = false,
     // Disconnected state
     val controllerGyroEnabled: Boolean = false,
     // Connected state

@@ -68,10 +68,6 @@ object ControlledHostManager {
     private val _shizukuStatus = MutableStateFlow("")
     val shizukuStatus: StateFlow<String> = _shizukuStatus.asStateFlow()
 
-    /** Shizuku 增强保活（Doze 白名单 + 待机桶 active）的当前状态，供界面展示。 */
-    private val _keepAliveStatus = MutableStateFlow("")
-    val keepAliveStatus: StateFlow<String> = _keepAliveStatus.asStateFlow()
-
     private val deviceMap = ConcurrentHashMap<String, ControlledDevice>()
     private val sockets = mutableListOf<DatagramSocket>()
     private val jobs = mutableListOf<Job>()
@@ -122,7 +118,6 @@ object ControlledHostManager {
         jobs += s.launch { pruneLoop() }
         jobs += s.launch { watchdogLoop() }
         updateShizukuStatus()
-        _keepAliveStatus.value = KeepAliveInjector.statusText()
     }
 
     fun stop() {
@@ -449,9 +444,6 @@ object ControlledHostManager {
             // 手柄用户服务未连上时兜底重试，保证长时间连接失败也能触发状态提示。
             GamepadInjector.ensureBound()
             _shizukuStatus.value = GamepadInjector.statusText()
-            // 保活若尚未生效（Shizuku 刚授权/服务刚连上），在这里兜底重试并刷新状态。
-            KeepAliveInjector.ensureActive()
-            _keepAliveStatus.value = KeepAliveInjector.statusText()
             delay(1000.milliseconds)
         }
     }
