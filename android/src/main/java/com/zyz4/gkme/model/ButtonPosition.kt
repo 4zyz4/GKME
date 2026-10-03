@@ -23,6 +23,8 @@ data class ButtonPosition(
     // 中心形状：SQUARE = 方形中心，CIRCLE = 圆形中心（周围区域变径向扇环）
     val centerShape: CenterShape = CenterShape.SQUARE,
     val sensitivityCurve: List<Float>? = null,
+    // 摇杆灵敏度百分比 (10-300)，100 = 手指位移与输出距离 1:1；在死区之前应用
+    val joystickSensitivity: Int = 100,
     val deadZone: Int = 0,
     val reverseDeadZone: Int = 0,
     // 不透明度百分比 (0-100)，100 = 完全不透明

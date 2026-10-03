@@ -1030,6 +1030,12 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
             val curveH = (200f * density).toInt()
 
+            val btnSensSeekbar = createSimpleSeekbar("灵敏度(%)", button.joystickSensitivity, 10, 300, { value ->
+                currentButton = currentButton?.copy(joystickSensitivity = value)
+                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+            })
+            buttonParamsInner.addView(btnSensSeekbar)
+
             var resolvedDeadZone = button.deadZone
             var resolvedReverseDeadZone = button.reverseDeadZone
 

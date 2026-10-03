@@ -252,7 +252,7 @@ Activity **不直接改 ViewModel 内部状态**：
 | `view/PresetPreviewView.kt` | 预设图形预览 |
 
 `FloatingEditorPanel.populateParameterViews` 按控件类型构建参数：通用尺寸/旋转/透明度/重叠/陀螺激活/
-自动保持；摇杆矩形跟随、死区/反死区、灵敏度曲线；触摸板扩展范围；鼠标板 7 个手势动作 +
+自动保持；摇杆矩形跟随、灵敏度、死区/反死区、灵敏度曲线；触摸板扩展范围；鼠标板 7 个手势动作 +
 灵敏度/滑动判定/滚动灵敏度/指针加速度/滚动反转；`dpadPad`/`customKeypad` 中心形状、方向模式、
 每区域文本与映射；自定义按钮文本 + 映射键值。
 
