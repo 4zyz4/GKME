@@ -1632,17 +1632,19 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                 override fun afterTextChanged(s: Editable?) {
-                    val texts = ButtonPosition.keypadTextsOf(cb).toMutableList()
+                    val latest = currentButton ?: cb
+                    val texts = ButtonPosition.keypadTextsOf(latest).toMutableList()
                     texts[regionFinal] = s.toString()
-                    currentButton = cb.copy(keypadTexts = texts)
+                    currentButton = latest.copy(keypadTexts = texts)
                     currentButton?.let { editorListener?.onButtonUpdated(id, it) }
                 }
             })
             setOnFocusChangeListener { _, hasFocus ->
                 if (!hasFocus) {
-                    val texts = ButtonPosition.keypadTextsOf(cb).toMutableList()
+                    val latest = currentButton ?: cb
+                    val texts = ButtonPosition.keypadTextsOf(latest).toMutableList()
                     texts[regionIdx] = text.toString()
-                    currentButton = cb.copy(keypadTexts = texts)
+                    currentButton = latest.copy(keypadTexts = texts)
                     currentButton?.let { editorListener?.onButtonUpdated(id, it) }
                 }
             }
