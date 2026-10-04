@@ -231,7 +231,7 @@ data class AppSettings(
     /** 手机马达是否使用 RichTap 高清震动（通过 Shizuku 用户服务调用隐藏 API）。 */
     val hdVibrationEnabled: Boolean = true,
     /** Actuator that receives PC adaptive-trigger effects while no physical controller is connected. */
-    val adaptiveTriggerDevice: AdaptiveTriggerDevice = AdaptiveTriggerDevice.NONE,
+    val adaptiveTriggerDevice: AdaptiveTriggerDevice = AdaptiveTriggerDevice.PHONE_MOTOR,
     /** Adaptive-trigger target used while a physical controller is connected. */
     val adaptiveTriggerDeviceConnected: AdaptiveTriggerDevice = AdaptiveTriggerDevice.controllerTrigger(0),
     /** Swaps the left/right output channels of the adaptive-trigger effect. */
