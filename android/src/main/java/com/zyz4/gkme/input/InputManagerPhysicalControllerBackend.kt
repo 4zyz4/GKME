@@ -343,9 +343,9 @@ class InputManagerPhysicalControllerBackend(private val context: Context) : Phys
             val manager = device.sensorManager ?: return
             val gyro = manager.getDefaultSensor(Sensor.TYPE_GYROSCOPE) ?: return
             val accel = manager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-            manager.registerListener(sensorListener, gyro, SensorManager.SENSOR_DELAY_GAME)
+            manager.registerListener(sensorListener, gyro, SensorManager.SENSOR_DELAY_FASTEST)
             if (accel != null) {
-                manager.registerListener(sensorListener, accel, SensorManager.SENSOR_DELAY_GAME)
+                manager.registerListener(sensorListener, accel, SensorManager.SENSOR_DELAY_FASTEST)
             }
             sensorManager = manager
             controllerHasGyro = true
