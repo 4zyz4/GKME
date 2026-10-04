@@ -136,23 +136,27 @@ flowchart TB
   满块后 `startEffect(json, AUDIO)`。
 - **看门狗**（`GkmeAudioHdWatchdog`，50ms）：距上次有效输出 ≥`AUDIO_RELEASE_MS=120ms` 且 owner 是 AUDIO 时，
   先冲刷未投递块；若无冲刷则释放优先级并停止。优先级非粘性。
-- **事件衔接跨接淡入** `SEAM_FADE_MS=EVENT_MS/3`（≈33ms）：每个事件的首控制点从**上一控制点电平**
-  （首事件为上一分块收尾，其后为上一事件收尾）线性过渡到当前测量值，消除事件内部与分块之间
-  由独立 `startEffect()`（type1 内部 `stop()+start()`）造成的幅度/频率跳变（“咚”）。
-  取代早期 `SEAM_BOOST=1.3`（抬升首点会在边界产生过冲）。
+- **分块换块不再 `stop()`**：`RemoteHapticService.startTencentEffect` 直接 `start()` 新效果接管当前
+  track。真机实测 `stop()` 是**全局取消**（start 新效果后 stop 旧效果会连新的一起停），故只在整条流
+  真正结束时停一次。见 [richtap-hd-vibration.md §13](richtap-hd-vibration.md)。
 - 常量：`ONSET_ACCENT_MS=5`、`BURST_MS=8`。
 
 ### 2.2 PcmHeEncoder
 
 `haptic/PcmHeEncoder.kt`。把逐帧 `(amp01, HE)` 切成多事件 HE。
 
-- 默认 `eventsPerChunk=16, eventMs=200`，被 HdPcmStreamer 用 4/50 构造。
-- 每事件 `POINTS=4`（约 33ms 分辨率，匹配 LRA 机械时间常数）；桶内幅度取 `max(均值, 峰值×PEAK_MIX)`（`PEAK_MIX=0.85`），
+- 默认 `eventsPerChunk=16, eventMs=200`，被 HdPcmStreamer 用 2/100 构造。
+- 每事件 `POINTS=4`。**控制点时间必须聚到事件两端**（`0, 2, eventMs-2, eventMs`，`EDGE_POINT_MS=2`）：
+  真机实测均匀分布（`0, eventMs/3, 2eventMs/3, eventMs`）会让引擎给每个事件叠加约 25–30% 时长的
+  起振/衰减，造成事件边界掉幅；聚到两端则事件内部平直、相邻事件无缝。见
+  [richtap-hd-vibration.md §13](richtap-hd-vibration.md)。
+- 每个事件用**两个电平**（起点沿用上一事件收尾 = 跨分块连续，终点为本事件聚合电平），引擎在
+  控制点间线性过渡 → 事件内平滑、事件间无跳变。事件级幅度取 `max(均值, 峰值×PEAK_MIX)`（`PEAK_MIX=0.85`），
   保留攻击/峰值瞬态、避免被邻近平稳样本拉低（纯均值会使包络发闷）。
 - **真机硬约束**：单效果 ≤16 事件；每事件 Curve 必须恰好 4 点（否则 HAL `Invalid time param` 整条无输出）；
   单事件 ≤5000ms。见 [richtap-hd-vibration.md §9.2](richtap-hd-vibration.md)。
 - 基频钳制 `BASE_MIN=20..BASE_MAX=80`；曲线偏移钳制 `MAX_OFFSET=60`。
-- 每个控制点先按实际驱动 HE 做补偿，再 `amplitudeToCurve`；每个事件首控制点做 `seamFadeMs` 跨接淡入。
+- 每个控制点先按实际驱动 HE 做补偿，再 `amplitudeToCurve`（`edgePoint`）。
 - **额外脉冲**（统一为 `Pulse` 列表，经 `appendPulses` 追加，受 `MAX_EVENTS=16` 约束）：
   - 音量突增强调 `detectAccent`：`ONSET_DELTA=0.22`、`ONSET_MIN=0.25`、抑制窗 80ms。
   - 短促瞬态 `detectBurst` + 状态机：静音阈值 0.04、最小峰 0.06、上限 60ms、凹陷容限 40ms、
@@ -282,7 +286,7 @@ native 模式下空闲补 10ms 静音帧（见 [usb-drivers.md §4](usb-drivers.
 | 分块 | `EVENT_MS=100 × EVENTS_PER_CHUNK=2 = 200ms` |
 | AUDIO 活跃/释放 | 4 / 120ms |
 | 低频脉冲 | ratio 0.35、min 3ms、min period 4ms |
-| seam fade / accent / burst | 25ms / 5ms / 8ms |
+| 控制点内缩 / accent / burst | `EDGE_POINT_MS=2` / 5ms / 8ms |
 | 重投递 | 500ms 最小 / 3s 刷新 / 100ms tick |
 | 连续效果时长 | 4000ms |
 | 量化 | amp 16 级 / HE 4 级 |
@@ -309,7 +313,7 @@ native 模式下空闲补 10ms 静音帧（见 [usb-drivers.md §4](usb-drivers.
 1. type2 `RichTapPerformer` 完整实现（`RichTapRawCodec`、`HeJson`、`RemoteHapticService.tryInitType2`）。
 2. 实时调参 `updateParameter` / `supportsRealtimeAdjustment` / AIDL 事务 7、8。
 3. 优先级仲裁（`HapticSource` / `HapticArbiter` / `HdPcmStreamer` 音频租约看门狗）。
-4. 分块边界跨接淡入 `SEAM_FADE_MS`（取代早期 `SEAM_BOOST=1.3` 的过冲）。
+4. 控制点聚两端（`EDGE_POINT_MS=2`）+ 分块无 `stop()` 链接（取代早年 `SEAM_BOOST` / `SEAM_FADE_MS`）。
 5. 音量突增强调 `ONSET_ACCENT_MS=5`。
 6. 基频钳制与曲线偏移钳制。
 7. 预置效果资源加载 `RichTapPrebaked` + `richtap_prebaked.json`。
@@ -335,7 +339,7 @@ native 模式下空闲补 10ms 静音帧（见 [usb-drivers.md §4](usb-drivers.
 | [已修复] 被高优先级占用时 `HdPcmStreamer.resetBuffer()` 直接丢缓冲，解禁后损失约 0.2s（改为限时保留） | `HdPcmStreamer.kt:119-124` |
 | [已修复] 主线程卡顿 >40ms 时真实流逝时间被 `MAX_DT_MS` 截断，时间轴压缩/滞后（文档原表述为"跳桶"，已更正） | `HdPcmStreamer.kt:60-64,137,162` |
 | [已修复] `EVENT_MS=50` 时 LRA 未起振、主频被拉向共振（真机加速度计：HE56 实测 ~179Hz）；改为 100ms 后 170Hz | `HdPcmStreamer.kt:38-52` |
-| `Q`、`MAX_FREQ_COMPENSATION`、`SEAM_FADE_MS`、`ONSET_*`、`BURST_*` 建议按真机手感标定 | 各文件 |
+| `Q`、`MAX_FREQ_COMPENSATION`、`EDGE_POINT_MS`、`ONSET_*`、`BURST_*` 建议按真机手感标定 | 各文件 |
 | `HdPcmStreamer`/`PhoneHdHaptics`/`RemoteHapticService`/`haptic_native.c` 无 JVM 测试 | 依赖设备/USB |
 
 ### 9.1 HyperOS 后台震动策略与 app 进程内 RichTap（已修复）

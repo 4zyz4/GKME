@@ -11,24 +11,21 @@ import kotlin.math.roundToInt
  *   并使整条效果无输出）；
  * - 单个事件时长 ≤ 5000ms。
  *
- * 因此这里把时间轴切成 [eventsPerChunk] 个 [eventMs] 长的事件，每个事件内压成 4 个控制点
- * （幅度取桶内均值、频率相对事件基频给偏移），段与段由引擎内部调度，没有 stop+start 凹陷。
+ * 因此这里把时间轴切成 [eventsPerChunk] 个 [eventMs] 长的事件，每个事件压成 4 个控制点。
  *
- * 纯 JVM 代码，便于单测。
+ * **控制点时间必须聚到事件两端**（`0, ε, eventMs-ε, eventMs`）而不是均匀分布
+ * （`0, eventMs/3, 2eventMs/3, eventMs`）。真机加速度计实测：均匀分布时厂商引擎会给
+ * 每个事件叠加一段**与其时长成比例的平滑起振/衰减**（约 25–30% 时长），于是每个事件边界
+ * 都出现明显掉幅（200ms 事件约 45ms 下陷、500ms 约 140ms、4000ms 约 1.2s 缓慢升降）；
+ * 而把控制点聚到两端后，事件内部保持平直、相邻事件无缝衔接（16×100ms 单条效果经加速度计
+ * 测得包络 0.97–1.01，完全连续）。见 `docs/richtap-hd-vibration.md` §13。
+ *
+ * 每个事件用**两个电平**（事件起点沿用上一事件收尾电平、终点为本事件聚合电平）线性过渡，
+ * 因此整条效果是一条连续的分段线性包络，事件间无跳变。纯 JVM 代码，便于单测。
  */
 class PcmHeEncoder(
     private val eventsPerChunk: Int = 16,
     private val eventMs: Int = 200,
-    /**
-     * 事件衔接处**跨接淡入**时长（ms）：每个事件的第 0 个控制点从**上一控制点电平**
-     * （首事件为上一分块收尾，其后为上一事件收尾）线性过渡到当前测量值。这样无论事件内部
-     * 衔接，还是分块之间由独立 `startEffect()`（type1 内部 `stop()+start()`）造成的边界，
-     * 幅度/频率曲线都保持连续，消除机械跳变（“咚”）。
-     *
-     * 0 = 关闭（旧行为的硬衔接）。真机实测早期 `seamBoost`（抬升首点）会在边界产生过冲，
-     * 已由本项取代。
-     */
-    private val seamFadeMs: Int = 0,
     /**
      * 音量突增强调：检测到**突然增大**时，在对应时刻额外插入一条 [accentMs] 时长的
      * **满强度** `continuous` 事件（引擎内部调度，与常规事件可重叠），让 LRA 强震一下。
@@ -50,6 +47,12 @@ class PcmHeEncoder(
     private companion object {
         const val POINTS = 4
         const val MAX_OFFSET = 60.0
+
+        /**
+         * 事件两端控制点的内缩量（ms）：4 个控制点的时间放在 `0, ε, eventMs-ε, eventMs`。
+         * 真机实测 ε=1–2ms 时事件起振/衰减基本消失；取 1–4ms 内、且不超过事件时长的 1/4。
+         */
+        const val EDGE_POINT_MS = 2
         const val BASE_MIN = 20
         const val BASE_MAX = 80
 
@@ -294,60 +297,69 @@ class PcmHeEncoder(
 
     private fun build(eventCount: Int = eventsPerChunk): String {
         val events = ArrayList<RichTapHe.Event>(eventCount)
-        // 首事件从上一分块的收尾电平起，跨界（[seamAmp] / [seamHe]）连续。
-        val fade = seamFadeMs > 0
-        var lastAmp = if (fade) seamAmp else 0.0
-        var lastHe = if (fade) seamHe else RichTapFrequency.HE_AT_RESONANCE.toDouble()
+        // 首事件从上一分块的收尾电平起（[seamAmp]/[seamHe]，[reset] 会保留），跨界连续。
+        var lastAmp = seamAmp
+        var lastHe = seamHe
         for (e in 0 until eventCount) {
+            // 事件级聚合：均值与峰值保持的较大者（[PEAK_MIX]）。
+            var ampMeanSum = 0.0
+            var ampPeak = 0.0
             var heAll = 0.0
             var cAll = 0
-            for (p in 0 until POINTS) { heAll += heSum[e][p]; cAll += count[e][p] }
-            val base = if (cAll > 0) {
-                (heAll / cAll).roundToInt().coerceIn(BASE_MIN, BASE_MAX)
-            } else {
-                lastHe.roundToInt().coerceIn(BASE_MIN, BASE_MAX)
-            }
-            val points = ArrayList<RichTapHe.CurvePoint>(POINTS)
             for (p in 0 until POINTS) {
-                val time = p * eventMs / (POINTS - 1)
-                val measuredAmp: Double
-                val measuredHe: Double
-                if (count[e][p] > 0) {
-                    val mean = ampSum[e][p] / count[e][p]
-                    val peak = ampMax[e][p] * PEAK_MIX
-                    measuredAmp = maxOf(mean, peak).toDouble()
-                    measuredHe = heSum[e][p] / count[e][p]
-                } else {
-                    // 空桶沿用上一控制点，保证曲线连续且始终 4 点。
-                    measuredAmp = lastAmp
-                    measuredHe = lastHe
-                }
-                // 跨接淡入：每个事件的首控制点从**上一控制点电平**（首事件为上一分块收尾，
-                // 其后为上一事件收尾）线性过渡到当前测量值，消除事件/分块衔接处的跳变。
-                val ramp = if (fade) seamFadeRamp(p) else 1.0
-                val startAmp = lastAmp
-                val startHe = lastHe
-                val amp = startAmp + (measuredAmp - startAmp) * ramp
-                val he = startHe + (measuredHe - startHe) * ramp
-                lastAmp = amp
-                lastHe = he
-                val offset = (he - base).coerceIn(-MAX_OFFSET, MAX_OFFSET)
-                // 幅度-频率补偿：该控制点的实际驱动频率 = 事件基频 + 曲线偏移，偏离谐振
-                // （HE 56）时抬升驱动幅度，使不同频率下的实际机械位移尽量一致。
-                val effHe = (base + offset).roundToInt().coerceIn(0, 100)
-                val target = RichTapEngine.compensateNormalized(amp, effHe)
-                // 引擎把曲线强度按次方律 (a = c·1.14^(10(c-1))) 转成驱动幅度，这里做逆变换，
-                // 使 LRA 的实际位移幅度线性跟随原 PCM 的包络。
-                val intensity = RichTapEngine.amplitudeToCurve(target)
-                points.add(RichTapHe.CurvePoint(time, intensity, offset))
+                val c = count[e][p]
+                if (c <= 0) continue
+                ampMeanSum += ampSum[e][p]
+                ampPeak = maxOf(ampPeak, ampMax[e][p].toDouble() * PEAK_MIX)
+                heAll += heSum[e][p]
+                cAll += c
             }
+            val ampE: Double
+            val heE: Double
+            if (cAll > 0) {
+                ampE = maxOf(ampMeanSum / cAll, ampPeak)
+                heE = heAll / cAll
+            } else {
+                // 空事件：沿用上一事件电平，保证曲线连续且始终 4 点。
+                ampE = lastAmp
+                heE = lastHe
+            }
+            val base = heE.roundToInt().coerceIn(BASE_MIN, BASE_MAX)
+            val edge = (EDGE_POINT_MS).coerceIn(1, (eventMs / 4).coerceAtLeast(1))
+            // 控制点聚到事件两端：0/ε 用上一事件收尾电平（起点连续），
+            // `eventMs-ε`/`eventMs` 用本事件聚合电平；引擎在两点间线性过渡 → 事件内也平滑。
+            val points = ArrayList<RichTapHe.CurvePoint>(POINTS)
+            points.add(edgePoint(0, lastAmp, lastHe, base, eventMs))
+            points.add(edgePoint(edge, lastAmp, lastHe, base, eventMs))
+            points.add(edgePoint(eventMs - edge, ampE, heE, base, eventMs))
+            points.add(edgePoint(eventMs, ampE, heE, base, eventMs))
             events.add(RichTapHe.Event(e * eventMs, eventMs, base, points))
+            lastAmp = ampE
+            lastHe = heE
         }
         // 保存本分块收尾电平，供下一分块跨接（[reset] 会保留）。
         seamAmp = lastAmp
         seamHe = lastHe
         appendPulses(events, eventCount)
         return RichTapHe.pattern(events)
+    }
+
+    /** 生成一个控制点：频率偏移相对事件基频 [base]，幅度-频率补偿后再走引擎的次方律逆变换。 */
+    private fun edgePoint(
+        time: Int,
+        amp: Double,
+        he: Double,
+        base: Int,
+        eventMs: Int,
+    ): RichTapHe.CurvePoint {
+        val offset = (he - base).coerceIn(-MAX_OFFSET, MAX_OFFSET)
+        // 幅度-频率补偿：实际驱动频率 = 事件基频 + 曲线偏移，偏离谐振（HE 56）时抬升驱动幅度。
+        val effHe = (base + offset).roundToInt().coerceIn(0, 100)
+        val target = RichTapEngine.compensateNormalized(amp, effHe)
+        // 引擎把曲线强度按次方律 (a = c·1.14^(10(c-1))) 转成驱动幅度，这里做逆变换，
+        // 使 LRA 的实际位移幅度线性跟随原 PCM 的包络。
+        val intensity = RichTapEngine.amplitudeToCurve(target)
+        return RichTapHe.CurvePoint(time.coerceIn(0, eventMs), intensity, offset)
     }
 
     /**
@@ -361,22 +373,16 @@ class PcmHeEncoder(
             if (pulse.timeMs < 0 || pulse.timeMs >= maxTime) continue
             if (events.size >= MAX_EVENTS) break
             val dur = pulse.durationMs.coerceAtLeast(1)
-            val pts = ArrayList<RichTapHe.CurvePoint>(POINTS)
-            for (p in 0 until POINTS) {
-                pts.add(RichTapHe.CurvePoint(p * dur / (POINTS - 1), pulse.intensity, 0.0))
-            }
+            // 控制点同样聚到两端，避免短脉冲被引擎加上成比例的起振/衰减。
+            val edge = EDGE_POINT_MS.coerceIn(1, (dur / 4).coerceAtLeast(1))
+            val pts = listOf(
+                RichTapHe.CurvePoint(0, pulse.intensity, 0.0),
+                RichTapHe.CurvePoint(edge, pulse.intensity, 0.0),
+                RichTapHe.CurvePoint(dur - edge, pulse.intensity, 0.0),
+                RichTapHe.CurvePoint(dur, pulse.intensity, 0.0),
+            )
             events.add(RichTapHe.Event(pulse.timeMs, dur, RichTapFrequency.HE_AT_RESONANCE, pts))
         }
         events.sortBy { it.relativeTimeMs }
-    }
-
-    /**
-     * 事件第 [p] 个控制点的跨接淡入比例：p=0 为 0（完全沿用上一控制点电平），
-     * 在 [seamFadeMs] 内线性升到 1（完全跟随当前测量值）。
-     */
-    private fun seamFadeRamp(p: Int): Double {
-        if (seamFadeMs <= 0) return 1.0
-        val t = p.toDouble() * eventMs / (POINTS - 1)
-        return (t / seamFadeMs).coerceIn(0.0, 1.0)
     }
 }

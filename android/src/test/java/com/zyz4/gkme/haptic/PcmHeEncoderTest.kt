@@ -84,42 +84,48 @@ class PcmHeEncoderTest {
     }
 
     @Test
-    fun seamFadeStartsFromPreviousChunkTail() {
-        // 第一块稳定 0.8，第二块稳定 0.2；开启跨接后第二块首点应从 0.8 淡入到 0.2。
-        fun secondChunkHead(fadeMs: Int): List<Double> {
-            val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50, seamFadeMs = fadeMs)
+    fun firstEventPointsClusterAtEdges() {
+        val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50)
+        enc.addSample(10, 0.6f, 70)
+        val json = enc.flush()!!
+        val times = Regex("\"Time\":(\\d+)").findAll(json).map { it.groupValues[1].toInt() }.toList()
+        // 控制点必须聚到两端：0, ε, eventMs-ε, eventMs（ε=2, eventMs=50）。
+        assertEquals(listOf(0, 2, 48, 50), times)
+    }
+
+    @Test
+    fun chunkSeamStartsFromPreviousChunkTail() {
+        // 第一块稳定 0.8，第二块稳定 0.2；第二块首个事件的起点电平应沿用上一块收尾 0.8，
+        // 末点回落到当前 0.2，事件间连续、无边界跳变。
+        fun secondChunkIntensities(): List<Double> {
+            val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50)
             for (i in 0 until 20) enc.addSample(10, 0.8f, 56)
             enc.flush()
             for (i in 0 until 20) enc.addSample(10, 0.2f, 56)
-            val json = enc.flush()!!
             // values[0]=Parameters.Intensity(100)，values[1..4]=各控制点曲线强度。
-            return Regex("\"Intensity\":([0-9.]+)").findAll(json)
+            return Regex("\"Intensity\":([0-9.]+)").findAll(enc.flush()!!)
                 .map { it.groupValues[1].toDouble() }.toList()
         }
-        val withFade = secondChunkHead(50)
-        val noFade = secondChunkHead(0)
+        val vals = secondChunkIntensities()
         val tail08 = RichTapEngine.amplitudeToCurve(0.8)
         val target02 = RichTapEngine.amplitudeToCurve(0.2)
-        // 无跨接：首点直接跟随当前值 0.2。
-        assertEquals("无跨接首点应跟随当前值", target02, noFade[1], 0.02)
-        // 有跨接：首点从上一分块收尾电平 0.8 起（高于 0.2），末点回落到 0.2。
-        assertEquals("跨接首点应从 0.8 起", tail08, withFade[1], 0.02)
-        assertEquals("跨接末点应回到 0.2", target02, withFade[4], 0.02)
-        assertTrue("跨接首点应明显高于无跨接", withFade[1] > noFade[1] + 0.05)
+        assertEquals("首点应从上一分块收尾 0.8 起", tail08, vals[1], 0.02)
+        assertEquals("第二点应与首点一致（两端聚集）", tail08, vals[2], 0.02)
+        assertEquals("末点应回落到当前 0.2", target02, vals[4], 0.02)
+        assertTrue("首点应明显高于末点", vals[1] > vals[4] + 0.05)
     }
 
     @Test
     fun resetStreamClearsSeam() {
-        val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50, seamFadeMs = 50)
+        val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50)
         for (i in 0 until 20) enc.addSample(10, 0.8f, 56)
         enc.flush()
         enc.resetStream() // 整条流停止后，跨接状态清零
         for (i in 0 until 20) enc.addSample(10, 0.2f, 56)
-        val json = enc.flush()!!
-        val intensities = Regex("\"Intensity\":([0-9.]+)").findAll(json)
+        val intensities = Regex("\"Intensity\":([0-9.]+)").findAll(enc.flush()!!)
             .map { it.groupValues[1].toDouble() }.toList()
-        // 流复位后首点从 0 淡入（而非陈旧的 0.8），末点回到当前值 0.2。
-        assertEquals("流复位后首点应从 0 淡入", 0.0, intensities[1], 0.02)
+        // 流复位后起点电平从 0（静音）起（而非陈旧的 0.8），末点回到当前值 0.2。
+        assertEquals("流复位后起点应为 0", 0.0, intensities[1], 0.02)
         assertEquals(
             "末点应回到当前值",
             RichTapEngine.amplitudeToCurve(0.2), intensities[4], 0.02,
@@ -235,11 +241,12 @@ class PcmHeEncoderTest {
         enc.addSample(1, 0.9f, 56)
         val intensities = Regex("\"Intensity\":([0-9.]+)").findAll(enc.flush()!!)
             .map { it.groupValues[1].toDouble() }.toList()
-        // values[0] 是 Parameters.Intensity(=100)，values[1] 是首控制点曲线强度。
+        // values[0]=Parameters.Intensity(=100)，values[1..4]=4 个控制点；事件起点电平为首点
+        // （此处从静音 0 起），事件聚合电平在末点 values[3]/values[4]。
         val meanCurve = RichTapEngine.amplitudeToCurve(0.5)
         assertTrue(
-            "峰值保持应高于桶内均值: ${intensities[1]} > $meanCurve",
-            intensities[1] > meanCurve,
+            "峰值保持应高于桶内均值: ${intensities[4]} > $meanCurve",
+            intensities[4] > meanCurve,
         )
     }
 
