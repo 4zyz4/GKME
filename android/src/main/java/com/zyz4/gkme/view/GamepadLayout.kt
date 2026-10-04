@@ -140,9 +140,21 @@ class GamepadLayout @JvmOverloads constructor(
     var hasChanges = false
         private set
 
-    // Button pressed state for active/idle opacity
+    // Button pressed state for active/idle opacity. Updating them refreshes
+    // each control's alpha immediately (no full layout), so the active opacity
+    // takes effect while a button is held.
     var _gamepadButtons: UInt = 0u
+        set(value) {
+            if (field == value) return
+            field = value
+            refreshButtonOpacity()
+        }
     var ctrlEntryBitMap: Map<String, Int> = emptyMap()
+        set(value) {
+            if (field == value) return
+            field = value
+            refreshButtonOpacity()
+        }
 
     var isAdjustingFollowArea = false
         private set
@@ -190,6 +202,23 @@ class GamepadLayout @JvmOverloads constructor(
         previewIdleOpacity = isIdle
         previewButtonId = if (previewing) buttonId else null
         requestLayout()
+    }
+
+    /** Applies idle/active alpha to state-driven controls when the gamepad button
+     *  state changes, without triggering a full layout. */
+    private fun refreshButtonOpacity() {
+        gamepadLayoutApplier.refreshButtonOpacity(
+            childCount = childCount,
+            getChildAt = { i -> getChildAt(i) },
+            getButtonId = ::getButtonId,
+            buttons = currentButtons.associateBy { it.id },
+            ctrlEntryBitMap = ctrlEntryBitMap,
+            pressedBits = _gamepadButtons,
+            isEditMode = isEditMode,
+            previewOpacity = previewOpacity,
+            previewButtonId = previewButtonId,
+            previewIdleOpacity = previewIdleOpacity,
+        )
     }
 
     /** Swipe-trigger state: tracks which buttons are currently pressed (buttonId -> child View) */
