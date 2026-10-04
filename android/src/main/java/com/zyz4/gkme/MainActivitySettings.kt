@@ -30,6 +30,7 @@ import com.zyz4.gkme.haptic.RichTapFrequency
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import android.widget.Button
@@ -1775,20 +1776,25 @@ internal fun MainActivity.checkBluetoothOnAndStart() {
 
 internal fun MainActivity.autoStartService() {
     val a = this
-    val s = a.viewModel.settings.value
-    if (!s.autoStartEnabled) return
-    // 被控端需要用户显式进入连接页面（并完成 Shizuku 授权），不自动启动。
-    if (s.connectionMode == ConnectionMode.WIFI && s.controlType == ControlType.CONTROLLED) return
-    // 本机模式需要 Shizuku 授权并进入悬浮模式，由用户点击“启动服务”触发。
-    if (s.connectionMode == ConnectionMode.LOCAL) return
-    if (s.connectionMode == ConnectionMode.BLUETOOTH) {
-        // 应用启动时不申请蓝牙权限：未授权则跳过自动启动，等用户点击“启动服务”时再按需申请。
-        if (!a.hasBluetoothRuntimePermissions()) return
-        a.checkBluetoothOnAndStart()
-    } else if (s.connectionMode == ConnectionMode.USB) {
-        a.checkUsbAdbAndStart()
-    } else {
-        a.viewModel.startServer()
+    // ConnectionManager 异步加载持久化设置：加载完成前 settings 仍是默认值
+    // （autoStartEnabled=false），同步读取会误判为未开启，故必须等待加载完成。
+    a.lifecycleScope.launch {
+        a.viewModel.connectionManager.settingsLoaded.first { it }
+        val s = a.viewModel.settings.value
+        if (!s.autoStartEnabled) return@launch
+        // 被控端需要用户显式进入连接页面（并完成 Shizuku 授权），不自动启动。
+        if (s.connectionMode == ConnectionMode.WIFI && s.controlType == ControlType.CONTROLLED) return@launch
+        // 本机模式需要 Shizuku 授权并进入悬浮模式，由用户点击“启动服务”触发。
+        if (s.connectionMode == ConnectionMode.LOCAL) return@launch
+        if (s.connectionMode == ConnectionMode.BLUETOOTH) {
+            // 应用启动时不申请蓝牙权限：未授权则跳过自动启动，等用户点击“启动服务”时再按需申请。
+            if (!a.hasBluetoothRuntimePermissions()) return@launch
+            a.checkBluetoothOnAndStart()
+        } else if (s.connectionMode == ConnectionMode.USB) {
+            a.checkUsbAdbAndStart()
+        } else {
+            a.viewModel.startServer()
+        }
     }
 }
 
