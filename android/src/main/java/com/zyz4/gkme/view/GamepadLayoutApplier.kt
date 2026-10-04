@@ -153,6 +153,43 @@ class GamepadLayoutApplier {
         }
     }
 
+    /**
+     * Re-applies idle/active opacity in place, without running a full layout.
+     *
+     * Controls whose alpha is managed by their own touch handling (joysticks,
+     * dpad pads, keypads, linear triggers, touchpads) are skipped, since their
+     * gamepad-button transitions would otherwise clobber the alpha they set on
+     * touch.
+     */
+    fun refreshButtonOpacity(
+        childCount: Int,
+        getChildAt: (index: Int) -> View,
+        getButtonId: (View) -> String?,
+        buttons: Map<String, ButtonPosition>,
+        ctrlEntryBitMap: Map<String, Int>,
+        pressedBits: UInt,
+        isEditMode: Boolean,
+        previewOpacity: Boolean,
+        previewButtonId: String?,
+        previewIdleOpacity: Boolean,
+    ) {
+        for (i in 0 until childCount) {
+            val child = getChildAt(i)
+            val id = getButtonId(child) ?: continue
+            if (managesOwnOpacity(id, child)) continue
+            val pos = buttons[id] ?: continue
+            if (!pos.visible) continue
+            applyChildOpacity(
+                child, pos, ctrlEntryBitMap, pressedBits, isEditMode,
+                previewOpacity, previewButtonId, previewIdleOpacity, null,
+            )
+        }
+    }
+
+    private fun managesOwnOpacity(id: String, child: View): Boolean =
+        child is JoystickView || child is DpadPadView || child is CustomKeypadView ||
+            child is LinearTriggerView || id.startsWith("touchpad") || id.startsWith("mousepad")
+
     private fun applyChildOpacity(
         child: View,
         pos: ButtonPosition,
