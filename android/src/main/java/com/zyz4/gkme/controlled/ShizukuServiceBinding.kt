@@ -148,7 +148,7 @@ class ShizukuServiceBinding(
                 .daemon(daemon)
                 .processNameSuffix(processNameSuffix)
                 .debuggable(false)
-                .version(1)
+                .version(2)
                 .tag(tag)
 
             Shizuku.addBinderReceivedListenerSticky(binderReceivedListener)

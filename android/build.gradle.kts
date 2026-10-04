@@ -65,6 +65,10 @@ android {
 dependencies {
     implementation(files("libs/SDL3-3.4.16.aar"))
 
+    // RichTap ASDK：仅用于让 AAR 的 AndroidManifest 合并 <uses-library name="richtap-api">，
+    // 从而在 app 进程获得 RichTap 隐藏 API 访问权；代码不调用该 SDK。
+    implementation(files("libs/RichTap_ASDK_2.2.0.aar"))
+
     implementation("androidx.activity:activity-ktx:1.9.3")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")

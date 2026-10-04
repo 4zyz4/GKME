@@ -274,6 +274,24 @@ dumpsys：`usage: MEDIA | com.android.shell | reason: DynamicEffect`。
   - 方案②：App 内用反射调用 `android.os.DynamicEffect`/`HapticPlayer`，**需先做 hidden-API 豁免**（`VMRuntime.setHiddenApiExemptions` 等，本身也是隐藏 API，常规做法是用 `Unsafe` 绕过），并保证 `mPackageName` 有值（App 内天然有包名，无需手动设）。
   - 方案③：把这套驱动放进一个 **Shizuku user service**（以 shell 身份运行）里，由 App 通过 Shizuku 调用——与 GKME 现有 uinput 方案一致，且 shell 身份可直调隐藏 API。
 
+> **实测结论（HyperOS，本机仅 type1）**：方案③ 在这台 ROM 上**不震**。原因是系统把 shell(uid 2000)
+> 后台进程的 `DynamicEffect` 判为 `ignored_background` 丢弃（详见 §5.1.1）。最终采用**方案①+②的混合**：
+> 集成 RichTap AAR 以获得 `richtap-api` 共享库声明（`<uses-library>`，从而拿到隐藏 API 访问权），
+> 但**不调用 SDK**，而是把 `RemoteHapticService` 的反射逻辑直接跑在 **app 进程内**（前台 uid），
+> Shizuku 退居回退路径。
+
+#### 5.1.1 HyperOS 的 `ignored_background` 策略（关键坑）
+
+从 shell(uid 2000) 下发时：
+```
+dumpsys vibrator_manager → effect | ignored_background | usage: MEDIA | com.android.shell (uid=2000) | reason: DynamicEffect | played: null
+```
+- 状态是 `ignored_background`，即**系统收到但按调用方 uid 丢弃**；`mEffects` 有效、无异常，纯探针同样被忽略。
+- 判定按 **调用方 uid**，不是 `mPackageName`（把它设成 app 包名，dumpsys 仍显示 uid 2000）。
+- 搬到 app 进程（前台 uid）后状态变为 `running`，正常震动。
+- app 进程内 `android.os.HapticPlayer` 的 `mPackageName` 字段是 hidden API `blocked`，`getDeclaredField`
+  直接抛异常——但 app 内厂商构造函数会自动填包名，因此**跳过该字段**即可。
+
 ### 5.2 待实现模块
 1. **HE2.0→HE1.0 转换器**：把 `Car Ignite.he` 这类真实效果的曲线裁成 4 点、`PatternList`→`Pattern`。
 2. **参数映射**：

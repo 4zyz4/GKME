@@ -33,6 +33,12 @@
         android:theme="@style/Theme.GKME"
         android:icon="@mipmap/icon">
 
+        <!-- RichTap：声明该共享库后，ROM 允许 app 进程直接访问 RichTap 隐藏 API
+             （android.os.HapticPlayer / DynamicEffect），从而在前台 uid 下下发 HD 震动。 -->
+        <uses-library
+            android:name="richtap-api"
+            android:required="false" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
