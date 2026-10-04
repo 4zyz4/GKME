@@ -6,8 +6,13 @@ $wd = "$env:TEMP\opencode\haptic\out_$Class"
 Remove-Item -Recurse -Force $wd -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path $wd | Out-Null
 javac --release 8 -nowarn -cp "$aj" -d $wd $src
-if (-not $?) { exit 1 }
-& $d8 --release --lib "$aj" --output $wd "$wd\$Class.class"
+# 注意：`javac` 在 JDK 9+ 会向 stderr 打印 “源值 8 已过时” 警告并令 `$?` 为 false，
+# 但编译其实成功；因此不要用 `if (-not $?) { exit }` 判失败，改为检查产物。
+$cls = Get-ChildItem "$wd\*.class" | ForEach-Object { $_.FullName }
+if (-not $cls) { Write-Error "javac failed"; exit 1 }
+# 必须把**全部** .class（含匿名内部类 `Foo$1.class`）交给 d8，否则运行时报
+# `NoClassDefFoundError: LFoo$1`。
+& $d8 --release --lib "$aj" --output $wd $cls
 if (-not (Test-Path "$wd\classes.dex")) { Write-Error "dex build failed"; exit 1 }
 $jarPath = "$wd\$Jar"
 Add-Type -AssemblyName System.IO.Compression

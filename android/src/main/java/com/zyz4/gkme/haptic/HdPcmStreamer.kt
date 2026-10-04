@@ -8,15 +8,18 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * 把语音线圈 PCM 的逐帧音高/幅度编码成 **HE 1.0 多事件分块效果**，从手机马达“近乎无损”地还原。
  *
- * 背景（真机实测，见 docs/richtap-hd-vibration.md）：
- * - 反复 `stop()+start()` 分段投递会在每次切换处掉幅（原 SEGMENT_MS=500 的实现）；
- * - 单条 `DynamicEffect` 支持多个 `continuous` 事件，由引擎内部调度，段间无切换凹陷；
- * - 但单条效果最多 **16 个事件**，每个事件的 `Curve` 必须 **恰好 4 点**，单事件 ≤5000ms。
+ * 背景（真机加速度计实测，见 docs/richtap-hd-vibration.md §13）：
+ * - `stop()+start()` 分段投递在每次切换处掉幅，且 `stop()` 是**全局取消**（停旧会连新一起停）；
+ * - 单条 `DynamicEffect` 支持多个 `continuous` 事件，但**每个事件边界都会掉幅**——除非把每个
+ *   事件的控制点**聚到两端**（`0, ε, eventMs-ε, eventMs`）；均匀分布的控制点会被引擎加上一段
+ *   与其时长成比例的起振/衰减（约 25–30%），造成明显断点；
+ * - 单条效果最多 **16 个事件**，每个事件的 `Curve` 必须 **恰好 4 点**，单事件 ≤5000ms。
  *
  * 因此这里按 [EVENT_MS] 切事件、[EVENTS_PER_CHUNK] 个事件合成一条效果（约 0.2s），
- * 每帧的（幅度, HE 频率）写进对应事件的控制点桶，凑满一块后再通过
- * [HapticInjector.startEffect] 以“效果自身参数”投递（无参 `start()`，避免全局
- * amplitude/freq 覆盖事件参数）。
+ * 每帧的（幅度, HE 频率）写进对应事件，凑满一块后再通过 [HapticInjector.startEffect]
+ * 以“效果自身参数”投递（无参 `start()`，避免全局 amplitude/freq 覆盖事件参数）。
+ * 分块之间**不再 `stop()`**（见 `RemoteHapticService.startTencentEffect`）：新效果直接接管，
+ * 配合边缘化控制点实现无断点衔接。
  *
  * 关键点：
  * - **静音时冲刷**（而不是直接丢弃）已累积的分块，短促音效也能出声；
@@ -36,20 +39,21 @@ import java.util.concurrent.atomic.AtomicBoolean
 object HdPcmStreamer {
 
     /**
-     * 每个事件的时长（ms）。4 个控制点即约 [EVENT_MS]/3 ≈ 33ms 分辨率。
+     * 每个事件的时长（ms），也是包络的时间分辨率。
      *
      * **真机（加速度计）实测**：事件时长 [EVENT_MS]=50ms 时 LRA 来不及起振到位，主频被拉向
      * 机身共振（HE56 目标 170Hz 实测 ~179Hz）且输出明显偏弱；[EVENT_MS]≥100ms 时主频准确
-     * （170.0Hz）。LRA 机械时间常数约 20–50ms，33ms 分辨率已匹配，故取 100ms。
+     * （170.0Hz）且幅度满额。故取 100ms。
      */
     private const val EVENT_MS = 100
 
     /**
      * 单条效果的事件数（真机上限 16）。
      *
-     * 分块时长 = [EVENT_MS] × 本值 = **首帧延迟**。保持 2×100ms = **200ms**（与早期
-     * 4×50ms 相同延迟，但修正了 50ms 事件的频率偏差）。若想减少分块边界（`stop()+start()`）
-     * 频率、换取更长首帧延迟，可增大本值（如 4 → 400ms）。
+     * 分块时长 = [EVENT_MS] × 本值 = **首帧延迟**。保持 2×100ms = **200ms** 以压低延迟。
+     * 真机实测分块越大，分块边界（无 stop 接管仍有残余抖动的）越少、包络越平：窗口幅度
+     * 变异系数 200ms≈6.4%、400ms≈4.4%、800ms≈3.2%。若更看重平滑而能接受更长首帧延迟，
+     * 可增大本值（如 8 → 800ms）。
      */
     private const val EVENTS_PER_CHUNK = 2
 
@@ -83,16 +87,6 @@ object HdPcmStreamer {
     private const val WATCHDOG_INTERVAL_MS = 50L
 
     /**
-     * 分块边界**跨接淡入**时长（ms）：每个分块由独立 `startEffect()` 投递（type1 内部
-     * `stop()+start()`），边界处若上一分块收尾与下一分块开头电平不一致会产生跳变（“咚”）。
-     * 新分块的首事件从上一分块的收尾幅度/频率线性过渡到当前值。
-     *
-     * 取代早期 `SEAM_BOOST=1.3`：后者抬升首点会在边界产生过冲（真机表现为每 200ms 一次的
-     * 强震）。0 = 关闭；取一个控制点间隔 [EVENT_MS]/3（≈33ms），既压住跳变又不过度钝化包络。
-     */
-    private const val SEAM_FADE_MS = EVENT_MS / 3
-
-    /**
      * 音量突增时额外插入的**满强度**短事件时长（ms）。让 LRA 在声音骤响时强震一下。
      * 0 = 关闭；越小越“脆”，但过短可能不被 HAL 接受（需真机验证）。
      */
@@ -105,7 +99,7 @@ object HdPcmStreamer {
     private const val BURST_MS = 8
 
     private val lock = Any()
-    private val encoder = PcmHeEncoder(EVENTS_PER_CHUNK, EVENT_MS, SEAM_FADE_MS, ONSET_ACCENT_MS, BURST_MS)
+    private val encoder = PcmHeEncoder(EVENTS_PER_CHUNK, EVENT_MS, ONSET_ACCENT_MS, BURST_MS)
     private var lastNs = 0L
     private var pending = false
     private var heldSinceNs = 0L

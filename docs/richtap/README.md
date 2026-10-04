@@ -12,8 +12,8 @@
 
 | 目录/文件 | 内容 | 文件数 |
 |-----------|------|--------|
-| `probes/` | 反射调用隐藏 API 的 `app_process` 探针源码（`.java`） | 17 |
-| `scripts/` | 生成 HE、构建探针 jar、分析录音的脚本（`.py` / `.ps1`） | 7 |
+| `probes/` | 反射调用隐藏 API 的 `app_process` 探针源码（`.java`） | 18 |
+| `scripts/` | 生成 HE、构建探针 jar、分析录音的脚本（`.py` / `.ps1`） | 8 |
 | `he-samples/` | HE 1.0/2.0 效果样例（`.json` / `.he`） | 56 |
 | `decompiled/` | RichTap ASDK 2.2.0 反编译 Java（CFR） | 38 |
 | `framework-dumps/` | 框架隐藏类的成员 dump（文本） | 7 |
@@ -45,6 +45,7 @@
 | `HgMini.java` | `HapticGenerator` 最小可用性检查 |
 | `MicProbe.java` | `AudioRecord` 最小缓冲/录音可用性 |
 | `ApiDump.java` / `ApiDump2.java` | 反射列出隐藏类的构造器/方法/字段 |
+| `MergeProbe.java` | 对比「多事件/多效果如何合成连续震动」的策略（控制点分布、无 stop 链接、重叠、loop），加速度计测量 |
 
 > 部分源码注释在原始文件里即为乱码（历史编码问题），复制时保持原样。
 
@@ -59,6 +60,7 @@
 | `analyze.py` | 对 `.f32` 源信号做频谱/频带能量分析 |
 | `analyze_rec.py` | 对录音 PCM 做带通 + 分帧 RMS 分析 |
 | `corr.py` | 对比源信号与录音包络的相关性 |
+| `analyze_env.py` | 对加速度计数据做 169Hz 带通 + 希尔伯特包络，检测效果/事件边界的掉幅 |
 
 > **注意**：脚本中的路径仍指向原始 `%TEMP%\opencode\haptic\` 与绝对路径，仓库中运行前需按需修改。
 

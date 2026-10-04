@@ -550,4 +550,77 @@ gain(he) = 1 / resonanceResponse(he)   ∈ [1, MAX_FREQ_COMPENSATION]
 - 跨 200ms 分块边界的瞬态（起点落在分块末尾 <50ms 内）会被丢弃：受既有分块机制限制，
   且 PC 侧这类短音总是从静音而来，实际不会出现。
 
+---
+
+## 13. 连续震动：如何把多个 HE 文件合成一段「不中断」的震动（第三轮实验）
+
+> 现象：流式播放 PCM（每 ~200ms 一个分块、每帧重新投递）时，**每一帧之间都能感到/测到断点**。
+> 目标：找到让多段 HE 效果无缝拼成一段连续震动的方法。全部用**加速度计**测量（探针
+> `probes/MergeProbe.java`，分析 `scripts/analyze_env.py`：169Hz 带通 + 希尔伯特包络）。
+
+### 13.1 结论（一句话）
+
+**断点来自「事件边界」，不是 `stop()`。** 厂商引擎会给**每个 `continuous` 事件**叠加一段与
+事件时长成比例的**平滑起振/衰减**（约 25–30% 时长）；于是每个事件边界都掉幅。要消除它，把每个
+事件的 4 个控制点**聚到事件两端**（`0, ε, eventMs-ε, eventMs`）；再把多个事件/效果**无 `stop`
+地链接**（新 `start()` 会接管当前 track）。二者缺一不可。
+
+### 13.2 逐条证据（恒定 HE56、平坦 0.7 曲线；归一化包络）
+
+| 策略 | 结果 |
+|---|---|
+| 单事件 × 4000ms | 无内部断点，但有约 1.2s 起振 + 0.9s 衰减（控制点均匀分布导致） |
+| 单条效果 16 事件 × 200ms（控制点均匀 `0,66,133,200`） | 每 200ms 一次 ~45ms 下陷（raw std 0.88/0.63 交替） |
+| 单条效果 16 事件 × 100ms（控制点**聚两端** `0,2,98,100`） | **完全平坦**（raw std 0.98–1.01） |
+| 单条效果 8 事件 × 500ms（均匀） | 每 500ms 一次 ~140ms 下陷（几乎掉到 0） |
+| 单条效果 2 事件 × 4000ms（均匀） | 事件边界出现 ~1255ms 巨大下陷 |
+| 单条效果 16 事件 × 100ms，均匀，**事件重叠**（RelativeTime 步长 < 时长） | 仍是每 200ms 下陷，重叠无效 |
+| 单事件 `start(loop=-1)` | 每圈（~200ms）一次下陷 |
+| 每 200ms 重新 `stop()+start()` | 每 200ms 一次更大下陷（≈ 34% 时间低于半幅） |
+| `start()` 新效果**不 stop** | 与 stop+start 同级（关键在下文链接） |
+| `edgeChain`：多条「聚两端」效果，新 `start()` **不 stop**、提前 ~20ms 起 | **任意时长连续**（~5.6s 全程 0.91–1.02） |
+| `edgeChainStop`：同上但 `start` 新效果后 `stop` 旧效果 | **整段静音**——`stop()` 是**全局取消**，会连新的一起停 |
+| 控制点时间扫描（单事件 2000ms）：`0,667,1333,2000`→1.0s 起振；`0,100,1900,2000`；`0,10,1990,2000`；`0,1,1999,2000`→约 0.1s 起振 | 起振时长 ≈ 首段宽度 `t1-t0`（引擎在控制点间线性过渡，且首/末段决定起振/衰减） |
+
+### 13.3 机制
+
+厂商把一条效果的所有事件 merge 成一条 `HedTrack`/`AACTrack`（`vendor.hardware.vibratorfeature` 日志
+可见 `HedBuffer size 17×事件数`、单条 `AACTrack created`），**不是**每事件一次 AGM 重启。断点来自
+HedTrack 的**包络生成**：引擎按 4 个控制点线性插值，但每个事件的第 0/1 个控制点与其前后事件
+不共享电平，且均匀分布时首段（`0 → eventMs/3`）被用来做长起振。因此：
+
+- **控制点聚到两端 + 相邻事件共享边界电平**（本事件起点 = 上一事件收尾）→ 包络连续、无起振；
+- **事件内仍可表达包络**：把「前半段电平」放 `0/ε`、「后半段电平」放 `eventMs-ε/eventMs`，
+  引擎在两点间线性过渡（真机验证 `Intensity 0.2→0.7` 得到平滑上升、无断点）。
+
+### 13.4 落地（GKME）
+
+- `haptic/PcmHeEncoder.kt`：每条事件的控制点时间改为 `0,2,eventMs-2,eventMs`；每个事件用
+  **两个电平**（起点沿用上一事件收尾、终点为本事件聚合电平）线性过渡，整条效果是连续分段线性包络。
+- `controlled/RemoteHapticService.kt`（`startTencentEffect`）：分块换块时**不再 `stop()`**
+  （新 `start()` 直接接管；`stop()` 是全局取消，只在整条流结束时调用一次）。
+- 真机端到端复核（应用真实编码器导出的 16×100ms 分块，`AccStream` 无 stop 链接）：窗口幅度
+  **1.36–1.41 几乎全程平直**（变异系数 ~1.2%），仅 1.6s 分块边界一次轻微下陷。
+
+### 13.5 取舍
+
+- 分块越大边界越少、越平（窗口幅度变异系数：200ms≈6.4%、400ms≈4.4%、800ms≈3.2%），但首帧延迟
+  = 分块时长；当前保留 `EVENTS_PER_CHUNK=2`（200ms 延迟），靠「聚两端 + 无 stop」拿主要收益。
+- 50ms 及更短的事件整体幅度偏低（≈0.78×），故保留 `EVENT_MS=100`。
+
+### 13.6 复现
+
+```sh
+# 编译探针 MergeChainProbe.java（类名 MergeProbe）；必须把所有 .class 交给 d8（含内部类），见 scripts/mkjar.ps1
+adb push mp.jar /data/local/tmp/
+# 1) 均匀控制点（有断点）
+adb shell "CLASSPATH=/data/local/tmp/mp.jar app_process /data/local/tmp MergeProbe merged16 /data/local/tmp/a.txt"
+# 2) 聚两端单条效果（连续）
+adb shell "CLASSPATH=/data/local/tmp/mp.jar app_process /data/local/tmp MergeProbe edge /data/local/tmp/b.txt 16 100 2"
+# 3) 聚两端 + 无 stop 链接（任意时长连续）
+adb shell "CLASSPATH=/data/local/tmp/mp.jar app_process /data/local/tmp MergeProbe edgeChain /data/local/tmp/c.txt 16 100 6 3 20"
+adb pull /data/local/tmp/a.txt .
+python richtap/scripts/analyze_env.py    # 对比包络
+```
+
 

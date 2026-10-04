@@ -335,7 +335,12 @@ class RemoteHapticService @JvmOverloads constructor(
             return try {
                 // 多事件分块效果：事件自带 Parameters/Curve，用无参 start() 避免被全局
                 // amplitude/freq 覆盖。
-                stopTencentLocked()
+                //
+                // **不要 stop 旧 player**：真机实测（加速度计，见 docs/richtap-hd-vibration.md §13）
+                // 新 player 的 start() 会直接接管当前 track；而 stop() 是**全局**取消（停旧会连新
+                // 一起停，`chain_single_stop` 实测停旧后整段静音）。因此流式分块改为「无 stop 链接」，
+                // 只在整条流真正结束时由 [stop] 停一次。旧 player 对象随作用域被回收不影响播放
+                //（与 `AccStream` 探针一致）。
                 val effect = de.getMethod("create", String::class.java).invoke(null, heJson)
                 val hp = Class.forName("android.os.HapticPlayer")
                 val newPlayer = hp.getConstructor(de).newInstance(effect)
