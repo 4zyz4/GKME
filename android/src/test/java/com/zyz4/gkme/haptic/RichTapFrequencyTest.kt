@@ -48,15 +48,16 @@ class RichTapFrequencyTest {
     }
 
     @Test
-    fun shiftIntoRangeMovesOctavesOnly() {
+    fun shiftIntoRangeOctavesUpButClampsHigh() {
         // 低频素材上移进马达频段 (107.2..280.3)。
         assertEquals(200.0, RichTapFrequency.shiftIntoRange(50.0), 1e-6)
         assertEquals(180.0, RichTapFrequency.shiftIntoRange(45.0), 1e-6)
         assertEquals(160.0, RichTapFrequency.shiftIntoRange(40.0), 1e-6)
         // 已在范围内的频率不动。
         assertEquals(170.0, RichTapFrequency.shiftIntoRange(170.0), 1e-6)
-        // 过高的频率下移。
-        assertEquals(150.0, RichTapFrequency.shiftIntoRange(600.0), 1e-6)
+        // 过高的频率直接钳到最大频率（不做八度下移）。
+        assertEquals(RichTapEngine.MAX_HZ, RichTapFrequency.shiftIntoRange(600.0), 1e-6)
+        assertEquals(RichTapEngine.MAX_HZ, RichTapFrequency.shiftIntoRange(3000.0), 1e-6)
         // 非法输入回落到谐振点。
         assertEquals(RichTapEngine.RESONANCE_HZ, RichTapFrequency.shiftIntoRange(0.0), 1e-6)
     }

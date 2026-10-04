@@ -13,7 +13,7 @@ import kotlin.math.roundToInt
  * 对比旧的经验线性剖面（89/170/271Hz）：引擎实际在 HE≥84 饱和，最高只到
  * `170·400/302 ≈ 225Hz`，且中段斜率不均（50 以上更陡）。
  *
- * `shiftIntoRange` 仍按可用范围做八度搬移，范围取引擎的有效区间。
+ * `shiftIntoRange` 只对**过低**频率做八度上移；**过高**频率直接钳到引擎最大频率（不做八度下移）。
  */
 object RichTapFrequency {
 
@@ -46,17 +46,18 @@ object RichTapFrequency {
     }
 
     /**
-     * 把频率按整数倍八度搬移到 [profile] 的可用范围内（保持音高类别）。
+     * 把频率搬移到 [profile] 的可用范围内。
      *
-     * 马达只能复现约 [Profile.minHz]..[Profile.maxHz]，低于/高于该范围的音高直接传给
-     * HE 会被截断成同一个值（丢失音高变化）。按八度搬移能把例如 50-100 Hz 的低频素材
-     * 移入马达最佳频段，同时保留音高轮廓。
+     * 马达只能复现约 [Profile.minHz]..[Profile.maxHz]：
+     * - **过低**（< [Profile.minHz]）按整数倍八度上移，把例如 50-100 Hz 的低频素材移入马达
+     *   最佳频段，同时保留音高轮廓；
+     * - **过高**（> [Profile.maxHz]）**直接钳到 [Profile.maxHz]**，不做八度下移。高频音（如
+     *   2kHz 以上）下移会落到中频段、听感/触感与「最高频」不符，故一律取最大震动频率。
      */
     fun shiftIntoRange(hz: Double, profile: Profile = DEVICE): Double {
         if (hz <= 0.0 || hz.isNaN() || hz.isInfinite()) return profile.resonantHz
         var f = hz
         while (f < profile.minHz) f *= 2.0
-        while (f > profile.maxHz) f /= 2.0
         return f.coerceIn(profile.minHz, profile.maxHz)
     }
 }
