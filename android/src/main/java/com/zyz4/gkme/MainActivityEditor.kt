@@ -338,7 +338,7 @@ internal fun MainActivity.getPreviewIcon(entry: CtrlEntry, mode: DisplayMode): I
         "btnSelect" -> when (mode) { DisplayMode.XBOX -> R.drawable.btn_select_xbox; DisplayMode.SWITCH -> R.drawable.btn_select_switch; else -> R.drawable.button_circle }
         "btnMenu" -> when (mode) { DisplayMode.XBOX -> R.drawable.btn_menu_xbox; DisplayMode.SWITCH -> R.drawable.btn_menu_switch; else -> R.drawable.button_circle }
         "btnHome" -> when (mode) { DisplayMode.XBOX -> R.drawable.ic_home_xbox; DisplayMode.PLAYSTATION -> R.drawable.ic_home_playstation; else -> R.drawable.ic_home }
-        "btnTouchpad" -> R.drawable.ic_touchpad_grid
+        "btnTouchpad" -> when (mode) { DisplayMode.XBOX -> R.drawable.ic_share_xbox; DisplayMode.SWITCH -> R.drawable.ic_screenshot_switch; else -> R.drawable.ic_touchpad_grid }
         "btnLS" -> R.drawable.ic_ls
         "btnRS" -> R.drawable.ic_rs
         "customKeypad" -> R.drawable.ic_custom_keypad
