@@ -27,4 +27,7 @@ public class ControllerPacket {
 
     public static final int PADDLE5_FLAG = 0x120000;
     public static final int PADDLE6_FLAG = 0x140000;
+
+    /** GameSir G7 "M" button flag. */
+    public static final int M_BUTTON_FLAG = 0x2000000;
 }

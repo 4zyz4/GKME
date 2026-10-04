@@ -113,6 +113,11 @@ public class ProCon2Controller extends AbstractController {
     }
 
     @Override
+    public boolean hasPaddleSupport() {
+        return true;
+    }
+
+    @Override
     public boolean start() {
         stopped = false;
         claimedInterfaces.clear();
