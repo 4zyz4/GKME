@@ -228,8 +228,8 @@ class SettingsRepository @Inject constructor(
             hdVibrationEnabled = prefs[Keys.HD_VIBRATION_ENABLED] ?: true,
             adaptiveTriggerDevice = AdaptiveTriggerDevice(
                 type = AdaptiveTriggerTargetType.entries.getOrElse(
-                    prefs[Keys.ADAPTIVE_TRIGGER_DEVICE_TYPE] ?: AdaptiveTriggerTargetType.NONE.ordinal
-                ) { AdaptiveTriggerTargetType.NONE },
+                    prefs[Keys.ADAPTIVE_TRIGGER_DEVICE_TYPE] ?: AdaptiveTriggerTargetType.PHONE_MOTOR.ordinal
+                ) { AdaptiveTriggerTargetType.PHONE_MOTOR },
                 controllerIndex = prefs[Keys.ADAPTIVE_TRIGGER_CONTROLLER_INDEX] ?: 0,
             ),
             adaptiveTriggerDeviceConnected = AdaptiveTriggerDevice(
