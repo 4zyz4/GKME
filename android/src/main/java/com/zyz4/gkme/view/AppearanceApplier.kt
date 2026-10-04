@@ -415,7 +415,11 @@ object AppearanceApplier {
                 DisplayMode.SWITCH -> R.drawable.ic_plus
                 else -> null
             }
-            "btnTouchpad" -> R.drawable.ic_touchpad_grid
+            "btnTouchpad" -> when (mode) {
+                DisplayMode.XBOX -> R.drawable.ic_share_xbox
+                DisplayMode.SWITCH -> R.drawable.ic_screenshot_switch
+                else -> R.drawable.ic_touchpad_grid
+            }
             else -> null
         }
         return if (resId != null) view.context.getDrawable(resId)?.mutate() else null
