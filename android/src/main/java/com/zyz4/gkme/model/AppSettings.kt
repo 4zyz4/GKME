@@ -35,6 +35,8 @@ enum class DisplayMode { XBOX, PLAYSTATION, SWITCH }
 enum class ControllerDriver(val displayName: String) {
     SDL3("SDL3"),
     AXIXI2233_USB("USB驱动·阿西西"),
+    /** 直接使用 Android 系统 InputManager 读取手柄，VibratorManager 驱动震动。 */
+    INPUT_MANAGER("InputManager"),
 }
 
 enum class VibrationType { NONE, VIEW, VIBRATION_EFFECT }

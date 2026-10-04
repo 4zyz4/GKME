@@ -151,6 +151,7 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
         val newBackend: PhysicalControllerBackend = when (effectiveDriver) {
             ControllerDriver.SDL3 -> SdlPhysicalControllerBackend(context)
             ControllerDriver.AXIXI2233_USB -> UsbPhysicalControllerBackend(context)
+            ControllerDriver.INPUT_MANAGER -> InputManagerPhysicalControllerBackend(context)
         }
         newBackend.controllerGyroEnabled = storedControllerGyroEnabled
         newBackend.inputControllerIndex = storedInputControllerIndex
