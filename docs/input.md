@@ -24,6 +24,7 @@ flowchart LR
         PCH["PhysicalControllerHandler"]
         SDL["SdlPhysicalControllerBackend"]
         USBb["UsbPhysicalControllerBackend"]
+        IM["InputManagerPhysicalControllerBackend"]
     end
     subgraph 反馈
         AT["AdaptiveTriggerHandler"]
@@ -35,6 +36,7 @@ flowchart LR
     PCH --> VM
     SDL --> PCH
     USBb --> PCH
+    IM --> PCH
     VM -->|toProto| CM["ConnectionManager"]
     PC["PC 下行效果"] --> AT
     AT --> VM
@@ -44,7 +46,7 @@ flowchart LR
 
 - **状态容器**：`model/GamepadState.kt`。
 - **触屏路径**：`view/GamepadLayout` → `GkViewModel.on*` → `_gamepadState`。
-- **物理手柄路径**：`PhysicalControllerHandler` facade，二选一 backend（SDL3 / Axixi2233 USB）。
+- **物理手柄路径**：`PhysicalControllerHandler` facade，三选一 backend（SDL3 / Axixi2233 USB / InputManager）。
 - **体感路径**：`SensorHandler`（手机）+ `AccelSteeringMapper`（加速度计转向）+ `SensitivityCurve`。
 - **反馈路径**：`AdaptiveTriggerHandler` 解析 PC 自适应扳机并路由到各执行器。
 - **去回环**：`VirtualGamepad` 排除 GKME 自建的虚拟手柄。
@@ -156,7 +158,7 @@ protobuf `GamepadInput`。要点：
 
 ### 4.1 PhysicalControllerBackend（接口）
 
-`input/PhysicalControllerBackend.kt`。SDL3 与 Axixi2233 USB 两个 backend 的公共契约。
+`input/PhysicalControllerBackend.kt`。SDL3、Axixi2233 USB 与 InputManager 三个 backend 的公共契约。
 
 - `data class ControllerInfo(id, name, motorCount, hasTriggerRumble, hasAdaptiveTrigger, hasGyro,
   hasAnalogTrigger, hasTouchpad, supportedButtons)`。
@@ -173,7 +175,7 @@ protobuf `GamepadInput`。要点：
 `input/PhysicalControllerHandler.kt`。按用户设置选择/切换 backend，透明 fallback，并把 backend Flows
 镜像成自己的 Flows，保证切换时收集者不失效。
 
-- `driver`（`ControllerDriver`：`SDL3` / `AXIXI2233_USB`）+ `fallbackToSdl`。
+- `driver`（`ControllerDriver`：`SDL3` / `AXIXI2233_USB` / `INPUT_MANAGER`）+ `fallbackToSdl`。
 - `createAndStartBackend()`：new backend、回灌设置、`start()`、`startMirroring`。
 - **兼容性监控**（`COMPATIBILITY_CHECK_INTERVAL_MS=1000`，Main 线程）：用户选 USB driver 但
   `hasSystemGamepad()` 为真且 `isUsbDriverCompatible()` 为假时自动切 SDL；支持的设备接入后恢复 USB。
@@ -216,7 +218,36 @@ protobuf `GamepadInput`。要点：
   `PLAYER_LED_PATTERNS=[0x04,0x0A,0x15,0x1B,0x1F]`。
 - **互斥**：voice-coil 活跃时 HID 马达置 0，避免 DualSense 音频/震动 ping-pong。
 
-### 4.5 SdlNative / SdlPlatform / SdlAudio
+### 4.5 InputManagerPhysicalControllerBackend
+
+`input/InputManagerPhysicalControllerBackend.kt`。直接调用 Android 系统的 InputManager 驱动后端。
+
+- 设备枚举：用 `InputManager.inputDeviceIds` 过滤 `SOURCE_GAMEPAD/SOURCE_JOYSTICK`，排除 `VirtualGamepad`；
+  注册 `InputManager.InputDeviceListener` 监听增删改并刷新列表。
+- 事件：MainActivity 转发来的 key/motion 事件在此直接解码（标准 Android 手柄映射），不经过 SDL/USB HID。
+  - 按键：`KEYCODE_BUTTON_*` / `KEYCODE_DPAD_*` / `KEYCODE_MEDIA_RECORD(分享)` → `GamepadState` 位。
+  - 轴解析对齐 Moonlight `createInputDeviceContextForDevice`：先识别扳机对
+    （`LTRIGGER/RTRIGGER` → `BRAKE/GAS` → `BRAKE/THROTTLE`）；若都无则 `RX/RY` 视为右摇杆、
+    `Z/RZ` 视为扳机（老 DS4 例外）；否则右摇杆取 `Z/RZ`，缺省回退 `RX/RY`。每设备结果缓存于 `axisMaps`。
+  - 摇杆 → Short，扳机 → 0..255；十字键由 `AXIS_HAT_X/Y` 合并。
+- 陀螺仪 / 加速度计：通过 `device.sensorManager`（`InputDevice.getSensorManager`，
+  Android 12+ 起支持）注册 `TYPE_GYROSCOPE` / `TYPE_ACCELEROMETER`，输出 rad/s 与 m/s²。
+- 触摸板：Android 手柄触摸板以 `SOURCE_TOUCHPAD` 独立设备或捕获指针形式出现；
+  连接触摸板手柄时通过 `onPointerCaptureNeeded(true)` 让 `GamepadLayout` 进入捕获模式，
+  其 `onTouchpadEvent` 经 `setCapturedTouchpadState` 回填。`hasTouchpad` 检查触摸板 MotionRange
+  或同 vendor/product 的兄弟设备。
+- 震动（执行器顺序对齐 GKME 的 SDL 后端）：quad（恰好 4 马达且均支持幅度）用
+  `[低频, 高频, 扳机L, 扳机R]`，dual（恰好 2 马达）用 `[低频, 高频]`，否则回退 legacy
+  `device.vibrator`；单马达用 `min(255, 低频*0.8 + 高频*0.33)` 模拟幅度。
+  注意：Android VibratorManager 的枚举顺序与 SDL 相反，因此这里与 Moonlight 默认顺序
+  `[高频, 低频]` 相反（Moonlight 的 `enableFlipRumbleFF` 相当于这里的行为）。
+  API 33+ 使用 `VibrationAttributes.USAGE_MEDIA`。
+  **仅在幅度全为 0 时 `vm.cancel()`**，非 0 时直接 `vm.vibrate(combo)`（新组合会替换旧效果，
+  且避免高频流下 `cancel→vibrate` 竞争导致残留）。手机多马达路径启动于 `VibratorManager`，
+  停止时也必须 `manager.cancel()`，只 cancel 默认马达会漏掉其余马达。
+- 不可用能力：自适应扳机、LED（返回默认/`false`）。
+
+### 4.6 SdlNative / SdlPlatform / SdlAudio
 
 | 文件 | 职责 |
 |------|------|

@@ -1016,6 +1016,8 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
         if (PhoneHdHaptics.playMotors(motor0, motor1, source = HapticSource.GAME_RUMBLE)) {
             if (!phoneHdOwned) {
                 phoneHdOwned = true
+                // HD 接管前清掉普通/多马达通路，避免旧波形残留。
+                try { phoneVibratorManager()?.cancel() } catch (_: Exception) {}
                 try { phoneVibrator()?.cancel() } catch (_: Exception) {}
             }
             lastPhoneAmp = maxOf(motor0, motor1)
@@ -1035,25 +1037,22 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
 
     private fun vibrateMultiMotor(vm: VibratorManager, ids: IntArray, amps: IntArray) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
-        var hasActive = false
-        for (i in ids.indices) {
-            if (i < amps.size && amps[i] > 1) {
-                hasActive = true
-                break
-            }
-        }
-        if (!hasActive) {
-            try { vm.cancel() } catch (_: Exception) {}
-            return
-        }
         try {
-            vm.cancel()
+            var hasActive = false
             val combo = android.os.CombinedVibration.startParallel()
             for (i in ids.indices) {
-                if (i < amps.size && amps[i] > 1) {
-                    combo.addVibrator(ids[i], VibrationEffect.createOneShot(60000, amps[i].coerceIn(0, 255)))
+                val amp = amps.getOrElse(i) { 0 }
+                if (amp > 0) {
+                    // VibrationEffect 不接受 0 幅度；0 幅度马达从组合中剔除即可关闭。
+                    combo.addVibrator(ids[i], VibrationEffect.createOneShot(60000, amp.coerceIn(1, 255)))
+                    hasActive = true
                 }
             }
+            if (!hasActive) {
+                vm.cancel()
+                return
+            }
+            // 非 0 时直接 vibrate：新组合会替换上一个效果，无需先 cancel（避免高频流下残留）。
             vm.vibrate(combo.combine())
         } catch (_: Exception) {}
     }
@@ -1074,15 +1073,18 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
     }
 
     private fun vibratePhone(amp: Int) {
-        val vibrator = phoneVibrator() ?: return
         val clamped = amp.coerceIn(0, 255)
         if (clamped < 1) {
             phoneHdOwned = false
             PhoneHdHaptics.stop(HapticSource.GAME_RUMBLE)
-            try { vibrator.cancel() } catch (_: Exception) {}
+            // 多马达路径在 VibratorManager 上启动：必须 manager.cancel() 才能停掉全部马达，
+            // 只 cancel 默认马达会遗漏其余马达直到 60s one-shot 过期。
+            try { phoneVibratorManager()?.cancel() } catch (_: Exception) {}
+            try { phoneVibrator()?.cancel() } catch (_: Exception) {}
             lastPhoneAmp = -1
             return
         }
+        val vibrator = phoneVibrator() ?: return
         if (clamped == lastPhoneAmp) return
         lastPhoneAmp = clamped
         try {
@@ -1097,11 +1099,15 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
         } catch (_: Exception) {}
     }
 
-    private fun phoneVibrator(): Vibrator? {
+    private fun phoneVibratorManager(): VibratorManager? {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
-            if (vm != null) return vm.defaultVibrator
+            return context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
         }
+        return null
+    }
+
+    private fun phoneVibrator(): Vibrator? {
+        phoneVibratorManager()?.let { return it.defaultVibrator }
         @Suppress("DEPRECATION")
         return context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
     }

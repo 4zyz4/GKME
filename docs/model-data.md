@@ -83,7 +83,7 @@ fun AppSettings.virtualGamepadUhidProfile(): Int     // 1 DS4 / 2 DS5 / 3 Switch
 | `TargetPlatform` | `WINDOWS / ANDROID / LINUX / ANDROID_GAMEPAD_ONLY / UNIVERSAL_KM / WINDOWS_GAMEPAD_ONLY` |
 | `VirtualGamepadType` | `XBOX_ONE_S / DS4 / DUALSENSE / SWITCH_PRO`（含 `nativeBackend`/`uhidProfileId`） |
 | `DisplayMode` | `XBOX / PLAYSTATION / SWITCH` |
-| `ControllerDriver` | `SDL3 / AXIXI2233_USB` |
+| `ControllerDriver` | `SDL3 / AXIXI2233_USB / INPUT_MANAGER` |
 | `VibrationType` | `NONE / VIEW / VIBRATION_EFFECT` |
 | `VibrationDeviceType` | `PHONE / CONTROLLER / NONE` |
 | `AdaptiveTriggerTargetType` | `NONE / PHONE_MOTOR / CONTROLLER_MOTOR / CONTROLLER_TRIGGER` |
