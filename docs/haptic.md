@@ -178,8 +178,8 @@ flowchart TB
 
 - `init` 直接 `RemoteHapticService(context.applicationContext)` 实例化，成功即用
   （`service` 指向该本地实例），不涉及 Shizuku 授权/绑定。这样震动调用方是
-  **前台 app 的 uid**，不会被系统的"后台震动"策略丢弃（见 §9）。依赖 manifest 的
-  `<uses-library android:name="richtap-api" />`（由 `libs/RichTap_ASDK_2.2.0.aar` 的 manifest 合并而来）。
+  **前台 app 的 uid**，不会被系统的"后台震动"策略丢弃（见 §9）。依赖 manifest 显式声明的
+  `<uses-library android:name="richtap-api" android:required="false" />`（无需再依赖 AAR）。
 - 本机不支持时（`available=false`，例如非小米 ROM / 无 `richtap-api`）`isHapticReady()` 为 false，
   调用方回退普通 `Vibrator`。
 - 本地实例经 `refreshCapabilities`（`isAvailable/version/playerType/realtimeAdjust`），每个能力查询都 try/catch。
@@ -344,7 +344,7 @@ dumpsys vibrator_manager → effect | ignored_background | usage: MEDIA | com.an
 `<uses-library android:name="richtap-api" android:required="false" />` 获得隐藏 API 访问权，
 `ignored_background` 随即变为 `running`，马达正常震动。
 
-- `android/libs/RichTap_ASDK_2.2.0.aar` 仅用于合并该 `<uses-library>`，**代码不调用 SDK**。
+- `<uses-library>` 已在 `AndroidManifest.xml` 显式声明，**不再依赖 `RichTap_ASDK_2.2.0.aar`**（代码不调用 SDK）。
 - app 进程内 `mPackageName` 是 hidden API `blocked` 字段（`getDeclaredField` 抛异常），
   `RemoteHapticService` 对其读取失败时置 `packageField=null` 跳过，厂商构造函数会自动填包名。
 - 无 `richtap-api` 的机型 app 进程内会得到 `available=false`，HD 不可用，回退普通 `Vibrator`。
