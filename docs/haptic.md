@@ -86,7 +86,8 @@ flowchart TB
 `haptic/RichTapFrequency.kt`。
 
 - `hzToHe` / `heToHz` 委托引擎；`hzToHeLog` 为对数刻度平滑外推。
-- `shiftIntoRange(hz)`：按整数倍八度 `×2/÷2` 把任意 Hz 搬进有效范围，保留音高轮廓。
+- `shiftIntoRange(hz)`：**过低**（< `MIN_HZ`）的频率按 `×2` 八度上移到有效范围、保留音高轮廓；
+  **过高**（> `MAX_HZ`）的频率**直接钳到 `MAX_HZ`**（不做 `÷2` 下移），即高频素材保持最大震动频率。
 
 ### 1.4 RichTapLowFreq
 

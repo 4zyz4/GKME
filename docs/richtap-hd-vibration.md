@@ -369,7 +369,7 @@ LRA 是**窄带共振器**（本机 f0≈169Hz，Q≈10），无法复现宽带�
 **幅度包络**（机械时间常数约 20–50ms）与**有限范围内的音高/锐度**（约 107–280Hz，见
 [haptic.md §1.1](haptic.md) 的加速度计逐点标定）。
 因此"近乎无损"= 把 PCM 的**包络→Intensity**、**带内主频→HE Frequency**，以高时间分辨率
-投递给引擎；超出马达频段的音高按八度搬入（`RichTapFrequency.shiftIntoRange`）。
+投递给引擎；低于马达频段的音高按八度搬入、高于频段的直接取最大频率（`RichTapFrequency.shiftIntoRange`）。
 
 ### 9.2 引擎的硬约束（逐条验证）
 | 约束 | 证据 |
@@ -387,7 +387,7 @@ LRA 是**窄带共振器**（本机 f0≈169Hz，Q≈10），无法复现宽带�
 - `haptic/PcmHeEncoder.kt`：把逐帧 `(amp01, HE)` 按 `EVENT_MS` 切成事件（每块事件数由调用方给出），
   每事件压成 **4 点曲线**（幅度均值 + 相对事件基频的偏移）。纯 JVM，可单测。
 - `haptic/RichTapHe.kt`：新增 `pattern(List<Event>)` 生成多事件 `Pattern` JSON。
-- `haptic/RichTapFrequency.kt`：新增 `shiftIntoRange(hz)`（按八度搬入剖面）。
+- `haptic/RichTapFrequency.kt`：新增 `shiftIntoRange(hz)`（过低按八度上移、过高钳到最大频率）。
 - `haptic/HdPcmStreamer.kt`：`submit(left,right,pitchHz)` 累计采样，满块后经
   `HapticInjector.startEffect(json)` 投递（**无参 `start()`**，避免全局 amplitude/freq 覆盖事件参数）。
   取 `EVENT_MS=50 × EVENTS_PER_CHUNK=4`，首个分块缓冲延迟 ≈ 0.2s，每块 16 点
