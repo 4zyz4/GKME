@@ -490,17 +490,11 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
     }
 
     /**
-     * Drives the gamepad's motors with the best available path.
+     * Drives the gamepad's motors through SDL only.
      *
-     * The Android vibrator is preferred whenever the InputDevice is visible (i.e. the
-     * USB interface is not held exclusively by SDL/HIDAPI). SDL's HIDAPI rumble is
-     * queued on a background thread whose writes are fire-and-forget, so a single
-     * dropped stop report can latch the motor on forever while the host keeps
-     * streaming zeros. The Android `cancel()` path is synchronous and reliable, and is
-     * exactly how Moonlight drives controller rumble.
-     *
-     * SDL's low/high rumble is only used as a fallback when no Android vibrator exists
-     * (e.g. HIDAPI has claimed the pad and Android's input driver was detached).
+     * The Android per-device vibrator path is intentionally avoided: on Bluetooth
+     * pads the `InputDevice` vibrator fights SDL's HIDAPI rumble and can leave a
+     * motor latched on indefinitely. SDL owns the whole physical-pad rumble path.
      */
     private fun driveControllerMotors(index: Int, low: Int, high: Int) {
         val outputs = outputsFor(index)
@@ -519,7 +513,6 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
      * two channels never overwrite each other (a quad pad owns four actuators).
      */
     private fun applyControllerOutput(index: Int, outputs: ControllerOutputs) {
-        val binding = controllerBindings.getOrNull(index)
         val low = maxOf(outputs.low, outputs.auxLow)
         val high = maxOf(outputs.high, outputs.auxHigh)
         val lt = outputs.leftTrigger
@@ -528,40 +521,21 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
         val triggerActive = lt != 0 || rt != 0
 
         if (!motorActive && !triggerActive) {
-            // Everything off: silence both SDL paths and cancel the Android one-shot.
+            // Everything off: silence SDL and cancel any lingering Android one-shot.
             try { SdlNative.nativeRumble(index, 0, 0, 0) } catch (_: Exception) {}
             try { SdlNative.nativeRumbleTriggers(index, 0, 0, 0) } catch (_: Exception) {}
-            binding?.let { cancelBinding(it) }
+            controllerBindings.getOrNull(index)?.let { cancelBinding(it) }
             return
         }
 
-        if (binding?.manager != null) {
-            // The Android path owns this pad: clear any SDL rumble a path switch left
-            // running, then drive the actuators directly.
-            try { SdlNative.nativeRumble(index, 0, 0, 0) } catch (_: Exception) {}
-            try { SdlNative.nativeRumbleTriggers(index, 0, 0, 0) } catch (_: Exception) {}
-            if (binding.quad) {
-                rumbleQuadVibrators(binding.manager, low, high, lt, rt)
-            } else {
-                rumbleDualVibrators(binding.manager, low, high)
-            }
-            return
-        }
-        if (binding?.legacy != null) {
-            try { SdlNative.nativeRumble(index, 0, 0, 0) } catch (_: Exception) {}
-            rumbleSingleVibrator(binding.legacy, low, high)
-            return
-        }
-
-        // No Android vibrator available (HIDAPI has claimed the pad and detached
-        // Android's input driver): fall back to SDL's low/high and trigger rumble.
-        //
-        // Use an infinite duration (0 = until the next call). With a finite
-        // duration the SDL rumble would silently expire: SDL caches the last value
-        // and skips the driver when it is unchanged, so a steady voice-coil/motor
-        // signal keeps resending the same value, never refreshes the expiration,
-        // and the motor stops after one duration. Stopping is explicit in the
-        // all-zero branch above, and on removal/stop SDL is commanded off.
+        // Physical pads are driven exclusively through SDL; the Android per-device
+        // vibrator is never used (see driveControllerMotors). Use an infinite duration
+        // (0 = until the next call). With a finite duration the SDL rumble would
+        // silently expire: SDL caches the last value and skips the driver when it is
+        // unchanged, so a steady voice-coil/motor signal keeps resending the same value,
+        // never refreshes the expiration, and the motor stops after one duration.
+        // Stopping is explicit in the all-zero branch above, and on removal/stop SDL is
+        // commanded off.
         SdlNative.nativeRumble(index, low * 257, high * 257, 0)
         SdlNative.nativeRumbleTriggers(index, lt * 257, rt * 257, 0)
     }
@@ -610,90 +584,6 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
                 outputs.rightTrigger = 0
             }
         }
-    }
-
-    // ── Moonlight-style vibrator driving (values are 0..255) ──
-
-    private fun rumbleDualVibrators(vm: VibratorManager, lowFreqMotor: Int, highFreqMotor: Int) {
-        val low = lowFreqMotor.coerceIn(0, 255)
-        val high = highFreqMotor.coerceIn(0, 255)
-        if (low == 0 && high == 0) {
-            try { vm.cancel() } catch (_: Exception) {}
-            return
-        }
-        val ids = vm.vibratorIds
-        // Enumerated order is low then high on most devices.
-        val amps = intArrayOf(low, high)
-        val combo = CombinedVibration.startParallel()
-        for (i in ids.indices) {
-            if (i < amps.size && amps[i] != 0) {
-                combo.addVibrator(ids[i], VibrationEffect.createOneShot(60000, amps[i]))
-            }
-        }
-        vibrateCombined(vm, combo)
-    }
-
-    private fun rumbleQuadVibrators(
-        vm: VibratorManager, lowFreqMotor: Int, highFreqMotor: Int,
-        leftTrigger: Int, rightTrigger: Int,
-    ) {
-        val low = lowFreqMotor.coerceIn(0, 255)
-        val high = highFreqMotor.coerceIn(0, 255)
-        val lt = leftTrigger.coerceIn(0, 255)
-        val rt = rightTrigger.coerceIn(0, 255)
-        if (low == 0 && high == 0 && lt == 0 && rt == 0) {
-            try { vm.cancel() } catch (_: Exception) {}
-            return
-        }
-        val ids = vm.vibratorIds
-        val amps = intArrayOf(low, high, lt, rt)
-        val combo = CombinedVibration.startParallel()
-        for (i in ids.indices) {
-            if (i < amps.size && amps[i] != 0) {
-                combo.addVibrator(ids[i], VibrationEffect.createOneShot(60000, amps[i]))
-            }
-        }
-        vibrateCombined(vm, combo)
-    }
-
-    private fun vibrateCombined(vm: VibratorManager, combo: CombinedVibration.ParallelCombination) {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                val attrs = android.os.VibrationAttributes.Builder()
-                    .setUsage(android.os.VibrationAttributes.USAGE_MEDIA)
-                    .build()
-                vm.vibrate(combo.combine(), attrs)
-            } else {
-                vm.vibrate(combo.combine())
-            }
-        } catch (_: Exception) {}
-    }
-
-    private fun rumbleSingleVibrator(vibrator: Vibrator, lowFreqMotor: Int, highFreqMotor: Int) {
-        val low = lowFreqMotor.coerceIn(0, 255)
-        val high = highFreqMotor.coerceIn(0, 255)
-        // 80% of the big motor + 33% of the small motor, capped at 255 (Moonlight).
-        val simulatedAmplitude = minOf(255, (low * 0.80 + high * 0.33).toInt())
-        if (simulatedAmplitude == 0) {
-            try { vibrator.cancel() } catch (_: Exception) {}
-            return
-        }
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && vibrator.hasAmplitudeControl()) {
-                vibrator.cancel()
-                vibrator.vibrate(VibrationEffect.createOneShot(60000, simulatedAmplitude))
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                // No amplitude control: emulate with a PWM waveform.
-                val pwmPeriod = 20L
-                val onTime = (simulatedAmplitude / 255.0 * pwmPeriod).toLong()
-                val offTime = (pwmPeriod - onTime).coerceAtLeast(1L)
-                vibrator.cancel()
-                vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, onTime, offTime), 0))
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator.vibrate(60000)
-            }
-        } catch (_: Exception) {}
     }
 
     private fun resetInputState() {
