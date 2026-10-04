@@ -1464,4 +1464,5 @@ internal fun MainActivity.recreateViewForButton(buttonId: String, pos: ButtonPos
 
     a.gamepadLayout.addView(newView, viewIndex)
     a.gamepadLayout.applyAppearance(a.viewModel.settings.value)
+    a.updateButtonLabels(mode)
 }
