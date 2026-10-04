@@ -16,47 +16,50 @@ import kotlin.math.sqrt
  *   本机 `Parameters.Intensity=100`，故 `Curve.Intensity=c` 时归一化输出
  *   `a = c * 1.14^(10(c-1))`。
  * - **频率律**：`_Z21aac_vibra_looper_post` 经 `FUN_00112820` 用一张 201 项 u16 表
- *   (`0x1165a4`，索引 = HE 值 + 50) 把 HE Frequency 映射成引擎的载波控制字；
- *   该字单调、在 HE≥84 饱和。以真机标定的 `HE 56 ≈ 170 Hz`（谐振）对齐后
- *   `Hz(HE) = 170 * word(HE) / word(56)`。
+ *   (`0x1165a4`，索引 = HE 值 + 50) 把 HE Frequency 映射成引擎的载波控制字。早期按
+ *   `Hz(HE) = 170 * word(HE) / word(56)` 线性逆推，但**真机加速度计逐点标定**显示两端
+ *   偏差很大（HE0 实测 107Hz 而非 87Hz、HE100 实测 280Hz 而非饱和 225Hz），故改为直接
+ *   使用实测 [HE_HZ] 表（见下）。
  *
  * 纯 JVM，便于单测与离线仿真对拍。
  */
 object RichTapEngine {
 
-    /** 谐振点对应的 HE Frequency（引擎缺省，`word=302 ≈ 170 Hz`）。 */
+    /** 谐振点对应的 HE Frequency（引擎缺省，实测 ≈169Hz）。 */
     const val HE_AT_RESONANCE = 56
 
-    /** 谐振频率（Hz），取自真机标定 / `ro.odm.mm.vibrator.resonant_frequency`。 */
-    const val RESONANCE_HZ = 170.0
+    /**
+     * 谐振频率（Hz）= `heToHz([HE_AT_RESONANCE])`（实测标定：HE 56 ≈ 169.1Hz）。
+     * 用于幅度-频率补偿的 f0，使补偿在 HE 56 处恰好为 1。
+     */
+    const val RESONANCE_HZ = 169.1
 
     /**
-     * 引擎 HE Frequency(0..100) → 载波控制字，逆向自 `libaachaptics.so` 的
-     * 201 项表（索引 HE+50）。HE≥84 饱和于 400。
+     * 引擎 HE Frequency(0..100) → **实测机械频率**（Hz），索引即 HE。
+     *
+     * **真机加速度计逐点标定**（设备 `manet` / Snapdragon 8 Gen 3）：单条稳态
+     * `continuous` 效果 + 加速度计（与 LRA 刚性耦合，fs≈486Hz）测每个 HE 的主频。
+     * HE>~82 处基频超过加速度计 Nyquist（≈243Hz），按 `f_true = fs − f_peak` 还原混叠，
+     * 并与设备侧麦克风标定交叉验证（HE90≈255、HE95≈270、HE100≈280）。
      */
-    private val HE_WORD = intArrayOf(
-        154, 159, 159, 164, 164, 169, 169, 174, 174, 179,
-        179, 184, 184, 189, 189, 194, 194, 199, 199, 204,
-        204, 209, 209, 214, 214, 220, 220, 225, 225, 230,
-        230, 235, 235, 240, 240, 245, 245, 250, 250, 255,
-        255, 260, 260, 265, 265, 270, 270, 275, 275, 280,
-        280, 287, 287, 294, 294, 302, 302, 309, 309, 316,
-        316, 323, 323, 330, 330, 338, 338, 345, 345, 352,
-        352, 359, 359, 366, 366, 374, 374, 381, 381, 388,
-        388, 395, 395, 400, 400, 400, 400, 400, 400, 400,
-        400, 400, 400, 400, 400, 400, 400, 400, 400, 400,
-        400,
+    private val HE_HZ = doubleArrayOf(
+        107.2, 109.0, 109.0, 111.1, 111.1, 113.1, 113.1, 114.9, 114.9, 116.1,
+        116.1, 118.0, 118.0, 120.1, 120.1, 121.8, 121.9, 124.1, 124.1, 125.8,
+        125.8, 127.8, 128.0, 129.8, 130.0, 131.1, 131.1, 132.8, 132.9, 135.0,
+        135.1, 136.8, 136.8, 138.8, 139.1, 141.1, 141.1, 142.8, 142.9, 145.0,
+        145.1, 145.8, 146.0, 148.0, 148.1, 149.8, 149.8, 152.0, 152.0, 153.7,
+        153.7, 158.9, 159.0, 163.7, 164.0, 169.1, 169.1, 173.8, 173.8, 178.9,
+        178.9, 183.8, 183.9, 189.1, 189.1, 193.9, 193.9, 199.0, 199.0, 203.9,
+        204.0, 209.0, 209.0, 214.0, 214.0, 220.2, 220.2, 224.8, 224.8, 230.1,
+        230.1, 234.9, 235.1, 238.1, 241.1, 244.0, 247.0, 249.9, 249.9, 255.0,
+        255.0, 260.0, 260.0, 265.0, 265.0, 270.0, 270.0, 275.1, 275.1, 280.0,
+        280.3,
     )
-
-    private val WORD_AT_RESONANCE = HE_WORD[HE_AT_RESONANCE]
 
     private const val LAW_BASE = 1.14
 
-    /** HE Frequency → 近似载波频率（Hz）。HE≥84 饱和。 */
-    fun heToHz(he: Int): Double {
-        val h = he.coerceIn(0, 100)
-        return RESONANCE_HZ * HE_WORD[h] / WORD_AT_RESONANCE
-    }
+    /** HE Frequency → 实测机械频率（Hz），见 [HE_HZ]。 */
+    fun heToHz(he: Int): Double = HE_HZ[he.coerceIn(0, 100)]
 
     /** 期望载波频率（Hz）→ HE Frequency（0..100），对 [heToHz] 求反。 */
     fun hzToHe(hz: Double): Int {
@@ -70,7 +73,7 @@ object RichTapEngine {
         for (h in 0..100) {
             val err = kotlin.math.abs(heToHz(h) - target)
             val dist = kotlin.math.abs(h - HE_AT_RESONANCE)
-            // 表里有连续重复值（如 HE 55/56 同为 302、HE 83..100 同为 400），并列时取
+            // 表里有连续重复值（如 HE 55/56 同为 169.1、HE 99/100 同为 280），并列时取
             // 最靠近谐振 HE 56 的那个，保证 `hzToHe(heToHz(56)) == 56`。
             if (err < bestErr - 1e-9 || (err <= bestErr + 1e-9 && dist < bestDist)) {
                 bestErr = err

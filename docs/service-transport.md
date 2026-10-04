@@ -233,6 +233,9 @@ LOCAL          -> GamepadInjector.update(state)
 - `GamepadStateMapper.mapWindows`（11B）、`mapAndroid`（9B）、`mapLinux`（9B）；`UNIVERSAL_KM` 不会被实际调用。
 - `PcmHdRumbleAnalyzer`：频段 40..1252 Hz，18 个对数间隔候选，噪声门 0.015，平滑 0.6，第二音需频率比 ≥1.8。
 - `PcmPitchTracker`：`FFT_SIZE=2048`（≈43ms@48k）、`HOP=480`（10ms）、`F_MIN=30`、`F_MAX=600`、`SMOOTH=0.4`、`AMP_GATE=0.3`。
+  - **音调性（voiced）**：带内「峰值功率 / 总功率」，滞回门限 `TONALITY_ON=0.25` / `TONALITY_OFF=0.12`；
+    宽带噪声/撞击判为 unvoiced，`Pitch.freqHz=0`，下游 `HdPcmStreamer` 据此改用谐振频率驱动。
+  - **非对称平滑**：测量值偏离当前值超过 `FAST_DELTA_HZ=25` 时用 `SMOOTH_FAST=0.85` 快速跟随（降低音高突变/扫频滞后），稳态仍用 `SMOOTH=0.4` 去抖。
 
 ---
 

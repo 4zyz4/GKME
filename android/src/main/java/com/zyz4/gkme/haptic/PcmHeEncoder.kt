@@ -20,11 +20,15 @@ class PcmHeEncoder(
     private val eventsPerChunk: Int = 16,
     private val eventMs: Int = 200,
     /**
-     * 分块边界「起振补偿」增益（≥1）。每次 `stop()+start()` 重启时 LRA 会有一小段掉幅；
-     * 把**首事件**的领先控制点按此值抬升、随后衰减到 1，用更大驱动幅度加速机械恢复、填掉凹陷。
-     * 1.0 = 关闭。与 [EVENTS_PER_CHUNK] 的取舍配套使用（块越短边界越频繁，越需要补偿）。
+     * 事件衔接处**跨接淡入**时长（ms）：每个事件的第 0 个控制点从**上一控制点电平**
+     * （首事件为上一分块收尾，其后为上一事件收尾）线性过渡到当前测量值。这样无论事件内部
+     * 衔接，还是分块之间由独立 `startEffect()`（type1 内部 `stop()+start()`）造成的边界，
+     * 幅度/频率曲线都保持连续，消除机械跳变（“咚”）。
+     *
+     * 0 = 关闭（旧行为的硬衔接）。真机实测早期 `seamBoost`（抬升首点）会在边界产生过冲，
+     * 已由本项取代。
      */
-    private val seamBoost: Double = 1.0,
+    private val seamFadeMs: Int = 0,
     /**
      * 音量突增强调：检测到**突然增大**时，在对应时刻额外插入一条 [accentMs] 时长的
      * **满强度** `continuous` 事件（引擎内部调度，与常规事件可重叠），让 LRA 强震一下。
@@ -86,9 +90,19 @@ class PcmHeEncoder(
 
         /** 两次瞬态之间的最小间隔（ms），避免一次事件被幅度抖动拆成多条。 */
         const val BURST_REFRACTORY_MS = 40
+
+        /**
+         * 桶内幅度的**峰值保持**混合系数（0..1）。
+         *
+         * 一个事件的 4 个控制点各覆盖 [eventMs]/3 的时间；若只取桶内均值，落在桶内的
+         * 攻击/峰值会被邻近平稳样本拉低，包络发闷。这里取 `max(均值, 峰值×本系数)`，
+         * 在保留峰值的同时避免单点噪声把整段抬高。1.0 = 纯峰值，0 = 纯均值。
+         */
+        const val PEAK_MIX = 0.85f
     }
 
     private val ampSum = Array(eventsPerChunk) { FloatArray(POINTS) }
+    private val ampMax = Array(eventsPerChunk) { FloatArray(POINTS) }
     private val heSum = Array(eventsPerChunk) { DoubleArray(POINTS) }
     private val count = Array(eventsPerChunk) { IntArray(POINTS) }
     private var tMs = 0
@@ -97,6 +111,11 @@ class PcmHeEncoder(
     private var prevAmp = 0f
     private var clockMs = 0L
     private var lastAccentClock = -1_000_000L
+
+    // 分块边界跨接状态：上一分块收尾的（幅度, HE）。跨 [reset] 保留，供下一分块的首事件
+    // 从该电平淡入，消除 stop()+start() 边界的跳变。仅在整条流真正停止/复位时清除。
+    private var seamAmp = 0.0
+    private var seamHe = RichTapFrequency.HE_AT_RESONANCE.toDouble()
 
     // 短促瞬态检测状态（同样跨分块保留，避免分块边界把一次瞬态截断）。
     // [armed] 只在“观察到静音”后才为 true：一次瞬态被判定为持续音后会解除武装，
@@ -127,6 +146,7 @@ class PcmHeEncoder(
     fun reset() {
         for (e in 0 until eventsPerChunk) {
             java.util.Arrays.fill(ampSum[e], 0f)
+            java.util.Arrays.fill(ampMax[e], 0f)
             java.util.Arrays.fill(heSum[e], 0.0)
             java.util.Arrays.fill(count[e], 0)
         }
@@ -135,7 +155,19 @@ class PcmHeEncoder(
         inBurst = false
         burstPeak = 0f
         burstLastActiveClock = 0L
-        // 注意：prevAmp / clockMs 故意保留，避免分块切换被误判为“音量突增”。
+        // 注意：prevAmp / clockMs / seamAmp / seamHe 故意保留，避免分块切换被误判为
+        // “音量突增”，并让跨接淡入在分块边界连续。
+    }
+
+    /**
+     * 整条流复位：清空分块缓冲并**重置跨接状态**。[reset] 会保留上一分块的收尾电平供
+     * 跨接使用，只有在流真正停止/重连（不再是连续播放）时才应调用本方法，避免下一段音频
+     * 从陈旧电平淡入。
+     */
+    fun resetStream() {
+        reset()
+        seamAmp = 0.0
+        seamHe = RichTapFrequency.HE_AT_RESONANCE.toDouble()
     }
 
     /**
@@ -164,6 +196,7 @@ class PcmHeEncoder(
         val local = tMs - e * eventMs
         val p = (local * POINTS / eventMs).coerceIn(0, POINTS - 1)
         ampSum[e][p] += amp
+        if (amp > ampMax[e][p]) ampMax[e][p] = amp
         heSum[e][p] += he.coerceIn(0, 100).toDouble()
         count[e][p]++
         tMs += dtMs.coerceAtLeast(1)
@@ -261,8 +294,10 @@ class PcmHeEncoder(
 
     private fun build(eventCount: Int = eventsPerChunk): String {
         val events = ArrayList<RichTapHe.Event>(eventCount)
-        var lastAmp = 0.0
-        var lastHe = RichTapFrequency.HE_AT_RESONANCE.toDouble()
+        // 首事件从上一分块的收尾电平起，跨界（[seamAmp] / [seamHe]）连续。
+        val fade = seamFadeMs > 0
+        var lastAmp = if (fade) seamAmp else 0.0
+        var lastHe = if (fade) seamHe else RichTapFrequency.HE_AT_RESONANCE.toDouble()
         for (e in 0 until eventCount) {
             var heAll = 0.0
             var cAll = 0
@@ -275,25 +310,32 @@ class PcmHeEncoder(
             val points = ArrayList<RichTapHe.CurvePoint>(POINTS)
             for (p in 0 until POINTS) {
                 val time = p * eventMs / (POINTS - 1)
-                val amp: Double
-                val he: Double
+                val measuredAmp: Double
+                val measuredHe: Double
                 if (count[e][p] > 0) {
-                    amp = (ampSum[e][p] / count[e][p]).toDouble()
-                    he = heSum[e][p] / count[e][p]
+                    val mean = ampSum[e][p] / count[e][p]
+                    val peak = ampMax[e][p] * PEAK_MIX
+                    measuredAmp = maxOf(mean, peak).toDouble()
+                    measuredHe = heSum[e][p] / count[e][p]
                 } else {
                     // 空桶沿用上一控制点，保证曲线连续且始终 4 点。
-                    amp = lastAmp
-                    he = lastHe
+                    measuredAmp = lastAmp
+                    measuredHe = lastHe
                 }
+                // 跨接淡入：每个事件的首控制点从**上一控制点电平**（首事件为上一分块收尾，
+                // 其后为上一事件收尾）线性过渡到当前测量值，消除事件/分块衔接处的跳变。
+                val ramp = if (fade) seamFadeRamp(p) else 1.0
+                val startAmp = lastAmp
+                val startHe = lastHe
+                val amp = startAmp + (measuredAmp - startAmp) * ramp
+                val he = startHe + (measuredHe - startHe) * ramp
                 lastAmp = amp
                 lastHe = he
                 val offset = (he - base).coerceIn(-MAX_OFFSET, MAX_OFFSET)
-                // 分块边界起振补偿：只抬升首事件、并在事件内线性衰减回 1。
-                val seam = if (e == 0) seamBoostAt(p) else 1.0
                 // 幅度-频率补偿：该控制点的实际驱动频率 = 事件基频 + 曲线偏移，偏离谐振
                 // （HE 56）时抬升驱动幅度，使不同频率下的实际机械位移尽量一致。
                 val effHe = (base + offset).roundToInt().coerceIn(0, 100)
-                val target = RichTapEngine.compensateNormalized(amp * seam, effHe)
+                val target = RichTapEngine.compensateNormalized(amp, effHe)
                 // 引擎把曲线强度按次方律 (a = c·1.14^(10(c-1))) 转成驱动幅度，这里做逆变换，
                 // 使 LRA 的实际位移幅度线性跟随原 PCM 的包络。
                 val intensity = RichTapEngine.amplitudeToCurve(target)
@@ -301,6 +343,9 @@ class PcmHeEncoder(
             }
             events.add(RichTapHe.Event(e * eventMs, eventMs, base, points))
         }
+        // 保存本分块收尾电平，供下一分块跨接（[reset] 会保留）。
+        seamAmp = lastAmp
+        seamHe = lastHe
         appendPulses(events, eventCount)
         return RichTapHe.pattern(events)
     }
@@ -325,9 +370,13 @@ class PcmHeEncoder(
         events.sortBy { it.relativeTimeMs }
     }
 
-    /** 首事件第 [p] 个控制点的补偿系数：p=0 为 [seamBoost]，线性衰减到末点为 1。 */
-    private fun seamBoostAt(p: Int): Double {
-        if (seamBoost <= 1.0) return 1.0
-        return 1.0 + (seamBoost - 1.0) * (1.0 - p.toDouble() / (POINTS - 1))
+    /**
+     * 事件第 [p] 个控制点的跨接淡入比例：p=0 为 0（完全沿用上一控制点电平），
+     * 在 [seamFadeMs] 内线性升到 1（完全跟随当前测量值）。
+     */
+    private fun seamFadeRamp(p: Int): Double {
+        if (seamFadeMs <= 0) return 1.0
+        val t = p.toDouble() * eventMs / (POINTS - 1)
+        return (t / seamFadeMs).coerceIn(0.0, 1.0)
     }
 }

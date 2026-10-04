@@ -21,8 +21,14 @@ import kotlin.math.sqrt
  */
 class PcmPitchTracker {
 
-    /** 一次分析结果：[freqHz] 主导频率，[amp] 归一化幅度 0..1。 */
-    data class Pitch(val freqHz: Double, val amp: Double)
+    /**
+     * 一次分析结果：[freqHz] 主导频率，[amp] 归一化幅度 0..1。
+     *
+     * [voiced] 表示带内是否存在明确的主导音调：纯音/窄带为 true；宽带噪声/撞击（无明确
+     * 音高）为 false。unvoiced 时 [freqHz] 置 0，下游据此改用谐振频率驱动（宽带内容在
+     * 窄带 LRA 上本就无法复现音高，用谐振点能给出最大的机械能量，只由包络承载质感）。
+     */
+    data class Pitch(val freqHz: Double, val amp: Double, val voiced: Boolean = true)
 
     private companion object {
         const val FFT_SIZE = 2048      // ~43ms @48k
@@ -31,8 +37,15 @@ class PcmPitchTracker {
         const val F_MAX = 600.0
         // 对新测得值做指数平滑，抑制逐帧抖动（对应官方对频率包络的低通）。
         const val SMOOTH = 0.4
+        // 测量值明显偏离当前值时的“快速跟随”平滑系数（降低音高突变/滑音的滞后）。
+        const val SMOOTH_FAST = 0.85
+        // 触发快速跟随的偏差阈值（Hz）。
+        const val FAST_DELTA_HZ = 25.0
         // 只统计幅度高于峰值该比例的样本，避开相位噪声。
         const val AMP_GATE = 0.3
+        // 音调性（带内峰值功率 / 带内总功率）判定门限，带滞回避免在噪声边缘抖动。
+        const val TONALITY_ON = 0.25
+        const val TONALITY_OFF = 0.12
     }
 
     private var rate = 0
@@ -52,6 +65,7 @@ class PcmPitchTracker {
     private var hasOutput = false
     private var smoothFreq = 0.0
     private var smoothAmp = 0.0
+    private var voiced = true
 
     fun reset() {
         pos = 0
@@ -60,6 +74,7 @@ class PcmPitchTracker {
         hasOutput = false
         smoothFreq = 0.0
         smoothAmp = 0.0
+        voiced = true
     }
 
     private fun configure(sampleRate: Int, channels: Int) {
@@ -98,7 +113,7 @@ class PcmPitchTracker {
         return if (hasOutput) current() else null
     }
 
-    private fun current(): Pitch = Pitch(smoothFreq, smoothAmp)
+    private fun current(): Pitch = Pitch(if (voiced) smoothFreq else 0.0, smoothAmp, voiced)
 
     private fun analyze() {
         // 按时间顺序取出窗口，去直流并加 Hann 窗
@@ -114,8 +129,22 @@ class PcmPitchTracker {
 
         fft(re, im)
 
-        // 构造解析信号频谱：负频置零、正频加倍；同时做 [F_MIN,F_MAX] 带通。
         val binHz = rate.toDouble() / FFT_SIZE
+
+        // 音调性 = 带内峰值功率 / 带内总功率。纯音/窄带接近 1；宽带噪声接近 1/带宽。
+        // 必须在下面的解析信号构造（会置零带外 bin）之前统计。
+        var bandPower = 0.0
+        var bandPeak = 0.0
+        for (k in 1 until FFT_SIZE / 2) {
+            val f = k * binHz
+            if (f < F_MIN || f > F_MAX) continue
+            val p = re[k] * re[k] + im[k] * im[k]
+            bandPower += p
+            if (p > bandPeak) bandPeak = p
+        }
+        val tonality = if (bandPower > 1e-20) bandPeak / bandPower else 0.0
+
+        // 构造解析信号频谱：负频置零、正频加倍；同时做 [F_MIN,F_MAX] 带通。
         for (k in 1 until FFT_SIZE / 2) {
             val f = k * binHz
             if (f >= F_MIN && f <= F_MAX) {
@@ -168,14 +197,26 @@ class PcmPitchTracker {
         val freq = if (sumW > 0.0) sumWF / sumW else 0.0
         val peakNorm = peakAmp.coerceIn(0.0, 1.0)
 
+        // 音调性滞回：明确有声调 -> voiced；明确宽带噪声 -> unvoiced；中间保持上一判定。
+        voiced = when {
+            tonality >= TONALITY_ON -> true
+            tonality <= TONALITY_OFF -> false
+            else -> voiced
+        }
+
         if (!hasOutput) {
             smoothFreq = freq
             smoothAmp = peakNorm
             hasOutput = true
         } else {
-            smoothFreq += (freq - smoothFreq) * SMOOTH
+            // 非对称平滑：测量值明显偏离当前值时快速跟随（降低音高突变/扫频的滞后），
+            // 稳态小幅抖动仍用慢系数去抖。
+            val alpha = if (abs(freq - smoothFreq) > FAST_DELTA_HZ) SMOOTH_FAST else SMOOTH
+            smoothFreq += (freq - smoothFreq) * alpha
             smoothAmp += (peakNorm - smoothAmp) * SMOOTH
         }
+        // unvoiced：丢弃音高（下游用谐振驱动），避免宽带内容被映射到无意义的音高。
+        if (!voiced) smoothFreq = 0.0
     }
 
     /** 原地迭代 radix-2 FFT。 */

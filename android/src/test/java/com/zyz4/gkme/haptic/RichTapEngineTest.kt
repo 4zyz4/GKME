@@ -33,12 +33,12 @@ class RichTapEngineTest {
     }
 
     @Test
-    fun frequencyTableMatchesEngine() {
-        assertEquals(170.0, RichTapEngine.heToHz(56), 1e-6)
-        assertEquals(86.6887, RichTapEngine.heToHz(0), 1e-3)
-        assertEquals(225.1655, RichTapEngine.heToHz(84), 1e-3)
-        // HE≥84 饱和。
-        assertEquals(RichTapEngine.heToHz(84), RichTapEngine.heToHz(100), 1e-9)
+    fun frequencyTableMatchesMeasuredCalibration() {
+        // 真机加速度计逐点标定（见 RichTapEngine.HE_HZ）。
+        assertEquals(169.1, RichTapEngine.heToHz(56), 1e-6)
+        assertEquals(107.2, RichTapEngine.heToHz(0), 1e-3)
+        assertEquals(241.1, RichTapEngine.heToHz(84), 1e-3)
+        assertEquals(280.3, RichTapEngine.heToHz(100), 1e-3)
         assertEquals(56, RichTapEngine.hzToHe(170.0))
     }
 
