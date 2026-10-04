@@ -1,6 +1,6 @@
 // JNI bridge that lets the GKME app use SDL3 for physical gamepad handling.
 //
-// SDL3 (libSDL3.so) is provided prebuilt by SDL3-3.4.16.aar. The Java glue layer
+// SDL3 (libSDL3.so) is provided prebuilt by SDL3-3.4.18.aar. The Java glue layer
 // (org.libsdl.app.SDL / SDLControllerManager / HIDDeviceManager) is initialised from
 // Kotlin (see SdlPlatform.kt); this bridge only drives the native SDL_Gamepad /
 // SDL_Sensor / SDL_RumbleGamepad APIs and exposes snapshots to Kotlin.

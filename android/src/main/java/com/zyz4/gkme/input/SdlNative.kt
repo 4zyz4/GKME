@@ -3,7 +3,7 @@ package com.zyz4.gkme.input
 /**
  * Thin Kotlin wrapper around the native SDL3 bridge (libgkme_sdl.so).
  *
- * The SDL3 shared library itself is provided prebuilt by SDL3-3.4.16.aar and is
+ * The SDL3 shared library itself is provided prebuilt by SDL3-3.4.18.aar and is
  * loaded automatically as a dependency of gkme_sdl. All gamepad state, rumble and
  * sensor access goes through SDL here.
  */

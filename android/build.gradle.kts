@@ -63,7 +63,7 @@ android {
 }
 
 dependencies {
-    implementation(files("libs/SDL3-3.4.16.aar"))
+    implementation(files("libs/SDL3-3.4.18.aar"))
 
     implementation("androidx.activity:activity-ktx:1.9.3")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")

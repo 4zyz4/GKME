@@ -5,7 +5,7 @@ project(gkme_sdl C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# SDL3 is provided by the SDL3-3.4.16.aar prefab package.
+# SDL3 is provided by the SDL3-3.4.18.aar prefab package.
 find_package(SDL3 REQUIRED CONFIG)
 
 add_library(gkme_sdl SHARED
