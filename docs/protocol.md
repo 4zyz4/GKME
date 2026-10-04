@@ -279,7 +279,8 @@ WIFI/USB 下用 33f 高精度单位，蓝牙下用 1f 传统单位。
 
 ## 7. AIDL 接口（被控端 / 本机模式）
 
-两个 AIDL 由 Shizuku 在 shell/root 进程实现，App 进程经 Binder 调用。两者都定义了 Shizuku 约定的
+`IGamepadService` 由 Shizuku 在 shell/root 进程实现，App 进程经 Binder 调用；`IHapticService`
+现由 App 进程内的 `RemoteHapticService` 直接实现（不再经 Shizuku）。两者都定义了 Shizuku 约定的
 退出事务 `exitService() = 16777114`（实际事务号 16777115）。
 
 ### 7.1 `IGamepadService`（`aidl/.../IGamepadService.aidl`）

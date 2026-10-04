@@ -11,17 +11,17 @@ import java.lang.reflect.Field
 import java.lang.reflect.Method
 
 /**
- * 运行在 Shizuku UserService 进程中的高清震动（RichTap 动态效果）服务。
+ * 高清震动（RichTap 动态效果）驱动实现。
  *
- * 该进程以 shell(uid 2000)/root 身份运行，不受 hidden API 限制，因此可以反射调用
- * 框架隐藏类。按优先级选 backend（对齐 RichTap ASDK `RichTapUtils.init`）：
+ * 现由 [HapticInjector] 在 app 进程内直接实例化，以**前台 app 的 uid** 反射调用框架隐藏类
+ * （manifest 声明 `richtap-api` 共享库后可用），从而不被系统“后台震动”策略丢弃。
+ * 按优先级选 backend（对齐 RichTap ASDK `RichTapUtils.init`）：
  * - **type 2 `RichTapPerformer`**：`richtap.os.PhonyVibrationEffect` / `android.os.RichTapVibrationEffect`
  *   的 `createPatternHeWithParam(int[])`，支持实时调参（`createHapticParameter`）。
  * - **type 1 `TencentPerformer`**：`android.os.DynamicEffect` + `android.os.HapticPlayer`。
  * - 两者都不可用时 `available=false`，由调用方回退普通 `Vibrator`。
  *
  * type 2 的 raw int[] 编码见 [RichTapRawCodec]（逆向自 SDK `base.b.a`）。
- * 与 [RemoteGamepadService] 一样，Shizuku v13 会优先使用带 [Context] 参数的构造器。
  */
 class RemoteHapticService @JvmOverloads constructor(
     @Suppress("unused") private val context: Context? = null,

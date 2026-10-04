@@ -18,14 +18,13 @@ flowchart TB
         CHM["ControlledHostManager<br/>UDP 37284"]
         GI["GamepadInjector"]
         HI["HapticInjector"]
+        RHS["RemoteHapticService<br/>进程内 RichTap"]
         FKA["FloatingKeepAlive"]
         SB1["ShizukuServiceBinding"]
-        SB2["ShizukuServiceBinding"]
     end
 
     subgraph SHELL["shell/root 用户服务进程"]
         RGS["RemoteGamepadService<br/>IGamepadService.Stub"]
-        RHS["RemoteHapticService<br/>IHapticService.Stub"]
         RGD["RemoteGamepadDevice<br/>System.loadLibrary(gkme_uinput)"]
     end
 
@@ -39,14 +38,16 @@ flowchart TB
     CA --> GI
     CA --> FKA
     GI --> SB1 --> RGS
-    HI --> SB2 --> RHS
+    HI --> RHS
     RGS --> RGD
     RGD --> UI
     RGD --> UH
 ```
 
-- **两个独立的 Shizuku 用户服务**：手柄（`IGamepadService`）与震动（`IHapticService`），各自维护 binder；
-  Shizuku 权限为应用级一次授权，由二者共享申请。
+- **手柄用户服务走 Shizuku**：`IGamepadService` 由 Shizuku 以 shell/root 身份运行并维护 binder；
+  Shizuku 权限为应用级一次授权。
+- **震动不再依赖 Shizuku**：`HapticInjector` 在 app 进程内直接实例化 `RemoteHapticService` 反射调用
+  RichTap hidden API（前台 uid）；`IHapticService` AIDL 仅作为接口定义保留。
 - **保活不再依赖 Shizuku**：被控端采用可选的「悬浮窗保活」（[FloatingKeepAlive]，见 §3.4）。
 - **两条原生路径**：uinput（伪装 Xbox One S，Linux FF 震动）与 uhid（真实 HID 身份 + HID 键鼠）。
 
@@ -62,7 +63,7 @@ flowchart TB
 
 - **应用级权限共享（`ShizukuPermission`）**：Shizuku 权限按 uid 授予，与具体用户服务无关，
    因此授权状态集中在同文件的 `internal object ShizukuPermission`，所有 binding 读同一份，
-   避免手柄/震动各存一份 `permissionGranted` 而出现「一个显示已授权、另一个显示未授权」
+   避免重复缓存 `permissionGranted` 而出现「显示已授权但操作被拒」
   或「显示已授权但操作被拒」。`requestCode`（`0x5A17`）与 `autoPrompted` / `requestInFlight`
   也在此统一管理，保证同一时刻只真正申请一次、被拒后不重复弹窗。
 - **不做粘滞缓存**：`ShizukuPermission.refresh(force)` 以服务端真实返回值刷新（仅按 1s 节流），
@@ -91,21 +92,21 @@ flowchart TB
 ### 2.2 AIDL 实现与退出
 
 - `RemoteGamepadService : IGamepadService.Stub()`；`RemoteHapticService : IHapticService.Stub()`。
-- 二者都支持带 `Context` 的构造器（Shizuku v13 优先）。
-- App 通过 `Stub.asInterface(binder)` 拿代理。
-- 退出事务 `exitService() = 16777114`（实际事务号 16777115）；`exitService()` 会先
+- `RemoteGamepadService` 由 Shizuku 以 shell/root 用户服务运行，支持带 `Context` 的构造器（Shizuku v13 优先）；
+  `RemoteHapticService` 现由 `HapticInjector` 在 app 进程内直接实例化，同样带 `Context` 构造器。
+- App 通过 `Stub.asInterface(binder)` 拿手柄用户服务代理；震动为进程内直接调用。
+- 退出事务 `exitService() = 16777114`（实际事务号 16777115）；手柄用户服务的 `exitService()` 会先
   `release()/stop()` 再 `Process.killProcess(Process.myPid())`，因为 Shizuku 不会自动杀用户服务进程。
 - 接口细节见 [protocol.md §7](protocol.md#7-aidl-接口被控端--本机模式)。
 
-### 2.3 两个业务封装的绑定参数
+### 2.3 绑定参数
 
 | 封装 | 进程后缀 | 服务类 | daemon |
 |------|----------|--------|--------|
 | `GamepadInjector` | `gkme_remote_input` | `RemoteGamepadService` | false |
-| `HapticInjector` | `gkme_haptic` | `RemoteHapticService` | false |
 
-二者共用 `ShizukuServiceBinding.REQUEST_CODE`，绑定参数不再各自携带 requestCode；`daemon`
-由 `ShizukuServiceBinding` 构造参数控制（当前均为默认 `false`）。
+只有手柄走 `ShizukuServiceBinding`；绑定参数不再携带 requestCode，`daemon` 由
+`ShizukuServiceBinding` 构造参数控制（当前为默认 `false`）。
 
 ---
 
@@ -139,8 +140,9 @@ flowchart TB
 
 `controlled/HapticInjector.kt`。见 [haptic.md §3.2](haptic.md#32-hapticinjector)。
 
-- 能力查询回退：每个后加事务都 try/catch 兼容旧服务。
-- 内嵌 `HapticArbiter`；`startEffect` 在旧服务无事务时回退 `startPattern`。
+- 在 app 进程内直接实例化 `RemoteHapticService`，不经 Shizuku 授权/绑定。
+- 能力查询回退：每个后加能力都 try/catch 兼容。
+- 内嵌 `HapticArbiter`；`startEffect` 在实现无该通路时回退 `startPattern`。
 - `isHapticReady()` 不满足时，调用方回退系统 `Vibrator`。
 
 ### 3.3 用户服务侧实现
@@ -325,7 +327,7 @@ flowchart TB
 | 设备超时 / 输入超时 | 15s / 3s |
 | Shizuku 包名 | `moe.shizuku.privileged.api` |
 | Shizuku 权限 requestCode（全局共享） | `0x5A17` |
-| 用户服务进程后缀 | `gkme_remote_input` / `gkme_haptic` |
+| 用户服务进程后缀 | `gkme_remote_input` |
 | 退出事务号 | 16777114 |
 | 原生库名 | `gkme_uinput` |
 | 通知 id / 渠道 | 4102 / `controlled_mode` |
@@ -366,6 +368,6 @@ flowchart TB
 ## 9. 相关文档
 
 - AIDL 接口与协议：[protocol.md](protocol.md)
-- HD 震动用户服务：[haptic.md](haptic.md)
+- HD 震动（进程内 RichTap）：[haptic.md](haptic.md)
 - 物理手柄 USB 驱动（对照 uhid 伪装）：[usb-drivers.md](usb-drivers.md)
 - 虚拟手柄类型设置持久化：[model-data.md](model-data.md)

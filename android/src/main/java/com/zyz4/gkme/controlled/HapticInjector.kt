@@ -10,11 +10,11 @@ import com.zyz4.gkme.haptic.RichTapHe
 import com.zyz4.gkme.haptic.RichTapPrebaked
 
 /**
- * App 侧对 HD 震动 Shizuku 用户服务（[RemoteHapticService]）的封装。
+ * App 侧对 HD 震动（RichTap 隐藏 API）的封装。
  *
- * 授权/绑定逻辑委托给独立的 [ShizukuServiceBinding]，本文件只关心能力查询与效果下发。
- * 只有 Shizuku 已运行、已授权、用户服务已绑定且本机支持 RichTap 隐藏 API 时，
- * [isHapticReady] 才为 true；否则调用方应回退到普通 Vibrator 通路。
+ * 直接在 app 进程内实例化 [RemoteHapticService] 驱动 RichTap：调用方是前台 app 的 uid，
+ * 不会被系统的“后台震动”策略丢弃，也不再依赖 Shizuku 授权。只有本机支持 RichTap 隐藏
+ * API 时 [isHapticReady] 才为 true；否则调用方应回退到普通 Vibrator 通路。
  */
 object HapticInjector {
 
@@ -53,13 +53,6 @@ object HapticInjector {
     var realtimeAdjust: Boolean = false
         private set
 
-    private var binding: ShizukuServiceBinding? = null
-
-    /** HD 是否在 app 进程内直接驱动（前台 uid），而非 Shizuku 用户服务。 */
-    @Volatile
-    var inProcess: Boolean = false
-        private set
-
     @Volatile
     private var initialized = false
 
@@ -68,8 +61,8 @@ object HapticInjector {
         if (initialized) return
         RichTapPrebaked.load(context)
 
-        // 优先在 app 进程内直接驱动 RichTap：调用方是前台 app 的 uid，不会被系统的
-        // "后台震动"策略（ignored_background）丢弃。需要 manifest 声明 richtap-api 共享库。
+        // 在 app 进程内直接驱动 RichTap：调用方是前台 app 的 uid，不会被系统的
+        //“后台震动”策略（ignored_background）丢弃。需要 manifest 声明 richtap-api 共享库。
         val local = try {
             RemoteHapticService(context.applicationContext)
         } catch (t: Throwable) {
@@ -79,31 +72,8 @@ object HapticInjector {
         if (local != null && local.isAvailable) {
             service = local
             refreshCapabilities(local)
-            inProcess = true
-            initialized = true
             Log.i(TAG, "使用 app 进程内 RichTap: playerType=$playerType version=$version")
-            return
         }
-
-        // 回退：Shizuku 用户服务（shell/root 身份）。
-        val b = ShizukuServiceBinding(
-            tag = TAG,
-            processNameSuffix = "gkme_haptic",
-            serviceClass = RemoteHapticService::class.java,
-            onConnected = { binder ->
-                val svc = IHapticService.Stub.asInterface(binder)
-                service = svc
-                refreshCapabilities(svc)
-            },
-            onDisconnected = {
-                service = null
-                available = false
-                playerType = 0
-                realtimeAdjust = false
-            },
-        )
-        binding = b
-        b.init(context)
         initialized = true
     }
 
@@ -119,7 +89,7 @@ object HapticInjector {
         } catch (_: Throwable) {
             ""
         }
-        // 这些事务是后加的；旧版用户服务没有，会抛异常，逐个兜底。
+        // 这些能力查询在不同机型/核心版本上可能不可用，逐个兜底。
         playerType = try {
             svc.playerType
         } catch (_: Throwable) {
@@ -130,14 +100,6 @@ object HapticInjector {
         } catch (_: Throwable) {
             false
         }
-    }
-
-    fun requestPermission(force: Boolean = false) {
-        binding?.requestPermission(force)
-    }
-
-    fun ensureBound() {
-        binding?.ensureBound()
     }
 
     /** 是否可下发 HD 效果。 */
@@ -182,8 +144,7 @@ object HapticInjector {
      * 下发一段**使用自身参数**的 HE 1.0 效果（多事件分块，每个事件自带 Frequency 与
      * 4 点 Curve）。用无参 `start()`，不传全局 amplitude/freq，避免覆盖事件参数。
      *
-     * 兼容：若 Shizuku 仍复用旧版用户服务（没有 `startEffect` 事务），回退到
-     * [startPattern]，至少能出声。
+     * 兼容：若本机 RichTap 实现没有 `startEffect` 通路，回退到 [startPattern]，至少能出声。
      */
     fun startEffect(json: String, source: HapticSource): Boolean {
         val svc = service ?: return false
@@ -259,53 +220,20 @@ object HapticInjector {
     }
 
     fun statusText(): String {
-        if (inProcess) {
-            return if (available) {
-                val type = when (playerType) {
-                    2 -> "type2 RichTap"
-                    1 -> "type1 Tencent"
-                    else -> "type?"
-                }
-                "HD 已就绪 (进程内 $type)"
-            } else {
-                "本机不支持 HD 震动"
-            }
+        if (!available) return "本机不支持 HD 震动"
+        val type = when (playerType) {
+            2 -> "type2 RichTap"
+            1 -> "type1 Tencent"
+            else -> "type?"
         }
-        val b = binding ?: return "未初始化"
-        return when {
-            !b.binderAlive -> "Shizuku 未运行"
-            !b.permissionGranted -> "Shizuku 未授权"
-            service == null -> if (b.bindFailed) {
-                ShizukuServiceBinding.BIND_FAILED_MESSAGE
-            } else {
-                "正在启动用户服务…"
-            }
-            !available -> "本机不支持 HD 震动"
-            else -> {
-                val type = when (playerType) {
-                    2 -> "type2 RichTap"
-                    1 -> "type1 Tencent"
-                    else -> "type?"
-                }
-                val v = version.ifEmpty { type }
-                "HD 已就绪 ($v)"
-            }
-        }
+        return "HD 已就绪 ($type)"
     }
 
-    fun requiredAction(context: Context): ShizukuServiceBinding.Action =
-        binding?.requiredAction(context) ?: ShizukuServiceBinding.Action.NONE
-
-    fun lastErrorMessage(): String? = binding?.lastError
-
     fun destroy() {
-        binding?.detach()
-        binding = null
         service = null
         available = false
         playerType = 0
         realtimeAdjust = false
-        inProcess = false
         initialized = false
     }
 }
