@@ -29,9 +29,9 @@ import kotlin.math.sqrt
 object AppearanceApplier {
 
     // Buttons whose foreground icon is resolved from the display mode via getIconDrawable.
-    // select/menu use a neutral circle background and scale their icon as content; btnTouchpad
+    // select/menu use a neutral circle background and scale their icon as content; btnShare
     // scales its (rectangular) grid icon as content too.
-    private val iconButtonIds = setOf("btnSelect", "btnMenu", "btnTouchpad")
+    private val iconButtonIds = setOf("btnSelect", "btnMenu", "btnShare")
 
     // Image buttons that draw their icon as content and scale it with the adaptive setting.
     private val adaptiveImageButtonIds = setOf(
@@ -43,7 +43,7 @@ object AppearanceApplier {
     // triangle+letter.
     private val adaptiveForegroundButtonIds = setOf(
         "btnA", "btnB", "btnX", "btnY",
-        "btnSelect", "btnMenu", "btnTouchpad", "btnLS", "btnRS",
+        "btnSelect", "btnMenu", "btnShare", "btnLS", "btnRS",
     )
 
     // PS-mode ABXY: their foreground icons are set directly by updateButtonLabels (unlike
@@ -55,7 +55,7 @@ object AppearanceApplier {
     private val adaptiveContentButtonIds = setOf(
         "btnA", "btnB", "btnX", "btnY",
         "btnDpadUp", "btnDpadDown", "btnDpadLeft", "btnDpadRight",
-        "btnHome", "btnMic", "btnSelect", "btnMenu", "btnTouchpad", "btnLS", "btnRS",
+        "btnHome", "btnMic", "btnSelect", "btnMenu", "btnShare", "btnLS", "btnRS",
     )
 
     // Last auto-size cap applied per TextView (px), so we don't reconfigure on every pass.
@@ -415,7 +415,7 @@ object AppearanceApplier {
                 DisplayMode.SWITCH -> R.drawable.ic_plus
                 else -> null
             }
-            "btnTouchpad" -> when (mode) {
+            "btnShare" -> when (mode) {
                 DisplayMode.XBOX -> R.drawable.ic_share_xbox
                 DisplayMode.SWITCH -> R.drawable.ic_screenshot_switch
                 else -> R.drawable.ic_touchpad_grid
@@ -467,7 +467,7 @@ object AppearanceApplier {
         return baseId in listOf(
             "btnA", "btnB", "btnX", "btnY",
             "btnDpadUp", "btnDpadDown", "btnDpadLeft", "btnDpadRight",
-            "btnHome", "btnSelect", "btnMenu", "btnLS", "btnRS", "btnTouchpad", "btnMic",
+            "btnHome", "btnSelect", "btnMenu", "btnLS", "btnRS", "btnShare", "btnMic",
         ) || baseId.startsWith("btnCustomCircle")
     }
 

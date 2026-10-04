@@ -77,7 +77,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         "btnY", "btnA", "btnX", "btnB",
         "btnLT", "btnLB", "btnRT", "btnRB",
         "btnSelect", "btnHome", "btnMenu",
-        "btnTouchpad", "btnLS", "btnRS", "btnMic",
+        "btnShare", "btnLS", "btnRS", "btnMic",
         "btnMouseLMB", "btnMouseRMB", "btnMouseMMB", "btnMouseBack", "btnMouseForward",
     )
 
@@ -225,7 +225,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             "btnSelect" -> "手柄：选择"
             "btnHome" -> "手柄：主页"
             "btnMenu" -> "手柄：菜单"
-            "btnTouchpad" -> "触摸板按下"
+            "btnShare" -> "手柄：分享"
             "btnLS" -> "手柄：左摇杆按下"
             "btnRS" -> "手柄：右摇杆按下"
             "touchpad" -> "触摸板（手柄）"

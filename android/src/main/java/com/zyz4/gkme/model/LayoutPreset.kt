@@ -155,6 +155,13 @@ data class LayoutPreset(
                         btnObj.addProperty("slideDirection", normalized)
                     }
 
+                    // 旧版触摸板按下按钮 id "btnTouchpad" 迁移为 "btnShare"，保留多实例后缀。
+                    btnObj.get("id")?.asString?.let { oldId ->
+                        if (oldId == "btnTouchpad" || oldId.startsWith("btnTouchpad_")) {
+                            btnObj.addProperty("id", "btnShare" + oldId.removePrefix("btnTouchpad"))
+                        }
+                    }
+
                     val bp = gsonInstance.fromJson(btnObj, com.zyz4.gkme.model.ButtonPosition::class.java)
                     val baseId = bp.id.substringBefore("_")
                     // Override lockAspect and isKeyboard from hard-coded tables
@@ -173,11 +180,12 @@ data class LayoutPreset(
             val gyroReverseDeadZone = root.get("gyroReverseDeadZone")?.asInt
             val gyroStickCurve = root.getAsJsonArray("gyroStickCurve")?.map { it.asFloat }
             val physicalInputMappings: Map<String, PhysicalInputMapping> =
-                root.get("physicalInputMappings")?.let {
-                    gsonInstance.fromJson(
-                        it,
+                root.get("physicalInputMappings")?.let { element ->
+                    val parsed: Map<String, PhysicalInputMapping> = gsonInstance.fromJson(
+                        element,
                         object : TypeToken<Map<String, PhysicalInputMapping>>() {}.type,
                     )
+                    parsed.mapKeys { (key, _) -> PhysicalInputs.normalizeKey(key) }
                 } ?: emptyMap()
             val volumeUpBits = root.getAsJsonArray("volumeUpBits")?.map { it.asInt } ?: emptyList()
             val volumeDownBits = root.getAsJsonArray("volumeDownBits")?.map { it.asInt } ?: emptyList()

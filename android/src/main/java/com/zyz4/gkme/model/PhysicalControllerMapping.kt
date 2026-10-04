@@ -63,7 +63,9 @@ object PhysicalInputs {
     const val KEY_DPAD_LEFT = "DPAD_LEFT"
     const val KEY_DPAD_RIGHT = "DPAD_RIGHT"
     const val KEY_HOME = "HOME"
-    const val KEY_TOUCHPAD_CLICK = "TOUCHPAD_CLICK"
+    const val KEY_SHARE = "SHARE"
+    /** 旧版按键 id；读取旧预设时会被归一化到 [KEY_SHARE]。 */
+    const val KEY_TOUCHPAD_CLICK_LEGACY = "TOUCHPAD_CLICK"
     const val KEY_MIC_MUTE = "MIC_MUTE"
     const val KEY_PADDLE_R1 = "PADDLE_R1"
     const val KEY_PADDLE_R2 = "PADDLE_R2"
@@ -100,7 +102,7 @@ object PhysicalInputs {
         PhysicalInput(KEY_DPAD_LEFT, "方向键左", PhysicalInputKind.BUTTON, listOf(GamepadState.DPAD_BIT_LEFT), GamepadState.DPAD_BIT_LEFT),
         PhysicalInput(KEY_DPAD_RIGHT, "方向键右", PhysicalInputKind.BUTTON, listOf(GamepadState.DPAD_BIT_RIGHT), GamepadState.DPAD_BIT_RIGHT),
         PhysicalInput(KEY_HOME, "主页", PhysicalInputKind.BUTTON, listOf(GamepadState.HOME), GamepadState.HOME),
-        PhysicalInput(KEY_TOUCHPAD_CLICK, "触摸板按下", PhysicalInputKind.BUTTON, listOf(GamepadState.TOUCHPAD_CLICK), GamepadState.TOUCHPAD_CLICK),
+        PhysicalInput(KEY_SHARE, "分享", PhysicalInputKind.BUTTON, listOf(GamepadState.TOUCHPAD_CLICK), GamepadState.TOUCHPAD_CLICK),
         PhysicalInput(KEY_MIC_MUTE, "麦克风静音", PhysicalInputKind.BUTTON, listOf(GamepadState.MIC_MUTE), GamepadState.MIC_MUTE),
         PhysicalInput(KEY_PADDLE_R1, "背键右上 (P1)", PhysicalInputKind.BUTTON, emptyList(), PADDLE_R1),
         PhysicalInput(KEY_PADDLE_L1, "背键左上 (P3)", PhysicalInputKind.BUTTON, emptyList(), PADDLE_L1),
@@ -120,9 +122,13 @@ object PhysicalInputs {
 
     private val byKey: Map<String, PhysicalInput> = ALL.associateBy { it.key }
 
-    fun byKey(key: String): PhysicalInput? = byKey[key]
+    /** 将旧版按键 id 归一化为当前 id，用于兼容旧预设。 */
+    fun normalizeKey(key: String): String =
+        if (key == KEY_TOUCHPAD_CLICK_LEGACY) KEY_SHARE else key
 
-    fun defaultOutputsFor(key: String): List<Int> = byKey[key]?.defaultOutputs ?: emptyList()
+    fun byKey(key: String): PhysicalInput? = byKey[normalizeKey(key)]
+
+    fun defaultOutputsFor(key: String): List<Int> = byKey(key)?.defaultOutputs ?: emptyList()
 
     /** True when [key] names one of the back paddles. */
     fun isPaddle(key: String): Boolean = key == KEY_PADDLE_R1 || key == KEY_PADDLE_L1 ||

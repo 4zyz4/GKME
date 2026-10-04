@@ -223,7 +223,7 @@ internal object BitNameMapper {
             GamepadState.L3 -> "手柄：左摇杆按下"
             GamepadState.R3 -> "手柄：右摇杆按下"
             GamepadState.HOME -> "手柄：主页"
-            GamepadState.TOUCHPAD_CLICK -> "触摸板按下"
+            GamepadState.TOUCHPAD_CLICK -> "手柄：分享"
             GamepadState.DPAD_BIT_UP -> "上方向"
             GamepadState.DPAD_BIT_DOWN -> "下方向"
             GamepadState.DPAD_BIT_LEFT -> "左方向"
@@ -315,7 +315,7 @@ internal val ctrlEntryBitMap: Map<String, Int> = listOf(
     "btnLT" to GamepadState.LT, "btnRT" to GamepadState.RT,
     "btnLS" to GamepadState.L3, "btnRS" to GamepadState.R3,
     "btnSelect" to GamepadState.SELECT, "btnHome" to GamepadState.HOME,
-    "btnMenu" to GamepadState.START, "btnTouchpad" to GamepadState.TOUCHPAD_CLICK,
+    "btnMenu" to GamepadState.START, "btnShare" to GamepadState.TOUCHPAD_CLICK,
     "btnMic" to GamepadState.MIC_MUTE,
     "btnMouseLMB" to GamepadState.MOUSE_LMB,
     "btnMouseRMB" to GamepadState.MOUSE_RMB,
@@ -344,7 +344,7 @@ internal val allControls = listOf(
     CtrlEntry("rightJoystick", "手柄：右摇杆", R.drawable.joystick_outer, isJoystick = true, w = 17, h = 17, lockAspect = true),
     CtrlEntry("touchpad", "触摸板（手柄）", R.drawable.center_rect, isTouchpad = true, w = 34, h = 22, lockAspect = false),
     CtrlEntry("mousepad", "触摸板（鼠标）", R.drawable.center_rect, isMousepad = true, w = 34, h = 22, lockAspect = false),
-    CtrlEntry("btnTouchpad", "触摸板按下", R.drawable.btn_touchpad, R.drawable.btn_touchpad, bit = GamepadState.TOUCHPAD_CLICK, w = 9, h = 9, lockAspect = true),
+    CtrlEntry("btnShare", "手柄：分享", R.drawable.btn_touchpad, R.drawable.btn_touchpad, bit = GamepadState.TOUCHPAD_CLICK, w = 9, h = 9, lockAspect = true),
     CtrlEntry("btnLS", "手柄：左摇杆按下", R.drawable.btn_ls, R.drawable.btn_ls, bit = GamepadState.L3, w = 9, h = 9, lockAspect = true),
     CtrlEntry("btnRS", "手柄：右摇杆按下", R.drawable.btn_rs, R.drawable.btn_rs, bit = GamepadState.R3, w = 9, h = 9, lockAspect = true),
     CtrlEntry("btnSelect", "手柄：选择", R.drawable.btn_select_xbox, bit = GamepadState.SELECT, w = 9, h = 9, lockAspect = true),
@@ -1542,7 +1542,7 @@ internal fun MainActivity.updateButtonLabels(mode: DisplayMode) {
                     }
                 }
             }
-            baseId == "btnTouchpad" -> {
+            baseId == "btnShare" -> {
                 (child as? Button)?.apply {
                     text = ""
                     setBackgroundResource(R.drawable.btn_touchpad)
