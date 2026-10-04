@@ -263,6 +263,10 @@ class GkViewModel @Inject constructor(
     }
 
     fun applyLayoutGyroSettings(preset: LayoutPreset) {
+        // 切换布局时旧 View 会被销毁，若陀螺仪激活按钮正被按住，其抬起事件不会再到达，
+        // 计数器会泄漏并让陀螺仪一直处于激活状态，故在应用新布局时归零。
+        _gyroActivateCount = 0
+        updateGyroOverrideFromCount()
         preset.gyroOrientation?.let {
             currentPresetGyroOrientation = it
         }
