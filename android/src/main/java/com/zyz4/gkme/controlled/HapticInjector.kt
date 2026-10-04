@@ -55,6 +55,11 @@ object HapticInjector {
 
     private var binding: ShizukuServiceBinding? = null
 
+    /** HD 是否在 app 进程内直接驱动（前台 uid），而非 Shizuku 用户服务。 */
+    @Volatile
+    var inProcess: Boolean = false
+        private set
+
     @Volatile
     private var initialized = false
 
@@ -62,6 +67,25 @@ object HapticInjector {
     fun init(context: Context) {
         if (initialized) return
         RichTapPrebaked.load(context)
+
+        // 优先在 app 进程内直接驱动 RichTap：调用方是前台 app 的 uid，不会被系统的
+        // "后台震动"策略（ignored_background）丢弃。需要 manifest 声明 richtap-api 共享库。
+        val local = try {
+            RemoteHapticService(context.applicationContext)
+        } catch (t: Throwable) {
+            Log.w(TAG, "进程内 RichTap 初始化异常", t)
+            null
+        }
+        if (local != null && local.isAvailable) {
+            service = local
+            refreshCapabilities(local)
+            inProcess = true
+            initialized = true
+            Log.i(TAG, "使用 app 进程内 RichTap: playerType=$playerType version=$version")
+            return
+        }
+
+        // 回退：Shizuku 用户服务（shell/root 身份）。
         val b = ShizukuServiceBinding(
             tag = TAG,
             processNameSuffix = "gkme_haptic",
@@ -235,6 +259,18 @@ object HapticInjector {
     }
 
     fun statusText(): String {
+        if (inProcess) {
+            return if (available) {
+                val type = when (playerType) {
+                    2 -> "type2 RichTap"
+                    1 -> "type1 Tencent"
+                    else -> "type?"
+                }
+                "HD 已就绪 (进程内 $type)"
+            } else {
+                "本机不支持 HD 震动"
+            }
+        }
         val b = binding ?: return "未初始化"
         return when {
             !b.binderAlive -> "Shizuku 未运行"
@@ -269,6 +305,7 @@ object HapticInjector {
         available = false
         playerType = 0
         realtimeAdjust = false
+        inProcess = false
         initialized = false
     }
 }

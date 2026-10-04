@@ -281,7 +281,14 @@ class RemoteHapticService @JvmOverloads constructor(
             )
             stopMethod = hp.getMethod("stop")
             startNoArgMethod = hp.getMethod("start")
-            packageField = hp.getDeclaredField("mPackageName").apply { isAccessible = true }
+            // app_process 下该字段为 null 需手动补齐；app 进程内它是 blocked 字段（拿不到），
+            // 但厂商构造函数会自动填好，因此这里允许为 null。
+            packageField = try {
+                hp.getDeclaredField("mPackageName").apply { isAccessible = true }
+            } catch (t: Throwable) {
+                Log.i(TAG, "mPackageName 字段不可访问（app 进程内使用默认值）: ${t.message}")
+                null
+            }
             playerType = PLAYER_TENCENT
             available = true
             version = try {
@@ -307,7 +314,8 @@ class RemoteHapticService @JvmOverloads constructor(
                 val effect = de.getMethod("create", String::class.java).invoke(null, heJson)
                 val hp = Class.forName("android.os.HapticPlayer")
                 val newPlayer = hp.getConstructor(de).newInstance(effect)
-                // app_process 下 mPackageName 为 null，start() 会 NPE，必须补齐。
+                // app_process 下 mPackageName 为 null 需补齐；app 进程内它是 blocked 字段，
+                // 拿不到时跳过（厂商构造函数会用当前包名填好）。
                 packageField?.set(newPlayer, packageName)
                 start.invoke(newPlayer, loop, interval, amplitude, freq)
                 player = newPlayer

@@ -15,7 +15,7 @@
 
 | 通路 | 执行器 | 载体 | 相关代码 |
 |------|--------|------|----------|
-| **RichTap 手机 HD 震动** | 手机 LRA | HE 1.0 JSON → Shizuku 用户服务反射 hidden API | `haptic/*`、`HapticInjector`、`RemoteHapticService` |
+| **RichTap 手机 HD 震动** | 手机 LRA | HE 1.0 JSON → 反射 hidden API（**优先 app 进程内**，否则 Shizuku 用户服务） | `haptic/*`、`HapticInjector`、`RemoteHapticService` |
 | **DualSense USB 音频触觉** | DS5 语音线圈 | isochronous PCM（4ch/48k）→ native | `cpp/haptic_native.c`、`HapticNative.java`、`DualSenseHapticSender` |
 | **Switch HD rumble** | Joy-Con / Pro 手柄 | Nintendo 专有线格式 | `HdRumbleCodec.java`、`PcmHdRumbleAnalyzer.kt`、`input/usb/*Controller` |
 
@@ -38,7 +38,7 @@ flowchart TB
     PHH --> HE["RichTapHe / RichTapLowFreq / RichTapEngine"]
     HE --> HDS["HdPcmStreamer / PcmHeEncoder"]
     HDS --> INJ["HapticInjector (Arbiter)"]
-    INJ --> RHS["RemoteHapticService<br/>shell 进程"]
+    INJ --> RHS["RemoteHapticService<br/>app 进程(优先) / shell 进程(回退)"]
     RHS --> HW["android.os.HapticPlayer<br/>hidden API"]
 
     AUD --> ANA["PcmHdRumbleAnalyzer"]
@@ -154,7 +154,7 @@ flowchart TB
 
 ---
 
-## 3. PhoneHdHaptics 与跨进程下发
+## 3. PhoneHdHaptics 与下发（app 进程内优先 / Shizuku 回退）
 
 ### 3.1 PhoneHdHaptics
 
@@ -174,11 +174,16 @@ flowchart TB
 
 ### 3.2 HapticInjector
 
-`controlled/HapticInjector.kt`。Shizuku 用户服务封装、所有权/下发。
+`controlled/HapticInjector.kt`。HD 下发门面、所有权/下发；**运行位置二选一**：
 
-- `init`：加载预置 HE，绑定 `RemoteHapticService`（进程后缀 `gkme_haptic`；Shizuku 权限申请码
-  由 `ShizukuServiceBinding.REQUEST_CODE` 全局共享，不再单独指定）。
-- `onConnected`：`IHapticService.Stub.asInterface` + `refreshCapabilities`（`isAvailable/version/playerType/realtimeAdjust`），
+- **app 进程内（优先）**：`init` 先直接 `RemoteHapticService(context.applicationContext)` 实例化，
+  成功即用（`inProcess=true`，`service` 指向该本地实例），不再绑定 Shizuku。这样震动调用方是
+  **前台 app 的 uid**，不会被系统的"后台震动"策略丢弃（见 §9）。依赖 manifest 的
+  `<uses-library android:name="richtap-api" />`（由 `libs/RichTap_ASDK_2.2.0.aar` 的 manifest 合并而来）。
+- **Shizuku 用户服务（回退）**：app 进程内不可用（拿到 `available=false`，例如非小米 ROM / 无
+  `richtap-api`）时，才绑定 `RemoteHapticService`（进程后缀 `gkme_haptic`；权限申请码由
+  `ShizukuServiceBinding.REQUEST_CODE` 全局共享）。
+- 两条路的 `onConnected`/本地实例都经 `refreshCapabilities`（`isAvailable/version/playerType/realtimeAdjust`），
   每个新事务都 try/catch 兼容旧用户服务。
 - 内嵌 `HapticArbiter`；`startPattern` / `startEffect` 先 `acquire(source)`。
 - `startEffect` 在旧服务无该事务时回退 `startPattern`。
@@ -188,13 +193,17 @@ flowchart TB
 
 ### 3.3 RemoteHapticService
 
-`controlled/RemoteHapticService.kt`。运行在 shell/root 进程，反射调用 hidden API。
+`controlled/RemoteHapticService.kt`。反射调用 hidden API；**既作为 Shizuku 用户服务（shell/root），
+也被 app 进程内直接实例化**（此时调用方 uid = app）。
 
 - `init`：优先 `tryInitType2()`，失败回退 `tryInitType1()`。
 - **type2 RichTapPerformer**：`richtap.os.PhonyVibrationEffect` / `android.os.RichTapVibrationEffect`；
   `checkIfRichTapSupport` 解版本；反射 `createPatternHeWithParam/createHapticParameter/createPatternHeParameter`。
 - **type1 TencentPerformer**：`android.os.HapticPlayer` + `DynamicEffect.create(String)`；
-  `startTencent` 必须先 `stop` 再 `start`，并反射补 `mPackageName`（app_process 下为 null 会 NPE）。
+  `startTencent` 必须先 `stop` 再 `start`。
+  - `mPackageName` 反射补值：`app_process` 下为 null 必须补，否则 `start()` NPE；**app 进程内该字段是
+    hidden API `blocked`（`getDeclaredField` 直接抛异常）**，因此读取失败时置 `packageField=null` 跳过，
+    厂商构造函数会用当前包名自动填好。
 - `updateParameter`：`PARAM_TAG=256/513/514`，senderId 组 1。
 - `swapVibrationIndex` 暂未接入设置，保留与 SDK 对齐。
 
@@ -319,6 +328,28 @@ native 模式下空闲补 10ms 静音帧（见 [usb-drivers.md §4](usb-drivers.
 | `EVENT_MS` 可否进一步缩短、HAL 最短事件时长，待真机标定 | `HdPcmStreamer.kt:38-49` |
 | `Q`、`MAX_FREQ_COMPENSATION`、`SEAM_BOOST`、`ONSET_*`、`BURST_*` 建议按真机手感标定 | 各文件 |
 | `HdPcmStreamer`/`PhoneHdHaptics`/`RemoteHapticService`/`haptic_native.c` 无 JVM 测试 | 依赖设备/Shizuku/USB |
+
+### 9.1 HyperOS 后台震动策略与 app 进程内 RichTap（已修复）
+
+真机（HyperOS / 本机仅 type1）实测：从 **Shizuku 用户服务（shell, uid 2000）** 下发的 RichTap
+`DynamicEffect` 会被 `VibratorManagerService` 判为 `ignored_background` 直接丢弃：
+
+```
+dumpsys vibrator_manager → effect | ignored_background | usage: MEDIA | com.android.shell (uid=2000) | reason: DynamicEffect
+```
+
+判定依据是**调用方 uid**（`mPackageName` 设成 app 包名也无效，dumpsys 仍显示 uid 2000）。
+`RemoteHapticService` 自身逻辑正确（`isAvailable=true`、效果 `mEffects=1 enc=34` 有效），
+同一调用在纯 `app_process` 探针下同样被忽略——即"能调用、无异常、但不震"。
+
+解决：把 RichTap 驱动搬到 **app 进程内**（前台 uid），并在 manifest 声明
+`<uses-library android:name="richtap-api" android:required="false" />` 获得隐藏 API 访问权，
+`ignored_background` 随即变为 `running`，马达正常震动。
+
+- `android/libs/RichTap_ASDK_2.2.0.aar` 仅用于合并该 `<uses-library>`，**代码不调用 SDK**。
+- app 进程内 `mPackageName` 是 hidden API `blocked` 字段（`getDeclaredField` 抛异常），
+  `RemoteHapticService` 对其读取失败时置 `packageField=null` 跳过，厂商构造函数会自动填包名。
+- 无 `richtap-api` 的机型 app 进程内会得到 `available=false`，自动回退 Shizuku 用户服务。
 
 ---
 
