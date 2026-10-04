@@ -8,25 +8,24 @@ import org.junit.Test
 class RichTapFrequencyTest {
 
     @Test
-    fun breakpoints_matchEngineTable() {
-        // 谐振点：引擎 HE 56 ↔ 170Hz。
+    fun breakpoints_matchMeasuredCalibration() {
+        // 谐振点：引擎 HE 56 ↔ ≈169Hz。
         assertEquals(56, RichTapFrequency.hzToHe(170.0))
-        // 低频端：HE 0 ≈ 86.7Hz（89Hz 落在 HE 1/2 附近，表里二者同为 159）。
+        // 低频端：HE 0 = 107.2Hz，更低的频率钳到 HE 0。
         assertEquals(0, RichTapFrequency.hzToHe(80.0))
-        assertEquals(2, RichTapFrequency.hzToHe(89.0))
-        // 高频端：引擎在 HE≥83 饱和于 ~225Hz，故更高的频率钳到饱和点 HE 83。
-        assertEquals(83, RichTapFrequency.hzToHe(271.0))
+        assertEquals(0, RichTapFrequency.hzToHe(107.0))
+        // 高频端：频率表单调到 HE 100 = 280.3Hz，超出钳到 HE 100。
+        assertEquals(95, RichTapFrequency.hzToHe(271.0))
         // Out-of-range clamps.
         assertEquals(0, RichTapFrequency.hzToHe(10.0))
-        assertEquals(83, RichTapFrequency.hzToHe(2000.0))
+        assertEquals(100, RichTapFrequency.hzToHe(2000.0))
     }
 
     @Test
     fun resonantPointRoundTrips() {
-        assertEquals(170.0, RichTapFrequency.heToHz(56), 0.5)
+        assertEquals(RichTapEngine.RESONANCE_HZ, RichTapFrequency.heToHz(56), 1e-9)
         assertEquals(RichTapEngine.MIN_HZ, RichTapFrequency.heToHz(0), 1e-9)
-        // 引擎频率表在 HE≥84 饱和（400 = 400）。
-        assertEquals(RichTapFrequency.heToHz(84), RichTapFrequency.heToHz(100), 1e-9)
+        assertEquals(RichTapEngine.MAX_HZ, RichTapFrequency.heToHz(100), 1e-9)
     }
 
     @Test
@@ -40,24 +39,25 @@ class RichTapFrequencyTest {
     }
 
     @Test
-    fun roundTripsBeforeSaturation() {
-        for (he in 0..84) {
+    fun roundTrips() {
+        for (he in 0..100) {
             val back = RichTapFrequency.hzToHe(RichTapFrequency.heToHz(he))
+            // 表里有相邻重复值（成对），往返可能落在相邻 HE，容差 1。
             assertEquals("round trip HE $he", he.toDouble(), back.toDouble(), 1.0)
         }
     }
 
     @Test
     fun shiftIntoRangeMovesOctavesOnly() {
-        // 低频素材上移进马达频段 (~87..225)。
-        assertEquals(100.0, RichTapFrequency.shiftIntoRange(50.0), 1e-6)
-        assertEquals(90.0, RichTapFrequency.shiftIntoRange(45.0), 1e-6)
+        // 低频素材上移进马达频段 (107.2..280.3)。
+        assertEquals(200.0, RichTapFrequency.shiftIntoRange(50.0), 1e-6)
+        assertEquals(180.0, RichTapFrequency.shiftIntoRange(45.0), 1e-6)
         assertEquals(160.0, RichTapFrequency.shiftIntoRange(40.0), 1e-6)
         // 已在范围内的频率不动。
         assertEquals(170.0, RichTapFrequency.shiftIntoRange(170.0), 1e-6)
         // 过高的频率下移。
         assertEquals(150.0, RichTapFrequency.shiftIntoRange(600.0), 1e-6)
         // 非法输入回落到谐振点。
-        assertEquals(170.0, RichTapFrequency.shiftIntoRange(0.0), 1e-6)
+        assertEquals(RichTapEngine.RESONANCE_HZ, RichTapFrequency.shiftIntoRange(0.0), 1e-6)
     }
 }

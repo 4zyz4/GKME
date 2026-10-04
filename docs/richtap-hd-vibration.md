@@ -365,8 +365,9 @@ adb logcat -d | grep -iE 'vibratorfeature|DynamicEffectThread|AACTrack|AGM|gsl'
 > 关键结论全部来自真机 HAL 日志（`vendor.hardware.vibratorfeature`）与逐变量对照。
 
 ### 9.1 物理前提
-LRA 是**窄带共振器**（本机 f0≈170Hz，Q≈10），无法复现宽带音频；可忠实复现的只有
-**幅度包络**（机械时间常数约 20–50ms）与**有限范围内的音高/锐度**（约 89–271Hz）。
+LRA 是**窄带共振器**（本机 f0≈169Hz，Q≈10），无法复现宽带音频；可忠实复现的只有
+**幅度包络**（机械时间常数约 20–50ms）与**有限范围内的音高/锐度**（约 107–280Hz，见
+[haptic.md §1.1](haptic.md) 的加速度计逐点标定）。
 因此"近乎无损"= 把 PCM 的**包络→Intensity**、**带内主频→HE Frequency**，以高时间分辨率
 投递给引擎；超出马达频段的音高按八度搬入（`RichTapFrequency.shiftIntoRange`）。
 
@@ -416,7 +417,7 @@ LRA 是**窄带共振器**（本机 f0≈170Hz，Q≈10），无法复现宽带�
 ## 10. 低频震动：用「快速发送短促震动」模拟低于马达下限的频率
 
 > 目标：让 HD 震动也能表现**低频**（如 20–80Hz 的“慢/闷”手感）。LRA 可用频段约
-> 87–225Hz（见 §9.1），直接给引擎低于下限的 `Frequency` 会被截断成最低频，丢失低频。
+> 107–280Hz（见 §9.1），直接给引擎低于下限的 `Frequency` 会被截断成最低频，丢失低频。
 
 ### 10.1 方法
 
@@ -432,7 +433,7 @@ LRA 是**窄带共振器**（本机 f0≈170Hz，Q≈10），无法复现宽带�
 ### 10.2 实现（GKME）
 
 - `haptic/RichTapLowFreq.kt`（纯 JVM，可单测）：
-  - `supports(hz)`：`hz < RichTapEngine.MIN_HZ`（≈86.7Hz）时走脉冲串。
+  - `supports(hz)`：`hz < RichTapEngine.MIN_HZ`（107.2Hz）时走脉冲串。
   - `periodMs` / `pulseMs`（占空比 `PULSE_RATIO=0.35`，最小 3ms）/ `pulseCount` / `coverageMs`。
   - `pattern(freqHz, durationMs, strength, carrierHe)`：最多 `MAX_PULSES=16` 个脉冲事件，
     每事件 4 点曲线（`0 → 峰 → 0.35·峰 → 0`）。
@@ -456,7 +457,7 @@ LRA 是**窄带共振器**（本机 f0≈170Hz，Q≈10），无法复现宽带�
 
 ## 11. 幅度-频率补偿：让不同频率下的实际振幅一致
 
-> 现象（真机手感）：**同一个振幅数值，在不同 HE 频率下的实际振幅不同**。HE 56（≈170Hz，
+> 现象（真机手感）：**同一个振幅数值，在不同 HE 频率下的实际振幅不同**。HE 56（≈169Hz，
 > 谐振点）最大，更高或更低的频率都会变小。需要**增大高频和低频的驱动幅度**来平衡差异。
 
 ### 11.1 模型
@@ -473,7 +474,7 @@ X(r) ∝ 1 / sqrt((1-r²)² + (2ζr)²)     r = f/f0,  2ζ = 1/Q
 gain(he) = 1 / resonanceResponse(he)   ∈ [1, MAX_FREQ_COMPENSATION]
 ```
 
-`f0 = RESONANCE_HZ`（170Hz），`f = heToHz(he)`，`Q = MECHANICAL_Q`（默认 10，真机可标定）。
+`f0 = RESONANCE_HZ`（169.1Hz），`f = heToHz(he)`，`Q = MECHANICAL_Q`（默认 10，真机可标定）。
 谐振 HE 56 处 `gain = 1`，偏离时 >1、按曲线强度上限封顶。
 
 ### 11.2 实现（GKME）

@@ -10,9 +10,11 @@ class RichTapLowFreqTest {
 
     @Test
     fun supports_onlyBelowMotorRange() {
+        // 电机下限 = RichTapEngine.MIN_HZ = 107.2Hz（实测标定）。
         assertTrue(RichTapLowFreq.supports(40.0))
-        assertTrue(RichTapLowFreq.supports(86.0))
-        assertFalse(RichTapLowFreq.supports(87.0))
+        assertTrue(RichTapLowFreq.supports(100.0))
+        assertTrue(RichTapLowFreq.supports(107.0))
+        assertFalse(RichTapLowFreq.supports(108.0))
         assertFalse(RichTapLowFreq.supports(170.0))
         assertFalse(RichTapLowFreq.supports(0.0))
         assertFalse(RichTapLowFreq.supports(-10.0))

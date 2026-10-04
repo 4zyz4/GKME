@@ -84,28 +84,51 @@ class PcmHeEncoderTest {
     }
 
     @Test
-    fun seamBoostLiftsFirstEventLeadingPoints() {
-        fun curveIntensities(boost: Double): List<Double> {
-            val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50, seamBoost = boost)
-            var json: String? = null
-            for (i in 0 until 30) json = enc.addSample(10, 0.4f, 56) ?: json
-            // values[0] 是 Parameters.Intensity(=100)；其后依次是各控制点的曲线强度。
-            return Regex("\"Intensity\":([0-9.]+)").findAll(json!!)
+    fun seamFadeStartsFromPreviousChunkTail() {
+        // 第一块稳定 0.8，第二块稳定 0.2；开启跨接后第二块首点应从 0.8 淡入到 0.2。
+        fun secondChunkHead(fadeMs: Int): List<Double> {
+            val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50, seamFadeMs = fadeMs)
+            for (i in 0 until 20) enc.addSample(10, 0.8f, 56)
+            enc.flush()
+            for (i in 0 until 20) enc.addSample(10, 0.2f, 56)
+            val json = enc.flush()!!
+            // values[0]=Parameters.Intensity(100)，values[1..4]=各控制点曲线强度。
+            return Regex("\"Intensity\":([0-9.]+)").findAll(json)
                 .map { it.groupValues[1].toDouble() }.toList()
         }
-        val plain = curveIntensities(1.0)
-        val boosted = curveIntensities(1.5)
-        // 首事件第 0 点被抬升。
-        assertTrue("起振补偿应抬升首点: ${boosted[1]} > ${plain[1]}", boosted[1] > plain[1])
-        // 曲线强度受 [0,1] 约束。
-        assertTrue("强度不应越界", boosted[1] <= 1.0)
-        // 第二个事件的第 0 点（values[5]）不受影响。
-        assertEquals("非首事件不应被补偿", plain[5], boosted[5], 1e-9)
+        val withFade = secondChunkHead(50)
+        val noFade = secondChunkHead(0)
+        val tail08 = RichTapEngine.amplitudeToCurve(0.8)
+        val target02 = RichTapEngine.amplitudeToCurve(0.2)
+        // 无跨接：首点直接跟随当前值 0.2。
+        assertEquals("无跨接首点应跟随当前值", target02, noFade[1], 0.02)
+        // 有跨接：首点从上一分块收尾电平 0.8 起（高于 0.2），末点回落到 0.2。
+        assertEquals("跨接首点应从 0.8 起", tail08, withFade[1], 0.02)
+        assertEquals("跨接末点应回到 0.2", target02, withFade[4], 0.02)
+        assertTrue("跨接首点应明显高于无跨接", withFade[1] > noFade[1] + 0.05)
+    }
+
+    @Test
+    fun resetStreamClearsSeam() {
+        val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50, seamFadeMs = 50)
+        for (i in 0 until 20) enc.addSample(10, 0.8f, 56)
+        enc.flush()
+        enc.resetStream() // 整条流停止后，跨接状态清零
+        for (i in 0 until 20) enc.addSample(10, 0.2f, 56)
+        val json = enc.flush()!!
+        val intensities = Regex("\"Intensity\":([0-9.]+)").findAll(json)
+            .map { it.groupValues[1].toDouble() }.toList()
+        // 流复位后首点从 0 淡入（而非陈旧的 0.8），末点回到当前值 0.2。
+        assertEquals("流复位后首点应从 0 淡入", 0.0, intensities[1], 0.02)
+        assertEquals(
+            "末点应回到当前值",
+            RichTapEngine.amplitudeToCurve(0.2), intensities[4], 0.02,
+        )
     }
 
     @Test
     fun onsetAccentAddsShortMaxEvent() {
-        val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50, seamBoost = 1.0, accentMs = 5)
+        val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50, accentMs = 5)
         enc.addSample(10, 0.05f, 56)
         enc.addSample(10, 0.9f, 56) // 突然增大
         enc.addSample(10, 0.9f, 56)
@@ -190,7 +213,7 @@ class PcmHeEncoderTest {
     @Test
     fun frequencyCompensationRaisesOffResonanceIntensity() {
         fun firstPointIntensity(he: Int): Double {
-            val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50, seamBoost = 1.0)
+            val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50)
             for (i in 0 until 30) enc.addSample(10, 0.4f, he)
             // values[0] 是 Parameters.Intensity(=100)；values[1] 是首控制点的曲线强度。
             return Regex("\"Intensity\":([0-9.]+)").findAll(enc.flush()!!)
@@ -205,9 +228,25 @@ class PcmHeEncoderTest {
     }
 
     @Test
+    fun peakWithinBucketIsPreservedAboveMean() {
+        val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50)
+        // 同一事件、同一控制点桶内先低后高：均值会被拉低，峰值保持应保留攻击瞬态。
+        enc.addSample(1, 0.1f, 56)
+        enc.addSample(1, 0.9f, 56)
+        val intensities = Regex("\"Intensity\":([0-9.]+)").findAll(enc.flush()!!)
+            .map { it.groupValues[1].toDouble() }.toList()
+        // values[0] 是 Parameters.Intensity(=100)，values[1] 是首控制点曲线强度。
+        val meanCurve = RichTapEngine.amplitudeToCurve(0.5)
+        assertTrue(
+            "峰值保持应高于桶内均值: ${intensities[1]} > $meanCurve",
+            intensities[1] > meanCurve,
+        )
+    }
+
+    @Test
     fun resonancePointIntensityUnchangedByCompensation() {
         // he=56 时补偿增益为 1，曲线强度只由 amplitudeToCurve 决定。
-        val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50, seamBoost = 1.0)
+        val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50)
         for (i in 0 until 30) enc.addSample(10, 0.4f, RichTapEngine.HE_AT_RESONANCE)
         val intensities = Regex("\"Intensity\":([0-9.]+)").findAll(enc.flush()!!)
             .map { it.groupValues[1].toDouble() }.toList()

@@ -54,6 +54,19 @@ class PcmPitchTrackerTest {
     }
 
     @Test
+    fun broadbandNoise_isUnvoicedAndFallsBackToResonance() {
+        val tracker = PcmPitchTracker()
+        val rng = java.util.Random(1234)
+        var pitch: PcmPitchTracker.Pitch? = null
+        repeat(30) {
+            tracker.process(noiseBlock(rng), channels, rate)?.let { pitch = it }
+        }
+        val p = pitch!!
+        assertTrue("宽带噪声不应被判为有声调", !p.voiced)
+        assertEquals("unvoiced 时音高应为 0（下游用谐振驱动）", 0.0, p.freqHz, 1e-9)
+    }
+
+    @Test
     fun frequencySweep_isTrackedMonotonically() {
         val tracker = PcmPitchTracker()
         val results = mutableListOf<Double>()
@@ -91,6 +104,17 @@ class PcmPitchTrackerTest {
             val t = (startFrame + i).toDouble() / rate
             val phase = 2.0 * PI * (f0 * t + (f1 - f0) * t * t / (2.0 * sweepSeconds))
             val s = (sin(phase) * 20000.0).roundToInt().coerceIn(-32768, 32767)
+            writeShort(out, i * channels * 2 + 2 * 2, s)
+            writeShort(out, i * channels * 2 + 3 * 2, s)
+        }
+        return out
+    }
+
+    /** 带限不明显的伪随机噪声（宽带）。 */
+    private fun noiseBlock(rng: java.util.Random): ByteArray {
+        val out = ByteArray(blockFrames * channels * 2)
+        for (i in 0 until blockFrames) {
+            val s = rng.nextInt(40001) - 20000
             writeShort(out, i * channels * 2 + 2 * 2, s)
             writeShort(out, i * channels * 2 + 3 * 2, s)
         }
