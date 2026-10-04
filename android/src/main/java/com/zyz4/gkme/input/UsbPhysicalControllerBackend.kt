@@ -341,6 +341,14 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
         if (flags and USB_SPECIAL != 0) b = b or GamepadState.HOME
         if (flags and USB_TOUCHPAD != 0) b = b or GamepadState.TOUCHPAD_CLICK
         if (flags and USB_MISC != 0) b = b or GamepadState.MIC_MUTE
+        // GameSir G7 "M" button also acts as microphone mute.
+        if (flags and USB_M_BUTTON != 0) b = b or GamepadState.MIC_MUTE
+        // Back paddles: same physical-only bits the SDL3 backend emits (PhysicalInputs.PADDLE_*),
+        // so the shared remapping path treats USB and SDL controllers identically.
+        if (flags and USB_PADDLE1 != 0) b = b or PhysicalInputs.PADDLE_R1
+        if (flags and USB_PADDLE2 != 0) b = b or PhysicalInputs.PADDLE_R2
+        if (flags and USB_PADDLE3 != 0) b = b or PhysicalInputs.PADDLE_L1
+        if (flags and USB_PADDLE4 != 0) b = b or PhysicalInputs.PADDLE_L2
         return b.toUInt()
     }
 
@@ -372,6 +380,11 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
             } else {
                 PhysicalInputs.STANDARD_BUTTON_MASK and GamepadState.TOUCHPAD_CLICK.inv()
             }
+            val allSupportedButtons = if (c.hasPaddleSupport()) {
+                supportedButtons or PhysicalInputs.PADDLE_MASK
+            } else {
+                supportedButtons
+            }
             ControllerInfo(
                 id = c.getControllerId(),
                 name = displayName(c),
@@ -381,7 +394,7 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
                 hasGyro = (capabilities and GkmeBridge.LI_CCAP_GYRO.toInt()) != 0,
                 hasAnalogTrigger = (capabilities and GkmeBridge.LI_CCAP_ANALOG_TRIGGERS.toInt()) != 0,
                 hasTouchpad = (capabilities and GkmeBridge.LI_CCAP_TOUCHPAD.toInt()) != 0,
-                supportedButtons = supportedButtons,
+                supportedButtons = allSupportedButtons,
             )
         }
         _connectedControllers.value = infos
@@ -807,6 +820,8 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
             "Xbox360Controller" -> "Xbox 360"
             "ProConController" -> "Switch Pro"
             "ProCon2Controller" -> "Switch Pro 2"
+            "GameSirG7Controller" -> "GameSir G7"
+            "Hid8BitdoController" -> "8BitDo"
             else -> when (controller.getType()) {
                 GkmeBridge.LI_CTYPE_XBOX -> "Xbox 手柄"
                 GkmeBridge.LI_CTYPE_PS -> "DS 手柄"
@@ -843,6 +858,11 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
         private const val USB_Y = 0x8000
         private const val USB_TOUCHPAD = 0x100000
         private const val USB_MISC = 0x200000
+        private const val USB_PADDLE1 = 0x010000
+        private const val USB_PADDLE2 = 0x020000
+        private const val USB_PADDLE3 = 0x040000
+        private const val USB_PADDLE4 = 0x080000
+        private const val USB_M_BUTTON = 0x2000000
 
         private val PLAYER_LED_PATTERNS = intArrayOf(0x04, 0x0A, 0x15, 0x1B, 0x1F)
     }

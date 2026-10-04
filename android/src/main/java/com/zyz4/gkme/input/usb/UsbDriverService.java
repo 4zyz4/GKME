@@ -225,6 +225,12 @@ public class UsbDriverService extends Service implements UsbDriverListener {
             }else if (Dualshock4Controller.canClaimDevice(device)) {
                 controller = new Dualshock4Controller(device, connection, nextDeviceId++, this);
             }
+            else if (GameSirG7Controller.canClaimDevice(device)) {
+                controller = new GameSirG7Controller(device, connection, nextDeviceId++, this);
+            }
+            else if (Hid8BitdoController.canClaimDevice(device)) {
+                controller = new Hid8BitdoController(device, connection, nextDeviceId++, this);
+            }
             else {
                 // Unreachable
                 return;
@@ -318,7 +324,9 @@ public class UsbDriverService extends Service implements UsbDriverListener {
                 ((!isRecognizedInputDevice(device) || claimAllAvailable) && ProCon2Controller.canClaimDevice(device)) ||
                 ((!isRecognizedInputDevice(device) || claimAllAvailable) && ProConController.canClaimDevice(device)) ||
                 ((!isRecognizedInputDevice(device) || claimAllAvailable) && DualSenseController.canClaimDevice(device))||
-                ((!isRecognizedInputDevice(device) || claimAllAvailable) && Dualshock4Controller.canClaimDevice(device));
+                ((!isRecognizedInputDevice(device) || claimAllAvailable) && Dualshock4Controller.canClaimDevice(device))||
+                ((!isRecognizedInputDevice(device) || claimAllAvailable) && GameSirG7Controller.canClaimDevice(device))||
+                ((!isRecognizedInputDevice(device) || claimAllAvailable) && Hid8BitdoController.canClaimDevice(device));
     }
 
     @SuppressLint("UnspecifiedRegisterReceiverFlag")

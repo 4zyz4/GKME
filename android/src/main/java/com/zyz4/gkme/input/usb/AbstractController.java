@@ -185,5 +185,13 @@ public abstract class AbstractController {
         listener.deviceAdded(this);
     }
 
+    /**
+     * True when this controller exposes physical back (paddle) buttons. The USB backend uses
+     * this to advertise the paddle remapping inputs, matching the SDL3 backend.
+     */
+    public boolean hasPaddleSupport() {
+        return false;
+    }
+
     public void sendCommand(byte[] data){};
 }
