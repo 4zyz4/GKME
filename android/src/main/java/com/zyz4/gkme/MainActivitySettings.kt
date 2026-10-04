@@ -1733,59 +1733,20 @@ internal fun MainActivity.updateShizukuEntry() {
 internal fun MainActivity.setupHdVibrationEntry() {
     val a = this
     HapticInjector.init(a)
-    HapticInjector.ensureBound()
-    a.findViewById<Button>(R.id.btnHdShizuku).setOnClickListener { a.onHdVibrationShizukuAction(fromUser = true) }
     a.findViewById<Switch>(R.id.switchHdVibration).setOnCheckedChangeListener { _, isChecked ->
         // updateHdVibrationUI 会按设置值程序化回写开关，也会触发本回调；只有真实用户
-        // 操作（新值与当前设置不同）才需要联动保存与 Shizuku 引导。
+        // 操作（新值与当前设置不同）才需要联动保存。
         if (isChecked != a.viewModel.settings.value.hdVibrationEnabled) {
             a.viewModel.updateHdVibrationEnabled(isChecked)
-            if (isChecked) a.onHdVibrationShizukuAction(fromUser = true)
             a.updateHdVibrationUI()
         }
     }
     a.updateHdVibrationUI()
-    // HD 震动默认开启：启动时尝试申请 Shizuku 权限；若 Shizuku 未安装/未运行则
-    // 只 toast 提示，不自动跳转下载页或 Shizuku 应用。
-    if (a.viewModel.settings.value.hdVibrationEnabled) a.onHdVibrationShizukuAction(fromUser = false)
-}
-
-/**
- * HD 震动的 Shizuku 引导。[fromUser] 为用户手动点击授权按钮：可跳转下载页/打开 Shizuku；
- * 否则为启动或开关联动的自动流程：Shizuku 未安装/未运行时仅 toast 提示，不自动跳转。
- */
-internal fun MainActivity.onHdVibrationShizukuAction(fromUser: Boolean) {
-    val a = this
-    when (HapticInjector.requiredAction(a)) {
-        ShizukuServiceBinding.Action.DOWNLOAD ->
-            if (fromUser) ShizukuServiceBinding.openDownloadPage(a)
-            else a.showToast("未安装 Shizuku，无法使用 HD 震动，请先安装并启动 Shizuku")
-        ShizukuServiceBinding.Action.OPEN ->
-            if (fromUser) ShizukuServiceBinding.openShizuku(a)
-            else a.showToast("Shizuku 未运行，无法使用 HD 震动，请先启动 Shizuku")
-        ShizukuServiceBinding.Action.REQUEST_PERMISSION -> {
-            // 自动流程只申请一次，避免反复弹窗；被拒绝后不再自动跳转。
-            HapticInjector.requestPermission(force = fromUser)
-        }
-        ShizukuServiceBinding.Action.NONE -> HapticInjector.ensureBound()
-    }
 }
 
 internal fun MainActivity.updateHdVibrationUI() {
     val a = this
     if (!a.settingsInflated) return
-    val btn = a.findViewById<Button>(R.id.btnHdShizuku) ?: return
-    val action = HapticInjector.requiredAction(a)
-    btn.isEnabled = true
-    when (action) {
-        ShizukuServiceBinding.Action.DOWNLOAD -> btn.text = "下载 Shizuku"
-        ShizukuServiceBinding.Action.OPEN -> btn.text = "打开 Shizuku"
-        ShizukuServiceBinding.Action.REQUEST_PERMISSION -> btn.text = "申请授权"
-        ShizukuServiceBinding.Action.NONE -> {
-            btn.text = "已授权"
-            btn.isEnabled = false
-        }
-    }
     val s = a.viewModel.settings.value
     val sw = a.findViewById<Switch>(R.id.switchHdVibration)
     if (sw != null && sw.isChecked != s.hdVibrationEnabled) sw.isChecked = s.hdVibrationEnabled

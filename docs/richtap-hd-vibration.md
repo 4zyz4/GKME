@@ -278,7 +278,7 @@ dumpsys：`usage: MEDIA | com.android.shell | reason: DynamicEffect`。
 > 后台进程的 `DynamicEffect` 判为 `ignored_background` 丢弃（详见 §5.1.1）。最终采用**方案①+②的混合**：
 > 集成 RichTap AAR 以获得 `richtap-api` 共享库声明（`<uses-library>`，从而拿到隐藏 API 访问权），
 > 但**不调用 SDK**，而是把 `RemoteHapticService` 的反射逻辑直接跑在 **app 进程内**（前台 uid），
-> Shizuku 退居回退路径。
+> Shizuku 不再参与，HD 震动不依赖 Shizuku 授权。
 
 #### 5.1.1 HyperOS 的 `ignored_background` 策略（关键坑）
 
@@ -354,7 +354,7 @@ adb logcat -d | grep -iE 'vibratorfeature|DynamicEffectThread|AACTrack|AGM|gsl'
 - [ ] 精确确认 `encapsulate()` 各字段语义（用 `createContinuous`/`createTransient`/`createParameter` 单变量对照）。
 - [x] `start(loop, interval, amplitude, freq)` 第 4 参 `freq` 的作用路径（频率编码在事件 `Parameters.Frequency`；无参 `start()` 时 HAL 收到 `amplitude=-1`）。
 - [ ] 尝试 `transient` 事件 + `createParameter(SHARPNESS, ...)` 做更锐利的"点击感"。
-- [x] 评估 App 内 hidden-API 豁免可行性，或走 Shizuku user service（已走 Shizuku user service）。
+- [x] 评估 App 内 hidden-API 豁免可行性，或走 Shizuku user service（最终采用 app 进程内 + `richtap-api` 共享库，Shizuku 方案已废弃）。
 - [x] 实时 PCM→HE 转为真正的流式（见 §9：多事件分块 + 无参 `start()` 投递）。
 
 ---

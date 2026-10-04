@@ -254,7 +254,7 @@ class MainActivity : ComponentActivity() {
             // 首帧之后再初始化 Shizuku 监听与 RichTap 预置资源，避免拖慢启动。
             // 注册 Shizuku 监听（本机模式使用），以便连接页正确显示授权条目状态。
             GamepadInjector.init(this)
-            // 高清震动（HD）Shizuku 用户服务；不可用时自动回退普通震动。
+            // 高清震动（HD）进程内 RichTap；本机不支持时自动回退普通震动。
             HapticInjector.init(this)
             physicalControllerHandler.start()
             ensureSettingsInflated()

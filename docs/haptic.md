@@ -15,7 +15,7 @@
 
 | 通路 | 执行器 | 载体 | 相关代码 |
 |------|--------|------|----------|
-| **RichTap 手机 HD 震动** | 手机 LRA | HE 1.0 JSON → 反射 hidden API（**优先 app 进程内**，否则 Shizuku 用户服务） | `haptic/*`、`HapticInjector`、`RemoteHapticService` |
+| **RichTap 手机 HD 震动** | 手机 LRA | HE 1.0 JSON → 反射 hidden API（**app 进程内**） | `haptic/*`、`HapticInjector`、`RemoteHapticService` |
 | **DualSense USB 音频触觉** | DS5 语音线圈 | isochronous PCM（4ch/48k）→ native | `cpp/haptic_native.c`、`HapticNative.java`、`DualSenseHapticSender` |
 | **Switch HD rumble** | Joy-Con / Pro 手柄 | Nintendo 专有线格式 | `HdRumbleCodec.java`、`PcmHdRumbleAnalyzer.kt`、`input/usb/*Controller` |
 
@@ -154,7 +154,7 @@ flowchart TB
 
 ---
 
-## 3. PhoneHdHaptics 与下发（app 进程内优先 / Shizuku 回退）
+## 3. PhoneHdHaptics 与下发（app 进程内）
 
 ### 3.1 PhoneHdHaptics
 
@@ -174,27 +174,25 @@ flowchart TB
 
 ### 3.2 HapticInjector
 
-`controlled/HapticInjector.kt`。HD 下发门面、所有权/下发；**运行位置二选一**：
+`controlled/HapticInjector.kt`。HD 下发门面、所有权/下发；**在 app 进程内运行**：
 
-- **app 进程内（优先）**：`init` 先直接 `RemoteHapticService(context.applicationContext)` 实例化，
-  成功即用（`inProcess=true`，`service` 指向该本地实例），不再绑定 Shizuku。这样震动调用方是
+- `init` 直接 `RemoteHapticService(context.applicationContext)` 实例化，成功即用
+  （`service` 指向该本地实例），不涉及 Shizuku 授权/绑定。这样震动调用方是
   **前台 app 的 uid**，不会被系统的"后台震动"策略丢弃（见 §9）。依赖 manifest 的
   `<uses-library android:name="richtap-api" />`（由 `libs/RichTap_ASDK_2.2.0.aar` 的 manifest 合并而来）。
-- **Shizuku 用户服务（回退）**：app 进程内不可用（拿到 `available=false`，例如非小米 ROM / 无
-  `richtap-api`）时，才绑定 `RemoteHapticService`（进程后缀 `gkme_haptic`；权限申请码由
-  `ShizukuServiceBinding.REQUEST_CODE` 全局共享）。
-- 两条路的 `onConnected`/本地实例都经 `refreshCapabilities`（`isAvailable/version/playerType/realtimeAdjust`），
-  每个新事务都 try/catch 兼容旧用户服务。
+- 本机不支持时（`available=false`，例如非小米 ROM / 无 `richtap-api`）`isHapticReady()` 为 false，
+  调用方回退普通 `Vibrator`。
+- 本地实例经 `refreshCapabilities`（`isAvailable/version/playerType/realtimeAdjust`），每个能力查询都 try/catch。
 - 内嵌 `HapticArbiter`；`startPattern` / `startEffect` 先 `acquire(source)`。
-- `startEffect` 在旧服务无该事务时回退 `startPattern`。
+- `startEffect` 在实现无该通路时回退 `startPattern`。
 - `updateParameter` 仅当 `realtimeAdjust`，amplitude 0-255 换算成 0-100。
 - `startContinuous`：`CONTINUOUS_DURATION_MS=4000`，禁止 `loop=-1`（HAL 循环衔接有约 200ms 断点）。
 - `isHapticReady()` 不满足时，调用方回退系统 `Vibrator`。
 
 ### 3.3 RemoteHapticService
 
-`controlled/RemoteHapticService.kt`。反射调用 hidden API；**既作为 Shizuku 用户服务（shell/root），
-也被 app 进程内直接实例化**（此时调用方 uid = app）。
+`controlled/RemoteHapticService.kt`。反射调用 hidden API；由 app 进程内直接实例化
+（调用方 uid = app）。
 
 - `init`：优先 `tryInitType2()`，失败回退 `tryInitType1()`。
 - **type2 RichTapPerformer**：`richtap.os.PhonyVibrationEffect` / `android.os.RichTapVibrationEffect`；
@@ -294,7 +292,7 @@ native 模式下空闲补 10ms 静音帧（见 [usb-drivers.md §4](usb-drivers.
 - 短促瞬态（§12）→ `PcmHeEncoder` 的 burst/静音桥接、`HdPcmStreamer.BURST_MS=8`。
 - 多事件分块流式（§9）→ `PcmHeEncoder`、`RichTapHe.pattern`、`shiftIntoRange`、`startEffect`。
 - 设备只认 HE1.0 / 4 点曲线 / 16 事件 / ≤5000ms（§3.3、§9.2）。
-- type1 与 `mPackageName` 坑（§3.2、§4）；Shizuku user service 方案（§5.1、§8）。
+- type1 与 `mPackageName` 坑（§3.2、§4）；Shizuku user service 方案（§5.1、§8，现已废弃，改为 app 进程内）。
 
 ### 8.2 代码新增、实验档未覆盖
 
@@ -327,7 +325,7 @@ native 模式下空闲补 10ms 静音帧（见 [usb-drivers.md §4](usb-drivers.
 | [已修复] 主线程卡顿 >40ms 时真实流逝时间被 `MAX_DT_MS` 截断，时间轴压缩/滞后（文档原表述为"跳桶"，已更正） | `HdPcmStreamer.kt:60-64,137,162` |
 | `EVENT_MS` 可否进一步缩短、HAL 最短事件时长，待真机标定 | `HdPcmStreamer.kt:38-49` |
 | `Q`、`MAX_FREQ_COMPENSATION`、`SEAM_BOOST`、`ONSET_*`、`BURST_*` 建议按真机手感标定 | 各文件 |
-| `HdPcmStreamer`/`PhoneHdHaptics`/`RemoteHapticService`/`haptic_native.c` 无 JVM 测试 | 依赖设备/Shizuku/USB |
+| `HdPcmStreamer`/`PhoneHdHaptics`/`RemoteHapticService`/`haptic_native.c` 无 JVM 测试 | 依赖设备/USB |
 
 ### 9.1 HyperOS 后台震动策略与 app 进程内 RichTap（已修复）
 
@@ -349,7 +347,7 @@ dumpsys vibrator_manager → effect | ignored_background | usage: MEDIA | com.an
 - `android/libs/RichTap_ASDK_2.2.0.aar` 仅用于合并该 `<uses-library>`，**代码不调用 SDK**。
 - app 进程内 `mPackageName` 是 hidden API `blocked` 字段（`getDeclaredField` 抛异常），
   `RemoteHapticService` 对其读取失败时置 `packageField=null` 跳过，厂商构造函数会自动填包名。
-- 无 `richtap-api` 的机型 app 进程内会得到 `available=false`，自动回退 Shizuku 用户服务。
+- 无 `richtap-api` 的机型 app 进程内会得到 `available=false`，HD 不可用，回退普通 `Vibrator`。
 
 ---
 
