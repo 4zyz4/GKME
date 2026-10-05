@@ -1055,9 +1055,12 @@ class GkViewModel @Inject constructor(
                     }
                 }
 
-                // 陀螺仪转摇杆的灵敏度曲线：在死区之后、灵敏度之前，按满量程径向映射。
+                // 陀螺仪转摇杆/转鼠标共用的灵敏度曲线：在死区之后、灵敏度之前，按满量程径向映射。
                 // 其它模式把 mappedX/Y 当角速度使用，不做曲线。
-                if (s.gyroMode == GyroMode.LEFT_STICK || s.gyroMode == GyroMode.RIGHT_STICK) {
+                if (s.gyroMode == GyroMode.MOUSE ||
+                    s.gyroMode == GyroMode.LEFT_STICK ||
+                    s.gyroMode == GyroMode.RIGHT_STICK
+                ) {
                     val (curvedX, curvedY) = SensitivityCurve.applyRadial(
                         s.gyroStickCurve, mappedX, mappedY, gyroDeadZoneMaxRate,
                     )

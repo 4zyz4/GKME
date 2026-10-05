@@ -110,13 +110,13 @@ protobuf `GamepadInput`。要点：
 
 ### 3.2 SensitivityCurve
 
-`input/SensitivityCurve.kt`。陀螺仪/加速度计转摇杆与屏幕摇杆共用的灵敏度曲线。
+`input/SensitivityCurve.kt`。陀螺仪/加速度计转摇杆、陀螺仪转鼠标与屏幕摇杆共用的灵敏度曲线。
 
 - 单调三次 Hermite（Fritsch–Carlson）插值，防止过冲。
 - `evaluate(curve, t)`：空曲线恒等。
 - `applyRadial(curve, x, y, fullScale)`：按模长做曲线并保持方向。
 - 曲线格式：扁平 `[x0,y0,x1,y1,...]`，与 `view/CurveEditorView` 强耦合。
-- 使用点：屏幕摇杆（`JoystickView`）、陀螺仪转摇杆（`GkViewModel`）、加速度计转向（`AccelSteeringMapper`）。
+- 使用点：屏幕摇杆（`JoystickView`）、陀螺仪转摇杆/转鼠标（`GkViewModel`）、加速度计转向（`AccelSteeringMapper`）。
 - 应用顺序统一为“死区之后、灵敏度/缩放之前”。
 - 屏幕摇杆另有 `joystickSensitivity`（10-300%）**在死区之前**应用：手指位移归一化后按比例缩放，
   <100% 时手指可超出控件范围继续推动摇杆，直到达到满量程才到边界。
@@ -148,7 +148,7 @@ protobuf `GamepadInput`。要点：
 
 - `startSensorSendLoop` 在 IO 每循环读取 `sensorData`：
   - 陀螺仪模式（HANDHELD/MOUSE/LEFT_STICK/RIGHT_STICK）：按 `gyroCoordinateSystem` 映射、
-    死区/反死区、`SensitivityCurve.applyRadial`。
+    死区/反死区、`SensitivityCurve.applyRadial`（转鼠标与转摇杆共用 `gyroStickCurve`）。
   - 加速度计模式：调用 `AccelSteeringMapper.update`。
 - `onPhysicalControllerGyro` 处理手柄陀螺仪，按 `gyroSensitivityX/Y/Z` 缩放。
 
