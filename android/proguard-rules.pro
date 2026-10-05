@@ -37,11 +37,6 @@
 -keep class com.zyz4.gkme.controlled.IGamepadService { *; }
 -keep class com.zyz4.gkme.controlled.IGamepadService$* { *; }
 
-# 高清震动：RemoteHapticService 现由 app 进程内经 HapticInjector 直接实例化，不再经
-# Shizuku 用户服务跨进程绑定；保留 AIDL 接口/Stub 以满足其实现类型的稳定性。
--keep class com.zyz4.gkme.controlled.IHapticService { *; }
--keep class com.zyz4.gkme.controlled.IHapticService$* { *; }
-
 # Shizuku Provider 子类：由 Android 依据类名反射实例化，需保留原名与构造。
 -keep class com.zyz4.gkme.GkmeShizukuProvider { *; }
 

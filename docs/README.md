@@ -125,7 +125,7 @@ flowchart TB
 
 ```
 android/src/main/
-├── aidl/com/zyz4/gkme/controlled/    # IGamepadService.aidl、IHapticService.aidl
+├── aidl/com/zyz4/gkme/controlled/    # IGamepadService.aidl
 ├── assets/richtap_prebaked.json     # RichTap 预置 HD 效果（HE 1.0）
 ├── cpp/                             # native：SDL 桥、uinput/uhid、DualSense 音频触觉
 │   ├── sdl_bridge.cpp / sdl/include # libgkme_sdl

@@ -46,8 +46,8 @@ flowchart TB
 
 - **手柄用户服务走 Shizuku**：`IGamepadService` 由 Shizuku 以 shell/root 身份运行并维护 binder；
   Shizuku 权限为应用级一次授权。
-- **震动不再依赖 Shizuku**：`HapticInjector` 在 app 进程内直接实例化 `RemoteHapticService` 反射调用
-  RichTap hidden API（前台 uid）；`IHapticService` AIDL 仅作为接口定义保留。
+- **震动不再依赖 Shizuku**：`HapticInjector` 在 app 进程内直接实例化普通 Kotlin 类
+  `RemoteHapticService` 反射调用 RichTap hidden API（前台 uid），不再有 AIDL 接口/用户服务。
 - **保活不再依赖 Shizuku**：被控端采用可选的「悬浮窗保活」（[FloatingKeepAlive]，见 §3.4）。
 - **两条原生路径**：uinput（伪装 Xbox One S，Linux FF 震动）与 uhid（真实 HID 身份 + HID 键鼠）。
 
@@ -91,9 +91,9 @@ flowchart TB
 
 ### 2.2 AIDL 实现与退出
 
-- `RemoteGamepadService : IGamepadService.Stub()`；`RemoteHapticService : IHapticService.Stub()`。
+- `RemoteGamepadService : IGamepadService.Stub()`。
 - `RemoteGamepadService` 由 Shizuku 以 shell/root 用户服务运行，支持带 `Context` 的构造器（Shizuku v13 优先）；
-  `RemoteHapticService` 现由 `HapticInjector` 在 app 进程内直接实例化，同样带 `Context` 构造器。
+  `RemoteHapticService` 已改为普通 Kotlin 类，由 `HapticInjector` 在 app 进程内直接实例化，同样带 `Context` 构造器。
 - App 通过 `Stub.asInterface(binder)` 拿手柄用户服务代理；震动为进程内直接调用。
 - 退出事务 `exitService() = 16777114`（实际事务号 16777115）；手柄用户服务的 `exitService()` 会先
   `release()/stop()` 再 `Process.killProcess(Process.myPid())`，因为 Shizuku 不会自动杀用户服务进程。

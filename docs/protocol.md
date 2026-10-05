@@ -277,11 +277,11 @@ WIFI/USB 下用 33f 高精度单位，蓝牙下用 1f 传统单位。
 
 ---
 
-## 7. AIDL 接口（被控端 / 本机模式）
+## 7. 被控端服务接口（被控端 / 本机模式）
 
-`IGamepadService` 由 Shizuku 在 shell/root 进程实现，App 进程经 Binder 调用；`IHapticService`
-现由 App 进程内的 `RemoteHapticService` 直接实现（不再经 Shizuku）。两者都定义了 Shizuku 约定的
-退出事务 `exitService() = 16777114`（实际事务号 16777115）。
+`IGamepadService` 是唯一保留的 AIDL 接口：由 Shizuku 在 shell/root 进程实现，App 进程经 Binder 调用，
+并定义 Shizuku 约定的退出事务 `exitService() = 16777114`（实际事务号 16777115）。高清震动
+`RemoteHapticService` 已改为 App 进程内的普通 Kotlin 类，不再有 AIDL 接口。
 
 ### 7.1 `IGamepadService`（`aidl/.../IGamepadService.aidl`）
 
@@ -307,18 +307,19 @@ void exitService();
 - `buttons` 使用 **XInput wButtons 掩码**，bit17 = 触摸板点击。
 - `touches`：最多 2 点，每点 4 个 int `[id, x, y, active]`，x∈0..1919、y∈0..942。
 
-### 7.2 `IHapticService`（`aidl/.../IHapticService.aidl`）
+### 7.2 高清震动 `RemoteHapticService`（`controlled/RemoteHapticService.kt`）
 
-```aidl
-boolean isAvailable();
-String  getVersion();
-boolean startPattern(String heJson, int loop, int interval, int amplitude, int freq);
-void    stop();
-boolean startEffect(String heJson);   // 无参 start()，事件自带参数
-int     getPlayerType();              // 0 Google / 1 Tencent / 2 RichTap
-boolean supportsRealtimeAdjustment();
-boolean updateParameter(int intensity, int frequency);
-void    exitService();
+已不再是 AIDL 接口 / Shizuku 用户服务，而是 App 进程内的普通 Kotlin 类，直接反射调用 RichTap hidden API：
+
+```kotlin
+val  available: Boolean                    // 是否支持 RichTap hidden API
+val  version: String                       // RichTap core 版本
+fun  startPattern(heJson, loop, interval, amplitude, freq): Boolean
+fun  stop()
+fun  startEffect(heJson): Boolean          // 无参 start()，事件自带参数
+val  playerType: Int                       // 0 Google / 1 Tencent / 2 RichTap
+fun  supportsRealtimeAdjustment(): Boolean
+fun  updateParameter(intensity, frequency): Boolean
 ```
 
 详见 [haptic.md](haptic.md)。

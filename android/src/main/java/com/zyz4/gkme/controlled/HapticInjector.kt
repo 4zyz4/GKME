@@ -30,7 +30,7 @@ object HapticInjector {
     internal const val CONTINUOUS_DURATION_MS = 4_000
 
     @Volatile
-    var service: IHapticService? = null
+    var service: RemoteHapticService? = null
         private set
 
     /** 本机是否支持 RichTap 隐藏 API。 */
@@ -69,7 +69,7 @@ object HapticInjector {
             Log.w(TAG, "进程内 RichTap 初始化异常", t)
             null
         }
-        if (local != null && local.isAvailable) {
+        if (local != null && local.available) {
             service = local
             refreshCapabilities(local)
             Log.i(TAG, "使用 app 进程内 RichTap: playerType=$playerType version=$version")
@@ -77,11 +77,11 @@ object HapticInjector {
         initialized = true
     }
 
-    private fun refreshCapabilities(svc: IHapticService) {
+    private fun refreshCapabilities(svc: RemoteHapticService) {
         available = try {
-            svc.isAvailable
+            svc.available
         } catch (t: Throwable) {
-            Log.w(TAG, "查询 isAvailable 失败", t)
+            Log.w(TAG, "查询 available 失败", t)
             false
         }
         version = try {
