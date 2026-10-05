@@ -68,6 +68,57 @@ class SensitivityCurveTest {
     }
 
     @Test
+    fun presets_areMonotonicAndAnchorEndpoints() {
+        for (preset in SensitivityCurve.PRESETS) {
+            var prev = 0f
+            var x = 0f
+            while (x <= 1.0001f) {
+                val y = SensitivityCurve.evaluate(preset.points, x)
+                assertTrue("${preset.label} must not decrease at $x ($prev -> $y)", y >= prev - 1e-4f)
+                prev = y
+                x += 0.1f
+            }
+            assertClose(0f, SensitivityCurve.evaluate(preset.points, 0f), msg = preset.label)
+            assertClose(1f, SensitivityCurve.evaluate(preset.points, 1f), msg = preset.label)
+        }
+    }
+
+    @Test
+    fun preset_instantBulgesAboveLine() {
+        val points = SensitivityCurve.PRESETS.first { it.label == "即时" }.points
+        assertTrue(SensitivityCurve.evaluate(points, 0.25f) > 0.25f)
+        assertTrue(SensitivityCurve.evaluate(points, 0.5f) > 0.5f)
+    }
+
+    @Test
+    fun preset_delayedDipsBelowLine() {
+        val points = SensitivityCurve.PRESETS.first { it.label == "延时" }.points
+        assertTrue(SensitivityCurve.evaluate(points, 0.25f) < 0.25f)
+        assertTrue(SensitivityCurve.evaluate(points, 0.5f) < 0.5f)
+    }
+
+    @Test
+    fun presets_instantAndDelayedAreMirrorImages() {
+        val instant = SensitivityCurve.PRESETS.first { it.label == "即时" }.points
+        val delayed = SensitivityCurve.PRESETS.first { it.label == "延时" }.points
+        // The delayed curve is the instant curve with every (x, y) swapped (mirror across y = x).
+        val expected = instant.chunked(2).map { it[1] to it[0] }.sortedBy { it.first }
+            .flatMap { listOf(it.first, it.second) }
+        assertEquals(expected.size, delayed.size)
+        for (i in expected.indices) {
+            assertClose(expected[i], delayed[i], msg = "transposed point $i")
+        }
+    }
+
+    @Test
+    fun preset_dynamicCrossesMidpoint() {
+        val points = SensitivityCurve.PRESETS.first { it.label == "动态" }.points
+        assertTrue(SensitivityCurve.evaluate(points, 0.25f) > 0.25f)
+        assertClose(0.5f, SensitivityCurve.evaluate(points, 0.5f), 5e-3f, "midpoint")
+        assertTrue(SensitivityCurve.evaluate(points, 0.75f) < 0.75f)
+    }
+
+    @Test
     fun applyRadial_preservesDirectionAndFullScale() {
         val curve = listOf(0.5f, 0.25f)
         val (ix, iy) = SensitivityCurve.applyRadial(null, 3f, 4f, 10f)

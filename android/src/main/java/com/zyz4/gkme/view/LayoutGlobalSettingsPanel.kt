@@ -27,6 +27,7 @@ import com.zyz4.gkme.CATEGORY_SWITCH_DURATION
 import com.zyz4.gkme.PAGE_SWITCH_OFFSET_DP
 import com.zyz4.gkme.R
 import com.zyz4.gkme.easeOutQuint
+import com.zyz4.gkme.input.SensitivityCurve
 import com.zyz4.gkme.model.GyroActivateMode
 import com.zyz4.gkme.model.GyroBaseDirection
 import com.zyz4.gkme.model.GyroCoordinateSystem
@@ -549,6 +550,19 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         gyroStickCurveContainer = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
         val curveContainer = gyroStickCurveContainer!!
         curveContainer.addView(sectionLabel("灵敏度曲线", density))
+        val presetLabels = listOf("自定义") + SensitivityCurve.PRESETS.map { it.label }
+        val curvePresetSpinner = Spinner(context).apply {
+            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, presetLabels).also {
+                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+            setSelection(0)
+        }
+        curveContainer.addView(curvePresetSpinner, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply {
+            bottomMargin = (4f * density).toInt()
+        })
         val curveView = CurveEditorView(context).apply {
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -557,7 +571,10 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
             setFromFlatList(gyroStickCurve)
         }
         gyroStickCurveView = curveView
-        curveView.onPointsChanged = { list -> applyCurve(list, fromOverlay = false) }
+        curveView.onPointsChanged = { list ->
+            applyCurve(list, fromOverlay = false)
+            curvePresetSpinner.setSelection(0)
+        }
         curveContainer.addView(curveView)
         val curveBtnRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -599,6 +616,16 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         })
         curveBtnRow.addView(btnEnlarge, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         curveContainer.addView(curveBtnRow)
+        curvePresetSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (position <= 0) return
+                val preset = SensitivityCurve.PRESETS[position - 1]
+                curveView.setFromFlatList(preset.points)
+                applyCurve(preset.points, fromOverlay = false)
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
         advanced.addView(curveContainer)
 
         addSeekbar(advanced, "陀螺仪死区(%)", gyroDeadZone, 0, 100) {
