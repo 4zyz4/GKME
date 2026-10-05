@@ -406,6 +406,10 @@ class GkViewModel @Inject constructor(
         connectionManager.updateSettings(settings.value.copy(swapControllerMotors = enabled))
     }
 
+    fun updateDualSenseWirelessBridge(enabled: Boolean) {
+        connectionManager.updateSettings(settings.value.copy(dualSenseWirelessBridge = enabled))
+    }
+
     fun updateHdVibrationEnabled(enabled: Boolean) {
         connectionManager.updateSettings(settings.value.copy(hdVibrationEnabled = enabled))
     }

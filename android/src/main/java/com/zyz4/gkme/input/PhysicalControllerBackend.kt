@@ -50,6 +50,11 @@ interface PhysicalControllerBackend {
     var swapPhoneMotors: Boolean
     var swapControllerMotors: Boolean
 
+    /** Only meaningful for the USB driver: bridge a PS5 DualSense through an external USB BT dongle. */
+    var dualSenseWirelessBridge: Boolean
+        get() = false
+        set(_) {}
+
     var onPointerCaptureNeeded: ((Boolean) -> Unit)?
     var isPointerCaptureActive: Boolean
 

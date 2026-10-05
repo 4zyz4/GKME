@@ -47,7 +47,7 @@ private const val TOUCHPAD_MAX_YF = 942f
  * through the pad's per-device [InputDevice.getSensorManager], and the touchpad through
  * the [InputDevice.SOURCE_TOUCHPAD] events.
  */
-class InputManagerPhysicalControllerBackend(private val context: Context) : PhysicalControllerBackend {
+open class InputManagerPhysicalControllerBackend(private val context: Context) : PhysicalControllerBackend {
 
     private val _isConnected = MutableStateFlow(false)
     override val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
@@ -116,7 +116,7 @@ class InputManagerPhysicalControllerBackend(private val context: Context) : Phys
 
     /** Attached gamepads, in the same order as [connectedControllers]. */
     @Volatile
-    private var devices: List<InputDevice> = emptyList()
+    protected var devices: List<InputDevice> = emptyList()
 
     /** Android device id of the currently selected input controller (-1 = none). */
     @Volatile
@@ -205,17 +205,27 @@ class InputManagerPhysicalControllerBackend(private val context: Context) : Phys
         applySensorSetting()
     }
 
+    /**
+     * Whether [device] should be treated as a gamepad by this backend. Subclasses narrow this to a
+     * specific transport (for example, only Bluetooth DualSense controllers).
+     */
+    protected open fun acceptDevice(device: InputDevice): Boolean {
+        if (VirtualGamepad.matches(device)) return false
+        val sources = device.sources
+        return sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
+            sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK
+    }
+
+    /** Called after the attached-device list changed, before [ControllerInfo] is rebuilt. */
+    protected open fun onDevicesChanged(devices: List<InputDevice>) {}
+
     private fun refreshDevices() {
         val list = ArrayList<InputDevice>()
         try {
             val ids = inputManager?.inputDeviceIds ?: InputDevice.getDeviceIds()
             for (id in ids) {
                 val device = InputDevice.getDevice(id) ?: continue
-                if (VirtualGamepad.matches(device)) continue
-                val sources = device.sources
-                if (sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
-                    sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK
-                ) {
+                if (acceptDevice(device)) {
                     list.add(device)
                 }
             }
@@ -223,6 +233,7 @@ class InputManagerPhysicalControllerBackend(private val context: Context) : Phys
         }
         devices = list
         axisMaps.clear()
+        onDevicesChanged(list)
         inputDeviceId = list.getOrNull(inputControllerIndex)?.id ?: -1
         _connectedControllers.value = list.map { toInfo(it) }
         _isConnected.value = list.isNotEmpty()
@@ -246,7 +257,7 @@ class InputManagerPhysicalControllerBackend(private val context: Context) : Phys
         mainHandler.post { onPointerCaptureNeeded?.invoke(present) }
     }
 
-    private fun toInfo(device: InputDevice): ControllerInfo {
+    protected open fun toInfo(device: InputDevice): ControllerInfo {
         val binding = bindingFor(device)
         // 用解析后的轴映射判断扳机是否为模拟量：device.getMotionRange(axis, device.sources)
         // 传入的是合并后的 source 掩码，无法匹配到单一 source 的 range，会恒为 null。
@@ -852,16 +863,23 @@ class InputManagerPhysicalControllerBackend(private val context: Context) : Phys
     private fun outputsFor(index: Int): ControllerOutputs =
         synchronized(outputsLock) { controllerOutputs.getOrPut(index) { ControllerOutputs() } }
 
+    /**
+     * Optional per-device rumble sink for subclasses. Return true when [low]/[high] were written
+     * by the subclass (including zeros), so the Android vibrator fallback is skipped.
+     */
+    protected open fun driveRumbleOutput(device: InputDevice, low: Int, high: Int): Boolean = false
+
     private fun applyControllerOutput(index: Int) {
         val outputs = outputsFor(index)
         val low = maxOf(outputs.low, outputs.auxLow)
         val high = maxOf(outputs.high, outputs.auxHigh)
+        val device = devices.getOrNull(index)
+        if (device != null && driveRumbleOutput(device, low, high)) return
         if (low == 0 && high == 0) {
             cancelControllerVibration(index)
             return
         }
-        val device = devices.getOrNull(index) ?: return
-        driveVibrators(bindingFor(device), low, high)
+        if (device != null) driveVibrators(bindingFor(device), low, high)
     }
 
     private fun cancelControllerVibration(index: Int) {

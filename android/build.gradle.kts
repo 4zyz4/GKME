@@ -81,6 +81,9 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("com.google.code.gson:gson:2.11.0")
 
+    // 绕过隐藏 API 限制，访问系统 Bluetooth HID Host profile 直连 DualSense
+    implementation("org.lsposed.hiddenapibypass:hiddenapibypass:6.1")
+
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.constraintlayout:constraintlayout:2.2.0")
 

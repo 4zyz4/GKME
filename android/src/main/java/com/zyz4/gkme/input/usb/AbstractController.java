@@ -65,6 +65,30 @@ public abstract class AbstractController {
         listener.reportControllerMotion(deviceId, GkmeBridge.LI_MOTION_TYPE_ACCEL, accelX, accelY, accelZ);
     }
 
+    /** Reports one motion sample (used by transport-neutral controllers such as the wireless bridge). */
+    protected void notifyControllerMotion(byte motionType, float x, float y, float z) {
+        listener.reportControllerMotion(deviceId, motionType, x, y, z);
+    }
+
+    /** Reports a battery state/percentage update. */
+    protected void notifyBatteryState(byte batteryState, byte batteryPercentage) {
+        listener.reportControllerBattery(deviceId, batteryState, batteryPercentage);
+    }
+
+    /** True when arrival metadata has been accepted and the driver may emit stateful transitions. */
+    protected boolean isControllerReady() {
+        return listener.isControllerReady(deviceId);
+    }
+
+    /** Reports a touchpad contact without pressure (transport-neutral controllers). */
+    protected void notifyControllerTouch(byte eventType, int pointerId, float x, float y) {
+        listener.reportControllerTouchpadEvent(deviceId, eventType, pointerId, x, y, 0f);
+    }
+
+    /** Reset driver-side touch state after the host has received a cancellation. */
+    public void resetTouchState() {
+    }
+
     protected void reportTouchpadEvent(byte eventType, int pointerId, float x, float y, float pressure) {
         listener.reportControllerTouchpadEvent(deviceId, eventType, pointerId, x, y, pressure);
     }

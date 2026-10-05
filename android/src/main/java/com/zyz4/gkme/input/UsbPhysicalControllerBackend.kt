@@ -90,6 +90,13 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
     @Volatile
     override var swapControllerMotors: Boolean = false
 
+    @Volatile
+    override var dualSenseWirelessBridge: Boolean = false
+        set(value) {
+            field = value
+            binder?.setDualSenseWirelessBridge(value)
+        }
+
     override var onPointerCaptureNeeded: ((Boolean) -> Unit)? = null
     override var isPointerCaptureActive: Boolean = false
 
@@ -103,6 +110,7 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
             val driverBinder = service as? UsbDriverService.UsbDriverBinder ?: return
             binder = driverBinder
             driverBinder.setListener(this@UsbPhysicalControllerBackend)
+            driverBinder.setDualSenseWirelessBridge(dualSenseWirelessBridge)
             driverBinder.start()
         }
 
@@ -837,6 +845,7 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
     private fun displayName(controller: AbstractController): String {
         return when (controller.javaClass.simpleName) {
             "DualSenseController" -> "DualSense"
+            "DualSenseWirelessController" -> "DualSense (无线)"
             "Dualshock4Controller" -> "DualShock 4"
             "XboxOneController" -> "Xbox One"
             "Xbox360Controller" -> "Xbox 360"
