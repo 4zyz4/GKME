@@ -37,6 +37,8 @@ enum class ControllerDriver(val displayName: String) {
     AXIXI2233_USB("USB驱动·阿西西"),
     /** 直接使用 Android 系统 InputManager 读取手柄，VibratorManager 驱动震动。 */
     INPUT_MANAGER("InputManager"),
+    /** 仅处理系统蓝牙连接的 PS5 DualSense：InputManager 读取输入，隐藏 HID Host 直写震动/扳机/LED。 */
+    DUALSENSE_BLUETOOTH("DualSense 蓝牙"),
 }
 
 enum class VibrationType { NONE, VIEW, VIBRATION_EFFECT }
@@ -228,6 +230,8 @@ data class AppSettings(
     val gameVibrationDeviceConnected: VibrationDevice = VibrationDevice.controller(0),
     val swapPhoneMotors: Boolean = false,
     val swapControllerMotors: Boolean = false,
+    /** 通过外部 USB 蓝牙 HCI 适配器直连 PS5 DualSense（绕过系统蓝牙栈）。 */
+    val dualSenseWirelessBridge: Boolean = false,
     /** 手机马达是否使用 RichTap 高清震动（通过 Shizuku 用户服务调用隐藏 API）。 */
     val hdVibrationEnabled: Boolean = true,
     /** Actuator that receives PC adaptive-trigger effects while no physical controller is connected. */

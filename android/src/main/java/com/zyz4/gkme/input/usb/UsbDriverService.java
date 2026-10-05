@@ -18,6 +18,7 @@ import android.view.InputDevice;
 import android.widget.Toast;
 
 import com.zyz4.gkme.input.usb.LimeLog;
+import com.zyz4.gkme.input.usb.wireless.DualSenseWirelessBridge;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -41,6 +42,10 @@ public class UsbDriverService extends Service implements UsbDriverListener {
     private UsbDriverStateListener stateListener;
     private int nextDeviceId;
 
+    /** Application-owned DualSense Bluetooth bridge (USB HCI adapter path). */
+    private DualSenseWirelessBridge dualSenseBridge;
+    private volatile boolean dualSenseWirelessBridgeEnabled = false;
+
     @Override
     public void reportControllerState(int controllerId, int buttonFlags, float leftStickX, float leftStickY,
                                       float rightStickX, float rightStickY, float leftTrigger, float rightTrigger) {
@@ -63,6 +68,13 @@ public class UsbDriverService extends Service implements UsbDriverListener {
                                               float x, float y, float pressure) {
         if (listener != null) {
             listener.reportControllerTouchpadEvent(controllerId, eventType, pointerId, x, y, pressure);
+        }
+    }
+
+    @Override
+    public void reportControllerBattery(int controllerId, byte batteryState, byte batteryPercentage) {
+        if (listener != null) {
+            listener.reportControllerBattery(controllerId, batteryState, batteryPercentage);
         }
     }
 
@@ -109,6 +121,13 @@ public class UsbDriverService extends Service implements UsbDriverListener {
                     }
                 }, 1000);
             }
+            // A device was detached: release the wireless bridge adapter if it was ours
+            else if (action.equals(UsbManager.ACTION_USB_DEVICE_DETACHED)) {
+                UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+                if (device != null && dualSenseBridge != null) {
+                    dualSenseBridge.detach(device);
+                }
+            }
             // Subsequent permission dialog completion intent
             else if (action.equals(ACTION_USB_PERMISSION)) {
                 UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
@@ -154,9 +173,83 @@ public class UsbDriverService extends Service implements UsbDriverListener {
             bindAllUsb = flag;
         }
 
+        public void setDualSenseWirelessBridge(boolean enabled) {
+            UsbDriverService.this.setDualSenseWirelessBridgeEnabled(enabled);
+        }
+
+    }
+
+    private void setDualSenseWirelessBridgeEnabled(boolean enabled) {
+        dualSenseWirelessBridgeEnabled = enabled;
+        if (!enabled) {
+            stopDualSenseBridge();
+            return;
+        }
+        // The service may already be running (e.g. the toggle was just flipped): claim an
+        // adapter that is already attached without re-opening any wired controllers.
+        if (started && dualSenseBridge != null) {
+            for (UsbDevice dev : usbManager.getDeviceList().values()) {
+                if (dualSenseBridge.supports(dev)) {
+                    handleDualSenseWirelessAdapter(dev);
+                }
+            }
+        }
+    }
+
+    private void stopDualSenseBridge() {
+        if (dualSenseBridge != null) {
+            dualSenseBridge.close();
+        }
+    }
+
+    /**
+     * Claims an external Bluetooth HCI adapter for the DualSense wireless bridge.
+     *
+     * @return true when the device matches a bridge adapter profile (whether or not it was claimed)
+     */
+    private boolean handleDualSenseWirelessAdapter(UsbDevice device) {
+        if (dualSenseBridge == null) {
+            return false;
+        }
+        if (!dualSenseBridge.supports(device)) {
+            return false;
+        }
+        if (dualSenseBridge.attachedDeviceId() != -1) {
+            // Already bound to an adapter; ignore additional ones.
+            return true;
+        }
+
+        if (!usbManager.hasPermission(device)) {
+            try {
+                if (stateListener != null) {
+                    stateListener.onUsbPermissionPromptStarting();
+                }
+                int intentFlags = 0;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    intentFlags |= PendingIntent.FLAG_MUTABLE;
+                }
+                Intent i = new Intent(ACTION_USB_PERMISSION);
+                i.setPackage(getPackageName());
+                usbManager.requestPermission(device, PendingIntent.getBroadcast(UsbDriverService.this, device.getDeviceId(), i, intentFlags));
+            } catch (SecurityException e) {
+                if (stateListener != null) {
+                    stateListener.onUsbPermissionPromptCompleted();
+                }
+            }
+            return true;
+        }
+
+        dualSenseBridge.start(usbManager, device, () -> nextDeviceId++);
+        return true;
     }
 
     private void handleUsbDeviceState(UsbDevice device) {
+        // The wireless bridge claims its Bluetooth HCI adapter independently of the
+        // wired-controller policy.
+        if (dualSenseWirelessBridgeEnabled && handleDualSenseWirelessAdapter(device)) {
+            return;
+        }
+
         // Are we able to operate it?
         if (shouldClaimDevice(device, bindAllUsb)) {
             // Do we have permission yet?
@@ -337,9 +430,10 @@ public class UsbDriverService extends Service implements UsbDriverListener {
 
         started = true;
 
-        // Register for USB attach broadcasts and permission completions
+        // Register for USB attach/detach broadcasts and permission completions
         IntentFilter filter = new IntentFilter();
         filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
+        filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
         filter.addAction(ACTION_USB_PERMISSION);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, RECEIVER_NOT_EXPORTED);
@@ -350,7 +444,9 @@ public class UsbDriverService extends Service implements UsbDriverListener {
 
         // Enumerate existing devices
         for (UsbDevice dev : usbManager.getDeviceList().values()) {
-            if (shouldClaimDevice(dev, bindAllUsb)) {
+            boolean bridgeCandidate = dualSenseWirelessBridgeEnabled && dualSenseBridge != null
+                    && dualSenseBridge.supports(dev);
+            if (bridgeCandidate || shouldClaimDevice(dev, bindAllUsb)) {
                 // Start the process of claiming this device
                 handleUsbDeviceState(dev);
             }else{
@@ -371,6 +467,9 @@ public class UsbDriverService extends Service implements UsbDriverListener {
         // Stop the attachment receiver
         unregisterReceiver(receiver);
 
+        // Release the DualSense wireless bridge adapter/controller
+        stopDualSenseBridge();
+
         // Stop all controllers
         while (controllers.size() > 0) {
             // Stop and remove the controller
@@ -381,6 +480,7 @@ public class UsbDriverService extends Service implements UsbDriverListener {
     @Override
     public void onCreate() {
         this.usbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
+        this.dualSenseBridge = new DualSenseWirelessBridge(this, this);
     }
 
     @Override

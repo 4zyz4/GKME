@@ -78,6 +78,7 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
     private var storedGameVibrationDevice = VibrationDevice.PHONE
     private var storedSwapPhoneMotors = false
     private var storedSwapControllerMotors = false
+    private var storedDualSenseWirelessBridge = false
 
     override var controllerGyroEnabled: Boolean
         get() = storedControllerGyroEnabled
@@ -105,6 +106,10 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
     override var swapControllerMotors: Boolean
         get() = storedSwapControllerMotors
         set(value) { storedSwapControllerMotors = value; backend?.swapControllerMotors = value }
+
+    override var dualSenseWirelessBridge: Boolean
+        get() = storedDualSenseWirelessBridge
+        set(value) { storedDualSenseWirelessBridge = value; backend?.dualSenseWirelessBridge = value }
 
     override var onPointerCaptureNeeded: ((Boolean) -> Unit)? = null
 
@@ -152,6 +157,7 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
             ControllerDriver.SDL3 -> SdlPhysicalControllerBackend(context)
             ControllerDriver.AXIXI2233_USB -> UsbPhysicalControllerBackend(context)
             ControllerDriver.INPUT_MANAGER -> InputManagerPhysicalControllerBackend(context)
+            ControllerDriver.DUALSENSE_BLUETOOTH -> DualSenseBluetoothPhysicalControllerBackend(context)
         }
         newBackend.controllerGyroEnabled = storedControllerGyroEnabled
         newBackend.inputControllerIndex = storedInputControllerIndex
@@ -159,6 +165,7 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
         newBackend.gameVibrationDevice = storedGameVibrationDevice
         newBackend.swapPhoneMotors = storedSwapPhoneMotors
         newBackend.swapControllerMotors = storedSwapControllerMotors
+        newBackend.dualSenseWirelessBridge = storedDualSenseWirelessBridge
         newBackend.onPointerCaptureNeeded = { enabled -> onPointerCaptureNeeded?.invoke(enabled) }
         newBackend.start()
         backend = newBackend

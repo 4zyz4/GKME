@@ -26,7 +26,18 @@ public class GkmeBridge {
     public static final short LI_CCAP_RGB_LED = 0x80;
     public static final short LI_CCAP_DUAL_TOUCHPAD = 0x100;
     public static final short LI_CCAP_HAPTIC_PCM = 0x200;
+    /** High bit requesting the host to treat the device as a DualSense. */
+    public static final short LI_CCAP_PREFER_DS5 = (short) 0x8000;
 
     public static final byte LI_MOTION_TYPE_ACCEL = 0x01;
     public static final byte LI_MOTION_TYPE_GYRO = 0x02;
+
+    public static final byte LI_BATTERY_STATE_UNKNOWN = 0x00;
+    public static final byte LI_BATTERY_STATE_NOT_PRESENT = 0x01;
+    public static final byte LI_BATTERY_STATE_DISCHARGING = 0x02;
+    public static final byte LI_BATTERY_STATE_CHARGING = 0x03;
+    public static final byte LI_BATTERY_STATE_NOT_CHARGING = 0x04;
+    public static final byte LI_BATTERY_STATE_FULL = 0x05;
+
+    public static final byte LI_BATTERY_PERCENTAGE_UNKNOWN = (byte) 0xFF;
 }

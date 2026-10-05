@@ -10,4 +10,13 @@ public interface UsbDriverListener {
                                        float x, float y, float pressure);
     void deviceRemoved(AbstractController controller);
     void deviceAdded(AbstractController controller);
+
+    /** Reports a battery state/percentage update from a transport-neutral controller. */
+    default void reportControllerBattery(int controllerId, byte batteryState, byte batteryPercentage) {
+    }
+
+    /** True when arrival metadata has been accepted and the driver may emit stateful transitions. */
+    default boolean isControllerReady(int controllerId) {
+        return true;
+    }
 }
