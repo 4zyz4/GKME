@@ -392,8 +392,8 @@ LRA 是**窄带共振器**（本机 f0≈169Hz，Q≈10），无法复现宽带�
   `HapticInjector.startEffect(json)` 投递（**无参 `start()`**，避免全局 amplitude/freq 覆盖事件参数）。
   取 `EVENT_MS=50 × EVENTS_PER_CHUNK=4`，首个分块缓冲延迟 ≈ 0.2s，每块 16 点
   （每事件 **4 点 ≈ 16.7ms 间隔**分辨率）。
-- `controlled/RemoteHapticService.kt` + `IHapticService.aidl`：新增 `startEffect(String)`
-  （无参 `start()`）；`HapticInjector.startEffect` 在旧版用户服务上回退 `startPattern`。
+- `controlled/RemoteHapticService.kt`：新增 `startEffect(String)`
+  （无参 `start()`）；`HapticInjector.startEffect` 在旧版实现上回退 `startPattern`。
 
 ### 9.4 实测手法
 - **HAL 日志**是最可靠的结构验证：`play effect` / `merge … HedTrack` / `HedBuffer size: N`

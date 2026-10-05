@@ -13,8 +13,9 @@ import java.lang.reflect.Method
 /**
  * 高清震动（RichTap 动态效果）驱动实现。
  *
- * 现由 [HapticInjector] 在 app 进程内直接实例化，以**前台 app 的 uid** 反射调用框架隐藏类
- * （manifest 声明 `richtap-api` 共享库后可用），从而不被系统“后台震动”策略丢弃。
+ * 普通 Kotlin 类（非 Binder/Shizuku 用户服务）：由 [HapticInjector] 在 app 进程内直接实例化，
+ * 以**前台 app 的 uid** 反射调用框架隐藏类（manifest 声明 `richtap-api` 共享库后可用），
+ * 从而不被系统“后台震动”策略丢弃。
  * 按优先级选 backend（对齐 RichTap ASDK `RichTapUtils.init`）：
  * - **type 2 `RichTapPerformer`**：`richtap.os.PhonyVibrationEffect` / `android.os.RichTapVibrationEffect`
  *   的 `createPatternHeWithParam(int[])`，支持实时调参（`createHapticParameter`）。
@@ -25,7 +26,7 @@ import java.lang.reflect.Method
  */
 class RemoteHapticService @JvmOverloads constructor(
     @Suppress("unused") private val context: Context? = null,
-) : IHapticService.Stub() {
+) {
 
     companion object {
         private const val TAG = "GKME_RemoteHaptic"
@@ -47,13 +48,16 @@ class RemoteHapticService @JvmOverloads constructor(
     private val lock = Any()
 
     @Volatile
-    private var available = false
+    var available = false
+        private set
 
     @Volatile
-    private var playerType = PLAYER_NONE
+    var playerType = PLAYER_NONE
+        private set
 
     @Volatile
-    private var version: String = ""
+    var version: String = ""
+        private set
 
     @Volatile
     private var packageName: String = DEFAULT_PACKAGE
@@ -95,17 +99,12 @@ class RemoteHapticService @JvmOverloads constructor(
 
     // ── 能力查询 ──
 
-    override fun isAvailable(): Boolean = available
-
-    override fun getVersion(): String = version
-
-    override fun getPlayerType(): Int = playerType
-
-    override fun supportsRealtimeAdjustment(): Boolean = playerType == PLAYER_RICHTAP && coreMajor >= 32
+    /** 是否支持 type 2 实时调参（`createHapticParameter`）。 */
+    fun supportsRealtimeAdjustment(): Boolean = playerType == PLAYER_RICHTAP && coreMajor >= 32
 
     // ── 效果下发 ──
 
-    override fun startPattern(
+    fun startPattern(
         heJson: String,
         loop: Int,
         interval: Int,
@@ -120,7 +119,7 @@ class RemoteHapticService @JvmOverloads constructor(
         }
     }
 
-    override fun startEffect(heJson: String): Boolean {
+    fun startEffect(heJson: String): Boolean {
         if (!available) return false
         return if (playerType == PLAYER_RICHTAP) {
             // 事件自带参数：无全局覆盖（对齐 SDK start() 的 1,0,gain,0）。
@@ -130,7 +129,7 @@ class RemoteHapticService @JvmOverloads constructor(
         }
     }
 
-    override fun updateParameter(intensity: Int, frequency: Int): Boolean {
+    fun updateParameter(intensity: Int, frequency: Int): Boolean {
         if (!available || playerType != PLAYER_RICHTAP) return false
         if (coreMajor < 32) return false
         val method = createHapticParameter ?: return false
@@ -155,7 +154,7 @@ class RemoteHapticService @JvmOverloads constructor(
         }
     }
 
-    override fun stop() {
+    fun stop() {
         synchronized(lock) {
             when (playerType) {
                 PLAYER_RICHTAP -> stopRichtapLocked()
@@ -163,11 +162,6 @@ class RemoteHapticService @JvmOverloads constructor(
                 else -> Unit
             }
         }
-    }
-
-    override fun exitService() {
-        stop()
-        Process.killProcess(Process.myPid())
     }
 
     // ── type 2：RichTapVibrationEffect / PhonyVibrationEffect ──

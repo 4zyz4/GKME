@@ -197,7 +197,7 @@ flowchart TB
   `<uses-library android:name="richtap-api" android:required="false" />`（无需再依赖 AAR）。
 - 本机不支持时（`available=false`，例如非小米 ROM / 无 `richtap-api`）`isHapticReady()` 为 false，
   调用方回退普通 `Vibrator`。
-- 本地实例经 `refreshCapabilities`（`isAvailable/version/playerType/realtimeAdjust`），每个能力查询都 try/catch。
+- 本地实例经 `refreshCapabilities`（`available/version/playerType/realtimeAdjust`），每个能力查询都 try/catch。
 - 内嵌 `HapticArbiter`；`startPattern` / `startEffect` 先 `acquire(source)`。
 - `startEffect` 在实现无该通路时回退 `startPattern`。
 - `updateParameter` 仅当 `realtimeAdjust`，amplitude 0-255 换算成 0-100。
@@ -312,7 +312,7 @@ native 模式下空闲补 10ms 静音帧（见 [usb-drivers.md §4](usb-drivers.
 ### 8.2 代码新增、实验档未覆盖
 
 1. type2 `RichTapPerformer` 完整实现（`RichTapRawCodec`、`HeJson`、`RemoteHapticService.tryInitType2`）。
-2. 实时调参 `updateParameter` / `supportsRealtimeAdjustment` / AIDL 事务 7、8。
+2. 实时调参 `updateParameter` / `supportsRealtimeAdjustment`。
 3. 优先级仲裁（`HapticSource` / `HapticArbiter` / `HdPcmStreamer` 音频租约看门狗）。
 4. 控制点聚两端（`EDGE_POINT_MS=2`）+ 分块无 `stop()` 链接（取代早年 `SEAM_BOOST` / `SEAM_FADE_MS`）。
 5. 音量突增强调 `ONSET_ACCENT_MS=5`。
@@ -353,7 +353,7 @@ dumpsys vibrator_manager → effect | ignored_background | usage: MEDIA | com.an
 ```
 
 判定依据是**调用方 uid**（`mPackageName` 设成 app 包名也无效，dumpsys 仍显示 uid 2000）。
-`RemoteHapticService` 自身逻辑正确（`isAvailable=true`、效果 `mEffects=1 enc=34` 有效），
+`RemoteHapticService` 自身逻辑正确（`available=true`、效果 `mEffects=1 enc=34` 有效），
 同一调用在纯 `app_process` 探针下同样被忽略——即"能调用、无异常、但不震"。
 
 解决：把 RichTap 驱动搬到 **app 进程内**（前台 uid），并在 manifest 声明
