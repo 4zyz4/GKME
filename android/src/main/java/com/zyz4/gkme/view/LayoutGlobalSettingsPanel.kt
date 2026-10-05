@@ -705,7 +705,9 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         gyroBaseDirectionSpinner?.visibility = if (needBaseDirection) View.VISIBLE else View.GONE
         gyroBaseDirectionLabel?.visibility = if (needBaseDirection) View.VISIBLE else View.GONE
 
-        val needStickCurve = gyroMode == GyroMode.LEFT_STICK ||
+        // 转鼠标与转摇杆（含加速度计转向）共用同一条灵敏度曲线。
+        val needStickCurve = gyroMode == GyroMode.MOUSE ||
+            gyroMode == GyroMode.LEFT_STICK ||
             gyroMode == GyroMode.RIGHT_STICK ||
             gyroMode == GyroMode.ACCELEROMETER_LEFT_STICK ||
             gyroMode == GyroMode.ACCELEROMETER_RIGHT_STICK
