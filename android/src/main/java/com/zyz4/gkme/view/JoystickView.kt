@@ -367,7 +367,8 @@ class JoystickView @JvmOverloads constructor(
                             else (normalized - dz) / (1f - dz)
 
         val rdz = (reverseDeadZone / 100f).coerceIn(0f, 0.99f)
-        val afterReverseDeadZone = if (afterDeadZone == 0f) rdz
+        // 死区优先：死区内恒输出 0，反死区只在死区之外抬升下限。
+        val afterReverseDeadZone = if (afterDeadZone == 0f) 0f
                                    else afterDeadZone * (1f - rdz) + rdz
         return evaluateCurve(afterReverseDeadZone)
     }
