@@ -573,7 +573,6 @@ internal fun MainActivity.setupSettings() {
     }
 
     a.setupHdVibrationEntry()
-    a.setupDualSenseWirelessBridgeEntry()
 
     a.findViewById<Spinner>(R.id.spinnerAdaptiveTriggerDevice).apply {
         setOnTouchListener { _, _ ->
@@ -1104,8 +1103,6 @@ internal fun MainActivity.syncPhysicalControllerUI() {
     val a = this
     if (!a.settingsInflated) return
     a.syncControllerDriverUI()
-    a.findViewById<Switch>(R.id.switchDualSenseWirelessBridge)?.isChecked =
-        a.viewModel.settings.value.dualSenseWirelessBridge
     val indices = a.buildInputControllerIndices()
     a.inputControllerIndices = indices
     val controllerCount = indices.size - 1
@@ -1756,17 +1753,6 @@ internal fun MainActivity.updateHdVibrationUI() {
     if (sw != null && sw.isChecked != s.hdVibrationEnabled) sw.isChecked = s.hdVibrationEnabled
     a.findViewById<TextView>(R.id.tvHdStatus).text =
         if (s.hdVibrationEnabled) HapticInjector.statusText() else "HD 未启用"
-}
-
-internal fun MainActivity.setupDualSenseWirelessBridgeEntry() {
-    val a = this
-    val sw = a.findViewById<Switch>(R.id.switchDualSenseWirelessBridge) ?: return
-    sw.isChecked = a.viewModel.settings.value.dualSenseWirelessBridge
-    sw.setOnCheckedChangeListener { _, isChecked ->
-        if (isChecked != a.viewModel.settings.value.dualSenseWirelessBridge) {
-            a.viewModel.updateDualSenseWirelessBridge(isChecked)
-        }
-    }
 }
 
 /** 进入“作为被控端”的连接页面（接收远端控制端输入并创建本地虚拟手柄）。 */

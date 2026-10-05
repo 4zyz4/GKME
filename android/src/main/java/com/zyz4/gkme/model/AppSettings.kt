@@ -230,8 +230,6 @@ data class AppSettings(
     val gameVibrationDeviceConnected: VibrationDevice = VibrationDevice.controller(0),
     val swapPhoneMotors: Boolean = false,
     val swapControllerMotors: Boolean = false,
-    /** 通过外部 USB 蓝牙 HCI 适配器直连 PS5 DualSense（绕过系统蓝牙栈）。 */
-    val dualSenseWirelessBridge: Boolean = false,
     /** 手机马达是否使用 RichTap 高清震动（通过 Shizuku 用户服务调用隐藏 API）。 */
     val hdVibrationEnabled: Boolean = true,
     /** Actuator that receives PC adaptive-trigger effects while no physical controller is connected. */
