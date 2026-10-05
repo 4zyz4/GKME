@@ -70,7 +70,6 @@ class SettingsRepository @Inject constructor(
         val GAME_VIBRATION_CONTROLLER_CONNECTED_INDEX = intPreferencesKey("game_vibration_controller_connected_index")
         val SWAP_PHONE_MOTORS = booleanPreferencesKey("swap_phone_motors")
         val SWAP_CONTROLLER_MOTORS = booleanPreferencesKey("swap_controller_motors")
-        val DUAL_SENSE_WIRELESS_BRIDGE = booleanPreferencesKey("dual_sense_wireless_bridge")
         val HD_VIBRATION_ENABLED = booleanPreferencesKey("hd_vibration_enabled")
         val ADAPTIVE_TRIGGER_DEVICE_TYPE = intPreferencesKey("adaptive_trigger_device_type")
         val ADAPTIVE_TRIGGER_CONTROLLER_INDEX = intPreferencesKey("adaptive_trigger_controller_index")
@@ -226,7 +225,6 @@ class SettingsRepository @Inject constructor(
             ),
             swapPhoneMotors = prefs[Keys.SWAP_PHONE_MOTORS] ?: false,
             swapControllerMotors = prefs[Keys.SWAP_CONTROLLER_MOTORS] ?: false,
-            dualSenseWirelessBridge = prefs[Keys.DUAL_SENSE_WIRELESS_BRIDGE] ?: false,
             hdVibrationEnabled = prefs[Keys.HD_VIBRATION_ENABLED] ?: true,
             adaptiveTriggerDevice = AdaptiveTriggerDevice(
                 type = AdaptiveTriggerTargetType.entries.getOrElse(
@@ -372,7 +370,6 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.GAME_VIBRATION_CONTROLLER_CONNECTED_INDEX] = settings.gameVibrationDeviceConnected.controllerIndex
             prefs[Keys.SWAP_PHONE_MOTORS] = settings.swapPhoneMotors
             prefs[Keys.SWAP_CONTROLLER_MOTORS] = settings.swapControllerMotors
-            prefs[Keys.DUAL_SENSE_WIRELESS_BRIDGE] = settings.dualSenseWirelessBridge
             prefs[Keys.HD_VIBRATION_ENABLED] = settings.hdVibrationEnabled
             prefs[Keys.ADAPTIVE_TRIGGER_DEVICE_TYPE] = settings.adaptiveTriggerDevice.type.ordinal
             prefs[Keys.ADAPTIVE_TRIGGER_CONTROLLER_INDEX] = settings.adaptiveTriggerDevice.controllerIndex

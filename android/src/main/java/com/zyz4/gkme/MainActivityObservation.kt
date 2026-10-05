@@ -111,7 +111,6 @@ internal fun MainActivity.observeState() {
                     }
                     a.physicalControllerHandler.swapPhoneMotors = s.swapPhoneMotors
                     a.physicalControllerHandler.swapControllerMotors = s.swapControllerMotors
-                    a.physicalControllerHandler.dualSenseWirelessBridge = s.dualSenseWirelessBridge
                     a.physicalControllerHandler.inputControllerIndex = s.inputControllerIndex
                     a.physicalControllerHandler.setDriver(s.controllerDriver)
                     a.applyEffectivePhysicalControllerSettings()
