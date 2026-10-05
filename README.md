@@ -179,5 +179,6 @@ cd GKME
 | [**usbip-win2**](https://github.com/vadimgrn/usbip-win2) | 电脑端虚拟 HID 设备桥接驱动 |
 | [**Moonlight**](https://github.com/moonlight-stream/moonlight-android) | DualSense 触摸板识别算法参考 |
 | [**Axixi2233/moonlight-android**](https://github.com/Axixi2233/moonlight-android) | 实体手柄 USB 驱动来源 |
+| [**qiin2333/moonlight-vplus**](https://github.com/qiin2333/moonlight-vplus) | DS 蓝牙驱动来源 |
 | [**SDL**](https://libsdl.org/) | 实体手柄输入与 HIDAPI 支持 |
 | [Dagger Hilt](https://dagger.dev/hilt/) | 依赖注入框架 |
