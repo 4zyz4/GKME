@@ -46,6 +46,10 @@ data class LayoutPreset(
     val gyroStickCurve: List<Float>? = null,
     /** Per-layout remapping of the physical controller; a missing key means "default". */
     val physicalInputMappings: Map<String, PhysicalInputMapping> = emptyMap(),
+    /** Analog shaping (dead zone / anti dead zone / curve) for the left physical joystick. */
+    val leftStickSettings: PhysicalStickSettings? = null,
+    /** Analog shaping (dead zone / anti dead zone / curve) for the right physical joystick. */
+    val rightStickSettings: PhysicalStickSettings? = null,
     /** Per-layout output bits emitted by the volume-up key. */
     val volumeUpBits: List<Int> = emptyList(),
     /** Per-layout output bits emitted by the volume-down key. */
@@ -187,6 +191,12 @@ data class LayoutPreset(
                     )
                     parsed.mapKeys { (key, _) -> PhysicalInputs.normalizeKey(key) }
                 } ?: emptyMap()
+            val leftStickSettings = root.get("leftStickSettings")?.let {
+                gsonInstance.fromJson(it, PhysicalStickSettings::class.java)
+            }
+            val rightStickSettings = root.get("rightStickSettings")?.let {
+                gsonInstance.fromJson(it, PhysicalStickSettings::class.java)
+            }
             val volumeUpBits = root.getAsJsonArray("volumeUpBits")?.map { it.asInt } ?: emptyList()
             val volumeDownBits = root.getAsJsonArray("volumeDownBits")?.map { it.asInt } ?: emptyList()
             return LayoutPreset(
@@ -200,6 +210,8 @@ data class LayoutPreset(
                 gyroReverseDeadZone = gyroReverseDeadZone,
                 gyroStickCurve = gyroStickCurve,
                 physicalInputMappings = physicalInputMappings,
+                leftStickSettings = leftStickSettings,
+                rightStickSettings = rightStickSettings,
                 volumeUpBits = volumeUpBits,
                 volumeDownBits = volumeDownBits,
             )
@@ -300,6 +312,8 @@ data class LayoutPreset(
         gyroReverseDeadZone?.let { obj["gyroReverseDeadZone"] = it }
         if (!gyroStickCurve.isNullOrEmpty()) obj["gyroStickCurve"] = gyroStickCurve
         if (physicalInputMappings.isNotEmpty()) obj["physicalInputMappings"] = physicalInputMappings
+        if (leftStickSettings != null && !leftStickSettings.isDefault()) obj["leftStickSettings"] = leftStickSettings
+        if (rightStickSettings != null && !rightStickSettings.isDefault()) obj["rightStickSettings"] = rightStickSettings
         if (volumeUpBits.isNotEmpty()) obj["volumeUpBits"] = volumeUpBits
         if (volumeDownBits.isNotEmpty()) obj["volumeDownBits"] = volumeDownBits
         return gson.toJson(obj)
