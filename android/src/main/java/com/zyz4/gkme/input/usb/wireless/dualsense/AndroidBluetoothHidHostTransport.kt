@@ -189,11 +189,6 @@ internal class AndroidBluetoothHidHostTransport(
         sendDataHex = findMethod(classes, "sendData", String::class.java)
         setReportRaw = findSetReportMethod(classes, ByteArray::class.java)
         setReportHex = findSetReportMethod(classes, String::class.java)
-        LimeLog.info(
-            "Direct DualSense HID methods: sendData(raw)=${sendDataRaw != null}, " +
-                "sendData(hex)=${sendDataHex != null}, setReport(raw)=${setReportRaw != null}, " +
-                "setReport(hex)=${setReportHex != null}"
-        )
     }
 
     private fun findMethod(classes: Iterable<Class<*>>, name: String, payload: Class<*>): Method? =
@@ -248,10 +243,7 @@ internal class AndroidBluetoothHidHostTransport(
                 it.invoke(proxy, device, reportTypeArgument(it), report.toHex()) as? Boolean
             }
         } ?: false
-    }.getOrElse {
-        LimeLog.warning("Direct DualSense ${kind.name} failed: ${it.cause?.message ?: it.message}")
-        false
-    }
+    }.getOrDefault(false)
 
     private fun hasOutputMethod(): Boolean =
         sendDataRaw != null || sendDataHex != null || setReportRaw != null || setReportHex != null
