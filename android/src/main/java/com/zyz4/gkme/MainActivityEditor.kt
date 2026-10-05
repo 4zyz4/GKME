@@ -23,6 +23,7 @@ import com.zyz4.gkme.model.GyroBaseDirection
 import com.zyz4.gkme.model.GyroCoordinateSystem
 import com.zyz4.gkme.model.GyroMode
 import com.zyz4.gkme.model.GyroOrientation
+import com.zyz4.gkme.model.PhysicalStickSettings
 import com.zyz4.gkme.view.FloatingEditorPanel
 import com.zyz4.gkme.view.LayoutGlobalSettingsPanel
 import com.zyz4.gkme.view.GamepadLayout
@@ -231,6 +232,11 @@ internal fun MainActivity.createGlobalSettingsPanel(): LayoutGlobalSettingsPanel
 
             override fun onPopulateVolumeMapping(container: LinearLayout) {
                 a.populateVolumeMapping(container)
+            }
+
+            override fun onPhysicalStickSettingsChanged(left: PhysicalStickSettings, right: PhysicalStickSettings) {
+                a.gamepadLayout.setPhysicalStickSettings(left, right)
+                a.viewModel.updatePresetButtons(a.gamepadLayout.getPreset())
             }
         }
     }.also { panel ->

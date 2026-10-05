@@ -18,6 +18,7 @@ import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.model.GyroOrientation
 import com.zyz4.gkme.model.LayoutPreset
 import com.zyz4.gkme.model.PhysicalInputMapping
+import com.zyz4.gkme.model.PhysicalStickSettings
 import com.zyz4.gkme.view.JoystickView
 import com.zyz4.gkme.view.CustomKeypadView
 import com.zyz4.gkme.view.inputdispatcher.GamepadInputDispatcher
@@ -127,12 +128,16 @@ class GamepadLayout @JvmOverloads constructor(
         private set
     var currentPhysicalInputMappings: Map<String, PhysicalInputMapping> = emptyMap()
         private set
+    var currentLeftStickSettings: PhysicalStickSettings? = null
+        private set
+    var currentRightStickSettings: PhysicalStickSettings? = null
+        private set
     var currentVolumeUpBits: List<Int> = emptyList()
         private set
     var currentVolumeDownBits: List<Int> = emptyList()
         private set
     val currentGyroPreset: com.zyz4.gkme.model.LayoutPreset
-        get() = LayoutPreset(version = 1, buttons = currentButtons, gyroOrientation = currentGyroOrientation, gyroActivateMode = currentGyroActivateMode, gyroMode = currentGyroMode, gyroModeSensitivity = currentGyroModeSensitivity, gyroDeadZone = currentGyroDeadZone, gyroReverseDeadZone = currentGyroReverseDeadZone, gyroStickCurve = currentGyroStickCurve, physicalInputMappings = currentPhysicalInputMappings, volumeUpBits = currentVolumeUpBits, volumeDownBits = currentVolumeDownBits)
+        get() = LayoutPreset(version = 1, buttons = currentButtons, gyroOrientation = currentGyroOrientation, gyroActivateMode = currentGyroActivateMode, gyroMode = currentGyroMode, gyroModeSensitivity = currentGyroModeSensitivity, gyroDeadZone = currentGyroDeadZone, gyroReverseDeadZone = currentGyroReverseDeadZone, gyroStickCurve = currentGyroStickCurve, physicalInputMappings = currentPhysicalInputMappings, leftStickSettings = currentLeftStickSettings, rightStickSettings = currentRightStickSettings, volumeUpBits = currentVolumeUpBits, volumeDownBits = currentVolumeDownBits)
     private var isEditMode = false
     var selectedButtonId: String? = null
         private set
@@ -837,6 +842,8 @@ class GamepadLayout @JvmOverloads constructor(
         currentGyroReverseDeadZone = preset.gyroReverseDeadZone
         currentGyroStickCurve = preset.gyroStickCurve
         currentPhysicalInputMappings = preset.physicalInputMappings
+        currentLeftStickSettings = preset.leftStickSettings
+        currentRightStickSettings = preset.rightStickSettings
         currentVolumeUpBits = preset.volumeUpBits
         currentVolumeDownBits = preset.volumeDownBits
         hasChanges = false
@@ -921,12 +928,19 @@ class GamepadLayout @JvmOverloads constructor(
     }
 
     fun getPreset(): LayoutPreset {
-        return LayoutPreset(version = 1, buttons = currentButtons.toList(), gyroOrientation = currentGyroOrientation, gyroActivateMode = currentGyroActivateMode, gyroMode = currentGyroMode, gyroModeSensitivity = currentGyroModeSensitivity, gyroDeadZone = currentGyroDeadZone, gyroReverseDeadZone = currentGyroReverseDeadZone, gyroStickCurve = currentGyroStickCurve, physicalInputMappings = currentPhysicalInputMappings, volumeUpBits = currentVolumeUpBits, volumeDownBits = currentVolumeDownBits)
+        return LayoutPreset(version = 1, buttons = currentButtons.toList(), gyroOrientation = currentGyroOrientation, gyroActivateMode = currentGyroActivateMode, gyroMode = currentGyroMode, gyroModeSensitivity = currentGyroModeSensitivity, gyroDeadZone = currentGyroDeadZone, gyroReverseDeadZone = currentGyroReverseDeadZone, gyroStickCurve = currentGyroStickCurve, physicalInputMappings = currentPhysicalInputMappings, leftStickSettings = currentLeftStickSettings, rightStickSettings = currentRightStickSettings, volumeUpBits = currentVolumeUpBits, volumeDownBits = currentVolumeDownBits)
     }
 
     /** Replaces the physical-controller remapping of the layout being edited. */
     fun setPhysicalInputMappings(mappings: Map<String, PhysicalInputMapping>) {
         currentPhysicalInputMappings = mappings
+        hasChanges = true
+    }
+
+    /** Replaces the analog stick shaping of the layout being edited. */
+    fun setPhysicalStickSettings(left: PhysicalStickSettings?, right: PhysicalStickSettings?) {
+        currentLeftStickSettings = if (left == null || left.isDefault()) null else left
+        currentRightStickSettings = if (right == null || right.isDefault()) null else right
         hasChanges = true
     }
 

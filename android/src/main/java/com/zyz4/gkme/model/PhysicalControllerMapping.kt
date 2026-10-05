@@ -33,6 +33,22 @@ data class PhysicalInputMapping(
 )
 
 /**
+ * Per-layout analog shaping applied to a physical-controller joystick before it is merged with
+ * the on-screen stick: a radial dead zone, an anti (reverse) dead zone and an optional
+ * sensitivity curve. The same pipeline is used by the on-screen joystick and the gyro/accel
+ * stick modes.
+ */
+data class PhysicalStickSettings(
+    val deadZone: Int = 0,
+    val reverseDeadZone: Int = 0,
+    /** Flat `[x0, y0, x1, y1, ...]` curve points in `[0, 1]`; null/empty = identity. */
+    val curve: List<Float>? = null,
+) {
+    /** True when every field is at its neutral (no-op) value. */
+    fun isDefault(): Boolean = deadZone <= 0 && reverseDeadZone <= 0 && curve.isNullOrEmpty()
+}
+
+/**
  * Catalogue of every physical controller input the settings page can configure.
  *
  * The paddle bits live above the [GamepadState] output bits because paddles never map to a

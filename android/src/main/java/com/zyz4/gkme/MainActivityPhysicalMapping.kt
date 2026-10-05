@@ -115,6 +115,11 @@ internal fun MainActivity.populatePhysicalMapping(container: LinearLayout) {
                 row,
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
             )
+            // The analog shaping (dead zone / anti dead zone / curve) lives in the same card as
+            // the gyro-activation checkbox; it also gates gyro activation (see GkViewModel).
+            if (input.kind == PhysicalInputKind.JOYSTICK) {
+                a.layoutGlobalSettingsPanel?.appendStickTuning(card, input.key)
+            }
         }
     }
 }

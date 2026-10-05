@@ -34,6 +34,8 @@ import com.zyz4.gkme.model.GyroCoordinateSystem
 import com.zyz4.gkme.model.GyroMode
 import com.zyz4.gkme.model.GyroOrientation
 import com.zyz4.gkme.model.LayoutPreset
+import com.zyz4.gkme.model.PhysicalInputs
+import com.zyz4.gkme.model.PhysicalStickSettings
 
 /**
  * Full-screen, per-layout "全局设置" page opened from the layout editor.
@@ -58,6 +60,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         fun onGyroActivateModeChanged(mode: GyroActivateMode)
         fun onPopulatePhysicalMapping(container: LinearLayout)
         fun onPopulateVolumeMapping(container: LinearLayout)
+        fun onPhysicalStickSettingsChanged(left: PhysicalStickSettings, right: PhysicalStickSettings)
     }
 
     var listener: Listener? = null
@@ -74,6 +77,8 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
     private var gyroReverseDeadZone = 0
     private var gyroStickCurve: List<Float>? = null
     private var gyroActivateMode = GyroActivateMode.ALWAYS
+    private var physicalLeftStick = PhysicalStickSettings()
+    private var physicalRightStick = PhysicalStickSettings()
 
     private var contentContainer: LinearLayout? = null
     private var physicalContainer: LinearLayout? = null
@@ -188,6 +193,8 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         gyroReverseDeadZone = preset.gyroReverseDeadZone ?: 0
         gyroStickCurve = preset.gyroStickCurve
         gyroActivateMode = preset.gyroActivateMode ?: GyroActivateMode.ALWAYS
+        physicalLeftStick = preset.leftStickSettings ?: PhysicalStickSettings()
+        physicalRightStick = preset.rightStickSettings ?: PhysicalStickSettings()
         hideCurveOverlay()
         physicalContainer?.removeAllViews()
         volumeContainer?.removeAllViews()
@@ -548,85 +555,14 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
 
         // Shared sensitivity curve for the gyro / accel -> stick modes.
         gyroStickCurveContainer = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-        val curveContainer = gyroStickCurveContainer!!
-        curveContainer.addView(sectionLabel("灵敏度曲线", density))
-        val presetLabels = listOf("自定义") + SensitivityCurve.PRESETS.map { it.label }
-        val curvePresetSpinner = Spinner(context).apply {
-            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, presetLabels).also {
-                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            }
-            setSelection(0)
-        }
-        curveContainer.addView(curvePresetSpinner, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-        ).apply {
-            bottomMargin = (4f * density).toInt()
-        })
-        val curveView = CurveEditorView(context).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                (200f * density).toInt(),
-            )
-            setFromFlatList(gyroStickCurve)
-        }
-        gyroStickCurveView = curveView
-        curveView.onPointsChanged = { list ->
-            applyCurve(list, fromOverlay = false)
-            curvePresetSpinner.setSelection(0)
-        }
-        curveContainer.addView(curveView)
-        val curveBtnRow = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                bottomMargin = (4f * density).toInt()
-            }
-        }
-        val btnDeletePoint = Button(context).apply {
-            text = "删除选中点"
-            setTextColor(-0x1)
-            textSize = 12f
-            setBackgroundResource(R.drawable.button_flat)
-            setOnClickListener { curveView.deleteSelected() }
-        }
-        val btnResetCurve = Button(context).apply {
-            text = "重置为直线"
-            setTextColor(-0x1)
-            textSize = 12f
-            setBackgroundResource(R.drawable.button_flat)
-            setOnClickListener {
-                curveView.setFromFlatList(null)
-                applyCurve(null, fromOverlay = false)
-            }
-        }
-        val btnEnlarge = Button(context).apply {
-            text = "放大"
-            setTextColor(-0x1)
-            textSize = 12f
-            setBackgroundResource(R.drawable.button_flat)
-            setOnClickListener {
-                curveZoom?.show(gyroStickCurve) { list -> applyCurve(list, fromOverlay = true) }
-            }
-        }
-        curveBtnRow.addView(btnDeletePoint, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
-            rightMargin = (4f * density).toInt()
-        })
-        curveBtnRow.addView(btnResetCurve, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
-            rightMargin = (4f * density).toInt()
-        })
-        curveBtnRow.addView(btnEnlarge, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        curveContainer.addView(curveBtnRow)
-        curvePresetSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                if (position <= 0) return
-                val preset = SensitivityCurve.PRESETS[position - 1]
-                curveView.setFromFlatList(preset.points)
-                applyCurve(preset.points, fromOverlay = false)
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
-        }
-        advanced.addView(curveContainer)
+        gyroStickCurveView = buildCurveSection(
+            gyroStickCurveContainer!!,
+            density,
+            gyroStickCurve,
+            onChanged = { applyCurve(it, fromOverlay = false) },
+            onOverlayChanged = { applyCurve(it, fromOverlay = true) },
+        )
+        advanced.addView(gyroStickCurveContainer!!)
 
         addSeekbar(advanced, "陀螺仪死区(%)", gyroDeadZone, 0, 100) {
             gyroDeadZone = it
@@ -719,6 +655,124 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         gyroStickCurve = list
         listener?.onGyroStickCurveChanged(list)
         if (fromOverlay) gyroStickCurveView?.setFromFlatList(list) else curveZoom?.setCurve(list)
+    }
+
+    /**
+     * Builds the standard "灵敏度曲线" editor (preset spinner + inline editor + delete/reset/enlarge
+     * buttons) into [container]. [onChanged] receives every edit; when the enlarged overlay edits
+     * the curve the inline editor is kept in sync.
+     */
+    private fun buildCurveSection(
+        container: LinearLayout,
+        density: Float,
+        initial: List<Float>?,
+        onChanged: (List<Float>?) -> Unit,
+        onOverlayChanged: ((List<Float>?) -> Unit)? = null,
+    ): CurveEditorView {
+        container.addView(sectionLabel("灵敏度曲线", density))
+        val presetLabels = listOf("自定义") + SensitivityCurve.PRESETS.map { it.label }
+        val presetSpinner = Spinner(context).apply {
+            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, presetLabels).also {
+                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+            setSelection(0)
+        }
+        container.addView(presetSpinner, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply { bottomMargin = (4f * density).toInt() })
+
+        val curveView = CurveEditorView(context).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                (200f * density).toInt(),
+            )
+            setFromFlatList(initial)
+        }
+        curveView.onPointsChanged = { list ->
+            onChanged(list)
+            presetSpinner.setSelection(0)
+        }
+        container.addView(curveView)
+
+        val btnRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            ).apply { bottomMargin = (4f * density).toInt() }
+        }
+        fun curveButton(label: String, onClick: () -> Unit): Button = Button(context).apply {
+            text = label
+            setTextColor(-0x1)
+            textSize = 12f
+            setBackgroundResource(R.drawable.button_flat)
+            setOnClickListener { onClick() }
+        }
+        btnRow.addView(curveButton("删除选中点") { curveView.deleteSelected() },
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                rightMargin = (4f * density).toInt()
+            })
+        btnRow.addView(curveButton("重置为直线") {
+            curveView.setFromFlatList(null)
+            onChanged(null)
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+            rightMargin = (4f * density).toInt()
+        })
+        btnRow.addView(curveButton("放大") {
+            curveZoom?.show(curveView.flatList()) { list ->
+                if (onOverlayChanged != null) {
+                    onOverlayChanged(list)
+                } else {
+                    onChanged(list)
+                    curveView.setFromFlatList(list)
+                }
+            }
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        container.addView(btnRow)
+
+        presetSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (position <= 0) return
+                val preset = SensitivityCurve.PRESETS[position - 1]
+                curveView.setFromFlatList(preset.points)
+                onChanged(preset.points)
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+        return curveView
+    }
+
+    // ── Physical-controller stick tuning ────────────────────
+
+    /**
+     * Appends the analog shaping controls (dead zone / anti dead zone / curve) for the physical
+     * joystick named by [key] into its mapping card, right below the gyro-activation checkbox.
+     */
+    fun appendStickTuning(container: LinearLayout, key: String) {
+        val density = resources.displayMetrics.density
+        val isLeft = key == PhysicalInputs.KEY_LEFT_JOYSTICK
+        val get: () -> PhysicalStickSettings = if (isLeft) ({ physicalLeftStick }) else ({ physicalRightStick })
+        val set: (PhysicalStickSettings) -> Unit =
+            if (isLeft) ({ physicalLeftStick = it }) else ({ physicalRightStick = it })
+
+        addSeekbar(container, "死区(%)", get().deadZone, 0, 100) {
+            set(get().copy(deadZone = it))
+            notifyStickSettings()
+        }
+        addSeekbar(container, "反死区(%)", get().reverseDeadZone, 0, 100) {
+            set(get().copy(reverseDeadZone = it))
+            notifyStickSettings()
+        }
+        buildCurveSection(container, density, get().curve, onChanged = { list ->
+            set(get().copy(curve = list))
+            notifyStickSettings()
+        })
+    }
+
+    private fun notifyStickSettings() {
+        listener?.onPhysicalStickSettingsChanged(physicalLeftStick, physicalRightStick)
     }
 
     /** True while the enlarged curve editor is covering the page (used to consume the back key). */

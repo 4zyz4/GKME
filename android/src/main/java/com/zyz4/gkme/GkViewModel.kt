@@ -11,6 +11,7 @@ import com.zyz4.gkme.data.LayoutRepository
 import com.zyz4.gkme.input.AccelSteeringMapper
 import com.zyz4.gkme.input.SensitivityCurve
 import com.zyz4.gkme.input.SensorHandler
+import com.zyz4.gkme.input.StickShaping
 import com.zyz4.gkme.input.toProto
 import com.zyz4.gkme.model.AudioDevice
 import com.zyz4.gkme.model.AppSettings
@@ -627,9 +628,12 @@ class GkViewModel @Inject constructor(
         val hasPhoneLT = phoneLT.toInt() > 0
         val hasPhoneRT = phoneRT.toInt() > 0
         val previousPhysicalMouse = physicalMappedMouseButtons
+        val stickPreset = _currentPreset.value
+        val (shapedLx, shapedLy) = shapePhysicalStick(stickPreset.leftStickSettings, leftStickX, leftStickY)
+        val (shapedRx, shapedRy) = shapePhysicalStick(stickPreset.rightStickSettings, rightStickX, rightStickY)
         applyPhysicalMappings(
             buttons, leftTrigger, rightTrigger,
-            leftStickX, leftStickY, rightStickX, rightStickY, touchpadTouch,
+            shapedLx, shapedLy, shapedRx, shapedRy, touchpadTouch,
         )
         val mouseButtonsChanged = physicalMappedMouseButtons != previousPhysicalMouse
         val combinedMouseButtons =
@@ -664,10 +668,10 @@ class GkViewModel @Inject constructor(
         _gamepadState.value = _gamepadState.value.copy(
             buttons = phoneButtons or physicalMappedButtonBits,
             mouseButtons = combinedMouseButtons,
-            leftStickX = (phoneStickX.toInt() + leftStickX.toInt()).coerceIn(-32768, 32767).toShort(),
-            leftStickY = (phoneStickY.toInt() + leftStickY.toInt()).coerceIn(-32768, 32767).toShort(),
-            rightStickX = (phoneRStickX.toInt() + rightStickX.toInt()).coerceIn(-32768, 32767).toShort(),
-            rightStickY = (phoneRStickY.toInt() + rightStickY.toInt()).coerceIn(-32768, 32767).toShort(),
+            leftStickX = (phoneStickX.toInt() + shapedLx).coerceIn(-32768, 32767).toShort(),
+            leftStickY = (phoneStickY.toInt() + shapedLy).coerceIn(-32768, 32767).toShort(),
+            rightStickX = (phoneRStickX.toInt() + shapedRx).coerceIn(-32768, 32767).toShort(),
+            rightStickY = (phoneRStickY.toInt() + shapedRy).coerceIn(-32768, 32767).toShort(),
             leftTrigger = if (hasPhoneLT) maxOf(phoneLT.toInt(), physicalLeftTriggerAnalog) else physicalLeftTriggerAnalog,
             rightTrigger = if (hasPhoneRT) maxOf(phoneRT.toInt(), physicalRightTriggerAnalog) else physicalRightTriggerAnalog,
             dpad = hatValue,
@@ -677,10 +681,10 @@ class GkViewModel @Inject constructor(
             touchpadClick = touchpadClick || hasPhoneTouch,
             touches = if (hasPhoneTouch) phoneTouches else touches,
         )
-        physicalStickX = leftStickX
-        physicalStickY = leftStickY
-        physicalRStickX = rightStickX
-        physicalRStickY = rightStickY
+        physicalStickX = shapedLx.toShort()
+        physicalStickY = shapedLy.toShort()
+        physicalRStickX = shapedRx.toShort()
+        physicalRStickY = shapedRy.toShort()
         if (mouseButtonsChanged && settings.value.connectionMode == ConnectionMode.BLUETOOTH) {
             viewModelScope.launch {
                 connectionManager.sendMouseReport(
@@ -691,17 +695,34 @@ class GkViewModel @Inject constructor(
         }
     }
 
+    /** Applies the per-layout dead zone / anti dead zone / curve to a raw physical stick vector. */
+    private fun shapePhysicalStick(
+        settings: com.zyz4.gkme.model.PhysicalStickSettings?,
+        x: Short,
+        y: Short,
+    ): Pair<Int, Int> {
+        if (settings == null || settings.isDefault()) return x.toInt() to y.toInt()
+        val (sx, sy) = StickShaping.apply(
+            x.toFloat(), y.toFloat(), PHYSICAL_STICK_FULL_SCALE,
+            settings.deadZone, settings.reverseDeadZone, settings.curve,
+        )
+        return sx.toInt() to sy.toInt()
+    }
+
     /**
-     * Recomputes the outputs produced by the physical-controller mappings for the current raw
-     * input, then applies the delta: the mapped bitmask replaces the raw physical buttons
-     * (so a remapped button no longer emits its original output), while mapped keyboard keys
-     * and the gyro-activation flag are toggled on the press/release edges.
+     * Recomputes the outputs produced by the physical-controller mappings for the current input,
+     * then applies the delta: the mapped bitmask replaces the raw physical buttons (so a remapped
+     * button no longer emits its original output), while mapped keyboard keys and the
+     * gyro-activation flag are toggled on the press/release edges.
+     *
+     * [leftStickX]/[leftStickY]/[rightStickX]/[rightStickY] are the already-shaped stick values, so
+     * a joystick only activates the gyro once it has left its configured dead zone.
      */
     private fun applyPhysicalMappings(
         buttons: UInt,
         leftTrigger: Int, rightTrigger: Int,
-        leftStickX: Short, leftStickY: Short,
-        rightStickX: Short, rightStickY: Short,
+        leftStickX: Int, leftStickY: Int,
+        rightStickX: Int, rightStickY: Int,
         touchpadTouch: Boolean,
     ) {
         val mappings = _currentPreset.value.physicalInputMappings
@@ -744,13 +765,11 @@ class GkViewModel @Inject constructor(
 
         for (input in PhysicalInputs.GYRO_ONLY) {
             if (mappings[input.key]?.gyroActivate != true) continue
+            // A joystick activates the gyro only once it has left its dead zone: the shaping above
+            // outputs exactly 0 while inside the dead zone.
             val active = when (input.key) {
-                PhysicalInputs.KEY_LEFT_JOYSTICK ->
-                    kotlin.math.abs(leftStickX.toInt()) > PHYSICAL_STICK_GYRO_THRESHOLD ||
-                        kotlin.math.abs(leftStickY.toInt()) > PHYSICAL_STICK_GYRO_THRESHOLD
-                PhysicalInputs.KEY_RIGHT_JOYSTICK ->
-                    kotlin.math.abs(rightStickX.toInt()) > PHYSICAL_STICK_GYRO_THRESHOLD ||
-                        kotlin.math.abs(rightStickY.toInt()) > PHYSICAL_STICK_GYRO_THRESHOLD
+                PhysicalInputs.KEY_LEFT_JOYSTICK -> leftStickX != 0 || leftStickY != 0
+                PhysicalInputs.KEY_RIGHT_JOYSTICK -> rightStickX != 0 || rightStickY != 0
                 PhysicalInputs.KEY_TOUCHPAD -> touchpadTouch
                 else -> false
             }
@@ -1625,5 +1644,5 @@ class GkViewModel @Inject constructor(
 /** Trigger value (0..255) above which a remapped LT/RT counts as pressed. */
 private const val PHYSICAL_TRIGGER_MAP_THRESHOLD = 128
 
-/** Stick axis deviation above which a remapped joystick counts as active for the gyro. */
-private const val PHYSICAL_STICK_GYRO_THRESHOLD = 8000
+/** Short-axis magnitude that maps to full deflection for physical stick shaping. */
+private const val PHYSICAL_STICK_FULL_SCALE = 32767f
