@@ -26,6 +26,7 @@ import android.widget.SeekBar
 import android.widget.TextView
 import com.zyz4.gkme.R
 import com.zyz4.gkme.easeOutQuint
+import com.zyz4.gkme.input.SensitivityCurve
 import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.model.CenterShape
 import com.zyz4.gkme.model.GamepadState
@@ -1094,6 +1095,15 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             }
             buttonParamsInner.addView(tvCurve, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (10f * density).toInt(); bottomMargin = (4f * density).toInt() })
 
+            val curvePresetLabels = listOf("自定义") + SensitivityCurve.PRESETS.map { it.label }
+            val curvePresetSpinner = Spinner(context).apply {
+                adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, curvePresetLabels).also {
+                    it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                }
+                setSelection(0)
+            }
+            buttonParamsInner.addView(curvePresetSpinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (4f * density).toInt() })
+
             val curveView = CurveEditorView(context).apply {
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, curveH)
                 setFromFlatList(button.sensitivityCurve)
@@ -1101,9 +1111,22 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                     currentButton?.let {
                         editorListener?.onButtonUpdated(buttonId, it.copy(sensitivityCurve = newList))
                     }
+                    curvePresetSpinner.setSelection(0)
                 }
             }
             buttonParamsInner.addView(curveView)
+
+            curvePresetSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    if (position <= 0) return
+                    val preset = SensitivityCurve.PRESETS[position - 1]
+                    curveView.setFromFlatList(preset.points)
+                    currentButton = currentButton?.copy(sensitivityCurve = preset.points)
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                }
+
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
 
             val curveBtnRow = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
