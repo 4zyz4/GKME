@@ -1045,9 +1045,10 @@ class GkViewModel @Inject constructor(
                     val mag = sqrt(mappedX * mappedX + mappedY * mappedY)
                     if (mag > 0f) {
                         val normalized = (mag / gyroDeadZoneMaxRate).coerceIn(0f, 1f)
+                        // 死区优先：死区内恒输出 0，反死区只在死区之外抬升下限。
                         val afterDeadZone = if (normalized <= gyroDeadZone) 0f
                                             else (normalized - gyroDeadZone) / (1f - gyroDeadZone)
-                        val afterReverseDeadZone = if (afterDeadZone == 0f) gyroReverseDeadZone
+                        val afterReverseDeadZone = if (afterDeadZone == 0f) 0f
                                                    else afterDeadZone * (1f - gyroReverseDeadZone) + gyroReverseDeadZone
                         val scale = (afterReverseDeadZone * gyroDeadZoneMaxRate) / mag
                         mappedX *= scale

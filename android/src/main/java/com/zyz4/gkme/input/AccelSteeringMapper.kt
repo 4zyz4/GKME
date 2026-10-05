@@ -212,9 +212,10 @@ class AccelSteeringMapper {
             val mag = sqrt(rawX * rawX + rawY * rawY)
             if (mag > 0f) {
                 val normalized = mag.coerceIn(0f, 1f)
+                // 死区优先：死区内恒输出 0，反死区只在死区之外抬升下限。
                 val afterDeadZone = if (normalized <= dz) 0f
                                     else (normalized - dz) / (1f - dz)
-                val afterReverseDeadZone = if (afterDeadZone == 0f) rdz
+                val afterReverseDeadZone = if (afterDeadZone == 0f) 0f
                                            else afterDeadZone * (1f - rdz) + rdz
                 val scale = afterReverseDeadZone / mag
                 outX = rawX * scale
