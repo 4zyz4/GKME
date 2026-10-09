@@ -16,8 +16,11 @@ class LayoutRepository @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) {
     companion object {
+        /** 默认布局预设名称：允许编辑，并可通过“恢复默认”还原为出厂内置内容。 */
+        const val DEFAULT_PRESET_NAME = "完整控制器"
+
         val BUILT_IN_PRESETS = mapOf(
-            "完整控制器" to R.raw.full_con,
+            DEFAULT_PRESET_NAME to R.raw.full_con,
             "鼠标" to R.raw.mouse,
             "键盘" to R.raw.keyboard
         )
@@ -234,8 +237,24 @@ class LayoutRepository @Inject constructor(
 
     fun isBuiltInPreset(name: String): Boolean = name in BUILT_IN_PRESETS
 
+    /** 默认布局预设（完整控制器）虽然内置，但允许编辑与恢复默认。 */
+    fun isDefaultPreset(name: String): Boolean = name == DEFAULT_PRESET_NAME
+
+    /** 内置预设中禁止编辑/重命名/删除的部分（默认布局除外）。 */
+    fun isProtectedBuiltInPreset(name: String): Boolean = isBuiltInPreset(name) && !isDefaultPreset(name)
+
     fun getDefaultPreset(): LayoutPreset {
         return getPresetFromRaw(R.raw.full_con, "full_con")
+    }
+
+    /**
+     * 强制从 raw 资源重新加载默认布局（名称为“完整控制器”），
+     * 先清除该名称下的内存/磁盘缓存，避免返回用户编辑后的旧版本。
+     */
+    fun reloadBuiltInDefaultPreset(): LayoutPreset {
+        memoryCache.remove(DEFAULT_PRESET_NAME)
+        invalidateCache(DEFAULT_PRESET_NAME)
+        return getPresetFromRaw(R.raw.full_con, DEFAULT_PRESET_NAME)
     }
 
     private fun getPresetFromRaw(rawId: Int, name: String): LayoutPreset {

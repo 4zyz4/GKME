@@ -26,6 +26,7 @@ import android.view.animation.PathInterpolator
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import androidx.lifecycle.lifecycleScope
+import com.zyz4.gkme.data.LayoutRepository
 import com.zyz4.gkme.haptic.RichTapFrequency
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
@@ -402,7 +403,7 @@ internal fun MainActivity.setupSettings() {
     // ── Presets page ──
     a.findViewById<Button>(R.id.switchEditMode).setOnClickListener {
         val currentName = a.viewModel.settings.value.currentPresetName
-        if (a.viewModel.isBuiltInPreset(currentName)) {
+        if (a.viewModel.isProtectedBuiltInPreset(currentName)) {
             a.showToast("内置布局禁止编辑")
             return@setOnClickListener
         }
@@ -410,6 +411,22 @@ internal fun MainActivity.setupSettings() {
         a.hideSettings()
         a.applyPreset(a.viewModel.currentPreset.value)
         a.gamepadLayout.enterEditMode()
+    }
+
+    // 恢复默认：将默认布局预设还原为出厂内置内容（弹窗确认后执行）
+    a.findViewById<Button>(R.id.btnPresetRestoreDefault).setOnClickListener {
+        CustomDialog.showConfirm(
+            a, "恢复默认",
+            "确定将默认布局「${LayoutRepository.DEFAULT_PRESET_NAME}」恢复为出厂默认？当前对该布局的修改将被覆盖。",
+            positiveText = "恢复默认", onPositive = {
+                val preset = a.viewModel.restoreDefaultPreset()
+                val currentName = a.viewModel.settings.value.currentPresetName
+                if (currentName == LayoutRepository.DEFAULT_PRESET_NAME) {
+                    a.applyPreset(preset)
+                }
+                a.refreshPresetList()
+                a.showToast("已恢复默认布局")
+            })
     }
 
     val gridView = a.findViewById<WrapContentGridView>(R.id.gridPresets)
@@ -436,7 +453,7 @@ internal fun MainActivity.setupSettings() {
         val current = a.viewModel.settings.value.currentPresetName
         val idx = infos.indexOfFirst { it.name == current }
         val name = if (idx >= 0) infos[idx].name else infos.firstOrNull()?.name ?: return@setOnClickListener
-        if (a.viewModel.isBuiltInPreset(name)) { a.showToast("内置布局禁止重命名"); return@setOnClickListener }
+        if (a.viewModel.isProtectedBuiltInPreset(name)) { a.showToast("内置布局禁止重命名"); return@setOnClickListener }
         a.showRenameDialog(name)
     }
 
@@ -445,7 +462,7 @@ internal fun MainActivity.setupSettings() {
         val current = a.viewModel.settings.value.currentPresetName
         val idx = infos.indexOfFirst { it.name == current }
         val selected = if (idx >= 0) infos[idx].name else infos.firstOrNull()?.name ?: return@setOnClickListener
-        if (a.viewModel.isBuiltInPreset(selected)) { a.showToast("内置布局禁止删除"); return@setOnClickListener }
+        if (a.viewModel.isProtectedBuiltInPreset(selected)) { a.showToast("内置布局禁止删除"); return@setOnClickListener }
         CustomDialog.showConfirm(a, "删除预设", "确定删除「$selected」？",
             positiveText = "删除", onPositive = { a.viewModel.deletePreset(selected); a.refreshPresetList() })
     }
@@ -1880,12 +1897,16 @@ internal fun MainActivity.refreshPresetList() {
     val gridView = a.findViewById<WrapContentGridView>(R.id.gridPresets) ?: return
     val infos = a.viewModel.presetInfos.value
     val current = a.viewModel.settings.value.currentPresetName
-    val isBuiltIn = a.viewModel.isBuiltInPreset(current)
+    val isProtectedBuiltIn = a.viewModel.isProtectedBuiltInPreset(current)
+    val isDefault = a.viewModel.isDefaultPreset(current)
     a.findViewById<TextView>(R.id.tvCurrentPreset).text = "当前预设: $current"
     a.findViewById<Button>(R.id.btnPresetCopy).visibility = View.VISIBLE
-    a.findViewById<Button>(R.id.btnPresetRename).visibility = if (isBuiltIn) View.GONE else View.VISIBLE
-    a.findViewById<Button>(R.id.btnPresetDelete).visibility = if (isBuiltIn) View.GONE else View.VISIBLE
-    a.findViewById<Button>(R.id.switchEditMode).visibility = if (isBuiltIn) View.GONE else View.VISIBLE
+    // 默认布局允许编辑；其余内置布局（鼠标/键盘）仍禁止编辑/重命名/删除。
+    a.findViewById<Button>(R.id.btnPresetRename).visibility = if (isProtectedBuiltIn) View.GONE else View.VISIBLE
+    a.findViewById<Button>(R.id.btnPresetDelete).visibility = if (isProtectedBuiltIn) View.GONE else View.VISIBLE
+    a.findViewById<Button>(R.id.switchEditMode).visibility = if (isProtectedBuiltIn) View.GONE else View.VISIBLE
+    // “恢复默认”仅在当前选中默认布局时显示。
+    a.findViewById<Button>(R.id.btnPresetRestoreDefault).visibility = if (isDefault) View.VISIBLE else View.GONE
     // Skip rebuilding the grid (inflating cards) when nothing changed, so opening
     // settings repeatedly doesn't re-inflate all preset preview cards.
     if (a.lastPresetInfos == infos && a.lastPresetCurrentName == current &&
