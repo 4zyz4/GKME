@@ -116,6 +116,18 @@ data class AppearanceProfile(
     @SerializedName("dpadPadTriggerOutlineWidth")
     val dpadPadTriggerOutlineWidth: Int = 4,
 
+    @SerializedName("btnIconColor")
+    val btnIconColor: Int = -0x333334,
+
+    @SerializedName("joyIconColor")
+    val joyIconColor: Int = -0x333334,
+
+    @SerializedName("tpIconColor")
+    val tpIconColor: Int = -0x99999a,
+
+    @SerializedName("dpadPadIconColor")
+    val dpadPadIconColor: Int = -0x333334,
+
     @SerializedName("iconMaxSize")
     val iconMaxSize: Int = 24,
 ) {
@@ -160,6 +172,10 @@ data class AppearanceProfile(
                 dpadPadOutlineWidth = settings.dpadPadOutlineWidth,
                 dpadPadTriggerOutlineColor = settings.dpadPadTriggerOutlineColor,
                 dpadPadTriggerOutlineWidth = settings.dpadPadTriggerOutlineWidth,
+                btnIconColor = settings.btnIconColor,
+                joyIconColor = settings.joyIconColor,
+                tpIconColor = settings.tpIconColor,
+                dpadPadIconColor = settings.dpadPadIconColor,
                 iconMaxSize = settings.iconMaxSize,
             )
         }
@@ -205,6 +221,10 @@ data class AppearanceProfile(
                 dpadPadOutlineWidth = settings.dpadPadOutlineWidth,
                 dpadPadTriggerOutlineColor = settings.dpadPadTriggerOutlineColor,
                 dpadPadTriggerOutlineWidth = settings.dpadPadTriggerOutlineWidth,
+                btnIconColor = settings.btnIconColor,
+                joyIconColor = settings.joyIconColor,
+                tpIconColor = settings.tpIconColor,
+                dpadPadIconColor = settings.dpadPadIconColor,
                 iconMaxSize = settings.iconMaxSize,
             )
         }

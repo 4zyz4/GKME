@@ -63,6 +63,7 @@ class JoystickView @JvmOverloads constructor(
     var appearanceCapBitmap: Bitmap? = null
     var appearanceCapOutlineColor: Int = -0x888889
     var appearanceCapOutlineWidth: Float = 1.5f
+    var appearanceLabelColor: Int = 0xFFCCCCCC.toInt()
     private val basePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val baseStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     
@@ -172,6 +173,7 @@ class JoystickView @JvmOverloads constructor(
         if (label.isNotEmpty()) {
             // Follow the adaptive icon-size cap (labelMaxSizePx); otherwise keep the natural
             // size relative to the cap (capped by the knob itself).
+            labelPaint.color = appearanceLabelColor
             val natural = knobRadius * 1.1f
             labelPaint.textSize = labelMaxSizePx?.let { minOf(natural, it) } ?: natural
             val textY = knobY - (labelPaint.ascent() + labelPaint.descent()) / 2f

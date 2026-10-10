@@ -560,6 +560,39 @@
                             android:progress="4" />
                     </LinearLayout>
 
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="40dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:background="@color/bg_surface"
+                        android:paddingHorizontal="10dp"
+                        android:layout_marginBottom="4dp">
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="图标颜色"
+                            android:textColor="@color/text_primary"
+                            android:textSize="12sp" />
+                         <Button
+                             android:id="@+id/btnBtnIconColor"
+                             android:layout_width="32dp"
+                             android:layout_height="32dp"
+                             android:background="#FFCCCCCC"
+                             android:stateListAnimator="@null"
+                             android:layout_marginEnd="6dp" />
+                         <Button
+                             android:id="@+id/btnResetBtnIconColor"
+                             style="@style/GamepadSmallBtn"
+                             android:layout_width="wrap_content"
+                             android:layout_height="wrap_content"
+                             android:paddingHorizontal="8dp"
+                             android:text="重置"
+                             android:textSize="10sp"
+                             android:stateListAnimator="@null" />
+                     </LinearLayout>
+
                     <!-- ── 线性扳机线框 ── -->
                     <TextView
                         android:layout_width="wrap_content"
@@ -879,6 +912,39 @@
                             android:progress="4" />
                     </LinearLayout>
 
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="40dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:background="@color/bg_surface"
+                        android:paddingHorizontal="10dp"
+                        android:layout_marginBottom="4dp">
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="图标颜色"
+                            android:textColor="@color/text_primary"
+                            android:textSize="12sp" />
+                         <Button
+                             android:id="@+id/btnJoyIconColor"
+                             android:layout_width="32dp"
+                             android:layout_height="32dp"
+                             android:background="#FFCCCCCC"
+                             android:stateListAnimator="@null"
+                             android:layout_marginEnd="6dp" />
+                         <Button
+                             android:id="@+id/btnResetJoyIconColor"
+                             style="@style/GamepadSmallBtn"
+                             android:layout_width="wrap_content"
+                             android:layout_height="wrap_content"
+                             android:paddingHorizontal="8dp"
+                             android:text="重置"
+                             android:textSize="10sp"
+                             android:stateListAnimator="@null" />
+                     </LinearLayout>
+
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -1069,6 +1135,39 @@
                             android:max="10"
                             android:progress="4" />
                     </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="40dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:background="@color/bg_surface"
+                        android:paddingHorizontal="10dp"
+                        android:layout_marginBottom="4dp">
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="状态文本颜色"
+                            android:textColor="@color/text_primary"
+                            android:textSize="12sp" />
+                         <Button
+                             android:id="@+id/btnTpIconColor"
+                             android:layout_width="32dp"
+                             android:layout_height="32dp"
+                             android:background="#FFCCCCCC"
+                             android:stateListAnimator="@null"
+                             android:layout_marginEnd="6dp" />
+                         <Button
+                             android:id="@+id/btnResetTpIconColor"
+                             style="@style/GamepadSmallBtn"
+                             android:layout_width="wrap_content"
+                             android:layout_height="wrap_content"
+                             android:paddingHorizontal="8dp"
+                             android:text="重置"
+                             android:textSize="10sp"
+                             android:stateListAnimator="@null" />
+                     </LinearLayout>
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -1261,6 +1360,39 @@
                             android:max="10"
                             android:progress="4" />
                     </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="40dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:background="@color/bg_surface"
+                        android:paddingHorizontal="10dp"
+                        android:layout_marginBottom="4dp">
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="图标颜色"
+                            android:textColor="@color/text_primary"
+                            android:textSize="12sp" />
+                         <Button
+                             android:id="@+id/btnDpadPadIconColor"
+                             android:layout_width="32dp"
+                             android:layout_height="32dp"
+                             android:background="#FFCCCCCC"
+                             android:stateListAnimator="@null"
+                             android:layout_marginEnd="6dp" />
+                         <Button
+                             android:id="@+id/btnResetDpadPadIconColor"
+                             style="@style/GamepadSmallBtn"
+                             android:layout_width="wrap_content"
+                             android:layout_height="wrap_content"
+                             android:paddingHorizontal="8dp"
+                             android:text="重置"
+                             android:textSize="10sp"
+                             android:stateListAnimator="@null" />
+                     </LinearLayout>
 
                     <!-- ── 触发区域（一体十字键/自定义按键盘） ── -->
                     <TextView

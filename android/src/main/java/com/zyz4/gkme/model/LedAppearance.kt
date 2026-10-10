@@ -36,6 +36,10 @@ object LedAppearance {
         "dpadPadColor",
         "dpadPadOutlineColor",
         "dpadPadTriggerOutlineColor",
+        "btnIconColor",
+        "joyIconColor",
+        "tpIconColor",
+        "dpadPadIconColor",
     )
 
     /**
@@ -100,6 +104,10 @@ object LedAppearance {
         "dpadPadColor" -> s.copy(dpadPadColor = color)
         "dpadPadOutlineColor" -> s.copy(dpadPadOutlineColor = color)
         "dpadPadTriggerOutlineColor" -> s.copy(dpadPadTriggerOutlineColor = color)
+        "btnIconColor" -> s.copy(btnIconColor = color)
+        "joyIconColor" -> s.copy(joyIconColor = color)
+        "tpIconColor" -> s.copy(tpIconColor = color)
+        "dpadPadIconColor" -> s.copy(dpadPadIconColor = color)
         else -> s
     }
 }

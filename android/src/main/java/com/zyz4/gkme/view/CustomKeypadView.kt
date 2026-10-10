@@ -57,6 +57,9 @@ class CustomKeypadView @JvmOverloads constructor(
         }
     var padBorderColor: Int = 0xFF666666.toInt()
     var padBorderWidth: Float = 4f
+
+    /** 按键盘文本颜色。 */
+    var appearanceTextColor: Int = 0xFFCCCCCC.toInt()
     var idleOpacity: Int = 100
     var activeOpacity: Int = 100
 
@@ -314,6 +317,8 @@ class CustomKeypadView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         if (side <= 0f) return
+
+        textPaint.color = appearanceTextColor
 
         val dx = effectiveCenterX - centerX
         val dy = effectiveCenterY - centerY

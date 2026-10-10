@@ -325,6 +325,20 @@ internal fun MainActivity.setupAppearancePage() {
         }
     )
 
+    // ── Icon colors (per control type) ──
+    a.findViewById<Button>(R.id.btnBtnIconColor).setOnClickListener {
+        a.showAppearanceColorPicker("btnIconColor", a.viewModel.settings.value.btnIconColor)
+    }
+    a.findViewById<Button>(R.id.btnJoyIconColor).setOnClickListener {
+        a.showAppearanceColorPicker("joyIconColor", a.viewModel.settings.value.joyIconColor)
+    }
+    a.findViewById<Button>(R.id.btnTpIconColor).setOnClickListener {
+        a.showAppearanceColorPicker("tpIconColor", a.viewModel.settings.value.tpIconColor)
+    }
+    a.findViewById<Button>(R.id.btnDpadPadIconColor).setOnClickListener {
+        a.showAppearanceColorPicker("dpadPadIconColor", a.viewModel.settings.value.dpadPadIconColor)
+    }
+
     // ── Reset buttons ──
     a.findViewById<Button>(R.id.btnLinearTriggerBoxOutlineColor).setOnClickListener {
         a.showAppearanceColorPicker("linearTriggerBoxOutlineColor", a.viewModel.settings.value.linearTriggerBoxOutlineColor)
@@ -385,6 +399,18 @@ internal fun MainActivity.setupAppearancePage() {
     }
     a.findViewById<Button>(R.id.btnResetPadTriggerOutlineColor).setOnClickListener {
         a.onAppearanceChange { it.copy(dpadPadTriggerOutlineColor = -0x666667) }
+    }
+    a.findViewById<Button>(R.id.btnResetBtnIconColor).setOnClickListener {
+        a.onAppearanceChange { it.copy(btnIconColor = 0xFFCCCCCC.toInt()) }
+    }
+    a.findViewById<Button>(R.id.btnResetJoyIconColor).setOnClickListener {
+        a.onAppearanceChange { it.copy(joyIconColor = 0xFFCCCCCC.toInt()) }
+    }
+    a.findViewById<Button>(R.id.btnResetTpIconColor).setOnClickListener {
+        a.onAppearanceChange { it.copy(tpIconColor = 0xFF666666.toInt()) }
+    }
+    a.findViewById<Button>(R.id.btnResetDpadPadIconColor).setOnClickListener {
+        a.onAppearanceChange { it.copy(dpadPadIconColor = 0xFFCCCCCC.toInt()) }
     }
 
     // ── Export / Import Appearance ──
@@ -593,6 +619,7 @@ internal fun MainActivity.syncAppearanceUI() {
     a.syncColorPreview(R.id.btnBtnOutlineColor, "btnOutlineColor", s.btnOutlineColor)
     a.findViewById<SeekBar>(R.id.seekBtnOutlineWidth).progress = s.btnOutlineWidth
     a.findViewById<TextView>(R.id.tvBtnOutlineWidth).text = "轮廓粗细: ${s.btnOutlineWidth}"
+    a.syncColorPreview(R.id.btnBtnIconColor, "btnIconColor", s.btnIconColor)
 
     // Joystick Base
     a.selectChipGroup(listOf(R.id.btnJoyBaseFillSolid, R.id.btnJoyBaseFillImage), s.joyBaseFillType.ordinal)
@@ -611,6 +638,7 @@ internal fun MainActivity.syncAppearanceUI() {
     a.syncColorPreview(R.id.btnJoyCapOutlineColor, "joyCapOutlineColor", s.joyCapOutlineColor)
     a.findViewById<SeekBar>(R.id.seekJoyCapOutlineWidth).progress = s.joyCapOutlineWidth
     a.findViewById<TextView>(R.id.tvJoyCapOutlineWidth).text = "摇杆帽轮廓粗细: ${s.joyCapOutlineWidth}"
+    a.syncColorPreview(R.id.btnJoyIconColor, "joyIconColor", s.joyIconColor)
 
     // Trigger Area
     a.syncColorPreview(R.id.btnJoyTriggerOutlineColor, "joyTriggerOutlineColor", s.joyTriggerOutlineColor)
@@ -630,6 +658,7 @@ internal fun MainActivity.syncAppearanceUI() {
     a.syncColorPreview(R.id.btnTpOutlineColor, "tpOutlineColor", s.tpOutlineColor)
     a.findViewById<SeekBar>(R.id.seekTpOutlineWidth).progress = s.tpOutlineWidth
     a.findViewById<TextView>(R.id.tvTpOutlineWidth).text = "触摸板轮廓粗细: ${s.tpOutlineWidth}"
+    a.syncColorPreview(R.id.btnTpIconColor, "tpIconColor", s.tpIconColor)
 
     // Touchpad Extended Range
     a.syncColorPreview(R.id.btnTpTriggerOutlineColor, "tpTriggerOutlineColor", s.tpTriggerOutlineColor)
@@ -645,6 +674,7 @@ internal fun MainActivity.syncAppearanceUI() {
     a.syncColorPreview(R.id.btnPadBorderColor, "dpadPadOutlineColor", dpadPadAppearance.dpadPadOutlineColor)
     a.findViewById<SeekBar>(R.id.seekPadBorderWidth).progress = dpadPadAppearance.dpadPadOutlineWidth
     a.findViewById<TextView>(R.id.tvPadBorderWidth).text = "控件轮廓粗细: ${dpadPadAppearance.dpadPadOutlineWidth}"
+    a.syncColorPreview(R.id.btnDpadPadIconColor, "dpadPadIconColor", dpadPadAppearance.dpadPadIconColor)
 
     // 触发区域（一体十字键/自定义按键盘）
     a.syncColorPreview(R.id.btnPadTriggerOutlineColor, "dpadPadTriggerOutlineColor", dpadPadAppearance.dpadPadTriggerOutlineColor)
@@ -881,6 +911,10 @@ internal fun MainActivity.importAppearanceFromUri(uri: Uri) {
             dpadPadOutlineWidth = profile.dpadPadOutlineWidth,
             dpadPadTriggerOutlineColor = profile.dpadPadTriggerOutlineColor,
             dpadPadTriggerOutlineWidth = profile.dpadPadTriggerOutlineWidth,
+            btnIconColor = profile.btnIconColor,
+            joyIconColor = profile.joyIconColor,
+            tpIconColor = profile.tpIconColor,
+            dpadPadIconColor = profile.dpadPadIconColor,
             iconMaxSize = profile.iconMaxSize,
         )
 

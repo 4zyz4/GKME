@@ -157,6 +157,10 @@ class SettingsRepository @Inject constructor(
         val DPAD_PAD_OUTLINE_WIDTH = intPreferencesKey("dpad_pad_outline_width")
         val DPAD_PAD_TRIGGER_OUTLINE_COLOR = intPreferencesKey("dpad_pad_trigger_outline_color")
         val DPAD_PAD_TRIGGER_OUTLINE_WIDTH = intPreferencesKey("dpad_pad_trigger_outline_width")
+        val BTN_ICON_COLOR = intPreferencesKey("btn_icon_color")
+        val JOY_ICON_COLOR = intPreferencesKey("joy_icon_color")
+        val TP_ICON_COLOR = intPreferencesKey("tp_icon_color")
+        val DPAD_PAD_ICON_COLOR = intPreferencesKey("dpad_pad_icon_color")
         val ICON_MAX_SIZE = intPreferencesKey("icon_max_size")
         val LED_BOUND_COLORS = stringPreferencesKey("led_bound_colors")
     }
@@ -311,6 +315,10 @@ class SettingsRepository @Inject constructor(
             dpadPadOutlineWidth = prefs[Keys.DPAD_PAD_OUTLINE_WIDTH] ?: 4,
             dpadPadTriggerOutlineColor = prefs[Keys.DPAD_PAD_TRIGGER_OUTLINE_COLOR] ?: -0x666667,
             dpadPadTriggerOutlineWidth = prefs[Keys.DPAD_PAD_TRIGGER_OUTLINE_WIDTH] ?: 4,
+            btnIconColor = prefs[Keys.BTN_ICON_COLOR] ?: 0xFFCCCCCC.toInt(),
+            joyIconColor = prefs[Keys.JOY_ICON_COLOR] ?: 0xFFCCCCCC.toInt(),
+            tpIconColor = prefs[Keys.TP_ICON_COLOR] ?: -0x99999a,
+            dpadPadIconColor = prefs[Keys.DPAD_PAD_ICON_COLOR] ?: 0xFFCCCCCC.toInt(),
             iconMaxSize = prefs[Keys.ICON_MAX_SIZE] ?: 24,
             ledBoundColors = prefs[Keys.LED_BOUND_COLORS]
                 ?.let { parseStringSet(it) }
@@ -440,6 +448,10 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.DPAD_PAD_OUTLINE_WIDTH] = settings.dpadPadOutlineWidth
             prefs[Keys.DPAD_PAD_TRIGGER_OUTLINE_COLOR] = settings.dpadPadTriggerOutlineColor
             prefs[Keys.DPAD_PAD_TRIGGER_OUTLINE_WIDTH] = settings.dpadPadTriggerOutlineWidth
+            prefs[Keys.BTN_ICON_COLOR] = settings.btnIconColor
+            prefs[Keys.JOY_ICON_COLOR] = settings.joyIconColor
+            prefs[Keys.TP_ICON_COLOR] = settings.tpIconColor
+            prefs[Keys.DPAD_PAD_ICON_COLOR] = settings.dpadPadIconColor
             prefs[Keys.ICON_MAX_SIZE] = settings.iconMaxSize
             prefs[Keys.LED_BOUND_COLORS] = gson.toJson(settings.ledBoundColors)
             prefs[Keys.VOICE_COIL_DEVICE_TYPE] = settings.voiceCoilDevice.type.persistId
