@@ -209,6 +209,29 @@ class GkViewModel @Inject constructor(
 
     fun isBuiltInPreset(name: String): Boolean = layoutRepository.isBuiltInPreset(name)
 
+    /** 默认布局预设（完整控制器）：可编辑，且支持恢复默认。 */
+    fun isDefaultPreset(name: String): Boolean = layoutRepository.isDefaultPreset(name)
+
+    /** 内置但受保护的预设（鼠标/键盘）：禁止编辑、重命名与删除。 */
+    fun isProtectedBuiltInPreset(name: String): Boolean = layoutRepository.isProtectedBuiltInPreset(name)
+
+    /**
+     * 将默认布局预设恢复为出厂内置内容（R.raw.full_con），覆盖用户此前的修改。
+     * 若当前正选中该预设，则同步刷新界面上的布局。
+     */
+    fun restoreDefaultPreset(): LayoutPreset {
+        val fresh = getDefaultBuiltinPreset()
+        layoutRepository.savePreset(LayoutRepository.DEFAULT_PRESET_NAME, fresh)
+        refreshPresetList()
+        if (settings.value.currentPresetName == LayoutRepository.DEFAULT_PRESET_NAME) {
+            _currentPreset.value = fresh
+        }
+        return fresh
+    }
+
+    /** 读取内置的默认布局原始内容（绕过“完整控制器”名称下的缓存/已保存副本）。 */
+    fun getDefaultBuiltinPreset(): LayoutPreset = layoutRepository.reloadBuiltInDefaultPreset()
+
     fun loadPreset(name: String): Boolean {
         val loaded = layoutRepository.loadPreset(name) ?: return false
         _currentPreset.value = loaded
