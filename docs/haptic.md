@@ -178,14 +178,15 @@ flowchart TB
 - `enabled`（设置同步）；`playMotors(left,right,frequencyHz,source)`：
   - `amp=max(l,r)`；`quantizeAmp` 16 级、`quantizeHe` 4 级降低重启频率。
   - `frequencyHz>0` 且低于下限 → 低频（逐周期单独投递脉冲）；否则 `quantizeHe(hzToHe)`；`frequencyHz<=0` 用
-    `frequencyForMotors` 启发式（`l==r→谐振`、`r>l→≈210Hz`、否则 `≈140Hz`）。
+    `frequencyForMotors` 启发式（`r>l→≈210Hz`，否则（含相等）→谐振点）。
+  - **幅度-频率补偿**：`frequencyHz>0`（真实音高）走补偿；`frequencyHz<=0`（大小马达启发式）**不补偿、直接透传强度**（`startContinuous(..., compensate=false)`）。真机谐振点与 169Hz 假设不符，补偿会把 ≈210Hz 反抬到强于谐振点。
   - `acquire(source)` 失败静默返回 true。
 - 调度线程 `GkmeHdUpdate`，tick 间隔按模式：普通连续 `CHECK_INTERVAL_MS=100ms`；低频按目标周期。
   - 低频：每个周期单独投递**单个**脉冲效果（`RichTapLowFreq.pulse`），不在一条效果里塞多个脉冲。
   - 普通连续：参数变化时，若 `realtimeAdjust && 同源` 走 `updateParameter` 实时调参（type2 core≥32），
     否则等 `MIN_RESUBMIT_NS=500ms` 再 `submit`；参数稳定时每 `REFRESH_NS=700ms` 重投递延续效果。
 - 其他入口：`playClick`（BUTTON）、`playEffect`、`playPrebaked`、`playLowFrequency`、`stop(source)`。
-- **游戏 rumble 不做低频脉冲分段**（会一顿一顿）：低频马达用 ≈140Hz、高频马达用 ≈210Hz 的连续效果。
+- **游戏 rumble 不做低频脉冲分段**（会一顿一顿）：低频（强）马达用谐振点、高频（弱）马达用 ≈210Hz 的连续效果，且该通路**不做幅度-频率补偿**（直接透传强度）。
 
 ### 3.2 HapticInjector
 

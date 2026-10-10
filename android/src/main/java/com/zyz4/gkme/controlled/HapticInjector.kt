@@ -190,12 +190,25 @@ object HapticInjector {
     }
 
     /** 播放持续震动（游戏 rumble / 自适应扳机 / 音圈）。[amplitude] 0-255，[frequency] 0-100。
+     *  [compensate] 为 true 时对幅度做幅度-频率补偿；游戏大小马达启发式通路传 false，直接透传强度。
      *  单次只投递一段效果，持续由 PhoneHdHaptics 定时重投递实现（见 continuous duration 注释）。 */
-    fun startContinuous(amplitude: Int, frequency: Int, source: HapticSource): Boolean = startPattern(
-        RichTapHe.continuous(frequency, CONTINUOUS_DURATION_MS),
-        // 单次播放；不要用 loop=-1（HAL 循环衔接有 ~200ms 断点）。
-        1, 0, RichTapEngine.compensate255(amplitude, frequency), frequency.coerceIn(0, 100), source,
-    )
+    fun startContinuous(
+        amplitude: Int,
+        frequency: Int,
+        source: HapticSource,
+        compensate: Boolean = true,
+    ): Boolean {
+        val amp = if (compensate) {
+            RichTapEngine.compensate255(amplitude, frequency)
+        } else {
+            amplitude.coerceIn(0, 255)
+        }
+        return startPattern(
+            RichTapHe.continuous(frequency, CONTINUOUS_DURATION_MS),
+            // 单次播放；不要用 loop=-1（HAL 循环衔接有 ~200ms 断点）。
+            1, 0, amp, frequency.coerceIn(0, 100), source,
+        )
+    }
 
     /** 播放短促点击（按键反馈）。[strength] 按频率做幅度-频率补偿后写入事件强度。 */
     fun playClick(strength: Int, frequency: Int, source: HapticSource): Boolean = startPattern(
