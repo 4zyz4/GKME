@@ -14,8 +14,11 @@ import java.util.concurrent.TimeUnit
  * - 每次 `stop()+start()` 后 LRA 需要重新爬升，重投递越频繁输出越弱
  *   （实测 amp200：单次≈129、200ms≈103、500ms≈162、1000ms≈236）。
  *
- * 因此这里不随每帧参数变化立即重启，而是节流到 [MIN_RESUBMIT_MS] 才应用一次新的
- * 振幅/频率；参数稳定时按 [REFRESH_MS] 重投递以延续效果（单次效果时长见 HapticInjector）。
+ * 因此这里不随每帧参数变化立即重启，而是节流到 [MIN_RESUBMIT_NS] 才应用一次新的
+ * 振幅/频率；参数稳定时按 [REFRESH_NS] 重投递以延续效果（单次效果时长见 HapticInjector）。
+ *
+ * 低于马达下限的目标频率（`wantLowHz>0`）另走一路：按目标周期**逐周期单独投递一个脉冲**
+ * （[RichTapLowFreq.pulse]），调度 tick 间隔也随之变为该周期，而不是把多个脉冲塞进一条效果。
  */
 object PhoneHdHaptics {
 
@@ -48,8 +51,8 @@ object PhoneHdHaptics {
     private var wantFreq: Int = RichTapFrequency.HE_AT_RESONANCE
 
     /**
-     * 低于马达下限的目标频率（Hz），>0 时改用 [RichTapLowFreq] 的脉冲串模拟低频；
-     * 为 0 时走普通连续效果。
+     * 低于马达下限的目标频率（Hz）。>0 时按目标周期**逐周期单独投递一个脉冲效果**来模拟低频
+     * （[RichTapLowFreq.pulse]），而不是把多个脉冲塞进一条效果；为 0 时走普通连续效果。
      */
     @Volatile
     private var wantLowHz: Double = 0.0
@@ -75,14 +78,11 @@ object PhoneHdHaptics {
     /** 两次重投递之间的最小间隔；小于此值的参数变化会合并。 */
     private const val MIN_RESUBMIT_NS = 500_000_000L
 
-    /** 参数稳定时的重投递间隔，须小于单次效果时长（HapticInjector 里为 4000ms）。 */
-    private const val REFRESH_NS = 3_000_000_000L
+    /** 参数稳定时的重投递间隔，须小于单次效果时长（HapticInjector 里为 1000ms）。 */
+    private const val REFRESH_NS = 700_000_000L
 
-    /** 调度线程检查周期。 */
+    /** 普通连续效果的调度线程检查周期。 */
     private const val CHECK_INTERVAL_MS = 100L
-
-    /** 低频脉冲串单条效果的期望时长；实际覆盖时长受 [RichTapLowFreq.MAX_PULSES] 限制。 */
-    private const val LOW_SIM_WINDOW_MS = 4_000
 
     /** 驱动左右马达（0-255）。命中 HD 返回 true，否则返回 false 由调用方回退。
      *  [frequencyHz] > 0 时用 PCM 估计的主导音高映射成 HE 频率，否则按左右力度启发式选择。
@@ -204,6 +204,7 @@ object PhoneHdHaptics {
         appliedFreq = -1
         appliedLowHz = 0.0
         appliedSource = null
+        cancelTask()
         when {
             source == null -> HapticInjector.stop()
             owned != null -> HapticInjector.stopOwnedBy(owned)
@@ -219,16 +220,14 @@ object PhoneHdHaptics {
         appliedFreq = -1
         appliedLowHz = 0.0
         appliedSource = null
+        cancelTask()
     }
 
-    /** 用当前期望值投递一次；成功返回 true。 */
+    /** 用当前期望值投递一次；成功返回 true。低频时只投递**单个**脉冲。 */
     private fun submit(source: HapticSource): Boolean {
         val ok: Boolean
         if (wantLowHz > 0.0) {
-            ok = HapticInjector.startEffect(
-                RichTapLowFreq.pattern(wantLowHz, LOW_SIM_WINDOW_MS, wantAmp),
-                source,
-            )
+            ok = HapticInjector.startEffect(RichTapLowFreq.pulse(wantLowHz, wantAmp), source)
         } else {
             ok = HapticInjector.startContinuous(wantAmp, wantFreq, source)
         }
@@ -246,59 +245,72 @@ object PhoneHdHaptics {
         synchronized(this) {
             val f = task
             if (f != null && !f.isCancelled) return
-            task = scheduler.scheduleWithFixedDelay(
-                ::onTick,
-                CHECK_INTERVAL_MS,
-                CHECK_INTERVAL_MS,
-                TimeUnit.MILLISECONDS,
-            )
+            task = scheduler.schedule(::onTick, nextTickDelayMs(), TimeUnit.MILLISECONDS)
         }
     }
 
     private fun onTick() {
-        if (!active || !enabled) return
-        if (!HapticInjector.isHapticReady()) return
-        val source = activeSource ?: return
-        val now = System.nanoTime()
-        // 来源切换（自适应扳机 ↔ 游戏震动）也需要重投递，刷新引擎侧的参数与所有权。
-        val changed = appliedAmp != wantAmp || appliedFreq != wantFreq ||
-            appliedLowHz != wantLowHz || appliedSource != source
-        val lowFreq = wantLowHz > 0.0
-        var submitted = false
-        if (changed) {
-            // type 2 且 core ≥ 32 时，参数变化走实时调参，避免 stop+start 拖弱输出。
-            val realtime = HapticInjector.realtimeAdjust && !lowFreq && appliedLowHz <= 0.0 &&
-                appliedSource == source && appliedAmp >= 0
-            if (realtime) {
-                if (HapticInjector.updateParameter(wantAmp, wantFreq)) {
-                    appliedAmp = wantAmp
-                    appliedFreq = wantFreq
-                    appliedLowHz = 0.0
-                    appliedSource = source
-                    // 不刷新 lastSubmitNs：仍靠下方周期重投递延续效果时长。
-                } else if (now - lastSubmitNs >= MIN_RESUBMIT_NS) {
+        try {
+            if (!active || !enabled) return
+            if (!HapticInjector.isHapticReady()) return
+            val source = activeSource ?: return
+            // 低频：每个周期单独投递一个脉冲效果（不在一条效果里塞多个脉冲）。
+            if (wantLowHz > 0.0) {
+                submit(source)
+                return
+            }
+            val now = System.nanoTime()
+            // 来源切换（自适应扳机 ↔ 游戏震动）也需要重投递，刷新引擎侧的参数与所有权。
+            val changed = appliedAmp != wantAmp || appliedFreq != wantFreq ||
+                appliedLowHz != wantLowHz || appliedSource != source
+            var submitted = false
+            if (changed) {
+                // type 2 且 core ≥ 32 时，参数变化走实时调参，避免 stop+start 拖弱输出。
+                val realtime = HapticInjector.realtimeAdjust && appliedLowHz <= 0.0 &&
+                    appliedSource == source && appliedAmp >= 0
+                if (realtime) {
+                    if (HapticInjector.updateParameter(wantAmp, wantFreq)) {
+                        appliedAmp = wantAmp
+                        appliedFreq = wantFreq
+                        appliedLowHz = 0.0
+                        appliedSource = source
+                        // 不刷新 lastSubmitNs：仍靠下方周期重投递延续效果时长。
+                    } else if (now - lastSubmitNs >= MIN_RESUBMIT_NS) {
+                        submitted = submit(source)
+                    }
+                } else if (appliedLowHz > 0.0 || now - lastSubmitNs >= MIN_RESUBMIT_NS) {
+                    // appliedLowHz>0 表示刚由低频切回连续，立即重投递，避免 500ms 空档。
                     submitted = submit(source)
                 }
-            } else {
-                // 低频脉冲串单次覆盖时长短，参数变化时不必等满 MIN_RESUBMIT，避免中间空档。
-                val minResubmit = if (lowFreq) refreshIntervalNs() else MIN_RESUBMIT_NS
-                if (now - lastSubmitNs >= minResubmit) submitted = submit(source)
             }
-        }
-        // 延续效果：在单次效果结束前重投递；也在实时调参期间兜底刷新效果时长。
-        if (!submitted && now - lastSubmitNs >= refreshIntervalNs()) {
-            submit(source)
+            // 延续效果：在单次效果结束前重投递；也在实时调参期间兜底刷新效果时长。
+            if (!submitted && now - lastSubmitNs >= REFRESH_NS) {
+                submit(source)
+            }
+        } finally {
+            synchronized(this) {
+                if (active && enabled) {
+                    task = scheduler.schedule(::onTick, nextTickDelayMs(), TimeUnit.MILLISECONDS)
+                } else {
+                    task = null
+                }
+            }
         }
     }
 
-    /** 重投递间隔：低频脉冲串按单条覆盖时长，普通连续效果用固定刷新周期。 */
-    private fun refreshIntervalNs(): Long =
-        if (wantLowHz > 0.0) {
-            val coverage = RichTapLowFreq.coverageMs(wantLowHz, LOW_SIM_WINDOW_MS)
-            (coverage * 0.9).toLong().coerceAtLeast(50L) * 1_000_000L
-        } else {
-            REFRESH_NS
+    /**
+     * 下一次 tick 的间隔：低频按目标周期逐脉冲投递（[RichTapLowFreq.periodMs]），
+     * 普通连续效果用固定检查周期。
+     */
+    private fun nextTickDelayMs(): Long =
+        if (wantLowHz > 0.0) RichTapLowFreq.periodMs(wantLowHz).toLong() else CHECK_INTERVAL_MS
+
+    private fun cancelTask() {
+        synchronized(this) {
+            task?.cancel(false)
+            task = null
         }
+    }
 
     /** 游戏 rumble 的左右马达 → (低频模拟 Hz, HE 频率)。Hz>0 表示走 [RichTapLowFreq] 脉冲串。
      *  游戏震动**不做低频分段**（分段会让大小马达听感变成一顿一顿的脉冲），低频马达只在

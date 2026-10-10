@@ -26,8 +26,11 @@ object HapticInjector {
      * 实测本机 DynamicEffect 单次时长上限约 5000ms；另外厂商 HAL 的循环重播（loop=-1）
      * 在每圈衔接处有约 200ms 断点，而连续重投递新的 effect 可无缝衔接。因此这里用一段
      * 较短效果 + PhoneHdHaptics 定时重投递的方式实现持续震动。
+     *
+     * 取 1000ms：单段更短，来源停止后残留尾音更短；重投递由 PhoneHdHaptics.REFRESH_NS
+     * 联动保持在其内。
      */
-    internal const val CONTINUOUS_DURATION_MS = 4_000
+    internal const val CONTINUOUS_DURATION_MS = 1_000
 
     @Volatile
     var service: RemoteHapticService? = null
