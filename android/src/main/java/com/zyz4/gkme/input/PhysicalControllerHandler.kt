@@ -283,6 +283,10 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
      */
     fun setAdaptiveTriggerActive(controllerIndex: Int, active: Boolean) {
         if (active) {
+            // Already owning this pad: the voice-coil flag is set and any latched game rumble
+            // was already silenced, so re-silencing on every trigger sample would only add a
+            // blocking HID write per update (which stalled the UI thread and the uplink).
+            if (adaptiveTriggerIndex == controllerIndex) return
             val previous = adaptiveTriggerIndex
             if (previous >= 0 && previous != controllerIndex) {
                 backend?.setAdaptiveVoiceCoilActive(previous, false)
