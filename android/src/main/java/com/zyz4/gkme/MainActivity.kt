@@ -769,11 +769,14 @@ internal fun performHaptic(isPress: Boolean) {
         } else {
             if (rightFrequencyHz > 0.0) rightFrequencyHz else leftFrequencyHz
         }
+        // The fallback path below drives the same system Vibrator that RichTap HD uses.
+        // Clear its residue *before* submitting HD: the HD effect is committed synchronously
+        // by playMotors(), so cancelling afterwards raced and dropped the first frame.
+        if (!phoneHdAdaptiveOwned) {
+            try { vibrator.cancel() } catch (_: Exception) {}
+        }
         if (PhoneHdHaptics.playMotors(l, r, frequencyHz, HapticSource.ADAPTIVE_TRIGGER)) {
-            if (!phoneHdAdaptiveOwned) {
-                phoneHdAdaptiveOwned = true
-                try { vibrator.cancel() } catch (_: Exception) {}
-            }
+            phoneHdAdaptiveOwned = true
             return
         }
         phoneHdAdaptiveOwned = false
