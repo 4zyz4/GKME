@@ -44,7 +44,7 @@ object GamepadInjector {
     @Volatile
     private var profile = 1
 
-    /** 虚拟键盘/鼠标的懒创建状态；仅在收到对应输入时创建。 */
+    /** 虚拟键盘/鼠标的创建状态；虚拟手柄创建成功后立即创建。 */
     @Volatile
     private var keyboardCreated = false
 
@@ -113,6 +113,7 @@ object GamepadInjector {
             val r = svc.create(backend, profile, rumbleEnabled)
             if (r == 0) {
                 setCreated(true)
+                createKeyboardMouse(svc)
                 lastError = null
             } else {
                 lastError = "创建虚拟手柄失败 (code=$r)，可能需要以 root 启动 Shizuku"
@@ -134,7 +135,7 @@ object GamepadInjector {
      * @param rumble 是否把虚拟手柄的震动数据转发回控制端/手机。FF 能力始终暴露（系统
      *   与游戏仍视其为带震动的设备）；本机模式传 false 以忽略震动数据，避免手机马达
      *   与虚拟手柄之间形成死循环。
-     * @param mouse 是否按需创建虚拟鼠标。本机模式下必须为 false：虚拟鼠标会与屏幕触摸
+     * @param mouse 是否创建虚拟鼠标。本机模式下必须为 false：虚拟鼠标会与屏幕触摸
      *   输入冲突。
      */
     @Synchronized
@@ -179,6 +180,7 @@ object GamepadInjector {
             val r = svc.create(backendId, profileId, rumble)
             if (r == 0) {
                 setCreated(true)
+                createKeyboardMouse(svc)
                 lastError = null
                 true
             } else {
@@ -263,50 +265,49 @@ object GamepadInjector {
     }
 
     /**
-     * 转发一帧键盘全量状态。首次出现按键/修饰键时懒创建虚拟键盘；创建失败则
-     * 本次会话不再重试（与 GKME-Windows 的 [MarkKeyboardMouseFailed] 行为一致）。
+     * 虚拟手柄创建成功后立即创建虚拟键盘与（可选）虚拟鼠标，避免首次输入到达时
+     * 才创建造成的延迟。创建失败则本次会话不再重试（与 GKME-Windows 的
+     * [MarkKeyboardMouseFailed] 行为一致）。
      */
-    private fun updateKeyboard(svc: IGamepadService, input: GamepadInput) {
-        val hasKeys = input.pressedScanCodesCount > 0 || input.keyboardModifiers != 0
-        if (!keyboardCreated) {
-            if (!hasKeys || keyboardFailed) return
+    private fun createKeyboardMouse(svc: IGamepadService) {
+        if (!keyboardCreated && !keyboardFailed) {
             val r = try {
                 svc.createKeyboard()
             } catch (_: Throwable) {
                 -1
             }
-            if (r != 0) {
+            if (r == 0) {
+                keyboardCreated = true
+            } else {
                 keyboardFailed = true
-                return
             }
-            keyboardCreated = true
         }
+        if (mouseEnabled && !mouseCreated && !mouseFailed) {
+            val r = try {
+                svc.createMouse()
+            } catch (_: Throwable) {
+                -1
+            }
+            if (r == 0) {
+                mouseCreated = true
+            } else {
+                mouseFailed = true
+            }
+        }
+    }
+
+    /** 转发一帧键盘全量状态。 */
+    private fun updateKeyboard(svc: IGamepadService, input: GamepadInput) {
+        if (!keyboardCreated) return
         try {
             svc.updateKeyboard(input.keyboardModifiers, input.pressedScanCodesList.toIntArray())
         } catch (_: Throwable) {
         }
     }
 
-    /**
-     * 转发一帧鼠标状态（相对位移 + 滚轮 + 按键）。首次出现鼠标活动时懒创建
-     * 虚拟鼠标；创建失败则本次会话不再重试。
-     */
+    /** 转发一帧鼠标状态（相对位移 + 滚轮 + 按键）。 */
     private fun updateMouse(svc: IGamepadService, input: GamepadInput) {
-        val active = input.mouseDx != 0 || input.mouseDy != 0 || input.mouseWheel != 0 ||
-            input.mousePan != 0 || input.mouseButtons != 0
-        if (!mouseCreated) {
-            if (!active || mouseFailed) return
-            val r = try {
-                svc.createMouse()
-            } catch (_: Throwable) {
-                -1
-            }
-            if (r != 0) {
-                mouseFailed = true
-                return
-            }
-            mouseCreated = true
-        }
+        if (!mouseCreated) return
         try {
             svc.updateMouse(
                 input.mouseDx,
