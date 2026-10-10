@@ -83,6 +83,14 @@ interface PhysicalControllerBackend {
     /** Updates the latest voice-coil motor amplitudes for rumble conflict resolution. */
     fun setVoiceCoilMotorOutput(leftAmp: Int, rightAmp: Int) = Unit
 
+    /**
+     * Marks [controllerIndex]'s grip as being driven by the adaptive-trigger voice-coil PCM.
+     * While set, a DualSense must not be sent compatible-vibration (HID motor) flags: that
+     * report switches the pad out of audio-haptics mode and cuts the tone off. Pass
+     * `active = false` to release it.
+     */
+    fun setAdaptiveVoiceCoilActive(controllerIndex: Int, active: Boolean) = Unit
+
     // ── Controller audio / voice coil (USB driver) ──
 
     /** True when the controller at [controllerIndex] can play PCM through its voice-coil haptics. */

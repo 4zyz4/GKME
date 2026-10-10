@@ -210,11 +210,11 @@ class MainActivity : ComponentActivity() {
     internal val adaptiveTriggerHandler: AdaptiveTriggerHandler by lazy {
         AdaptiveTriggerHandler(
             physicalControllerHandler,
-            phoneVibration = { left, right, frequencyHz ->
-                vibratePhoneForAdaptive(left, right, frequencyHz)
+            phoneVibration = { left, right, leftFreqHz, rightFreqHz ->
+                vibratePhoneForAdaptive(left, right, leftFreqHz, rightFreqHz)
             },
-            controllerVibration = { index, left, right, frequencyHz ->
-                vibrateControllerForAdaptive(index, left, right, frequencyHz)
+            controllerVibration = { index, left, right, leftFreqHz, rightFreqHz ->
+                vibrateControllerForAdaptive(index, left, right, leftFreqHz, rightFreqHz)
             },
         )
     }
@@ -748,9 +748,14 @@ internal fun performHaptic(isPress: Boolean) {
 
     /** Drives the phone motors for adaptive-trigger conversion. Left/right map to the two
      *  actuators when the device exposes multiple vibrators, otherwise the loudest side is used.
-     *  [frequencyHz] is the effect's native cycling frequency (0 when unspecified), forwarded to
-     *  HD vibration so automated effects keep their rate. */
-    internal fun vibratePhoneForAdaptive(left: Int, right: Int, frequencyHz: Double = 0.0) {
+     *  [leftFrequencyHz]/[rightFrequencyHz] are each trigger's native cycling frequency (0 when
+     *  unspecified); the phone LRA is a single actuator so the louder side's rate is used. */
+    internal fun vibratePhoneForAdaptive(
+        left: Int,
+        right: Int,
+        leftFrequencyHz: Double = 0.0,
+        rightFrequencyHz: Double = 0.0,
+    ) {
         val l = left.coerceIn(0, 255)
         val r = right.coerceIn(0, 255)
         if (l <= 0 && r <= 0) {
@@ -758,6 +763,11 @@ internal fun performHaptic(isPress: Boolean) {
             PhoneHdHaptics.stop(HapticSource.ADAPTIVE_TRIGGER)
             try { vibrator.cancel() } catch (_: Exception) {}
             return
+        }
+        val frequencyHz = if (l >= r) {
+            if (leftFrequencyHz > 0.0) leftFrequencyHz else rightFrequencyHz
+        } else {
+            if (rightFrequencyHz > 0.0) rightFrequencyHz else leftFrequencyHz
         }
         if (PhoneHdHaptics.playMotors(l, r, frequencyHz, HapticSource.ADAPTIVE_TRIGGER)) {
             if (!phoneHdAdaptiveOwned) {
@@ -788,14 +798,16 @@ internal fun performHaptic(isPress: Boolean) {
     }
 
     /** Drives the adaptive-trigger target controller's grip haptics. Controllers with native
-     *  HD rumble (Switch Pro / Pro 2) or voice-coil audio haptics (DualSense) receive the
-     *  effect's native frequency through [audioPlaybackService]; anything else falls back to
-     *  the amplitude-only motor path. */
+     *  HD rumble (Switch Pro / Pro 2) or voice-coil audio haptics (DualSense) receive each
+     *  trigger's own native frequency through [audioPlaybackService]; anything else falls back to
+     *  the amplitude-only motor path. The DualSense voice coil also synthesises a tone for
+     *  effects that carry no native frequency (Feedback/Weapon/Bow), at a default rate. */
     internal fun vibrateControllerForAdaptive(
         controllerIndex: Int,
         left: Int,
         right: Int,
-        frequencyHz: Double = 0.0,
+        leftFrequencyHz: Double = 0.0,
+        rightFrequencyHz: Double = 0.0,
     ) {
         val l = left.coerceIn(0, 255)
         val r = right.coerceIn(0, 255)
@@ -807,10 +819,14 @@ internal fun performHaptic(isPress: Boolean) {
         }
         val supportsHd = physicalControllerHandler.controllerSupportsHdRumble(controllerIndex)
         val supportsVc = physicalControllerHandler.controllerSupportsVoiceCoilPcm(controllerIndex)
-        if (frequencyHz > 0.0 && (supportsHd || supportsVc)) {
+        // A voice-coil target (DualSense, USB driver) can synthesise a tone even without a
+        // native frequency, so it always takes the PCM path; HD rumble still needs the rate.
+        if (supportsVc || ((leftFrequencyHz > 0.0 || rightFrequencyHz > 0.0) && supportsHd)) {
             // The trigger's HD/voice-coil output takes priority over the game's motor rumble.
             physicalControllerHandler.setAdaptiveTriggerActive(controllerIndex, true)
-            audioPlaybackService.setAdaptiveTriggerHaptic(controllerIndex, l, r, frequencyHz)
+            audioPlaybackService.setAdaptiveTriggerHaptic(
+                controllerIndex, l, r, leftFrequencyHz, rightFrequencyHz,
+            )
         } else {
             physicalControllerHandler.setAdaptiveTriggerActive(controllerIndex, false)
             audioPlaybackService.clearAdaptiveTriggerHaptic()

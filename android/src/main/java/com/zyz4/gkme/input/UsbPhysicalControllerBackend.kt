@@ -456,10 +456,20 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
     @Volatile
     private var _lastVoiceCoilActivityNs = 0L
 
+    // Controller whose grip is currently driven by the adaptive-trigger voice-coil PCM
+    // (-1 = none). While set, its combined reports must omit the compatible-vibration motor
+    // flags, otherwise the DualSense leaves audio-haptics mode and the tone cuts off.
+    @Volatile
+    private var adaptiveVoiceCoilIndex = -1
+
     override fun setVoiceCoilMotorOutput(leftAmp: Int, rightAmp: Int) {
         _voiceCoilLeftAmp = leftAmp
         _voiceCoilRightAmp = rightAmp
         _lastVoiceCoilActivityNs = System.nanoTime()
+    }
+
+    override fun setAdaptiveVoiceCoilActive(controllerIndex: Int, active: Boolean) {
+        adaptiveVoiceCoilIndex = if (active) controllerIndex else -1
     }
 
     // Adaptive-trigger / voice-coil motor contribution, kept separate from the game
@@ -599,6 +609,7 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
         synchronized(auxMotorLock) { auxMotors.clear() }
         _lastRumbleLow = 0
         _lastRumbleHigh = 0
+        adaptiveVoiceCoilIndex = -1
         vibratePhone(0)
     }
 
@@ -666,11 +677,13 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
         // PCM are mutually exclusive. While the voice coil is actively carrying the
         // vibration, zero the motors but still forward triggers/LED so adaptive
         // trigger and lightbar updates are not lost.
-        val voiceCoilActive = controller.hasAdvancedAudioHapticsSupport() &&
+        val adaptiveVoiceCoilActive = adaptiveVoiceCoilIndex >= 0 &&
+            adaptiveVoiceCoilIndex == gameVibrationDevice.controllerIndex
+        val voiceCoilActive = adaptiveVoiceCoilActive || (controller.hasAdvancedAudioHapticsSupport() &&
             controller.isAdvancedAudioHapticsActive() &&
             _lastVoiceCoilActivityNs != 0L &&
             System.nanoTime() - _lastVoiceCoilActivityNs <= VOICE_COIL_SILENCE_TIMEOUT_NS &&
-            (_voiceCoilLeftAmp > 1 || _voiceCoilRightAmp > 1)
+            (_voiceCoilLeftAmp > 1 || _voiceCoilRightAmp > 1))
 
         val aux = auxMotorFor(gameVibrationDevice.controllerIndex)
         val low = _lastRumbleLow

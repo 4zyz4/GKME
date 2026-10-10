@@ -258,17 +258,25 @@ native 模式下空闲补 10ms 静音帧（见 [usb-drivers.md §4](usb-drivers.
 
 ### 5.1 自适应扳机 → 手柄握把 HD
 
-`AdaptiveTriggerHandler` 转手柄马达（`CONTROLLER_MOTOR` / `CONTROLLER_TRIGGER` 兜底）时会带上效果的原生频率
-（`dominantFrequency`）。`MainActivity.vibrateControllerForAdaptive` 按目标能力分流：
+`AdaptiveTriggerHandler` 转手柄马达（`CONTROLLER_MOTOR` / `CONTROLLER_TRIGGER` 兜底）时会带上**左右各自**的原生频率
+（`MotorOutput.leftFrequencyHz` / `rightFrequencyHz`）。`MainActivity.vibrateControllerForAdaptive` 按目标能力分流：
 
 - 支持原生 HD rumble（Switch Pro / Pro 2）或语音线圈（DualSense）→ `AudioPlaybackService.setAdaptiveTriggerHaptic(index, …)`。
-  - Switch：单音落在 high 频带（`onHdRumble`），变化才重发。
-  - DualSense：`GkmeAdaptiveVc` 线程按 10ms/块持续合成 ch2/ch3 音圈音调（`onVoiceCoilPcm`），包络斜坡避免爆音。
+  - Switch：左右各用自己频率落在 high 频带（`onHdRumble`），变化才重发；仅当任一侧带原生频率（>0）时走此通路。
+  - DualSense（USB 驱动）：`GkmeAdaptiveVc` 线程按 10ms/块持续合成 ch2/ch3 音圈音调（`onVoiceCoilPcm`），左右各自独立载波相位/频率，包络斜坡避免爆音。
+    即使效果**不带原生频率**（Feedback/Weapon/Bow）也走此通路，用 `ADAPTIVE_DEFAULT_FREQ_HZ=255` 合成 PCM。
+    **低频（≤`ADAPTIVE_PULSE_MAX_HZ=40`）改为脉冲串**：以 `ADAPTIVE_PULSE_CARRIER_HZ=170` 载波、按请求频率启停（半正弦窗，
+    占空 `ADAPTIVE_PULSE_DUTY=0.5`）合成——连续低频正弦几乎推不动音圈，脉冲串才可感知。
 - 其余手柄忽略频率，走幅度马达 `setControllerMotorsVibration`。
 
 > 该通路按控制器索引寻址，与语音线圈设备选择相互独立。**优先级高于同手柄的游戏 rumble**：HD/音圈生效期间
 > `PhysicalControllerHandler.setAdaptiveTriggerActive(index, true)` 会抑制该手柄的基马达 rumble（`rumble`）
 > 与语音线圈马达（`setControllerMotorsVibration`），并清掉已锁存的马达输出；扳机停止后恢复。
+>
+> DualSense 上 compatible-vibration HID 报文与 audio-haptics PCM **互斥**：任何带马达 flag 的合并报文都会把
+> 手柄切回兼容震动模式、掐断音圈音调（听感为断续）。因此激活自适应扳机时同步调
+> `PhysicalControllerBackend.setAdaptiveVoiceCoilActive(index, true)`，`sendCombinedReport` 据此在音圈生效期间
+> 强制省略马达 flag（只保留扳机/LED），避免游戏 rumble/LED 报文与合成 PCM 争抢而把音圈音调打断。
 
 ---
 
