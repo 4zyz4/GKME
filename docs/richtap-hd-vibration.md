@@ -438,18 +438,18 @@ LRA 是**窄带共振器**（本机 f0≈169Hz，Q≈10），无法复现宽带�
   - `pattern(freqHz, durationMs, strength, carrierHe)`：最多 `MAX_PULSES=16` 个脉冲事件，
     每事件 4 点曲线（`0 → 峰 → 0.35·峰 → 0`）。
 - `haptic/PhoneHdHaptics.kt`：
-  - `playMotors(..., frequencyHz)` 检测到 `frequencyHz` 低于下限时，改用脉冲串（`wantLowHz`），
-    并经无参 `startEffect()` 投递（保留事件自身参数）。
-  - 新增通用入口 `playLowFrequency(strength, frequencyHz, durationMs)`，供其他 HD 通路复用。
-  - 游戏 rumble **不做低频脉冲串分段**（分段会让大小马达听感变成一顿一顿的脉冲）：低频马达
+  - `playMotors(..., frequencyHz)` 检测到 `frequencyHz` 低于下限时，改用低频脉冲（`wantLowHz`）：
+    每个周期单独投递**单个**脉冲效果（`RichTapLowFreq.pulse`），经无参 `startEffect()` 投递，
+    而不是把多个脉冲塞进一条效果（避免一条效果内多事件边界的凹陷）。调度线程按目标周期重投递。
+  - 通用入口 `playLowFrequency(strength, frequencyHz, durationMs)` 仍保留（一条效果内多脉冲）。
+  - 游戏 rumble **不做低频脉冲分段**（分段会让大小马达听感变成一顿一顿的脉冲）：低频马达
     （强震动）用 ≈140Hz、高频马达（弱震动）用 ≈210Hz 的**连续**效果（`frequencyForMotors`）。
-  - 脉冲串单条覆盖时长 = `coverageMs`，调度线程按 `coverage×0.9` 定时重投递以延续播放。
 
 ### 10.3 约束与取舍
 
-- 单条效果最多 16 个事件 → 单条脉冲串最多覆盖 16 个周期（如 40Hz ≈ 400ms、20Hz ≈ 750ms）；
-  更长时长由 `PhoneHdHaptics` 定时重投递拼接。
-- 目标频率越接近下限，周期越短、覆盖越短、重投递越频繁；过低的频率（长周期）反而最稳。
+- 单条效果最多 16 个事件 → `pattern` 单条脉冲串最多覆盖 16 个周期（如 40Hz ≈ 400ms、20Hz ≈ 750ms）。
+  自适应扳机低频路径改用**逐周期单独投递单脉冲**，不再受 16 事件上限约束，也没有事件边界凹陷。
+- 目标频率越接近下限，周期越短、重投递越频繁（如 40Hz → 每 25ms 一次 `startEffect`）。
 - 脉冲占空比 `PULSE_RATIO` 与载波 `carrierHe` 可按手感微调：占空比大→更接近连续震动，
   小→更“点状”。
 

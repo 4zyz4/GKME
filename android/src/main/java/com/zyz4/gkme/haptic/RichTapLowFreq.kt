@@ -62,7 +62,7 @@ object RichTapLowFreq {
     }
 
     /**
-     * 构造一段模拟低频的脉冲串 HE 1.0 效果。
+     * 构造一段模拟低频的脉冲串 HE 1.0 效果（把**多个**脉冲塞进一条效果内）。
      *
      * @param freqHz     目标低频（Hz），应满足 [supports]。
      * @param durationMs 期望时长；单条效果最多覆盖 [MAX_PULSES] 个脉冲。
@@ -78,28 +78,59 @@ object RichTapLowFreq {
         val period = periodMs(freqHz)
         val pulse = pulseMs(freqHz)
         val count = pulseCount(freqHz, durationMs)
-        // 幅度-频率补偿：载波偏离谐振（HE 56）时抬升峰值，使不同载波下的实际位移一致。
-        val peak = RichTapEngine.amplitudeToCurve(
+        val peak = peakCurve(strength, carrierHe)
+        val events = (0 until count).map { i ->
+            pulseEvent((i * period).roundToInt(), pulse, carrierHe, peak)
+        }
+        return RichTapHe.pattern(events)
+    }
+
+    /**
+     * 构造**单个**脉冲的 HE 1.0 效果。调用方按 [periodMs] 反复投递本效果来模拟低频，
+     * 而不是把多个脉冲塞进一条效果（避免一条效果内多事件边界的凹陷）。
+     *
+     * @param freqHz    目标低频（Hz），应满足 [supports]。
+     * @param strength  强度 0-255（按引擎强度律换算为曲线峰值）。
+     * @param carrierHe 载波频率（HE 0-100）；缺省用谐振点以获得最大能量。
+     */
+    fun pulse(
+        freqHz: Double,
+        strength: Int,
+        carrierHe: Int = RichTapEngine.HE_AT_RESONANCE,
+    ): String {
+        val pulse = pulseMs(freqHz)
+        val peak = peakCurve(strength, carrierHe)
+        return RichTapHe.pattern(listOf(pulseEvent(0, pulse, carrierHe, peak)))
+    }
+
+    /** 幅度-频率补偿后的曲线峰值：载波偏离谐振（HE 56）时抬升，使不同载波下实际位移一致。 */
+    private fun peakCurve(strength: Int, carrierHe: Int): Double =
+        RichTapEngine.amplitudeToCurve(
             RichTapEngine.compensateNormalized(
                 strength.coerceIn(0, 255) / 255.0,
                 carrierHe.coerceIn(0, 100),
             ),
         )
-        val attack = max(1, pulse / 4)
-        val decay = max(attack + 1, (pulse * 7) / 10).coerceAtMost(pulse)
-        val events = (0 until count).map { i ->
-            RichTapHe.Event(
-                relativeTimeMs = (i * period).roundToInt(),
-                durationMs = pulse,
-                baseFreq = carrierHe.coerceIn(0, 100),
-                points = listOf(
-                    RichTapHe.CurvePoint(0, 0.0, 0.0),
-                    RichTapHe.CurvePoint(attack, peak, 0.0),
-                    RichTapHe.CurvePoint(decay, peak * 0.35, 0.0),
-                    RichTapHe.CurvePoint(pulse, 0.0, 0.0),
-                ),
-            )
-        }
-        return RichTapHe.pattern(events)
+
+    /** 单个脉冲事件（4 点包络：`0 → 峰 → 0.35·峰 → 0`）。 */
+    private fun pulseEvent(
+        relativeTimeMs: Int,
+        pulseMs: Int,
+        carrierHe: Int,
+        peak: Double,
+    ): RichTapHe.Event {
+        val attack = max(1, pulseMs / 4)
+        val decay = max(attack + 1, (pulseMs * 7) / 10).coerceAtMost(pulseMs)
+        return RichTapHe.Event(
+            relativeTimeMs = relativeTimeMs,
+            durationMs = pulseMs,
+            baseFreq = carrierHe.coerceIn(0, 100),
+            points = listOf(
+                RichTapHe.CurvePoint(0, 0.0, 0.0),
+                RichTapHe.CurvePoint(attack, peak, 0.0),
+                RichTapHe.CurvePoint(decay, peak * 0.35, 0.0),
+                RichTapHe.CurvePoint(pulseMs, 0.0, 0.0),
+            ),
+        )
     }
 }

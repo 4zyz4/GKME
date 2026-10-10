@@ -177,15 +177,15 @@ flowchart TB
 
 - `enabled`（设置同步）；`playMotors(left,right,frequencyHz,source)`：
   - `amp=max(l,r)`；`quantizeAmp` 16 级、`quantizeHe` 4 级降低重启频率。
-  - `frequencyHz>0` 且低于下限 → 脉冲串；否则 `quantizeHe(hzToHe)`；`frequencyHz<=0` 用
+  - `frequencyHz>0` 且低于下限 → 低频（逐周期单独投递脉冲）；否则 `quantizeHe(hzToHe)`；`frequencyHz<=0` 用
     `frequencyForMotors` 启发式（`l==r→谐振`、`r>l→≈210Hz`、否则 `≈140Hz`）。
   - `acquire(source)` 失败静默返回 true。
-- 调度线程 `GkmeHdUpdate`，100ms tick：
-  - 参数变化时，若 `realtimeAdjust && 非低频 && 同源` 走 `updateParameter` 实时调参（type2 core≥32），
-    否则等 `MIN_RESUBMIT_NS=500ms` 再 `submit`；
-  - 参数稳定时每 `REFRESH_NS=3s` 重投递延续效果；低频脉冲串用 `coverage×0.9` 间隔。
+- 调度线程 `GkmeHdUpdate`，tick 间隔按模式：普通连续 `CHECK_INTERVAL_MS=100ms`；低频按目标周期。
+  - 低频：每个周期单独投递**单个**脉冲效果（`RichTapLowFreq.pulse`），不在一条效果里塞多个脉冲。
+  - 普通连续：参数变化时，若 `realtimeAdjust && 同源` 走 `updateParameter` 实时调参（type2 core≥32），
+    否则等 `MIN_RESUBMIT_NS=500ms` 再 `submit`；参数稳定时每 `REFRESH_NS=700ms` 重投递延续效果。
 - 其他入口：`playClick`（BUTTON）、`playEffect`、`playPrebaked`、`playLowFrequency`、`stop(source)`。
-- **游戏 rumble 不做低频脉冲串分段**（会一顿一顿）：低频马达用 ≈140Hz、高频马达用 ≈210Hz 的连续效果。
+- **游戏 rumble 不做低频脉冲分段**（会一顿一顿）：低频马达用 ≈140Hz、高频马达用 ≈210Hz 的连续效果。
 
 ### 3.2 HapticInjector
 
@@ -201,7 +201,7 @@ flowchart TB
 - 内嵌 `HapticArbiter`；`startPattern` / `startEffect` 先 `acquire(source)`。
 - `startEffect` 在实现无该通路时回退 `startPattern`。
 - `updateParameter` 仅当 `realtimeAdjust`，amplitude 0-255 换算成 0-100。
-- `startContinuous`：`CONTINUOUS_DURATION_MS=4000`，禁止 `loop=-1`（HAL 循环衔接有约 200ms 断点）。
+- `startContinuous`：`CONTINUOUS_DURATION_MS=1000`，禁止 `loop=-1`（HAL 循环衔接有约 200ms 断点）。
 - `isHapticReady()` 不满足时，调用方回退系统 `Vibrator`。
 
 ### 3.3 RemoteHapticService
@@ -311,8 +311,8 @@ native 模式下空闲补 10ms 静音帧（见 [usb-drivers.md §4](usb-drivers.
 | AUDIO 活跃/释放 | 4 / 120ms |
 | 低频脉冲 | ratio 0.35、min 3ms、min period 4ms |
 | 控制点内缩 / accent / burst | `EDGE_POINT_MS=2` / 5ms / 8ms |
-| 重投递 | 500ms 最小 / 3s 刷新 / 100ms tick |
-| 连续效果时长 | 4000ms |
+| 重投递 | 500ms 最小 / 700ms 刷新 / 100ms tick |
+| 连续效果时长 | 1000ms |
 | 量化 | amp 16 级 / HE 4 级 |
 | type2 头部 tag | 256/513/514 |
 | DS5 通道/上采样/ISO | 4ch / ×16 / 10×392B |
