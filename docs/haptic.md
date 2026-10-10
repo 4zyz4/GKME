@@ -256,6 +256,20 @@ native 模式下空闲补 10ms 静音帧（见 [usb-drivers.md §4](usb-drivers.
 - `HdRumbleCodec`：Nintendo 线格式编码（`encodedFreq`/`encodedAmp`/`writeClassicSide`/`proCon2*`）。
 - 应用：`AudioPlaybackService` Switch HD 分支 → `onHdRumble` → `physicalControllerHandler` → 手柄报文。
 
+### 5.1 自适应扳机 → 手柄握把 HD
+
+`AdaptiveTriggerHandler` 转手柄马达（`CONTROLLER_MOTOR` / `CONTROLLER_TRIGGER` 兜底）时会带上效果的原生频率
+（`dominantFrequency`）。`MainActivity.vibrateControllerForAdaptive` 按目标能力分流：
+
+- 支持原生 HD rumble（Switch Pro / Pro 2）或语音线圈（DualSense）→ `AudioPlaybackService.setAdaptiveTriggerHaptic(index, …)`。
+  - Switch：单音落在 high 频带（`onHdRumble`），变化才重发。
+  - DualSense：`GkmeAdaptiveVc` 线程按 10ms/块持续合成 ch2/ch3 音圈音调（`onVoiceCoilPcm`），包络斜坡避免爆音。
+- 其余手柄忽略频率，走幅度马达 `setControllerMotorsVibration`。
+
+> 该通路按控制器索引寻址，与语音线圈设备选择相互独立。**优先级高于同手柄的游戏 rumble**：HD/音圈生效期间
+> `PhysicalControllerHandler.setAdaptiveTriggerActive(index, true)` 会抑制该手柄的基马达 rumble（`rumble`）
+> 与语音线圈马达（`setControllerMotorsVibration`），并清掉已锁存的马达输出；扳机停止后恢复。
+
 ---
 
 ## 6. 线程模型
@@ -269,6 +283,7 @@ native 模式下空闲补 10ms 静音帧（见 [usb-drivers.md §4](usb-drivers.
 | `HapticArbiter` | 单 `lock`，短临界区 |
 | `RemoteHapticService` | Binder 线程池；所有下发/停止在 `synchronized(lock)` |
 | `PcmHdRumbleAnalyzer` | 有状态，**非线程安全**，由单一音频线程调用 |
+| `AudioPlaybackService` 自适应扳机 HD | `@Synchronized` 状态 + 独立 `GkmeAdaptiveVc`（10ms 块，双端斜坡） |
 | `haptic_native.c` | 全局 mutex + 3 个 ISO slot |
 
 ---

@@ -208,9 +208,15 @@ class MainActivity : ComponentActivity() {
     internal lateinit var physicalControllerHandler: PhysicalControllerHandler
 
     internal val adaptiveTriggerHandler: AdaptiveTriggerHandler by lazy {
-        AdaptiveTriggerHandler(physicalControllerHandler) { left, right, frequencyHz ->
-            vibratePhoneForAdaptive(left, right, frequencyHz)
-        }
+        AdaptiveTriggerHandler(
+            physicalControllerHandler,
+            phoneVibration = { left, right, frequencyHz ->
+                vibratePhoneForAdaptive(left, right, frequencyHz)
+            },
+            controllerVibration = { index, left, right, frequencyHz ->
+                vibrateControllerForAdaptive(index, left, right, frequencyHz)
+            },
+        )
     }
 
     internal val audioPlaybackService: com.zyz4.gkme.service.AudioPlaybackService
@@ -779,6 +785,37 @@ internal fun performHaptic(isPress: Boolean) {
             vibrator.cancel()
             vibrator.vibrate(VibrationEffect.createOneShot(60000, maxOf(l, r)))
         } catch (_: Exception) {}
+    }
+
+    /** Drives the adaptive-trigger target controller's grip haptics. Controllers with native
+     *  HD rumble (Switch Pro / Pro 2) or voice-coil audio haptics (DualSense) receive the
+     *  effect's native frequency through [audioPlaybackService]; anything else falls back to
+     *  the amplitude-only motor path. */
+    internal fun vibrateControllerForAdaptive(
+        controllerIndex: Int,
+        left: Int,
+        right: Int,
+        frequencyHz: Double = 0.0,
+    ) {
+        val l = left.coerceIn(0, 255)
+        val r = right.coerceIn(0, 255)
+        if (l <= 0 && r <= 0) {
+            physicalControllerHandler.setAdaptiveTriggerActive(controllerIndex, false)
+            audioPlaybackService.clearAdaptiveTriggerHaptic()
+            physicalControllerHandler.setControllerMotorsVibration(controllerIndex, 0, 0)
+            return
+        }
+        val supportsHd = physicalControllerHandler.controllerSupportsHdRumble(controllerIndex)
+        val supportsVc = physicalControllerHandler.controllerSupportsVoiceCoilPcm(controllerIndex)
+        if (frequencyHz > 0.0 && (supportsHd || supportsVc)) {
+            // The trigger's HD/voice-coil output takes priority over the game's motor rumble.
+            physicalControllerHandler.setAdaptiveTriggerActive(controllerIndex, true)
+            audioPlaybackService.setAdaptiveTriggerHaptic(controllerIndex, l, r, frequencyHz)
+        } else {
+            physicalControllerHandler.setAdaptiveTriggerActive(controllerIndex, false)
+            audioPlaybackService.clearAdaptiveTriggerHaptic()
+            physicalControllerHandler.setControllerMotorsVibration(controllerIndex, l, r)
+        }
     }
 
     // ── Chip Group ─────────────────────────────────────────

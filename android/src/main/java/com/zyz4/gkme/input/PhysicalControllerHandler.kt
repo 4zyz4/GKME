@@ -15,6 +15,7 @@ import com.zyz4.gkme.input.usb.XboxOneController
 import com.zyz4.gkme.model.ControllerDriver
 import com.zyz4.gkme.model.TouchPoint
 import com.zyz4.gkme.model.VibrationDevice
+import com.zyz4.gkme.model.VibrationDeviceType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -78,6 +79,10 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
     private var storedGameVibrationDevice = VibrationDevice.PHONE
     private var storedSwapPhoneMotors = false
     private var storedSwapControllerMotors = false
+
+    /** Controller whose grip is currently driven by adaptive-trigger HD/voice-coil vibration. */
+    @Volatile
+    private var adaptiveTriggerIndex = -1
 
     override var controllerGyroEnabled: Boolean
         get() = storedControllerGyroEnabled
@@ -228,6 +233,7 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
         mirrorJobs.clear()
         backend?.stop()
         backend = null
+        adaptiveTriggerIndex = -1
         _isConnected.value = false
         _connectedControllers.value = emptyList()
         _controllerState.value = PhysicalControllerState()
@@ -269,15 +275,52 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
         backend?.setLedColor(color, playerLed)
     }
 
+    /**
+     * Marks [controllerIndex]'s grip as owned by the adaptive trigger's HD/voice-coil output.
+     * While marked, game rumble (base motors and the voice-coil-to-motor path) aimed at that
+     * pad is dropped so the trigger output is not overridden, and any rumble already latched
+     * on the pad is cleared. Pass `active = false` to release it.
+     */
+    fun setAdaptiveTriggerActive(controllerIndex: Int, active: Boolean) {
+        if (active) {
+            val previous = adaptiveTriggerIndex
+            adaptiveTriggerIndex = controllerIndex
+            if (previous >= 0 && previous != controllerIndex) silenceGrip(previous)
+            silenceGrip(controllerIndex)
+        } else if (adaptiveTriggerIndex == controllerIndex) {
+            adaptiveTriggerIndex = -1
+        }
+    }
+
+    private fun silenceGrip(controllerIndex: Int) {
+        backend?.setControllerMotorsVibration(controllerIndex, 0, 0)
+        if (storedGameVibrationDevice.type == VibrationDeviceType.CONTROLLER &&
+            storedGameVibrationDevice.controllerIndex == controllerIndex
+        ) {
+            backend?.rumble(0, 0)
+        }
+    }
+
+    /** True when [device] is the controller whose grip the adaptive trigger currently owns. */
+    private fun isAdaptiveGripOwner(device: VibrationDevice): Boolean =
+        adaptiveTriggerIndex >= 0 &&
+            device.type == VibrationDeviceType.CONTROLLER &&
+            device.controllerIndex == adaptiveTriggerIndex
+
     override fun setControllerMotorsVibration(controllerIndex: Int, leftIntensity: Int, rightIntensity: Int) {
+        // The adaptive trigger's HD/voice-coil output outranks the game's motor contribution.
+        if (controllerIndex == adaptiveTriggerIndex) return
         backend?.setControllerMotorsVibration(controllerIndex, leftIntensity, rightIntensity)
     }
 
     override fun rumble(lowFreqMotor: Int, highFreqMotor: Int) {
+        // Adaptive-trigger HD/voice-coil output outranks game rumble on the same controller.
+        if (isAdaptiveGripOwner(storedGameVibrationDevice)) return
         backend?.rumble(lowFreqMotor, highFreqMotor)
     }
 
     override fun stopAllVibration() {
+        adaptiveTriggerIndex = -1
         backend?.stopAllVibration()
     }
 
