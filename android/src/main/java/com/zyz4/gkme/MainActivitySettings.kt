@@ -453,7 +453,7 @@ internal fun MainActivity.setupSettings() {
         val current = a.viewModel.settings.value.currentPresetName
         val idx = infos.indexOfFirst { it.name == current }
         val name = if (idx >= 0) infos[idx].name else infos.firstOrNull()?.name ?: return@setOnClickListener
-        if (a.viewModel.isProtectedBuiltInPreset(name)) { a.showToast("内置布局禁止重命名"); return@setOnClickListener }
+        if (a.viewModel.isBuiltInPreset(name)) { a.showToast("内置布局禁止重命名"); return@setOnClickListener }
         a.showRenameDialog(name)
     }
 
@@ -462,7 +462,7 @@ internal fun MainActivity.setupSettings() {
         val current = a.viewModel.settings.value.currentPresetName
         val idx = infos.indexOfFirst { it.name == current }
         val selected = if (idx >= 0) infos[idx].name else infos.firstOrNull()?.name ?: return@setOnClickListener
-        if (a.viewModel.isProtectedBuiltInPreset(selected)) { a.showToast("内置布局禁止删除"); return@setOnClickListener }
+        if (a.viewModel.isBuiltInPreset(selected)) { a.showToast("内置布局禁止删除"); return@setOnClickListener }
         CustomDialog.showConfirm(a, "删除预设", "确定删除「$selected」？",
             positiveText = "删除", onPositive = { a.viewModel.deletePreset(selected); a.refreshPresetList() })
     }
@@ -1899,11 +1899,12 @@ internal fun MainActivity.refreshPresetList() {
     val current = a.viewModel.settings.value.currentPresetName
     val isProtectedBuiltIn = a.viewModel.isProtectedBuiltInPreset(current)
     val isDefault = a.viewModel.isDefaultPreset(current)
+    val isBuiltIn = a.viewModel.isBuiltInPreset(current)
     a.findViewById<TextView>(R.id.tvCurrentPreset).text = "当前预设: $current"
     a.findViewById<Button>(R.id.btnPresetCopy).visibility = View.VISIBLE
-    // 默认布局允许编辑；其余内置布局（鼠标/键盘）仍禁止编辑/重命名/删除。
-    a.findViewById<Button>(R.id.btnPresetRename).visibility = if (isProtectedBuiltIn) View.GONE else View.VISIBLE
-    a.findViewById<Button>(R.id.btnPresetDelete).visibility = if (isProtectedBuiltIn) View.GONE else View.VISIBLE
+    // 默认布局允许编辑（并可恢复默认）；所有内置布局仍禁止重命名/删除。
+    a.findViewById<Button>(R.id.btnPresetRename).visibility = if (isBuiltIn) View.GONE else View.VISIBLE
+    a.findViewById<Button>(R.id.btnPresetDelete).visibility = if (isBuiltIn) View.GONE else View.VISIBLE
     a.findViewById<Button>(R.id.switchEditMode).visibility = if (isProtectedBuiltIn) View.GONE else View.VISIBLE
     // “恢复默认”仅在当前选中默认布局时显示。
     a.findViewById<Button>(R.id.btnPresetRestoreDefault).visibility = if (isDefault) View.VISIBLE else View.GONE

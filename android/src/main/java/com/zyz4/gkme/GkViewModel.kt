@@ -261,7 +261,7 @@ class GkViewModel @Inject constructor(
     }
 
     fun deletePreset(name: String) {
-        if (layoutRepository.isProtectedBuiltInPreset(name)) return
+        if (layoutRepository.isBuiltInPreset(name)) return
         layoutRepository.deletePreset(name)
         refreshPresetList()
         val current = settings.value.currentPresetName
@@ -274,7 +274,7 @@ class GkViewModel @Inject constructor(
     }
 
     fun renamePreset(oldName: String, newName: String) {
-        if (layoutRepository.isProtectedBuiltInPreset(oldName)) return
+        if (layoutRepository.isBuiltInPreset(oldName)) return
         layoutRepository.renamePreset(oldName, newName)
         refreshPresetList()
         if (settings.value.currentPresetName == oldName) {
