@@ -26,7 +26,6 @@ import android.view.animation.PathInterpolator
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import androidx.lifecycle.lifecycleScope
-import com.zyz4.gkme.data.LayoutRepository
 import com.zyz4.gkme.haptic.RichTapFrequency
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
@@ -402,30 +401,25 @@ internal fun MainActivity.setupSettings() {
 
     // ── Presets page ──
     a.findViewById<Button>(R.id.switchEditMode).setOnClickListener {
-        val currentName = a.viewModel.settings.value.currentPresetName
-        if (a.viewModel.isProtectedBuiltInPreset(currentName)) {
-            a.showToast("内置布局禁止编辑")
-            return@setOnClickListener
-        }
         a.viewModel.updateEditMode(true)
         a.hideSettings()
         a.applyPreset(a.viewModel.currentPreset.value)
         a.gamepadLayout.enterEditMode()
     }
 
-    // 恢复默认：将默认布局预设还原为出厂内置内容（弹窗确认后执行）
+    // 恢复默认：将当前内置预设还原为出厂内置内容（弹窗确认后执行）
     a.findViewById<Button>(R.id.btnPresetRestoreDefault).setOnClickListener {
+        val name = a.viewModel.settings.value.currentPresetName
         CustomDialog.showConfirm(
             a, "恢复默认",
-            "确定将默认布局「${LayoutRepository.DEFAULT_PRESET_NAME}」恢复为出厂默认？当前对该布局的修改将被覆盖。",
+            "确定将内置布局「$name」恢复为出厂默认？当前对该布局的修改将被覆盖。",
             positiveText = "恢复默认", onPositive = {
-                val preset = a.viewModel.restoreDefaultPreset()
-                val currentName = a.viewModel.settings.value.currentPresetName
-                if (currentName == LayoutRepository.DEFAULT_PRESET_NAME) {
+                val preset = a.viewModel.restoreBuiltInPreset(name)
+                if (preset != null) {
                     a.applyPreset(preset)
+                    a.refreshPresetList()
+                    a.showToast("已恢复「$name」为默认")
                 }
-                a.refreshPresetList()
-                a.showToast("已恢复默认布局")
             })
     }
 
@@ -1897,17 +1891,15 @@ internal fun MainActivity.refreshPresetList() {
     val gridView = a.findViewById<WrapContentGridView>(R.id.gridPresets) ?: return
     val infos = a.viewModel.presetInfos.value
     val current = a.viewModel.settings.value.currentPresetName
-    val isProtectedBuiltIn = a.viewModel.isProtectedBuiltInPreset(current)
-    val isDefault = a.viewModel.isDefaultPreset(current)
     val isBuiltIn = a.viewModel.isBuiltInPreset(current)
     a.findViewById<TextView>(R.id.tvCurrentPreset).text = "当前预设: $current"
     a.findViewById<Button>(R.id.btnPresetCopy).visibility = View.VISIBLE
-    // 默认布局允许编辑（并可恢复默认）；所有内置布局仍禁止重命名/删除。
+    // 三个内置预设（完整控制器/鼠标/键盘）均可编辑并恢复默认；重命名/删除仍禁用（名称保留）。
     a.findViewById<Button>(R.id.btnPresetRename).visibility = if (isBuiltIn) View.GONE else View.VISIBLE
     a.findViewById<Button>(R.id.btnPresetDelete).visibility = if (isBuiltIn) View.GONE else View.VISIBLE
-    a.findViewById<Button>(R.id.switchEditMode).visibility = if (isProtectedBuiltIn) View.GONE else View.VISIBLE
-    // “恢复默认”仅在当前选中默认布局时显示。
-    a.findViewById<Button>(R.id.btnPresetRestoreDefault).visibility = if (isDefault) View.VISIBLE else View.GONE
+    a.findViewById<Button>(R.id.switchEditMode).visibility = View.VISIBLE
+    // “恢复默认”仅在当前选中内置预设时显示。
+    a.findViewById<Button>(R.id.btnPresetRestoreDefault).visibility = if (isBuiltIn) View.VISIBLE else View.GONE
     // Skip rebuilding the grid (inflating cards) when nothing changed, so opening
     // settings repeatedly doesn't re-inflate all preset preview cards.
     if (a.lastPresetInfos == infos && a.lastPresetCurrentName == current &&
