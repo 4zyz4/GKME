@@ -412,7 +412,7 @@ internal fun MainActivity.setupSettings() {
         val name = a.viewModel.settings.value.currentPresetName
         CustomDialog.showConfirm(
             a, "恢复默认",
-            "确定将内置布局「$name」恢复为出厂默认？当前对该布局的修改将被覆盖。",
+            "确定将内置布局「$name」恢复为默认？",
             positiveText = "恢复默认", onPositive = {
                 val preset = a.viewModel.restoreBuiltInPreset(name)
                 if (preset != null) {
