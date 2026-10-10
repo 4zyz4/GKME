@@ -284,6 +284,10 @@ protobuf `GamepadInput`。要点：
 - 目标分支（`AdaptiveTriggerTargetType`）：`NONE` / `PHONE_MOTOR` / `CONTROLLER_MOTOR` / `CONTROLLER_TRIGGER`。
 - `rumbleActive`（Xbox 扳机）优先于效果字节；`swapAdaptiveTriggers` 交换左右。
 - DualSense 支持 `hasAdaptiveTrigger` → 原生效果；仅 `hasTriggerRumble` → 扳机震动；否则手柄马达。
+- 转手柄马达（`CONTROLLER_MOTOR` / `CONTROLLER_TRIGGER` 兜底）时同样携带效果的原生频率：目标支持
+  `hasHdRumble`（Switch Pro/Pro 2）或语音线圈（DualSense）时经 `AudioPlaybackService` 以 HD 频带 /
+  合成音圈音调下发，其余手柄忽略频率走幅度马达。该 HD/音圈输出**优先于同手柄的游戏 rumble**
+  （`PhysicalControllerHandler.setAdaptiveTriggerActive` 抑制基马达/语音线圈马达）。见 [haptic.md](haptic.md)。
 
 ---
 

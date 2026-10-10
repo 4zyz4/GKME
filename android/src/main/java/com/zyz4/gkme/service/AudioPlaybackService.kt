@@ -55,6 +55,9 @@ class AudioPlaybackService @Inject constructor(
         // The PC sends a 50 ms keep-alive while a Switch Pro is emulated, so
         // this only elapses when the mode changed or the link dropped.
         private const val HD_RUMBLE_TIMEOUT_NS = 1_000_000_000L
+        // Adaptive-trigger grip vibration fallback frequency (Hz) for effects that carry no
+        // native rate; the DualSense voice coil ignores a zero-frequency tone.
+        private const val ADAPTIVE_DEFAULT_FREQ_HZ = 40.0
         // While the PC keeps sending HD band parameters, an audio haptics PCM
         // stream for the same controller is ignored: the HD representation is
         // the authoritative one and the PCM is only analyzed when no HD updates
@@ -108,6 +111,32 @@ class AudioPlaybackService @Inject constructor(
 
     @Volatile
     private var lastHdRumbleUpdateNs = 0L
+
+    // 自适应扳机 → 手柄 HD 震动：目标手柄可能和语音线圈设备不是同一个，所以这条
+    // 通路按控制器索引寻址。Switch 系握手柄收原生 HD 频带；DualSense 收本地合成的
+    // 语音线圈音调流。合成参数由控制器输出线程写入、合成线程读取。
+    private var adaptiveThread: Thread? = null
+
+    @Volatile
+    private var adaptiveRunning = false
+
+    @Volatile
+    private var adaptiveIndex = -1
+
+    @Volatile
+    private var adaptiveLeftAmp = 0
+
+    @Volatile
+    private var adaptiveRightAmp = 0
+
+    @Volatile
+    private var adaptiveFreqHz = 0.0
+
+    // 已下发到 Switch 手柄的原生 HD 频带状态（-1 表示未激活），用于去重。
+    private var adaptiveHdIndex = -1
+    private var adaptiveHdLeftAmp = -1
+    private var adaptiveHdRightAmp = -1
+    private var adaptiveHdFreq = -1.0
 
     /** True when the controller at [controllerIndex] can play native HD rumble. */
     var supportsHdRumble: ((controllerIndex: Int) -> Boolean)? = null
@@ -192,6 +221,7 @@ class AudioPlaybackService @Inject constructor(
         setTestTone(false)
         stopHdRumble()
         stopHdOutput()
+        clearAdaptiveTriggerHaptic()
         HdPcmStreamer.stop()
         stopAllSdlSinks()
         _vibrator.cancel()
@@ -490,6 +520,171 @@ class AudioPlaybackService @Inject constructor(
     }
 
     fun resumeIfStopped() {}
+
+    // ── Adaptive trigger: grip haptics on the selected controller ──
+
+    /**
+     * Drives the grip haptics of [controllerIndex] for an adaptive-trigger effect at
+     * [frequencyHz]. Switch family controllers (Pro / Pro 2) receive a native HD band;
+     * DualSense receives a locally synthesised voice-coil tone stream. Amplitudes are 0..255.
+     * A zero/zero update silences both paths.
+     */
+    @Synchronized
+    fun setAdaptiveTriggerHaptic(controllerIndex: Int, left: Int, right: Int, frequencyHz: Double) {
+        val l = left.coerceIn(0, 255)
+        val r = right.coerceIn(0, 255)
+        val target = if (l > 0 || r > 0) controllerIndex else -1
+        if (target != adaptiveIndex) {
+            // Target changed (or stopped): silence whatever the previous target was using.
+            stopAdaptiveVoiceCoil()
+            clearAdaptiveHd()
+            adaptiveIndex = target
+        }
+        if (target < 0) return
+
+        if (supportsHdRumble?.invoke(target) == true) {
+            stopAdaptiveVoiceCoil()
+            emitAdaptiveHd(target, l, r, frequencyHz)
+            return
+        }
+        clearAdaptiveHd()
+        adaptiveLeftAmp = l
+        adaptiveRightAmp = r
+        adaptiveFreqHz = if (frequencyHz > 0.0) frequencyHz else ADAPTIVE_DEFAULT_FREQ_HZ
+        startAdaptiveVoiceCoil()
+    }
+
+    /** Silences the adaptive-trigger grip haptics (both the HD band and the voice-coil tone). */
+    @Synchronized
+    fun clearAdaptiveTriggerHaptic() {
+        stopAdaptiveVoiceCoil()
+        clearAdaptiveHd()
+        adaptiveIndex = -1
+        adaptiveLeftAmp = 0
+        adaptiveRightAmp = 0
+    }
+
+    /** Sends (or refreshes) a native HD band for a Switch controller, deduplicating repeats. */
+    private fun emitAdaptiveHd(index: Int, left: Int, right: Int, frequencyHz: Double) {
+        val freq = if (frequencyHz > 0.0) frequencyHz else ADAPTIVE_DEFAULT_FREQ_HZ
+        if (index == adaptiveHdIndex && left == adaptiveHdLeftAmp &&
+            right == adaptiveHdRightAmp && freq == adaptiveHdFreq
+        ) {
+            return
+        }
+        adaptiveHdIndex = index
+        adaptiveHdLeftAmp = left
+        adaptiveHdRightAmp = right
+        adaptiveHdFreq = freq
+        // Single tone per side: the high band carries it, the low band stays silent.
+        onHdRumble?.invoke(
+            index,
+            HdBands(
+                leftHighFreq = freq.toFloat(), leftHighAmp = left / 255f,
+                leftLowFreq = 0f, leftLowAmp = 0f,
+                rightHighFreq = freq.toFloat(), rightHighAmp = right / 255f,
+                rightLowFreq = 0f, rightLowAmp = 0f,
+            ),
+        )
+    }
+
+    private fun clearAdaptiveHd() {
+        if (adaptiveHdIndex >= 0) {
+            onHdRumble?.invoke(adaptiveHdIndex, HdBands.SILENT)
+        }
+        adaptiveHdIndex = -1
+        adaptiveHdLeftAmp = -1
+        adaptiveHdRightAmp = -1
+        adaptiveHdFreq = -1.0
+    }
+
+    @Synchronized
+    private fun startAdaptiveVoiceCoil() {
+        if (adaptiveRunning) return
+        adaptiveRunning = true
+        adaptiveThread = Thread { runAdaptiveVoiceCoil() }.apply {
+            name = "GkmeAdaptiveVc"
+            isDaemon = true
+            start()
+        }
+    }
+
+    private fun stopAdaptiveVoiceCoil() {
+        adaptiveRunning = false
+        adaptiveThread?.interrupt()
+        adaptiveThread = null
+    }
+
+    /**
+     * Streams a two-tone (left/right grip) sine onto the DualSense voice-coil channels at a
+     * constant 10 ms block rate, so the actuator gets a continuous tone rather than a burst
+     * per update. The envelope ramps to the latest target so amplitude steps do not click.
+     */
+    private fun runAdaptiveVoiceCoil() {
+        val rate = HD_RUMBLE_RATE
+        val channels = 4
+        val framesPerBlock = HD_RUMBLE_BLOCK_FRAMES
+        val blockPeriodNs = framesPerBlock.toLong() * 1_000_000_000L / rate
+        val frameBytes = channels * 2
+        val dt = 1.0 / rate
+        val twoPi = Math.PI * 2.0
+        val gain = 0.6
+        val rampStep = (dt / HD_RUMBLE_RAMP_SECONDS).toFloat()
+
+        var phase = 0.0
+        var curL = 0f
+        var curR = 0f
+        var nextNs = System.nanoTime()
+        while (true) {
+            val index = adaptiveIndex
+            val targetL = adaptiveLeftAmp / 255f
+            val targetR = adaptiveRightAmp / 255f
+            val freq = adaptiveFreqHz
+
+            val pcm = ByteArray(framesPerBlock * frameBytes)
+            for (n in 0 until framesPerBlock) {
+                curL = approach(curL, targetL, rampStep)
+                curR = approach(curR, targetR, rampStep)
+                val s = Math.sin(phase)
+                val l = (softLimit(curL * s * gain) * 32767.0).toInt()
+                val r = (softLimit(curR * s * gain) * 32767.0).toInt()
+                val off = n * frameBytes
+                ControllerAudioDsp.writeShortLe(pcm, off + 4, l) // ch2: left voice coil
+                ControllerAudioDsp.writeShortLe(pcm, off + 6, r) // ch3: right voice coil
+                phase += twoPi * freq * dt
+            }
+            phase %= twoPi
+
+            if (index >= 0) onVoiceCoilPcm?.invoke(index, pcm)
+
+            // Decide under the lock whether to retire: a concurrent set/clear either lands
+            // before (targets still active, keep running) or after (adaptiveRunning is
+            // already false, so the setter restarts a fresh thread).
+            var retire = false
+            synchronized(this) {
+                if (!adaptiveRunning || (adaptiveLeftAmp == 0 && adaptiveRightAmp == 0 &&
+                        curL < 0.001f && curR < 0.001f)
+                ) {
+                    adaptiveRunning = false
+                    retire = true
+                }
+            }
+            if (retire) break
+
+            nextNs += blockPeriodNs
+            val sleepMs = (nextNs - System.nanoTime()) / 1_000_000L
+            if (sleepMs > 0) {
+                try {
+                    Thread.sleep(sleepMs)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    break
+                }
+            } else {
+                nextNs = System.nanoTime()
+            }
+        }
+    }
 
     /** (controllerIndex, leftAmp, rightAmp) — controller motor output for the voice coil. */
     var onControllerMotorOutput: ((controllerIndex: Int, leftAmp: Int, rightAmp: Int) -> Unit)? = null
