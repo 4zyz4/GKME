@@ -2,6 +2,9 @@ package com.zyz4.gkme.input
 
 import com.zyz4.gkme.model.AdaptiveTriggerDevice
 import com.zyz4.gkme.model.AdaptiveTriggerTargetType
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 
 /**
  * Routes PC adaptive-trigger effects to the actuator chosen in the vibration settings.
@@ -54,6 +57,19 @@ class AdaptiveTriggerHandler(
     private var lastLeftNativeKey: Int? = null
     private var lastRightNativeKey: Int? = null
 
+    // Trigger-position updates arrive on the UI thread at the full input rate, and each
+    // render can perform a blocking controller HID write (up to 1s). Rendering on the UI
+    // thread stalled the whole app — including the gamepad-state producer that the network
+    // send loop reads, so the PC stopped receiving input while the trigger moved. Positions
+    // are therefore rendered on a dedicated worker; the single-slot queue conflates the
+    // high-rate updates down to the latest position.
+    private val renderExecutor = ThreadPoolExecutor(
+        1, 1, 0L, TimeUnit.MILLISECONDS,
+        ArrayBlockingQueue(1),
+        { r -> Thread(r, "GkmeAdaptive").apply { isDaemon = true } },
+        ThreadPoolExecutor.DiscardOldestPolicy(),
+    )
+
     /** Selects the output actuator; stops the previous one. */
     @Synchronized
     fun setTarget(newDevice: AdaptiveTriggerDevice, newSwap: Boolean) {
@@ -100,9 +116,16 @@ class AdaptiveTriggerHandler(
         render(force = true)
     }
 
-    /** Called whenever the emulated trigger positions change. */
-    @Synchronized
+    /** Called whenever the emulated trigger positions change. Rendered off the UI thread. */
     fun onTriggerPositions(left: Int, right: Int) {
+        try {
+            renderExecutor.execute { handleTriggerPositions(left, right) }
+        } catch (_: Exception) {
+        }
+    }
+
+    @Synchronized
+    private fun handleTriggerPositions(left: Int, right: Int) {
         if (left == leftPosition && right == rightPosition) {
             // Pressure stopped increasing: clear the rising edges so resistance effects
             // stop vibrating while the trigger is held or released.

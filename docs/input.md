@@ -280,7 +280,10 @@ protobuf `GamepadInput`。要点：
 
 `input/AdaptiveTriggerHandler.kt`。路由 PC 效果到选定执行器。
 
-- 方法均 `@Synchronized`（网络线程调 `onEffects`/`onTriggerRumble`，Main 调 `onTriggerPositions`/`setTarget`）。
+- 方法 `@Synchronized`（网络线程调 `onEffects`/`onTriggerRumble`，Main 调 `setTarget`）。
+  高频的 `onTriggerPositions`（由实体扳机移动驱动）在专用单线程 `GkmeAdaptive` 上渲染，
+  且只保留最新位置（队列容量 1 + `DiscardOldestPolicy`）：渲染可能触发阻塞 HID `bulkTransfer`（最长 1s），
+  放 UI 线程上会连带冻结 `_gamepadState` 的产生，导致网络上行发送停滞。
 - 目标分支（`AdaptiveTriggerTargetType`）：`NONE` / `PHONE_MOTOR` / `CONTROLLER_MOTOR` / `CONTROLLER_TRIGGER`。
 - `rumbleActive`（Xbox 扳机）优先于效果字节；`swapAdaptiveTriggers` 交换左右。
 - DualSense 支持 `hasAdaptiveTrigger` → 原生效果；仅 `hasTriggerRumble` → 扳机震动；否则手柄马达。
