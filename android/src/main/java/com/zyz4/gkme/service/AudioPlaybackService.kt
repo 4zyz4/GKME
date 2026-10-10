@@ -56,8 +56,17 @@ class AudioPlaybackService @Inject constructor(
         // this only elapses when the mode changed or the link dropped.
         private const val HD_RUMBLE_TIMEOUT_NS = 1_000_000_000L
         // Adaptive-trigger grip vibration fallback frequency (Hz) for effects that carry no
-        // native rate; the DualSense voice coil ignores a zero-frequency tone.
-        private const val ADAPTIVE_DEFAULT_FREQ_HZ = 40.0
+        // native rate; the DualSense voice coil ignores a zero-frequency tone, so synthesise
+        // the PCM at this rate instead.
+        private const val ADAPTIVE_DEFAULT_FREQ_HZ = 255.0
+        // Below this rate a continuous sine barely moves the voice coil (a 1-40 Hz tone is
+        // all but imperceptible), so it is rendered as a pulse train instead: a short burst
+        // of the efficient [ADAPTIVE_PULSE_CARRIER_HZ] carrier repeated at the requested rate.
+        private const val ADAPTIVE_PULSE_MAX_HZ = 40.0
+        private const val ADAPTIVE_PULSE_CARRIER_HZ = 170.0
+        // Fraction of each pulse period the carrier is on (with a half-sine window so the
+        // burst fades in/out instead of clicking).
+        private const val ADAPTIVE_PULSE_DUTY = 0.5
         // While the PC keeps sending HD band parameters, an audio haptics PCM
         // stream for the same controller is ignored: the HD representation is
         // the authoritative one and the PCM is only analyzed when no HD updates
@@ -130,13 +139,17 @@ class AudioPlaybackService @Inject constructor(
     private var adaptiveRightAmp = 0
 
     @Volatile
-    private var adaptiveFreqHz = 0.0
+    private var adaptiveLeftFreqHz = 0.0
+
+    @Volatile
+    private var adaptiveRightFreqHz = 0.0
 
     // 已下发到 Switch 手柄的原生 HD 频带状态（-1 表示未激活），用于去重。
     private var adaptiveHdIndex = -1
     private var adaptiveHdLeftAmp = -1
     private var adaptiveHdRightAmp = -1
-    private var adaptiveHdFreq = -1.0
+    private var adaptiveHdLeftFreq = -1.0
+    private var adaptiveHdRightFreq = -1.0
 
     /** True when the controller at [controllerIndex] can play native HD rumble. */
     var supportsHdRumble: ((controllerIndex: Int) -> Boolean)? = null
@@ -524,13 +537,20 @@ class AudioPlaybackService @Inject constructor(
     // ── Adaptive trigger: grip haptics on the selected controller ──
 
     /**
-     * Drives the grip haptics of [controllerIndex] for an adaptive-trigger effect at
-     * [frequencyHz]. Switch family controllers (Pro / Pro 2) receive a native HD band;
-     * DualSense receives a locally synthesised voice-coil tone stream. Amplitudes are 0..255.
-     * A zero/zero update silences both paths.
+     * Drives the grip haptics of [controllerIndex] for an adaptive-trigger effect. Each trigger
+     * carries its own native rate ([leftFrequencyHz]/[rightFrequencyHz]); 0 falls back to
+     * [ADAPTIVE_DEFAULT_FREQ_HZ]. Switch family controllers (Pro / Pro 2) receive a native HD
+     * band; DualSense receives a locally synthesised voice-coil tone stream. Amplitudes are
+     * 0..255. A zero/zero update silences both paths.
      */
     @Synchronized
-    fun setAdaptiveTriggerHaptic(controllerIndex: Int, left: Int, right: Int, frequencyHz: Double) {
+    fun setAdaptiveTriggerHaptic(
+        controllerIndex: Int,
+        left: Int,
+        right: Int,
+        leftFrequencyHz: Double,
+        rightFrequencyHz: Double,
+    ) {
         val l = left.coerceIn(0, 255)
         val r = right.coerceIn(0, 255)
         val target = if (l > 0 || r > 0) controllerIndex else -1
@@ -544,13 +564,14 @@ class AudioPlaybackService @Inject constructor(
 
         if (supportsHdRumble?.invoke(target) == true) {
             stopAdaptiveVoiceCoil()
-            emitAdaptiveHd(target, l, r, frequencyHz)
+            emitAdaptiveHd(target, l, r, leftFrequencyHz, rightFrequencyHz)
             return
         }
         clearAdaptiveHd()
         adaptiveLeftAmp = l
         adaptiveRightAmp = r
-        adaptiveFreqHz = if (frequencyHz > 0.0) frequencyHz else ADAPTIVE_DEFAULT_FREQ_HZ
+        adaptiveLeftFreqHz = if (leftFrequencyHz > 0.0) leftFrequencyHz else ADAPTIVE_DEFAULT_FREQ_HZ
+        adaptiveRightFreqHz = if (rightFrequencyHz > 0.0) rightFrequencyHz else ADAPTIVE_DEFAULT_FREQ_HZ
         startAdaptiveVoiceCoil()
     }
 
@@ -565,24 +586,32 @@ class AudioPlaybackService @Inject constructor(
     }
 
     /** Sends (or refreshes) a native HD band for a Switch controller, deduplicating repeats. */
-    private fun emitAdaptiveHd(index: Int, left: Int, right: Int, frequencyHz: Double) {
-        val freq = if (frequencyHz > 0.0) frequencyHz else ADAPTIVE_DEFAULT_FREQ_HZ
-        if (index == adaptiveHdIndex && left == adaptiveHdLeftAmp &&
-            right == adaptiveHdRightAmp && freq == adaptiveHdFreq
+    private fun emitAdaptiveHd(
+        index: Int,
+        left: Int,
+        right: Int,
+        leftFrequencyHz: Double,
+        rightFrequencyHz: Double,
+    ) {
+        val leftFreq = if (leftFrequencyHz > 0.0) leftFrequencyHz else ADAPTIVE_DEFAULT_FREQ_HZ
+        val rightFreq = if (rightFrequencyHz > 0.0) rightFrequencyHz else ADAPTIVE_DEFAULT_FREQ_HZ
+        if (index == adaptiveHdIndex && left == adaptiveHdLeftAmp && right == adaptiveHdRightAmp &&
+            leftFreq == adaptiveHdLeftFreq && rightFreq == adaptiveHdRightFreq
         ) {
             return
         }
         adaptiveHdIndex = index
         adaptiveHdLeftAmp = left
         adaptiveHdRightAmp = right
-        adaptiveHdFreq = freq
+        adaptiveHdLeftFreq = leftFreq
+        adaptiveHdRightFreq = rightFreq
         // Single tone per side: the high band carries it, the low band stays silent.
         onHdRumble?.invoke(
             index,
             HdBands(
-                leftHighFreq = freq.toFloat(), leftHighAmp = left / 255f,
+                leftHighFreq = leftFreq.toFloat(), leftHighAmp = left / 255f,
                 leftLowFreq = 0f, leftLowAmp = 0f,
-                rightHighFreq = freq.toFloat(), rightHighAmp = right / 255f,
+                rightHighFreq = rightFreq.toFloat(), rightHighAmp = right / 255f,
                 rightLowFreq = 0f, rightLowAmp = 0f,
             ),
         )
@@ -595,7 +624,8 @@ class AudioPlaybackService @Inject constructor(
         adaptiveHdIndex = -1
         adaptiveHdLeftAmp = -1
         adaptiveHdRightAmp = -1
-        adaptiveHdFreq = -1.0
+        adaptiveHdLeftFreq = -1.0
+        adaptiveHdRightFreq = -1.0
     }
 
     @Synchronized
@@ -616,9 +646,11 @@ class AudioPlaybackService @Inject constructor(
     }
 
     /**
-     * Streams a two-tone (left/right grip) sine onto the DualSense voice-coil channels at a
-     * constant 10 ms block rate, so the actuator gets a continuous tone rather than a burst
-     * per update. The envelope ramps to the latest target so amplitude steps do not click.
+     * Streams a two-tone (left/right grip) tone onto the DualSense voice-coil channels at a
+     * constant 10 ms block rate, so the actuator gets a continuous signal rather than a burst
+     * per update. Each side uses its own rate. A rate at or below [ADAPTIVE_PULSE_MAX_HZ] is
+     * rendered as a pulse train (see [pulseEnvelope]) because a continuous sine that slow barely
+     * drives the coil. The envelope ramps to the latest target so amplitude steps do not click.
      */
     private fun runAdaptiveVoiceCoil() {
         val rate = HD_RUMBLE_RATE
@@ -631,7 +663,10 @@ class AudioPlaybackService @Inject constructor(
         val gain = 0.6
         val rampStep = (dt / HD_RUMBLE_RAMP_SECONDS).toFloat()
 
-        var phase = 0.0
+        var carrierPhaseL = 0.0
+        var carrierPhaseR = 0.0
+        var pulsePhaseL = 0.0
+        var pulsePhaseR = 0.0
         var curL = 0f
         var curR = 0f
         var nextNs = System.nanoTime()
@@ -639,21 +674,37 @@ class AudioPlaybackService @Inject constructor(
             val index = adaptiveIndex
             val targetL = adaptiveLeftAmp / 255f
             val targetR = adaptiveRightAmp / 255f
-            val freq = adaptiveFreqHz
+            val freqL = adaptiveLeftFreqHz
+            val freqR = adaptiveRightFreqHz
+
+            val lowL = freqL > 0.0 && freqL <= ADAPTIVE_PULSE_MAX_HZ
+            val lowR = freqR > 0.0 && freqR <= ADAPTIVE_PULSE_MAX_HZ
+            val carrierL = if (lowL) ADAPTIVE_PULSE_CARRIER_HZ else freqL
+            val carrierR = if (lowR) ADAPTIVE_PULSE_CARRIER_HZ else freqR
 
             val pcm = ByteArray(framesPerBlock * frameBytes)
             for (n in 0 until framesPerBlock) {
                 curL = approach(curL, targetL, rampStep)
                 curR = approach(curR, targetR, rampStep)
-                val s = Math.sin(phase)
-                val l = (softLimit(curL * s * gain) * 32767.0).toInt()
-                val r = (softLimit(curR * s * gain) * 32767.0).toInt()
+
+                val envL = if (lowL) pulseEnvelope(pulsePhaseL) else 1.0
+                val envR = if (lowR) pulseEnvelope(pulsePhaseR) else 1.0
+                val sL = Math.sin(carrierPhaseL) * envL
+                val sR = Math.sin(carrierPhaseR) * envR
+
+                val l = (softLimit(curL * sL * gain) * 32767.0).toInt()
+                val r = (softLimit(curR * sR * gain) * 32767.0).toInt()
                 val off = n * frameBytes
                 ControllerAudioDsp.writeShortLe(pcm, off + 4, l) // ch2: left voice coil
                 ControllerAudioDsp.writeShortLe(pcm, off + 6, r) // ch3: right voice coil
-                phase += twoPi * freq * dt
+
+                carrierPhaseL += twoPi * carrierL * dt
+                carrierPhaseR += twoPi * carrierR * dt
+                if (lowL) pulsePhaseL += twoPi * freqL * dt
+                if (lowR) pulsePhaseR += twoPi * freqR * dt
             }
-            phase %= twoPi
+            carrierPhaseL %= twoPi; carrierPhaseR %= twoPi
+            pulsePhaseL %= twoPi; pulsePhaseR %= twoPi
 
             if (index >= 0) onVoiceCoilPcm?.invoke(index, pcm)
 
@@ -684,6 +735,12 @@ class AudioPlaybackService @Inject constructor(
                 nextNs = System.nanoTime()
             }
         }
+    }
+
+    /** Half-sine window: one smooth on-burst per period, silent for the rest. [phase] in [0,2π). */
+    private fun pulseEnvelope(phase: Double): Double {
+        val u = (phase / (Math.PI * 2.0)) % 1.0
+        return if (u < ADAPTIVE_PULSE_DUTY) Math.sin(Math.PI * u / ADAPTIVE_PULSE_DUTY) else 0.0
     }
 
     /** (controllerIndex, leftAmp, rightAmp) — controller motor output for the voice coil. */

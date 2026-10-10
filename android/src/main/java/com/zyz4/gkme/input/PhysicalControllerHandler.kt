@@ -284,11 +284,19 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
     fun setAdaptiveTriggerActive(controllerIndex: Int, active: Boolean) {
         if (active) {
             val previous = adaptiveTriggerIndex
+            if (previous >= 0 && previous != controllerIndex) {
+                backend?.setAdaptiveVoiceCoilActive(previous, false)
+                silenceGrip(previous)
+            }
             adaptiveTriggerIndex = controllerIndex
-            if (previous >= 0 && previous != controllerIndex) silenceGrip(previous)
+            // Tell the backend before silencing the grip: on a DualSense the all-zero motor
+            // report must already omit the compatible-vibration flags, otherwise it switches
+            // the pad out of audio-haptics mode and cuts the voice-coil tone.
+            backend?.setAdaptiveVoiceCoilActive(controllerIndex, true)
             silenceGrip(controllerIndex)
         } else if (adaptiveTriggerIndex == controllerIndex) {
             adaptiveTriggerIndex = -1
+            backend?.setAdaptiveVoiceCoilActive(controllerIndex, false)
         }
     }
 
