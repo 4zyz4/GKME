@@ -442,8 +442,9 @@ LRA 是**窄带共振器**（本机 f0≈169Hz，Q≈10），无法复现宽带�
     每个周期单独投递**单个**脉冲效果（`RichTapLowFreq.pulse`），经无参 `startEffect()` 投递，
     而不是把多个脉冲塞进一条效果（避免一条效果内多事件边界的凹陷）。调度线程按目标周期重投递。
   - 通用入口 `playLowFrequency(strength, frequencyHz, durationMs)` 仍保留（一条效果内多脉冲）。
-  - 游戏 rumble **不做低频脉冲分段**（分段会让大小马达听感变成一顿一顿的脉冲）：低频马达
-    （强震动）用 ≈140Hz、高频马达（弱震动）用 ≈210Hz 的**连续**效果（`frequencyForMotors`）。
+  - 游戏 rumble **不做低频脉冲分段**（分段会让大小马达听感变成一顿一顿的脉冲），也**不做
+    幅度-频率补偿**（直接透传强度）：低频马达（强震动）用**谐振频率**、高频马达（弱震动）用
+    ≈210Hz 的**连续**效果（`frequencyForMotors`）。
 
 ### 10.3 约束与取舍
 
@@ -487,8 +488,10 @@ gain(he) = 1 / resonanceResponse(he)   ∈ [1, MAX_FREQ_COMPENSATION]
 - `haptic/PcmHeEncoder.kt`：每个控制点按 **事件基频 + 曲线偏移** 得到实际驱动 HE，补偿后再走
   `amplitudeToCurve`（谐振点 HE 56 不变，偏离时抬升）。
 - `haptic/RichTapLowFreq.kt`：脉冲峰值按 `carrierHe` 补偿。
-- `controlled/HapticInjector.kt` / `haptic/PhoneHdHaptics.kt`：连续效果补偿全局 amplitude，
-  点击/`playEffect` 补偿强度，使所有 HD 通路口径一致。
+- `controlled/HapticInjector.kt` / `haptic/PhoneHdHaptics.kt`：连续效果默认补偿全局 amplitude，
+  点击/`playEffect` 补偿强度，使 HD 通路口径一致。**例外**：游戏大小马达启发式通路
+  （`frequencyForMotors`，`frequencyHz<=0`）`startContinuous(..., compensate=false)` **不补偿、
+  直接透传强度**——真机谐振点高于 169Hz 假设，补偿会让 ≈210Hz 反超谐振点。
 
 ### 11.3 取舍
 

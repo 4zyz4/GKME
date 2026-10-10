@@ -60,6 +60,13 @@ object PhoneHdHaptics {
     @Volatile
     private var appliedLowHz: Double = 0.0
 
+    /** 是否对当前连续效果做幅度-频率补偿；双马达启发式通路直接透传强度（false）。 */
+    @Volatile
+    private var wantCompensate: Boolean = true
+
+    @Volatile
+    private var appliedCompensate: Boolean = true
+
     @Volatile
     private var lastSubmitNs: Long = 0L
 
@@ -71,7 +78,6 @@ object PhoneHdHaptics {
     private var task: ScheduledFuture<*>? = null
 
     private val DEFAULT_FREQ = RichTapFrequency.HE_AT_RESONANCE    // ≈170 Hz（谐振点）
-    private val LOW_FREQ = RichTapFrequency.hzToHe(140.0)          // ≈140 Hz
     private val HIGH_FREQ = RichTapFrequency.hzToHe(210.0)         // ≈210 Hz
     private const val CLICK_STRENGTH_MAX = 255
 
@@ -103,14 +109,17 @@ object PhoneHdHaptics {
 
         val qAmp = quantizeAmp(amp)
         // 低于马达下限的目标频率改为脉冲串模拟（见 RichTapLowFreq）。
-        val (lowHz, freq) = if (frequencyHz > 0.0) {
+        // 频率来自真实音高（frequencyHz>0）时做幅度-频率补偿；否则走大小马达启发式，
+        // **不补偿、直接透传强度**——真机谐振点与 169Hz 假设不符，补偿会反而抬高高频。
+        val (lowHz, freq, compensate) = if (frequencyHz > 0.0) {
             if (RichTapLowFreq.supports(frequencyHz)) {
-                frequencyHz to RichTapFrequency.HE_AT_RESONANCE
+                Triple(frequencyHz, RichTapFrequency.HE_AT_RESONANCE, true)
             } else {
-                0.0 to quantizeHe(RichTapFrequency.hzToHe(frequencyHz))
+                Triple(0.0, quantizeHe(RichTapFrequency.hzToHe(frequencyHz)), true)
             }
         } else {
-            frequencyForMotors(l, r)
+            val (lp, f) = frequencyForMotors(l, r)
+            Triple(lp, f, false)
         }
 
         // 曾被更高优先级抢占（如自适应扳机）时不持有所有权；恢复后需要重投递。
@@ -122,6 +131,7 @@ object PhoneHdHaptics {
         wantAmp = qAmp
         wantFreq = freq
         wantLowHz = lowHz
+        wantCompensate = compensate
         activeSource = source
 
         if (!active) {
@@ -203,6 +213,7 @@ object PhoneHdHaptics {
         appliedAmp = -1
         appliedFreq = -1
         appliedLowHz = 0.0
+        appliedCompensate = true
         appliedSource = null
         cancelTask()
         when {
@@ -219,6 +230,7 @@ object PhoneHdHaptics {
         appliedAmp = -1
         appliedFreq = -1
         appliedLowHz = 0.0
+        appliedCompensate = true
         appliedSource = null
         cancelTask()
     }
@@ -229,12 +241,13 @@ object PhoneHdHaptics {
         if (wantLowHz > 0.0) {
             ok = HapticInjector.startEffect(RichTapLowFreq.pulse(wantLowHz, wantAmp), source)
         } else {
-            ok = HapticInjector.startContinuous(wantAmp, wantFreq, source)
+            ok = HapticInjector.startContinuous(wantAmp, wantFreq, source, wantCompensate)
         }
         if (ok) {
             appliedAmp = wantAmp
             appliedFreq = wantFreq
             appliedLowHz = wantLowHz
+            appliedCompensate = wantCompensate
             appliedSource = source
             lastSubmitNs = System.nanoTime()
         }
@@ -262,17 +275,25 @@ object PhoneHdHaptics {
             val now = System.nanoTime()
             // 来源切换（自适应扳机 ↔ 游戏震动）也需要重投递，刷新引擎侧的参数与所有权。
             val changed = appliedAmp != wantAmp || appliedFreq != wantFreq ||
-                appliedLowHz != wantLowHz || appliedSource != source
+                appliedLowHz != wantLowHz || appliedSource != source ||
+                appliedCompensate != wantCompensate
             var submitted = false
             if (changed) {
                 // type 2 且 core ≥ 32 时，参数变化走实时调参，避免 stop+start 拖弱输出。
                 val realtime = HapticInjector.realtimeAdjust && appliedLowHz <= 0.0 &&
                     appliedSource == source && appliedAmp >= 0
                 if (realtime) {
-                    if (HapticInjector.updateParameter(wantAmp, wantFreq)) {
+                    // updateParameter 直接吃 0-255 幅度，故补偿在调用前手动折算。
+                    val realtimeAmp = if (wantCompensate) {
+                        RichTapEngine.compensate255(wantAmp, wantFreq)
+                    } else {
+                        wantAmp
+                    }
+                    if (HapticInjector.updateParameter(realtimeAmp, wantFreq)) {
                         appliedAmp = wantAmp
                         appliedFreq = wantFreq
                         appliedLowHz = 0.0
+                        appliedCompensate = wantCompensate
                         appliedSource = source
                         // 不刷新 lastSubmitNs：仍靠下方周期重投递延续效果时长。
                     } else if (now - lastSubmitNs >= MIN_RESUBMIT_NS) {
@@ -313,16 +334,15 @@ object PhoneHdHaptics {
     }
 
     /** 游戏 rumble 的左右马达 → (低频模拟 Hz, HE 频率)。Hz>0 表示走 [RichTapLowFreq] 脉冲串。
-     *  游戏震动**不做低频分段**（分段会让大小马达听感变成一顿一顿的脉冲），低频马达只在
-     *  马达可用频段内取一个较低频率做连续输出：较大值为“弱/高频”马达 → [HIGH_FREQ]，
-     *  否则低频马达 → [LOW_FREQ]。 */
+     *  游戏震动**不做低频分段**（分段会让大小马达听感变成一顿一顿的脉冲），也**不做幅度-频率补偿**
+     *  （本通路直接透传强度）。低频（强）马达用**谐振频率** [DEFAULT_FREQ] 取最大位移；较大值为
+     *  “弱/高频”马达时切到 [HIGH_FREQ] 得到更高的音调。 */
     private fun frequencyForMotors(left: Int, right: Int): Pair<Double, Int> {
         val l = left.coerceIn(0, 255)
         val r = right.coerceIn(0, 255)
         return when {
-            l == r -> 0.0 to DEFAULT_FREQ
             r > l -> 0.0 to HIGH_FREQ
-            else -> 0.0 to LOW_FREQ
+            else -> 0.0 to DEFAULT_FREQ
         }
     }
 
