@@ -211,6 +211,12 @@
                         android:layout_marginEnd="6dp" />
 
                     <Button
+                        android:id="@+id/btnPresetRestoreDefault"
+                        style="@style/GamepadChip"
+                        android:text="恢复默认"
+                        android:layout_marginEnd="6dp" />
+
+                    <Button
                         android:id="@+id/btnPresetCopy"
                         style="@style/GamepadChip"
                         android:text="复制"
