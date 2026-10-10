@@ -52,7 +52,7 @@ message Hello {
 }
 
 message GamepadInput {
-  uint32 buttons = 1;            // XInput wButtons 位掩码
+  uint32 buttons = 1;            // GKME 自定义按键位掩码（见 §8.1）
   sint32 left_stick_x = 2;
   sint32 left_stick_y = 3;
   sint32 right_stick_x = 4;
@@ -70,7 +70,7 @@ message GamepadInput {
   sint32 mouse_wheel = 25;
   sint32 mouse_pan = 26;
   uint32 mouse_buttons = 27;     // bit0 左 / bit1 右 / bit2 中 / bit3 后退 / bit4 前进
-  repeated uint32 pressed_scan_codes = 28;   // Microsoft Standard Scan Code
+  repeated uint32 pressed_scan_codes = 28;   // HID Keyboard/Keypad 用法 ID（Usage 0x04..0xFF）
   uint32 keyboard_modifiers = 30;            // bit0 LCtrl … bit7 RGui
 }
 
@@ -328,7 +328,7 @@ fun  updateParameter(intensity, frequency): Boolean
 
 ## 8. 载荷语义参考
 
-### 8.1 `GamepadInput.buttons`（`model/GamepadState.kt`，XInput 掩码）
+### 8.1 `GamepadInput.buttons`（`model/GamepadState.kt`，GKME 自定义掩码）
 
 | 位 | 值 | 含义 |
 |----|----|------|
@@ -348,7 +348,10 @@ fun  updateParameter(intensity, frequency): Boolean
 
 `GamepadState` 内部另有鼠标键位（bit19-21 = `0x80000/0x100000/0x200000`）与
 `MIC_MUTE`（bit18 = `0x40000`）；物理手柄背键位在 bit22-25（`PhysicalInputs.PADDLE_*`），
-超出 XInput 范围，仅用于映射输出。
+不属于基础 18 键位布局，仅用于映射输出。
+
+> 该位布局由 GKME 自定义，**并非 XInput**。仅在被控端经 `GamepadInjector.toXInputButtons`
+> 翻译成 XInput wButtons 后才写入 `IGamepadService.update`（见 §7.1）。
 
 ### 8.2 dpad
 
@@ -362,8 +365,9 @@ fun  updateParameter(intensity, frequency): Boolean
 
 ### 8.4 键盘
 
-`pressed_scan_codes` 为 Microsoft Standard Scan Code（UTF）；`keyboard_modifiers` 为
-HID 修饰位掩码。键盘报告在 WiFi/USB 下复用 `GamepadInput`（type `0x02`），
+`pressed_scan_codes` 为 HID Keyboard/Keypad 用法 ID（Usage，字母 0x04..、数字 0x1E..；
+与 `MainActivityControls.Kb` 一致）；`keyboard_modifiers` 为 HID 修饰位掩码
+（bit0=LCtrl … bit7=RGui）。键盘报告在 WiFi/USB 下复用 `GamepadInput`（type `0x02`），
 在蓝牙下走 Report ID 17。
 
 ---
