@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.ColorFilter
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Rect
@@ -58,6 +59,9 @@ class DpadPadView @JvmOverloads constructor(
     /** Adaptive arrow-size cap in px (from the global icon-size setting); null = sized relative to the region. */
     var arrowMaxSizePx: Float? = null
 
+    /** 方向箭头图标颜色。 */
+    var appearanceArrowColor: Int = 0xFFCCCCCC.toInt()
+
     /** 中心形状。CIRCLE 时中心为内切圆，周围 8 个方向改为径向扇环（绘制与判定一致）。 */
     var centerShape: CenterShape = CenterShape.SQUARE
         set(value) {
@@ -74,6 +78,10 @@ class DpadPadView @JvmOverloads constructor(
     private var appearanceBitmap: Bitmap? = null
     private var activeBits = 0
     private var isTouching = false
+
+    // Cached arrow tint; rebuilt only when the configured colour changes.
+    private var arrowColorFilter: ColorFilter? = null
+    private var arrowColorFilterSource = Int.MIN_VALUE
 
     /** When true, the effective center tracks the touch position (follow-area mode) */
     var forceFollowFinger: Boolean = false
@@ -244,6 +252,11 @@ class DpadPadView @JvmOverloads constructor(
 
     private fun drawArrow(canvas: Canvas, resId: Int, left: Float, top: Float, w: Float, h: Float) {
         val drawable = context.getDrawable(resId)?.mutate() ?: return
+        if (arrowColorFilterSource != appearanceArrowColor) {
+            arrowColorFilter = IconTint.mono(appearanceArrowColor)
+            arrowColorFilterSource = appearanceArrowColor
+        }
+        drawable.colorFilter = arrowColorFilter
         val size = minOf(w * 0.55f, h * 0.55f, arrowMaxSizePx ?: Float.MAX_VALUE)
         if (size <= 0f) return
         val cx = originX + left + w / 2f

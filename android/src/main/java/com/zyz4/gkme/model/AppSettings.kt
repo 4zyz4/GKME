@@ -321,6 +321,16 @@ data class AppSettings(
     val dpadPadTriggerOutlineColor: Int = -0x666667,
     val dpadPadTriggerOutlineWidth: Int = 4,
 
+    // ── Icon colors (per control type) ──
+    /** 按钮上文字/图标的颜色。 */
+    val btnIconColor: Int = 0xFFCCCCCC.toInt(),
+    /** 摇杆帽上 L/R 标签的颜色。 */
+    val joyIconColor: Int = 0xFFCCCCCC.toInt(),
+    /** 触摸板（含鼠标板）状态文本的颜色。 */
+    val tpIconColor: Int = 0xFF666666.toInt(),
+    /** 一体十字键方向箭头 / 自定义按键盘文本的颜色。 */
+    val dpadPadIconColor: Int = 0xFFCCCCCC.toInt(),
+
     // Max size of text and icons in sp (same unit as the old button textSize=20f).
     // 0..99 caps content, 100 = unlimited (content fills the button). Content always
     // keeps a min(width,height) x 10% padding.

@@ -19,6 +19,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.ImageButton
 import android.widget.ImageView
+import android.widget.TextView
 import com.zyz4.gkme.R
 import com.zyz4.gkme.applyContentSizeCap
 import com.zyz4.gkme.model.AppSettings
@@ -60,6 +61,13 @@ object AppearanceApplier {
 
     // Last auto-size cap applied per TextView (px), so we don't reconfigure on every pass.
     private val appliedTextCap = HashMap<View, Int>()
+
+    // Icons that carry multiple brightness levels (dark fill + grey outline). These are tinted
+    // with IconTint.shaded (brightness -> alpha) so the internal shading survives recoloring;
+    // all other icons are treated as single-tone.
+    private val shadedIconRes = setOf(
+        R.drawable.ic_touchpad_grid, R.drawable.ic_dpad_pad, R.drawable.ic_custom_keypad,
+    )
 
     // Bitmap cache to avoid re-decoding files on every change
     private var cachedBitmapPath: String? = null
@@ -119,6 +127,7 @@ object AppearanceApplier {
                     val pos = buttonMap[tag] ?: continue
                     val density = child.resources.displayMetrics.density
                     child.updateFromButton(pos)
+                    child.setTextColor(settings.btnIconColor)
                     applyToButtonWithColor(child, settings, false, density)
                 }
                 baseId == "touchpad" || baseId == "mousepad" -> applyToTouchpad(child, settings)
@@ -140,10 +149,12 @@ object AppearanceApplier {
         // current mode via getIconDrawable instead, so switching to PS clears their foreground.
         val foregroundIcon = when {
             baseId == "btnLS" || baseId == "btnRS" ->
-                letterIconDrawable(view, if (baseId == "btnLS") "L" else "R", maxPx?.toFloat())
+                letterIconDrawable(view, if (baseId == "btnLS") "L" else "R", maxPx?.toFloat(), settings.btnIconColor)
             baseId in psIconButtonIds && settings.displayMode == DisplayMode.PLAYSTATION &&
                 view !is ImageButton && view.foreground != null ->
-                (view.foreground as? CappedContentDrawable)?.inner ?: view.foreground
+                ((view.foreground as? CappedContentDrawable)?.inner ?: view.foreground).also {
+                    it.colorFilter = IconTint.mono(settings.btnIconColor)
+                }
             view !is ImageButton && baseId in iconButtonIds -> getIconDrawable(view, settings)
             else -> null
         }
@@ -181,6 +192,7 @@ object AppearanceApplier {
                 ?: (view.drawable as? CappedContentDrawable)?.inner
                 ?: view.drawable
             if (raw != null) {
+                raw.colorFilter = IconTint.mono(settings.btnIconColor)
                 view.setImageDrawable(null)
                 view.foregroundGravity = Gravity.FILL
                 // Use Float.MAX_VALUE for "unlimited" so the icon fills the padded button area
@@ -211,6 +223,9 @@ object AppearanceApplier {
                 view.setPadding(pad, pad, pad, pad)
             }
         }
+
+        // Icon/text colour for Button-based controls (letters, custom text, keyboard, ...).
+        if (view is Button) view.setTextColor(settings.btnIconColor)
 
         if (settings.btnFillType == FillType.SOLID_COLOR) {
             applyToButtonWithColor(view, settings, isCircle, density)
@@ -281,6 +296,7 @@ object AppearanceApplier {
         joy.appearanceCapBitmap = if (settings.joyCapFillType == FillType.IMAGE) getBitmap(settings.joyCapImagePath) else null
         joy.appearanceCapOutlineColor = settings.joyCapOutlineColor
         joy.appearanceCapOutlineWidth = settings.joyCapOutlineWidth.toFloat()
+        joy.appearanceLabelColor = settings.joyIconColor
         joy.labelMaxSizePx = contentCapPx(joy, settings)?.toFloat()
         joy.invalidate()
     }
@@ -291,6 +307,7 @@ object AppearanceApplier {
         pad.appearanceColor = settings.dpadPadColor
         pad.appearanceBorderColor = settings.dpadPadOutlineColor
         pad.appearanceBorderWidth = settings.dpadPadOutlineWidth.toFloat()
+        pad.appearanceArrowColor = settings.dpadPadIconColor
         pad.arrowMaxSizePx = contentCapPx(pad, settings)?.toFloat()
         pad.invalidate()
     }
@@ -301,12 +318,20 @@ object AppearanceApplier {
         pad.padColor = settings.dpadPadColor
         pad.padBorderColor = settings.dpadPadOutlineColor
         pad.padBorderWidth = settings.dpadPadOutlineWidth.toFloat()
+        pad.appearanceTextColor = settings.dpadPadIconColor
         pad.textMaxSizePx = contentCapPx(pad, settings)?.toFloat()
         pad.invalidate()
     }
 
     private fun applyToTouchpad(view: View, settings: AppSettings) {
         val density = view.resources.displayMetrics.density
+
+        // Touchpad / mousepad status text colour.
+        if (view is android.view.ViewGroup) {
+            for (i in 0 until view.childCount) {
+                (view.getChildAt(i) as? TextView)?.setTextColor(settings.tpIconColor)
+            }
+        }
 
         if (settings.tpFillType == FillType.SOLID_COLOR) {
             val pressedShape = GradientDrawable()
@@ -422,7 +447,9 @@ object AppearanceApplier {
             }
             else -> null
         }
-        return if (resId != null) view.context.getDrawable(resId)?.mutate() else null
+        if (resId == null) return null
+        val drawable = view.context.getDrawable(resId)?.mutate() ?: return null
+        return IconTint.tint(drawable, settings.btnIconColor, resId in shadedIconRes)
     }
 
     // Cap for the auto-fit text when the max size is "unlimited": so large that auto-fit
@@ -449,10 +476,10 @@ object AppearanceApplier {
 
     /** Integrated LS/RS content: the triangle icon on top with the L/R letter below it, drawn
      *  as a single unit so they scale together. maxSizePx caps the whole unit (null = unlimited). */
-    private fun letterIconDrawable(view: View, letter: String, maxSizePx: Float?): Drawable {
+    private fun letterIconDrawable(view: View, letter: String, maxSizePx: Float?, color: Int): Drawable {
         val resId = if (letter == "L") R.drawable.ic_ls else R.drawable.ic_rs
-        val triangle = view.context.getDrawable(resId)?.mutate()
-        return LetterIconDrawable(letter, triangle, maxSizePx)
+        val triangle = view.context.getDrawable(resId)?.mutate()?.apply { colorFilter = IconTint.mono(color) }
+        return LetterIconDrawable(letter, triangle, maxSizePx, color)
     }
 
     private fun highlightColor(color: Int, factor: Float): Int {
@@ -508,9 +535,10 @@ private class LetterIconDrawable(
     private val letter: String,
     private val icon: Drawable?,
     private val maxSizePx: Float?,
+    letterColor: Int,
 ) : Drawable() {
     private val letterPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFFCCCCCC.toInt()
+        color = letterColor
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
     }
