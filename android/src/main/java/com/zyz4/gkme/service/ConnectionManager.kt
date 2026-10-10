@@ -221,6 +221,8 @@ class ConnectionManager @Inject constructor(
     }
 
     fun clearTriggerEffects() {
+        triggerRumbleStopped = true
+        triggerEffectStopped = true
         onTriggerEffectsRequest?.invoke(
             byteArrayOf(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00),
             byteArrayOf(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00),
@@ -607,7 +609,14 @@ class ConnectionManager @Inject constructor(
                 // hold up the rest of the stream (see controllerOutputExecutor).
                 val triggerEffects = if (cf.hasTriggerEffects()) cf.triggerEffects else null
                 controllerOutputExecutor.execute {
-                    if (hasVibration) onRumbleRequest?.invoke(rumbleLow, rumbleHigh)
+                    if (hasVibration) {
+                        val active = rumbleLow != 0 || rumbleHigh != 0
+                        // 仅在非 0 或由动到静时下发；持续重复的 0 不再每帧发停止指令。
+                        if (active || !gameRumbleStopped) {
+                            gameRumbleStopped = !active
+                            onRumbleRequest?.invoke(rumbleLow, rumbleHigh)
+                        }
+                    }
                     triggerEffects?.let { dispatchTriggerEffects(it) }
                 }
                 if (cf.hasLedState()) {
@@ -664,15 +673,24 @@ class ConnectionManager @Inject constructor(
     }
 
     /** Routes a TriggerEffects payload to the adaptive-trigger (DualSense effect bytes)
-     *  or the trigger-rumble (Xbox amplitudes) callback depending on which fields are set. */
+     *  or the trigger-rumble (Xbox amplitudes) callback depending on which fields are set.
+     *  Runs on [controllerOutputExecutor]; repeated all-zero (stopped) payloads are dropped
+     *  so a PC streaming 0 values does not re-issue a stop every frame. */
     private fun dispatchTriggerEffects(te: TriggerEffects) {
         if (te.hasLeftTriggerRumble() || te.hasRightTriggerRumble()) {
-            onTriggerRumbleRequest?.invoke(te.leftTriggerRumble, te.rightTriggerRumble)
+            val active = te.leftTriggerRumble != 0 || te.rightTriggerRumble != 0
+            if (active || !triggerRumbleStopped) {
+                triggerRumbleStopped = !active
+                onTriggerRumbleRequest?.invoke(te.leftTriggerRumble, te.rightTriggerRumble)
+            }
         } else {
-            onTriggerEffectsRequest?.invoke(
-                te.leftTriggerEffect.toByteArray(),
-                te.rightTriggerEffect.toByteArray(),
-            )
+            val left = te.leftTriggerEffect.toByteArray()
+            val right = te.rightTriggerEffect.toByteArray()
+            val active = left.any { it != 0.toByte() } || right.any { it != 0.toByte() }
+            if (active || !triggerEffectStopped) {
+                triggerEffectStopped = !active
+                onTriggerEffectsRequest?.invoke(left, right)
+            }
         }
     }
 
@@ -779,6 +797,18 @@ class ConnectionManager @Inject constructor(
     var onVoiceCoilMotorOutputUpdate: ((leftAmp: Int, rightAmp: Int) -> Unit)? = null
     var onTriggerEffectsRequest: ((left: ByteArray?, right: ByteArray?) -> Unit)? = null
     var onTriggerRumbleRequest: ((left: Int, right: Int) -> Unit)? = null
+
+    // PC 无震动时仍会每帧下发 0 值。这里缓存每条震动通路的“已停止”状态，只在由动到静
+    // （下落沿）时下发一次停止，之后重复的 0 直接丢弃，避免每帧都重复发停止指令。非 0 值
+    // 仍每帧下发，保留各后端既有的保活/刷新行为。主要由 controllerOutputExecutor 单线程访问。
+    @Volatile
+    private var gameRumbleStopped = true
+
+    @Volatile
+    private var triggerRumbleStopped = true
+
+    @Volatile
+    private var triggerEffectStopped = true
 
     suspend fun sendGamepadState(state: GamepadInput) {
         when (_settings.value.connectionMode) {
