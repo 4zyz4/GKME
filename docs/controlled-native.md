@@ -267,8 +267,10 @@ flowchart TB
   仅 Switch Pro 额外起 `streamer` 线程（每 15000us 发 0x30 帧）。
 - **报告格式**：
   - DS4：64 字节，`rpt[0]=0x01`；hat/face 在 `rpt[5]`，肩键在 `rpt[6]`，Guide/触摸板在 `rpt[7]`，
-    LT/RT 在 `rpt[8..9]`，IMU 在 `13..24`，触摸从 `rpt[33]` 起。
-  - DualSense：64 字节，`rpt[0]=0x01`；IMU 在 `16..27`，触摸从 `rpt[33]` 起（y 按 1080/943 缩放）。
+    LT/RT 在 `rpt[8..9]`，IMU 在 `13..24`，`rpt[33]`=触点报告数、`rpt[34]`=时间戳、触摸从 `rpt[35]` 起。
+  - DualSense：64 字节，`rpt[0]=0x01`；IMU 在 `16..27`，触摸从 `rpt[33]` 起（y 按 1080/943 缩放）、`rpt[41]`=时间戳。
+  - 触摸点编码对齐 hid-playstation `ps_touch_point`（DS4/DualSense 相同）：byte1=X 低 8 位、
+    byte2 低半字节=X 高 4 位、byte2 高半字节=Y 低 4 位、byte3=Y 高 8 位。
   - Switch Pro：`frame[0]=0x30`、`frame[1]=timer`、`frame[2]=0x91`、`frame[12]=0xB0`；
     12 位 nibble 打包摇杆 + 3 组 IMU。
 - **Feature 应答** `gkme_build_feature`：DS4/DualSense 的校准/固件/MAC；键盘/鼠标 `rnum==0` 时返回

@@ -281,10 +281,11 @@ static int gkme_switch_gyro_raw(float rad_s) {
     return (int)(rad_s * 938.0f);
 }
 
-/* 写入 2 个触摸点到 DS4/DualSense input 报告（每点 4 字节 + 1 字节序号）。
- * y 按 yscale_num/yscale_den 缩放：DS4 触板 1920x943，DualSense 1920x1080。
- * 每点编码：byte0 = bit7 未触摸标志 + 7 位 id；byte1 = X 低 8 位；
- * byte2 = X 高 4 位 | Y 高 4 位；byte3 = Y 低 8 位。 */
+/* 写入 2 个触摸点到 DS4/DualSense input 报告（每点 4 字节）。
+ * y 按 yscale_num/yscale_den 缩放：DS4 触板 1920x942，DualSense 1920x1080。
+ * 每点编码对齐 hid-playstation 的 ps_touch_point（DS4 与 DualSense 相同）：
+ * byte0 = bit7 未触摸标志 + 7 位 id；byte1 = X 低 8 位；
+ * byte2 = X 高 4 位（低半字节）| Y 低 4 位（高半字节）；byte3 = Y 高 8 位。 */
 static void gkme_write_touch(uint8_t *rpt, int offset, gkme_uk_dev *dev,
                              int yscale_num, int yscale_den) {
     for (int i = 0; i < 2; i++) {
@@ -297,10 +298,9 @@ static void gkme_write_touch(uint8_t *rpt, int offset, gkme_uk_dev *dev,
         uint8_t *p = rpt + offset + i * 4;
         p[0] = active ? (uint8_t)id : (uint8_t)(0x80 | id);
         p[1] = (uint8_t)(x & 0xFF);
-        p[2] = (uint8_t)((((x >> 8) & 0x0F) << 4) | ((y >> 8) & 0x0F));
-        p[3] = (uint8_t)(y & 0xFF);
+        p[2] = (uint8_t)(((x >> 8) & 0x0F) | ((y & 0x0F) << 4));
+        p[3] = (uint8_t)((y >> 4) & 0xFF);
     }
-    rpt[offset + 8] = dev->touch_seq++;
 }
 
 static void gkme_pack_ds4(uint8_t rpt[64], gkme_uk_dev *dev,
@@ -340,8 +340,11 @@ static void gkme_pack_ds4(uint8_t rpt[64], gkme_uk_dev *dev,
     gkme_put_s16(rpt + 21, gkme_accel_raw(dev->accel[1]));
     gkme_put_s16(rpt + 23, gkme_accel_raw(dev->accel[2]));
     rpt[30] = 0x05; /* battery: full-ish */
-    /* 触摸板：2 个触点，DS4 触板 1920x943。 */
-    gkme_write_touch(rpt, 33, dev, 1, 1);
+    /* 触摸板：rpt[33] = 触点报告数，rpt[34] = 报告时间戳，触点从 rpt[35] 起
+     * （每点 4 字节），DS4 触板 1920x942。 */
+    rpt[33] = 1;
+    rpt[34] = (uint8_t)(dev->touch_seq++ & 0x7F);
+    gkme_write_touch(rpt, 35, dev, 1, 1);
 }
 
 static void gkme_pack_dualsense(uint8_t rpt[64], gkme_uk_dev *dev,
@@ -382,8 +385,10 @@ static void gkme_pack_dualsense(uint8_t rpt[64], gkme_uk_dev *dev,
     gkme_put_s16(rpt + 24, gkme_accel_raw(dev->accel[1]));
     gkme_put_s16(rpt + 26, gkme_accel_raw(dev->accel[2]));
     rpt[53] = 0x05;
-    /* 触摸板：DualSense 触板 1920x1080，把 0..942 的输入 y 缩放过去。 */
+    /* 触摸板：触点从 rpt[33] 起（每点 4 字节），DualSense 触板 1920x1080，
+     * 把 0..942 的输入 y 缩放过去；rpt[41] = 报告时间戳。 */
     gkme_write_touch(rpt, 33, dev, 1080, 943);
+    rpt[41] = (uint8_t)(dev->touch_seq++ & 0x7F);
 }
 
 /* Switch 12 位摇杆（little-nibble 打包）。 */
