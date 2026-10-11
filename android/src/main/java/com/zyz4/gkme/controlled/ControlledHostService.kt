@@ -13,6 +13,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.zyz4.gkme.R
 import com.zyz4.gkme.service.ConnectionManager
+import com.zyz4.gkme.web.WebServer
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -76,6 +77,7 @@ class ControlledHostService : Service() {
         GamepadInjector.init(this)
         GamepadInjector.ensureBound()
         ControlledHostManager.start()
+        WebServer.start(this)
         startNotificationUpdates()
         startFloatingKeepAlive()
         return START_STICKY
@@ -89,6 +91,7 @@ class ControlledHostService : Service() {
         scope?.cancel()
         scope = null
         FloatingKeepAlive.stop()
+        WebServer.stop()
         ControlledHostManager.stop()
         super.onDestroy()
     }

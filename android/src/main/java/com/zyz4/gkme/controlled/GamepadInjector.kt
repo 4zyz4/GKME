@@ -241,11 +241,28 @@ object GamepadInjector {
     fun update(input: GamepadInput) {
         val svc = service ?: return
         if (!created) return
+        // 数字扳机只在 buttons 里置位（bit6/7）而不发扳机数值，这里按电脑端
+        // GamepadSession 的逻辑回退：数值为 0 但对应位按下时按 255 处理。
+        val buttons = input.buttons.toInt()
+        val leftTrigger = if (input.leftTrigger > 0) {
+            input.leftTrigger
+        } else if (buttons and GamepadState.LT != 0) {
+            255
+        } else {
+            0
+        }
+        val rightTrigger = if (input.rightTrigger > 0) {
+            input.rightTrigger
+        } else if (buttons and GamepadState.RT != 0) {
+            255
+        } else {
+            0
+        }
         try {
             svc.update(
                 toXInputButtons(input),
-                input.leftTrigger,
-                input.rightTrigger,
+                leftTrigger,
+                rightTrigger,
                 input.leftStickX,
                 input.leftStickY,
                 input.rightStickX,

@@ -6,6 +6,8 @@ data class ControlledDevice(
     val name: String = "",
     val mac: String = "",
     val lastSeen: Long = System.currentTimeMillis(),
+    /** 是否为内置 Web 服务器接纳的浏览器控制端（对齐电脑端 DiscoveredDevice.IsWeb）。 */
+    val isWeb: Boolean = false,
 ) {
     val displayName: String get() = name.ifBlank { ip }
     val subtitle: String get() = if (mac.isNotBlank()) "$ip  ·  $mac" else ip
