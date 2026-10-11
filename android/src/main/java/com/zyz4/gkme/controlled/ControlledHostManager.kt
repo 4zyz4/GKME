@@ -81,6 +81,10 @@ object ControlledHostManager {
     @Volatile
     private var active: ControlledDevice? = null
 
+    /** 当前会话的下行动作发送器：UDP 会话发往控制端 IP，Web 会话发往对应浏览器。 */
+    @Volatile
+    private var activeDownlink: ((Byte, ByteArray) -> Unit)? = null
+
     /** 最近一次收到 active 控制端的包（Hello 或 GamepadInput）的时间。
      *  与电脑端 GamepadSession._lastReceiveTime 一致，两类包都会刷新。 */
     @Volatile
@@ -127,6 +131,7 @@ object ControlledHostManager {
         rumbleJob?.cancel()
         rumbleJob = null
         active = null
+        activeDownlink = null
         reconnecting = false
         recovering = false
         lastReceiveAt = 0L
@@ -179,10 +184,11 @@ object ControlledHostManager {
                     return@launch
                 }
                 active = device
+                activeDownlink = { t, p -> sendUdp(device.ip, t, p) }
                 lastReceiveAt = System.currentTimeMillis()
                 _session.value = device
                 deviceMap[device.ip] = device
-                sendServerHello(device.ip)
+                sendServerHello()
                 startRumblePump(device)
                 _state.value = HostState(Phase.CONNECTED, "已连接: ${device.ip}")
             } finally {
@@ -201,6 +207,67 @@ object ControlledHostManager {
         }
         val device = deviceMap[ip] ?: ControlledDevice(ip = ip)
         connect(device)
+    }
+
+    /** 接纳一个浏览器控制端：登记为可发现设备，供界面展示卡片。 */
+    fun onWebClientConnected(device: ControlledDevice) {
+        deviceMap[device.ip] = device
+        publish()
+    }
+
+    /**
+     * 浏览器控制端接入后自动建立会话（对齐电脑端 `NetworkService.ConnectWebAsync`）：
+     * 与 UDP 连接流程一致，但下行发送器为对应的 WebSocket 连接。
+     */
+    fun connectWeb(device: ControlledDevice, sender: (Byte, ByteArray) -> Unit) {
+        val s = scope ?: return
+        connectJob?.cancel()
+        connectJob = s.launch {
+            try {
+                if (active != null) disconnectInternal(null)
+                _connectingIp.value = device.ip
+                reconnecting = false
+                _state.value = HostState(Phase.CONNECTING, "正在连接: ${device.displayName}…")
+                val ready = awaitInjectorReady(8_000)
+                if (!ready) {
+                    _state.value = HostState(
+                        Phase.ERROR,
+                        "连接失败: ${device.displayName}（${GamepadInjector.statusText()}）",
+                    )
+                    return@launch
+                }
+                active = device
+                activeDownlink = sender
+                lastReceiveAt = System.currentTimeMillis()
+                _session.value = device
+                deviceMap[device.ip] = device
+                sendServerHello()
+                startRumblePump(device)
+                _state.value = HostState(Phase.CONNECTED, "已连接: ${device.displayName}")
+            } finally {
+                if (_connectingIp.value == device.ip) _connectingIp.value = null
+                publish()
+            }
+        }
+    }
+
+    /** 处理浏览器上行帧（[TYPE_CLIENT_TO_SERVER] / [TYPE_GAMEPAD_INPUT]）。 */
+    fun onWebFrame(device: ControlledDevice, type: Byte, payload: ByteArray) {
+        when (type) {
+            TYPE_CLIENT_TO_SERVER -> handleClientToServer(device.ip, payload)
+            TYPE_GAMEPAD_INPUT -> handleGamepadInput(device.ip, payload)
+        }
+    }
+
+    /** 浏览器断开：结束会话并移除卡片。 */
+    fun onWebClientClosed(device: ControlledDevice) {
+        if (active?.groupKey == device.groupKey) {
+            connectJob?.cancel()
+            connectJob = null
+            scope?.launch { disconnectInternal(null) }
+        }
+        deviceMap.remove(device.ip)
+        publish()
     }
 
     fun disconnect() {
@@ -318,7 +385,7 @@ object ControlledHostManager {
         // 重新下发 ServerHello 让它完成握手。对齐电脑端 HandleDiscovery 的行为。
         val current = active
         if (current != null && current.ip == srcIp) {
-            sendServerHello(srcIp)
+            sendServerHello()
         }
         publish()
     }
@@ -367,7 +434,7 @@ object ControlledHostManager {
                 if (ready) {
                     reconnecting = false
                     lastReceiveAt = System.currentTimeMillis()
-                    sendServerHello(srcIp)
+                    sendServerHello()
                     val dev = active ?: return@launch
                     startRumblePump(dev)
                     _state.value = HostState(Phase.CONNECTED, "已连接: $srcIp")
@@ -407,16 +474,18 @@ object ControlledHostManager {
 
     private suspend fun disconnectInternal(reason: String?) {
         val device = active
+        val downlink = activeDownlink
         active = null
+        activeDownlink = null
         reconnecting = false
         lastReceiveAt = 0L
         rumbleJob?.cancel()
         rumbleJob = null
         _session.value = null
         _connectingIp.value = null
-        if (device != null) {
+        if (device != null && downlink != null) {
             try {
-                send(device.ip, TYPE_SERVER_TO_CLIENT, disconnectMessage())
+                downlink(TYPE_SERVER_TO_CLIENT, disconnectMessage())
             } catch (_: Exception) {
             }
         }
@@ -467,6 +536,7 @@ object ControlledHostManager {
 
     private fun startRumblePump(device: ControlledDevice) {
         rumbleJob?.cancel()
+        val downlink = activeDownlink ?: return
         rumbleJob = scope?.launch {
             var last = 0L
             var lastSendAt = 0L
@@ -493,7 +563,7 @@ object ControlledHostManager {
                                 )
                             )
                             .build()
-                        send(device.ip, TYPE_SERVER_TO_CLIENT, frame.toByteArray())
+                        downlink(TYPE_SERVER_TO_CLIENT, frame.toByteArray())
                     }
                 }
                 delay(8)
@@ -517,7 +587,8 @@ object ControlledHostManager {
         }.sortedBy { it.title }
     }
 
-    private fun sendServerHello(ip: String) {
+    private fun sendServerHello() {
+        val downlink = activeDownlink ?: return
         val msg = ServerToClient.newBuilder()
             .setServerHello(
                 ServerHello.newBuilder()
@@ -527,7 +598,7 @@ object ControlledHostManager {
                     .setRecommendedUplinkIntervalUs(0)
             )
             .build()
-        send(ip, TYPE_SERVER_TO_CLIENT, msg.toByteArray())
+        downlink(TYPE_SERVER_TO_CLIENT, msg.toByteArray())
     }
 
     private fun disconnectMessage(): ByteArray {
@@ -537,7 +608,7 @@ object ControlledHostManager {
         return msg.toByteArray()
     }
 
-    private fun send(ip: String, type: Byte, payload: ByteArray) {
+    private fun sendUdp(ip: String, type: Byte, payload: ByteArray) {
         if (sockets.isEmpty()) return
         val data = ByteArray(1 + payload.size)
         data[0] = type

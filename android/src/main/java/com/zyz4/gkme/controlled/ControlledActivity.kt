@@ -16,6 +16,7 @@ import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.Spinner
 import android.widget.Switch
@@ -32,6 +33,8 @@ import com.zyz4.gkme.R
 import com.zyz4.gkme.data.ControlledDeviceModeRepository
 import com.zyz4.gkme.model.VirtualGamepadType
 import com.zyz4.gkme.service.ConnectionManager
+import com.zyz4.gkme.web.QrCodeImage
+import com.zyz4.gkme.web.WebServer
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -55,6 +58,9 @@ class ControlledActivity : ComponentActivity() {
     private lateinit var switchFloatingKeepAlive: Switch
     private lateinit var btnShizukuAction: Button
     private lateinit var etManualIp: EditText
+    private lateinit var spinnerWebInterface: Spinner
+    private lateinit var tvWebHost: TextView
+    private lateinit var ivWebQr: ImageView
     private var exitDialogShowing = false
 
     /** 观察设置回填开关时抑制监听器，避免误触发权限申请。 */
@@ -74,6 +80,9 @@ class ControlledActivity : ComponentActivity() {
         switchFloatingKeepAlive = findViewById(R.id.switchFloatingKeepAlive)
         btnShizukuAction = findViewById(R.id.btnShizukuAction)
         etManualIp = findViewById(R.id.etManualIp)
+        spinnerWebInterface = findViewById(R.id.spinnerWebInterface)
+        tvWebHost = findViewById(R.id.tvWebHost)
+        ivWebQr = findViewById(R.id.ivWebQr)
 
         GamepadInjector.init(this)
         GamepadInjector.ensureBound()
@@ -103,9 +112,55 @@ class ControlledActivity : ComponentActivity() {
         }
 
         startHostWithNotificationPermission()
+        setupWebCard()
         updateShizukuAction()
         observe()
         loadDeviceModes()
+    }
+
+    /**
+     * 初始化「网页手柄」卡片：列出可用网卡，默认选中主网卡，并展示地址与二维码。
+     * 静态资源与 WebSocket 桥接由 [WebServer] 在前台服务中托管。
+     */
+    private fun setupWebCard() {
+        val interfaces = WebServer.enumerateLanInterfaces()
+        val adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_item,
+            interfaces.map { it.display },
+        )
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinnerWebInterface.adapter = adapter
+
+        if (interfaces.isEmpty()) {
+            tvWebHost.text = "未找到可用网卡"
+            ivWebQr.setImageDrawable(null)
+            spinnerWebInterface.isEnabled = false
+            return
+        }
+
+        val primary = WebServer.primaryLanAddress()
+        val primaryIndex = interfaces.indexOfFirst { it.address == primary }.coerceAtLeast(0)
+        spinnerWebInterface.setSelection(primaryIndex, false)
+        spinnerWebInterface.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                updateWebAddress(interfaces.getOrNull(position)?.address)
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+        updateWebAddress(interfaces[primaryIndex].address)
+    }
+
+    private fun updateWebAddress(address: String?) {
+        if (address.isNullOrBlank()) {
+            tvWebHost.text = ""
+            ivWebQr.setImageDrawable(null)
+            return
+        }
+        tvWebHost.text = "http://$address:${WebServer.HTTP_PORT}"
+        val bitmap = runCatching { QrCodeImage.render(WebServer.buildUrl(address)) }.getOrNull()
+        ivWebQr.setImageBitmap(bitmap)
     }
 
     /** 读取每台控制端各自记忆的手柄类型，读完刷新列表以恢复已连接卡片的下拉框。 */
