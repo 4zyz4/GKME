@@ -102,14 +102,14 @@ class DsuCodec {
         val crc = bb.getInt()
         val clientId = bb.getInt()
 
-        val totalPacket = DsuConstants.HEADER_SIZE + payloadLen
-        if (buffer.size < totalPacket) return null
-
+        // 发送端对整个数据报计算 CRC。Emotion（非标准）部分报文的 payloadLen 与实际长度不符，
+        // 例如 rumble 报文声明 12 字节、实际却有 30 字节；因此这里以实际收到的字节数为准，
+        // 否则会按错误的范围计算 CRC，把这类报文当成校验失败丢弃。
         val crc32 = CRC32()
         crc32.update(buffer, 0, 8)
         crc32.update(ByteArray(4))
-        if (totalPacket > 12) {
-            crc32.update(buffer, 12, totalPacket - 12)
+        if (buffer.size > 12) {
+            crc32.update(buffer, 12, buffer.size - 12)
         }
         val computedCrc = crc32.value.toInt()
 

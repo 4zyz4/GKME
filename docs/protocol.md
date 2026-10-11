@@ -218,7 +218,9 @@ magic(4) | version(2) | payloadLen(2) | crc32(4) | clientId(4)
 
 - magic：服务端 `"DSUS"`，客户端 `"DSUC"`。
 - CRC32 计算覆盖 `[0,8) + 4 个零字节 + [12,end)`（跳过 CRC 字段本身）。
-- **CRC 当前不参与校验**：`decodeHeader` 计算 `computedCrc` 但不比对、不丢弃（`DsuCodec.kt:114-135`）。
+- **CRC 参与校验**：`decodeHeader` 计算 `computedCrc`，`DsuService` 仅在 `crcValid` 时才处理报文。
+- 校验范围按**实际收到的整包长度**计算，而非头部声明的 `payloadLen`：Emotion（非标准）部分报文两者不符
+  （rumble 报文声明 `12`、实际 30 字节），否则会按错误范围计算 CRC 而把报文丢弃（`DsuCodec.kt:105-114`）。
 
 ### 5.2 事件类型
 
@@ -239,6 +241,7 @@ magic(4) | version(2) | payloadLen(2) | crc32(4) | clientId(4)
 - `GamepadData`：80 字节 payload + 4 字节 eventType。按钮三字节位映射、START/SELECT 写 255、
   摇杆右移 8 位、Y 轴取负、十字键同时写字节位与四个 0/255 通道、两路触摸（x clamp 0..3838、y 0..1884）、
   陀螺仪转 deg/s、加速度转 g 并翻转符号（`DsuCodec.kt:195-270`）。
+- 受被控端 Emotion 限制：其虚拟 DS4 从不写入报告第 6 字节（PS/Home 与触摸板点击），Home 无法送达。
 - 电量映射见 `batteryFromAndroid()`（`DsuCodec.kt:49-59`）。
 
 ---
@@ -377,7 +380,7 @@ fun  updateParameter(intensity, frequency): Boolean
 | 问题 | 证据 |
 |------|------|
 | UDP `pcAddress` 端口硬编码为 `PORT`，忽略实际源端口 | `UdpService.kt:255` |
-| [已修复] DSU 收到 CRC 错误包仍处理；`isBroadcastPacket` 为死代码 | `DsuCodec.kt:114-135, 61-65` |
+| [已修复] DSU CRC 按头部声明长度计算，导致 Emotion 的非标准 rumble 报文（声明 12、实际 30 字节）被误判为校验失败而丢弃，震动不播放；现按实际整包长度校验。Home 受被控端限制无法映射 | `DsuCodec.kt:105-114` |
 | [已修复] `Hello.mac_address` 名为 MAC 实为 `ANDROID_ID`（本地方法已改名为 `getDeviceId`，协议字段名保留） | `ConnectionManager.kt:884-892` |
 | 蓝牙主机到设备输出报告（振动）未处理 | `ConnectionManager.handleBtOutputReport` 空实现 |
 | `GamepadState.buttons` 为 `UInt`，部分常量声明为 `Int`，比较需 `toUInt()` | `GamepadState.kt:44-65` |
