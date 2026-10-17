@@ -7,7 +7,7 @@ const PRESETS_KEY = "gkme.presets.v1";
 const ACTIVE_PRESET_KEY = "gkme.activePreset.v1";
 
 // Kept in sync with the Android versionName (android/build.gradle.kts).
-export const APP_VERSION = "4.6.0";
+export const APP_VERSION = "4.6.1";
 
 export const DEFAULT_SETTINGS = {
   displayMode: "XBOX",
