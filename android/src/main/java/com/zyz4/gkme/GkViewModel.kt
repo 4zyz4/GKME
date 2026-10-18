@@ -8,6 +8,7 @@ import android.os.BatteryManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.zyz4.gkme.data.LayoutRepository
+import com.zyz4.gkme.i18n.AppText
 import com.zyz4.gkme.input.AccelSteeringMapper
 import com.zyz4.gkme.input.SensitivityCurve
 import com.zyz4.gkme.input.SensorHandler
@@ -965,7 +966,7 @@ class GkViewModel @Inject constructor(
     }
 
     /** 更新服务未运行时的状态栏文案（本机模式 Shizuku 授权进度 / 失败）。 */
-    fun setLocalModeStatus(text: String) {
+    fun setLocalModeStatus(text: AppText) {
         connectionManager.setIdleStatus(text)
     }
 

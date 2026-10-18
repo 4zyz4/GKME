@@ -2,6 +2,7 @@ package com.zyz4.gkme
 
 import com.zyz4.gkme.R
 import com.zyz4.gkme.i18n.AppLocale
+import com.zyz4.gkme.i18n.AppText
 import android.Manifest
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
@@ -401,11 +402,12 @@ internal fun MainActivity.setupSettings() {
 
     // Sidebar scrollbar
     a.findViewById<ScrollView>(R.id.scrollSidebar).apply {
+        val aboutBtn = a.findViewById<View>(R.id.btnCategoryAbout) ?: return@apply
         viewTreeObserver.addOnGlobalLayoutListener {
-            val aboutBtn = a.findViewById<View>(R.id.btnCategoryAbout)
+            val aboutHeight = aboutBtn.height.coerceAtLeast(1)
             val visibleTop = maxOf(0, aboutBtn.top - scrollY)
             val visibleBottom = minOf(height, aboutBtn.bottom - scrollY)
-            val visibleRatio = maxOf(0, visibleBottom - visibleTop).toFloat() / aboutBtn.height
+            val visibleRatio = maxOf(0, visibleBottom - visibleTop).toFloat() / aboutHeight
             isVerticalScrollBarEnabled = visibleRatio < 0.5f
         }
     }
@@ -1708,13 +1710,13 @@ internal fun MainActivity.tryStartLocalVirtualDevice(): Boolean {
             a.localStartPending = false
             a.stopShizukuPolling()
             a.updateShizukuEntry()
-            a.viewModel.setLocalModeStatus(getString(R.string.i18n_shizuku_authorization_failed_grant_permi))
+            a.viewModel.setLocalModeStatus(AppText.Res(R.string.i18n_shizuku_authorization_failed_grant_permi))
         } else if (GamepadInjector.bindFailed) {
             // 已授权但用户服务始终连不上（疑似 Shizuku 存在重复实例），停止轮询并提示重启。
             a.localStartPending = false
             a.stopShizukuPolling()
             a.updateShizukuEntry()
-            a.viewModel.setLocalModeStatus(ShizukuServiceBinding.BIND_FAILED_MESSAGE)
+            a.viewModel.setLocalModeStatus(AppText.Res(R.string.i18n_shizuku_service_is_in_an_unexpected_stat))
         }
         return false
     }
@@ -1990,7 +1992,7 @@ internal fun MainActivity.updateSettingsVisibility(mode: ConnectionMode) {
     } else {
         a.localStartPending = false
         a.stopShizukuPolling()
-        a.viewModel.setLocalModeStatus(getString(R.string.i18n_not_started))
+        a.viewModel.setLocalModeStatus(AppText.Res(R.string.i18n_not_started))
     }
     a.updatePairedDeviceVisibility(a.viewModel.pairedDeviceName.value)
 }
