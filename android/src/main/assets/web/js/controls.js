@@ -1,6 +1,8 @@
 // GKME-Web — control metadata, HID codes and label maps.
 // Mirrors com.zyz4.gkme.model.GamepadState / MainActivityControls.
 
+import { t } from "./i18n.js";
+
 export const BIT = {
   A: 0x00001,
   B: 0x00002,
@@ -203,37 +205,38 @@ const FACE_LABELS = {
   btnY: { XBOX: "Y", PS: "", SWITCH: "X" },
 };
 
-// Bit value → display name (mirrors MainActivityControls.BitNameMapper).
-export const BIT_NAMES = {
-  [BIT.A]: "手柄：A",
-  [BIT.B]: "手柄：B",
-  [BIT.X]: "手柄：X",
-  [BIT.Y]: "手柄：Y",
-  [BIT.LB]: "手柄：LB",
-  [BIT.RB]: "手柄：RB",
-  [BIT.LT]: "手柄：LT",
-  [BIT.RT]: "手柄：RT",
-  [BIT.SELECT]: "手柄：选择",
-  [BIT.START]: "手柄：菜单",
-  [BIT.L3]: "手柄：左摇杆按下",
-  [BIT.R3]: "手柄：右摇杆按下",
-  [BIT.HOME]: "手柄：主页",
-  [BIT.TOUCHPAD_CLICK]: "手柄：分享",
-  [BIT.MIC_MUTE]: "麦克风静音",
-  [BIT.DPAD_BIT_UP]: "上方向",
-  [BIT.DPAD_BIT_DOWN]: "下方向",
-  [BIT.DPAD_BIT_LEFT]: "左方向",
-  [BIT.DPAD_BIT_RIGHT]: "右方向",
+// Bit value → display-name key (mirrors MainActivityControls.BitNameMapper).
+export const BIT_NAME_KEYS = {
+  [BIT.A]: "control.gamepadA",
+  [BIT.B]: "control.gamepadB",
+  [BIT.X]: "control.gamepadX",
+  [BIT.Y]: "control.gamepadY",
+  [BIT.LB]: "control.gamepadLB",
+  [BIT.RB]: "control.gamepadRB",
+  [BIT.LT]: "control.gamepadLT",
+  [BIT.RT]: "control.gamepadRT",
+  [BIT.SELECT]: "control.select",
+  [BIT.START]: "control.menu",
+  [BIT.L3]: "control.ls",
+  [BIT.R3]: "control.rs",
+  [BIT.HOME]: "control.home",
+  [BIT.TOUCHPAD_CLICK]: "control.share",
+  [BIT.MIC_MUTE]: "control.mic",
+  [BIT.DPAD_BIT_UP]: "control.dpadUp",
+  [BIT.DPAD_BIT_DOWN]: "control.dpadDown",
+  [BIT.DPAD_BIT_LEFT]: "control.dpadLeft",
+  [BIT.DPAD_BIT_RIGHT]: "control.dpadRight",
 };
 
 export function bitName(bit) {
-  return BIT_NAMES[bit] || "位" + bit;
+  const key = BIT_NAME_KEYS[bit];
+  return key ? t(key) : t("control.bit", bit);
 }
 
 // Output picker groups (mirrors MainActivity.showOutputValuePicker).
 export const OUTPUT_PICKER_GROUPS = [
   {
-    title: "手柄",
+    titleKey: "control.gamepad",
     bits: [
       BIT.A, BIT.B, BIT.X, BIT.Y, BIT.LB, BIT.RB, BIT.LT, BIT.RT,
       BIT.SELECT, BIT.START, BIT.L3, BIT.R3, BIT.HOME, BIT.TOUCHPAD_CLICK,
@@ -259,12 +262,41 @@ export function isSettingsId(id) {
   return baseId(id) === "btnSettings";
 }
 
-// Chinese name for the editor panel title (mirrors FloatingEditorPanel.getChineseName).
-export function chineseNameFor(id) {
+// Localized name for the editor panel title (mirrors FloatingEditorPanel.getChineseName).
+const CONTROL_NAME_KEYS = {
+  btnA: "control.gamepadA",
+  btnB: "control.gamepadB",
+  btnX: "control.gamepadX",
+  btnY: "control.gamepadY",
+  btnLB: "control.gamepadLB",
+  btnRB: "control.gamepadRB",
+  btnLT: "control.gamepadLT",
+  btnRT: "control.gamepadRT",
+  leftJoystick: "control.leftStick",
+  rightJoystick: "control.rightStick",
+  touchpad: "control.touchpad",
+  dpadPad: "control.dpadPad",
+  btnDpadUp: "control.dpadUp",
+  btnDpadDown: "control.dpadDown",
+  btnDpadLeft: "control.dpadLeft",
+  btnDpadRight: "control.dpadRight",
+  btnSelect: "control.select",
+  btnMenu: "control.menu",
+  btnHome: "control.home",
+  btnShare: "control.share",
+  btnLS: "control.ls",
+  btnRS: "control.rs",
+  btnMic: "control.mic",
+  customKeypad: "control.customKeypad",
+  btnCustomCircle: "control.customCircle",
+  btnCustomRect: "control.customRect",
+  btnSettings: "control.settings",
+};
+
+export function controlDisplayName(id) {
   const b = baseId(id);
-  const c = CONTROLS[b];
-  if (c) return c.name;
-  if (isKeypadId(id)) return CONTROLS.customKeypad.name;
+  if (CONTROL_NAME_KEYS[b]) return t(CONTROL_NAME_KEYS[b]);
+  if (isKeypadId(id)) return t("control.customKeypad");
   return b;
 }
 

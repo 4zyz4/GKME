@@ -7,7 +7,7 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>GKME 网页手柄</title>
+  <title data-i18n="app.title">GKME 网页手柄</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="assets/icon.ico" sizes="any" />
   <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png" />
@@ -20,20 +20,20 @@
 
   <!-- Touchpad status label (android: 11sp, 0x99666666, centred, no chrome) -->
   <div id="topbar">
-    <span id="statusText">未连接</span>
+    <span id="statusText" data-i18n="status.disconnected">未连接</span>
   </div>
 
   <!-- Shown until the WebSocket handshake completes -->
   <div id="connectOverlay">
     <div class="card">
       <div class="logo">GKME</div>
-      <div class="subtitle">网页虚拟手柄</div>
-      <div id="connectMsg" class="msg">正在连接主机端…</div>
-      <button id="connectBtn" class="primary">连接 / 进入全屏</button>
+      <div class="subtitle" data-i18n="overlay.subtitle">网页虚拟手柄</div>
+      <div id="connectMsg" class="msg" data-i18n="overlay.message">正在连接主机端…</div>
+      <button id="connectBtn" class="primary" data-i18n="overlay.connect">连接 / 进入全屏</button>
       <div class="tips">
-        <p>· 主机端需已运行 GKME，并显示“网页手柄”地址</p>
-        <p>· 横屏使用获得完整布局</p>
-        <p>· 振动需配合支持 Vibration API 的移动端浏览器</p>
+        <p data-i18n="overlay.tip1">· 主机端需已运行 GKME，并显示“网页手柄”地址</p>
+        <p data-i18n="overlay.tip2">· 横屏使用获得完整布局</p>
+        <p data-i18n="overlay.tip3">· 振动需配合支持 Vibration API 的移动端浏览器</p>
       </div>
     </div>
   </div>
@@ -45,14 +45,14 @@
         <svg class="sideback-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
           <path fill="#CCCCCC" d="M20,11H7.8l5.6,-5.6L12,4l-8,8 8,8 1.4,-1.4L7.8,13H20v-2z" />
         </svg>
-        <span>返回</span>
+        <span data-i18n="common.back">返回</span>
       </button>
       <div class="sidebar-divider"></div>
       <div id="settingsNavList"></div>
     </aside>
     <main id="settingsMain">
       <header class="settingsheader">
-        <span class="settingsTitle">GKME 设置</span>
+        <span class="settingsTitle" data-i18n="settings.title">GKME 设置</span>
       </header>
       <div id="settingsBody"></div>
     </main>
@@ -61,10 +61,10 @@
   <!-- Layout editor floating panel (FloatingEditorPanel) -->
   <div id="editpanel" class="hidden">
     <div id="editHeader">
-      <div id="editGrip" aria-label="拖动面板">
+      <div id="editGrip" aria-label="拖动面板" data-i18n-aria="editor.dragPanel">
         <span></span><span></span><span></span>
       </div>
-      <button id="editCollapse" type="button" aria-label="收起/展开面板"></button>
+      <button id="editCollapse" type="button" aria-label="收起/展开面板" data-i18n-aria="editor.collapsePanel"></button>
     </div>
     <div id="editScroll">
       <div id="editActions"></div>

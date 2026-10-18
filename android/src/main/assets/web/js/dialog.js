@@ -6,6 +6,7 @@
 // blocking, so callers use `await`.
 
 import { el } from "./dom.js";
+import { t } from "./i18n.js";
 
 function openDialog() {
   const overlay = el("div", { class: "dlgov" });
@@ -32,7 +33,7 @@ function btnRow(negativeText, positiveText, onNegative, onPositive) {
 
 /** Android CustomDialog.showConfirm — resolves true on confirm, false otherwise. */
 export function showConfirm(title, message, opts = {}) {
-  const { positiveText = "确定", negativeText = "取消" } = opts;
+  const { positiveText = t("common.ok"), negativeText = t("common.cancel") } = opts;
   return new Promise((resolve) => {
     const { overlay, box, close } = openDialog();
     box.appendChild(el("div", { class: "dlgtitle", text: title }));
@@ -46,13 +47,13 @@ export function showConfirm(title, message, opts = {}) {
   });
 }
 
-/** Android CustomDialog.showSponsorDialog — 赞助 with the reward QR image. */
+/** Android CustomDialog.showSponsorDialog — sponsor dialog with the reward QR image. */
 export function showSponsorDialog() {
   const { overlay, box, close } = openDialog();
-  box.appendChild(el("div", { class: "dlgtitle", text: "赞助" }));
-  box.appendChild(el("div", { class: "dlgmsg", text: "感谢您的支持！" }));
-  box.appendChild(el("img", { class: "sponsorimg", src: "assets/reward.png", alt: "收款码" }));
-  box.appendChild(btnRow("关闭", null, () => close(), null));
+  box.appendChild(el("div", { class: "dlgtitle", text: t("dialog.sponsorTitle") }));
+  box.appendChild(el("div", { class: "dlgmsg", text: t("dialog.sponsorThanks") }));
+  box.appendChild(el("img", { class: "sponsorimg", src: "assets/reward.png", alt: t("dialog.sponsorQrAlt") }));
+  box.appendChild(btnRow(t("common.close"), null, () => close(), null));
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
 }
 
@@ -61,22 +62,22 @@ export function showSponsorDialog() {
 export function showIosFullscreenHint() {
   const { overlay, box, close } = openDialog();
   box.classList.add("ioshintbox");
-  box.appendChild(el("div", { class: "dlgtitle", text: "全屏体验提示" }));
+  box.appendChild(el("div", { class: "dlgtitle", text: t("dialog.iosTitle") }));
   const msg = el("div", { class: "dlgmsg ioshintmsg" }, [
-    el("div", { text: "iOS Safari 无法直接全屏。" }),
+    el("div", { text: t("dialog.iosLine1") }),
     el("div", {}, [
-      "请点击底部的 ",
+      t("dialog.iosLine2Prefix"),
       shareIcon(),
-      el("span", { class: "hl", text: "分享按钮" }),
-      "，选择",
+      el("span", { class: "hl", text: t("dialog.iosShare") }),
+      t("dialog.iosLine2Suffix"),
     ]),
     el("div", {}, [
-      el("span", { class: "hl", text: "「添加到主屏幕」" }),
-      "，再从此图标打开即可全屏运行。",
+      el("span", { class: "hl", text: t("dialog.iosAddHome") }),
+      t("dialog.iosLine3Suffix"),
     ]),
   ]);
   box.appendChild(msg);
-  box.appendChild(btnRow(null, "我知道了", null, () => close()));
+  box.appendChild(btnRow(null, t("dialog.gotIt"), null, () => close()));
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
 }
 
@@ -93,7 +94,7 @@ function shareIcon() {
 
 /** Android CustomDialog.showInput — resolves the trimmed string, or null on cancel. */
 export function showInput(title, opts = {}) {
-  const { hint = "", prefill = "", positiveText = "确定", negativeText = "取消" } = opts;
+  const { hint = "", prefill = "", positiveText = t("common.ok"), negativeText = t("common.cancel") } = opts;
   return new Promise((resolve) => {
     const { overlay, box, close } = openDialog();
     box.appendChild(el("div", { class: "dlgtitle", text: title }));

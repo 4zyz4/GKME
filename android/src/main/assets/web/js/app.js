@@ -5,7 +5,10 @@
 
 import { Connection, getDeviceName, setDeviceName } from "./protocol.js";
 import { GamepadLayout, DEFAULT_APPEARANCE, normalizeButton } from "./layout.js";
-import { BIT, DPAD, Kb, KB_MODIFIER_CODES, MODIFIER_BITS, CONTROLS, getControl, DISPLAY_MODES, defaultSizeFor } from "./controls.js";
+import {
+  BIT, DPAD, Kb, KB_MODIFIER_CODES, MODIFIER_BITS, CONTROLS, getControl,
+  DISPLAY_MODES, defaultSizeFor, controlDisplayName,
+} from "./controls.js";
 import {
   loadSettings, saveSettings, ensurePresets, savePresets, getActivePresetName,
   setActivePresetName, InputState, DEFAULT_SETTINGS,
@@ -16,6 +19,7 @@ import { FULL_CON } from "./presets.js";
 import { LayoutEditor } from "./editor.js";
 import { showConfirm, showInput, showIosFullscreenHint } from "./dialog.js";
 import { setForceLandscape } from "./orientation.js";
+import { t, applyStaticTranslations, keypadDefaultTexts } from "./i18n.js";
 
 // ── Settings animation constants (mirrors MainActivitySettings.kt) ──
 const SETTINGS_OPEN_DURATION = 300;
@@ -27,6 +31,7 @@ const EASE_OUT_QUINT = "cubic-bezier(0.22, 1, 0.36, 1)";
 
 class App {
   constructor() {
+    applyStaticTranslations();
     this.settings = loadSettings();
     // The web build has no appearance editor; always use the Android default profile.
     this.settings.appearance = JSON.parse(JSON.stringify(DEFAULT_APPEARANCE));
@@ -48,6 +53,7 @@ class App {
     this._sendTimer = null;
     this._wakeLock = null;
     this._lastInputJson = "";
+    this._connState = "disconnected";
 
     this._bindDom();
     this._bindConnection();
@@ -224,13 +230,13 @@ class App {
     setActivePresetName(name);
     this.layout.setPreset(this.presets[name]);
     this._positionStatus();
-    this._toast("已加载预设：" + name);
+    this._toast(t("presets.loaded", this.presetDisplayName(name)));
   }
 
   _saveCurrentPreset() {
     this.presets[this.activePreset] = this.layout.serialize();
     savePresets(this.presets);
-    this._toast("已保存预设：" + this.activePreset);
+    this._toast(t("presets.saved", this.presetDisplayName(this.activePreset)));
   }
 
   _applyCustomBits(bits, down) {
@@ -296,15 +302,16 @@ class App {
       this._onLed(e.detail);
     });
     this.conn.addEventListener("serverDisconnect", (e) => {
-      this._toast("主机断开连接" + (e.detail ? "：" + e.detail : ""));
+      this._toast(e.detail ? t("app.hostDisconnectedReason", e.detail) : t("app.hostDisconnected"));
     });
   }
 
   _updateStatus(state) {
+    this._connState = state;
     const map = {
-      connecting: "连接中…",
-      connected: "已连接",
-      disconnected: "未连接",
+      connecting: t("status.connecting"),
+      connected: t("status.connected"),
+      disconnected: t("status.disconnected"),
     };
     this.statusText.textContent = map[state] || map.disconnected;
     this.connectOverlay.classList.toggle("hidden", state === "connected");
@@ -532,12 +539,12 @@ class App {
 
   _renderSettingsNav() {
     const cats = [
-      ["connection", "连接"],
-      ["presets", "布局"],
-      ["physical", "实体手柄"],
-      ["vibration", "震动"],
-      ["misc", "杂项"],
-      ["about", "关于"],
+      ["connection", t("nav.connection")],
+      ["presets", t("nav.layout")],
+      ["physical", t("nav.physical")],
+      ["vibration", t("nav.vibration")],
+      ["misc", t("nav.misc")],
+      ["about", t("nav.about")],
     ];
     const list = this.settingsNavList || this.settingsNav;
     list.innerHTML = "";
@@ -618,6 +625,16 @@ class App {
     this._renderSettingsNav();
   }
 
+  /** Re-render everything that carries UI text after a language switch. */
+  _onLanguageChanged() {
+    applyStaticTranslations();
+    this._renderSettingsNav();
+    this._updateStatus(this._connState);
+    this._selectCategory(this._category || "misc", false);
+    if (this.editor) this.editor.refreshLanguage();
+    this._positionStatus();
+  }
+
   // ── Layout editing ──
   enterEditMode() {
     if (this.editor.isOpen) return;
@@ -634,14 +651,18 @@ class App {
     return Object.keys(this.presets);
   }
 
+  presetDisplayName(name) {
+    return name === "full_con" ? t("presets.fullController") : name;
+  }
+
   createDefaultPreset() {
     return { version: 1, buttons: [] };
   }
 
   async newPreset() {
-    const nn = await showInput("新建布局", { hint: "输入新预设名称", prefill: "custom_" + (Object.keys(this.presets).length + 1) });
+    const nn = await showInput(t("presets.newTitle"), { hint: t("presets.inputNewName"), prefill: "custom_" + (Object.keys(this.presets).length + 1) });
     if (!nn) return false;
-    if (this.presets[nn]) { this._toast("预设已存在"); return false; }
+    if (this.presets[nn]) { this._toast(t("presets.exists")); return false; }
     this.presets[nn] = this.createDefaultPreset();
     savePresets(this.presets);
     this._loadPreset(nn);
@@ -650,9 +671,10 @@ class App {
 
   async copyCurrentPreset() {
     const src = this.activePreset;
-    const nn = await showInput("复制布局", { hint: "输入新预设名称", prefill: "复制_" + src.replace(/^复制_/, "") });
+    const copyBase = this.presetDisplayName(src).replace(/^(复制_|Copy_|複製_)/, "");
+    const nn = await showInput(t("presets.copyTitle"), { hint: t("presets.inputNewName"), prefill: t("presets.copyPrefix") + copyBase });
     if (!nn) return false;
-    if (this.presets[nn]) { this._toast("预设已存在"); return false; }
+    if (this.presets[nn]) { this._toast(t("presets.exists")); return false; }
     this.presets[nn] = JSON.parse(JSON.stringify(this.presets[src]));
     savePresets(this.presets);
     this._loadPreset(nn);
@@ -661,10 +683,10 @@ class App {
 
   async renameCurrentPreset() {
     const src = this.activePreset;
-    if (this.isBuiltInPreset(src)) { this._toast("内置布局禁止重命名"); return false; }
-    const nn = await showInput("重命名", { prefill: src });
+    if (this.isBuiltInPreset(src)) { this._toast(t("presets.builtinRename")); return false; }
+    const nn = await showInput(t("presets.renameTitle"), { prefill: src });
     if (!nn || nn === src) return false;
-    if (this.presets[nn]) { this._toast("名称已存在"); return false; }
+    if (this.presets[nn]) { this._toast(t("presets.nameExists")); return false; }
     this.presets[nn] = this.presets[src];
     delete this.presets[src];
     this.activePreset = nn;
@@ -675,8 +697,8 @@ class App {
 
   async deleteCurrentPreset() {
     const src = this.activePreset;
-    if (this.isBuiltInPreset(src)) { this._toast("内置布局禁止删除"); return false; }
-    if (!(await showConfirm("删除预设", "确定删除「" + src + "」？", { positiveText: "删除" }))) return false;
+    if (this.isBuiltInPreset(src)) { this._toast(t("presets.builtinDelete")); return false; }
+    if (!(await showConfirm(t("presets.deleteTitle"), t("presets.deleteConfirm", this.presetDisplayName(src)), { positiveText: t("presets.delete") }))) return false;
     delete this.presets[src];
     savePresets(this.presets);
     const rest = Object.keys(this.presets);
@@ -687,11 +709,11 @@ class App {
   async restoreCurrentDefault() {
     const src = this.activePreset;
     if (!this.isBuiltInPreset(src)) return false;
-    if (!(await showConfirm("恢复默认", "确定将内置布局「" + src + "」恢复为默认？", { positiveText: "恢复默认" }))) return false;
+    if (!(await showConfirm(t("presets.restoreDefaults"), t("presets.restoreConfirm", this.presetDisplayName(src)), { positiveText: t("presets.restoreDefaults") }))) return false;
     this.presets[src] = JSON.parse(JSON.stringify(FULL_CON));
     savePresets(this.presets);
     this._loadPreset(src);
-    this._toast("已恢复「" + src + "」为默认");
+    this._toast(t("presets.restored", this.presetDisplayName(src)));
     return true;
   }
 
@@ -703,14 +725,14 @@ class App {
     try {
       const text = await file.text();
       const obj = JSON.parse(text);
-      const nn = await showInput("导入布局", { hint: "输入预设名称", prefill: file.name.replace(/\.json$/, "") });
+      const nn = await showInput(t("presets.importTitle"), { hint: t("presets.inputName"), prefill: file.name.replace(/\.json$/, "") });
       if (!nn) return false;
       this.presets[nn] = obj;
       savePresets(this.presets);
       this._loadPreset(nn);
       return true;
     } catch {
-      this._toast("导入失败：无效 JSON");
+      this._toast(t("presets.importFailed"));
       return false;
     }
   }
@@ -729,7 +751,7 @@ class App {
     overlay.className = "modal";
     const box = document.createElement("div");
     box.className = "modalbox";
-    box.appendChild(Object.assign(document.createElement("div"), { className: "modaltitle", textContent: "添加控件" }));
+    box.appendChild(Object.assign(document.createElement("div"), { className: "modaltitle", textContent: t("app.addControlTitle") }));
     const grid = document.createElement("div");
     grid.className = "modalgrid";
     for (const [id, meta] of Object.entries(CONTROLS)) {
@@ -737,7 +759,7 @@ class App {
       // Keyboard controls are not part of the web build.
       if (meta.isKeyboard) continue;
       const b = document.createElement("button");
-      b.textContent = meta.name;
+      b.textContent = controlDisplayName(id);
       b.addEventListener("click", () => {
         this._addControl(id);
         overlay.remove();
@@ -747,7 +769,7 @@ class App {
     box.appendChild(grid);
     const close = document.createElement("button");
     close.className = "modalclose";
-    close.textContent = "关闭";
+    close.textContent = t("common.close");
     close.addEventListener("click", () => overlay.remove());
     box.appendChild(close);
     overlay.appendChild(box);
@@ -764,12 +786,12 @@ class App {
     const raw = { id, x: spot.x, y: spot.y, w, h };
     if (baseId === "btnCustomRect" || baseId === "btnCustomCircle") {
       raw.isCustom = true;
-      raw.customText = (await showInput("自定义按钮文字", { hint: "输入按钮文字", prefill: "自定义" })) || "自定义";
+      raw.customText = (await showInput(t("app.customTextTitle"), { hint: t("app.customTextHint"), prefill: t("common.custom") })) || t("common.custom");
       raw.customBits = [];
     }
     if (baseId === "customKeypad") {
       raw.isKeypad = true;
-      raw.keypadTexts = ["上", "下", "左", "右", "中", "左上", "右上", "左下", "右下"];
+      raw.keypadTexts = keypadDefaultTexts();
       raw.keypadBits = [[], [], [], [], [], [], [], [], []];
     }
     const b = normalizeButton(raw);
