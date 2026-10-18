@@ -14,8 +14,13 @@ object AppStrings {
     @Volatile
     private var appContext: Context? = null
 
+    /**
+     * Keeps the exact [context] (which may be a locale-overridden configuration context from
+     * [AppLocale.wrap]). Calling `applicationContext` here would silently drop that override,
+     * leaving context-less strings on the language chosen at process start.
+     */
     fun init(context: Context) {
-        appContext = context.applicationContext
+        appContext = context
     }
 
     fun get(@StringRes id: Int, vararg args: Any?): String {
