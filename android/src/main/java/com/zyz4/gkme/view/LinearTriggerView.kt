@@ -56,6 +56,9 @@ class LinearTriggerView @JvmOverloads constructor(
     private var initialTouchY = 0f
     private var currentValue = 0
     private var wasAtMax = false
+    // ── 自动保持：松手后锁定当前行程，下一次拖动从锁定位置继续 ──
+    private var latched = false
+    private var baseOffset = 0f
     // ── 预测：上一次位移样本 ──
     private var lastOffset = 0f
     private var lastOffsetTime = 0L
@@ -88,7 +91,7 @@ class LinearTriggerView @JvmOverloads constructor(
 
     override fun onDraw(canvas: android.graphics.Canvas) {
         // Apply opacity for idle/active states
-        val targetAlpha = (if (isDragging) activeOpacity else idleOpacity).coerceIn(0, 100) / 100f
+        val targetAlpha = (if (isDragging || latched) activeOpacity else idleOpacity).coerceIn(0, 100) / 100f
         if (alpha != targetAlpha) {
             alpha = targetAlpha
         }
@@ -115,20 +118,40 @@ class LinearTriggerView @JvmOverloads constructor(
         return false
     }
 
+    private fun isAutoHoldEnabled(): Boolean {
+        val id = tag as? String ?: return false
+        var p = parent
+        while (p != null) {
+            if (p is com.zyz4.gkme.view.GamepadLayout) {
+                return p.currentButtons.find { it.id == id }?.autoHold == true
+            }
+            p = if (p is android.view.View) p.parent else null
+        }
+        return false
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (isGamepadEditMode()) {
             return super.onTouchEvent(event)
         }
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                val continuing = latched
+                latched = false
                 isDragging = true
                 initialTouchX = event.x
                 initialTouchY = event.y
-                setTranslationX(0f)
-                setTranslationY(0f)
-                currentValue = 0
-                wasAtMax = false
-                lastOffset = 0f
+                if (!continuing) {
+                    setTranslationX(0f)
+                    setTranslationY(0f)
+                    currentValue = 0
+                }
+                baseOffset = when (slideDirection) {
+                    SlideDirection.DOWN, SlideDirection.UP -> translationY
+                    SlideDirection.LEFT, SlideDirection.RIGHT -> translationX
+                }
+                wasAtMax = currentValue >= 255
+                lastOffset = abs(baseOffset)
                 lastOffsetTime = event.eventTime
                 hasOffsetSample = true
                 hasMoveSample = false
@@ -147,26 +170,22 @@ class LinearTriggerView @JvmOverloads constructor(
                     SlideDirection.DOWN -> {
                         // 手指向下（dy>0）→ 按钮向下移动（translationY>0）
                         // 不允许手指向上（dy<0）移动
-                        val clampedDy = dy.coerceIn(0f, travelPx)
-                        setTranslationY(clampedDy)
+                        setTranslationY((baseOffset + dy).coerceIn(0f, travelPx))
                     }
                     SlideDirection.UP -> {
                         // 手指向上（dy<0）→ 按钮向上移动（translationY<0）
                         // 不允许手指向下（dy>0）移动
-                        val clampedDy = dy.coerceIn(-travelPx, 0f)
-                        setTranslationY(clampedDy)
+                        setTranslationY((baseOffset + dy).coerceIn(-travelPx, 0f))
                     }
                     SlideDirection.LEFT -> {
                         // 手指向左（dx<0）→ 按钮向左移动（translationX<0）
                         // 不允许手指向右（dx>0）移动
-                        val clampedDx = dx.coerceIn(-travelPx, 0f)
-                        setTranslationX(clampedDx)
+                        setTranslationX((baseOffset + dx).coerceIn(-travelPx, 0f))
                     }
                     SlideDirection.RIGHT -> {
                         // 手指向右（dx>0）→ 按钮向右移动（translationX>0）
                         // 不允许手指向左（dx<0）移动
-                        val clampedDx = dx.coerceIn(0f, travelPx)
-                        setTranslationX(clampedDx)
+                        setTranslationX((baseOffset + dx).coerceIn(0f, travelPx))
                     }
                 }
 
@@ -220,13 +239,22 @@ class LinearTriggerView @JvmOverloads constructor(
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 if (isDragging) {
                     isDragging = false
+                    hasOffsetSample = false
+                    hasMoveSample = false
+                    sampleRate.reset()
+                    if (event.actionMasked == MotionEvent.ACTION_UP &&
+                        currentValue > 0 && isAutoHoldEnabled()
+                    ) {
+                        // 自动保持：保留当前行程与位移，下一次拖动从该位置继续调整。
+                        latched = true
+                        isPressed = true
+                        invalidate()
+                        return true
+                    }
                     isPressed = false
                     setTranslationX(0f)
                     setTranslationY(0f)
                     wasAtMax = false
-                    hasOffsetSample = false
-                    hasMoveSample = false
-                    sampleRate.reset()
                     if (currentValue > 0) {
                         onButtonUp?.invoke()
                     }

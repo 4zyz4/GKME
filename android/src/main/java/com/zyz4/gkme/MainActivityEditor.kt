@@ -1407,6 +1407,7 @@ internal fun MainActivity.recreateViewForButton(buttonId: String, pos: ButtonPos
         com.zyz4.gkme.view.LinearTriggerView(a).apply {
             id = View.generateViewId()
             tag = buttonId
+            val baseId = pos.id.substringBefore("_")
             text = when (mode) {
                 DisplayMode.XBOX -> "LT"
                 DisplayMode.PLAYSTATION -> "L2"
@@ -1421,11 +1422,24 @@ internal fun MainActivity.recreateViewForButton(buttonId: String, pos: ButtonPos
             activeOpacity = pos.activeOpacity
             prediction = pos.prediction
             onValueChange = { value ->
-                val baseId = pos.id.substringBefore("_")
                 if (baseId == "btnLT") {
                     viewModel.onLeftTrigger(value)
                 } else {
                     viewModel.onRightTrigger(value)
+                }
+            }
+            onButtonDown = {
+                if (baseId == "btnLT") {
+                    viewModel.onButtonDown(GamepadState.LT)
+                } else {
+                    viewModel.onButtonDown(GamepadState.RT)
+                }
+            }
+            onButtonUp = {
+                if (baseId == "btnLT") {
+                    viewModel.onButtonUp(GamepadState.LT)
+                } else {
+                    viewModel.onButtonUp(GamepadState.RT)
                 }
             }
             onTriggerBottomVibrate = {

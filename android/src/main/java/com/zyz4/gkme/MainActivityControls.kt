@@ -604,10 +604,43 @@ internal fun MainActivity.setupTouchHandler(
         }
         isTrigger -> {
             val analogFn: (Int) -> Unit = if (bit == GamepadState.LT) a.viewModel::onLeftTrigger else a.viewModel::onRightTrigger
+            var latched = false
+            var releasedOnDown = false
             view.setOnTouchListener { v, e ->
+                val holdEnabled = (v.tag as? String)?.let { id ->
+                    a.gamepadLayout.currentButtons.find { it.id == id }?.autoHold
+                } == true
                 when (e.action) {
-                    MotionEvent.ACTION_DOWN -> { v.isPressed = true; v.performClick(); a.viewModel.onButtonDown(bit); a.viewModel.triggerHapticPress(); analogFn(255); true }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.isPressed = false; a.viewModel.onButtonUp(bit); a.viewModel.triggerHapticRelease(); analogFn(0); true }
+                    MotionEvent.ACTION_DOWN -> {
+                        v.performClick()
+                        if (latched) {
+                            latched = false
+                            releasedOnDown = true
+                            v.isPressed = false
+                            a.viewModel.onButtonUp(bit)
+                            a.viewModel.triggerHapticRelease()
+                            analogFn(0)
+                        } else {
+                            releasedOnDown = false
+                            latched = holdEnabled
+                            v.isPressed = true
+                            a.viewModel.onButtonDown(bit)
+                            a.viewModel.triggerHapticPress()
+                            analogFn(255)
+                        }
+                        true
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        if (releasedOnDown) {
+                            releasedOnDown = false
+                        } else if (!latched) {
+                            v.isPressed = false
+                            a.viewModel.onButtonUp(bit)
+                            a.viewModel.triggerHapticRelease()
+                            analogFn(0)
+                        }
+                        true
+                    }
                     else -> true
                 }
             }
