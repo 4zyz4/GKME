@@ -489,8 +489,9 @@ class GamepadLayout @JvmOverloads constructor(
                 val pos = currentButtons.find { it.id == id }
                 if (pos != null) {
                     val vb = visualBounds(pos)
-                    val gx = vb[0] * cellW
-                    val gy = vb[1] * cellH
+                    // Match the visible position of a slid/latched linear trigger.
+                    val gx = vb[0] * cellW + c.translationX
+                    val gy = vb[1] * cellH + c.translationY
                     val gw = vb[2] * cellW
                     val gh = vb[3] * cellH
                     map[id] = android.graphics.Rect(gx.toInt(), gy.toInt(), (gx + gw).toInt(), (gy + gh).toInt())

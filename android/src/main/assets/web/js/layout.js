@@ -1352,7 +1352,7 @@ export class GamepadLayout {
 
   // ── hit testing ──
   _pointInControl(b, px, py) {
-    const r = this.gridRect(b);
+    const r = this._hitRectFor(b, false);
     return px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h;
   }
 
@@ -1362,7 +1362,14 @@ export class GamepadLayout {
     if (includeExtension && b.isTouchpad && b.followAreaEnabled && b.followAreaW > 0 && b.followAreaH > 0) {
       return this._followAreaRectPx(b);
     }
-    return this.gridRect(b);
+    const r = this.gridRect(b);
+    // Linear triggers slide away from their grid position while held or latched;
+    // hit-test at the visible position instead of the original slot.
+    if (b.isTrigger && b.linearTriggerEnabled && b._triggerOffset) {
+      if (b.slideDirection === "LEFT" || b.slideDirection === "RIGHT") r.x += b._triggerOffset;
+      else r.y += b._triggerOffset;
+    }
+    return r;
   }
 
   // Follow-area trigger: a joystick / integrated D-pad / custom keypad whose
@@ -1491,18 +1498,22 @@ export class GamepadLayout {
       return;
     }
     if (b.isTrigger && b.linearTriggerEnabled) {
-      // LinearTriggerView ACTION_DOWN: no travel yet, value 0, pressed while held.
       const which = baseId(b.id) === "btnLT" ? "left" : "right";
+      // 自动保持：已锁存时，下一次拖动从当前行程继续；否则从头开始。
+      const continuing = alreadyActive && (b._triggerValue || 0) > 0;
       b._which = which;
-      b._triggerOffset = 0;
-      b._triggerValue = 0;
-      b._triggerDown = false;
+      const baseOffset = continuing ? b._triggerOffset || 0 : 0;
+      if (!continuing) {
+        b._triggerOffset = 0;
+        b._triggerValue = 0;
+        b._triggerDown = false;
+        this.cb.onTrigger && this.cb.onTrigger(which, 0);
+      }
       this._pointers.set(e.pointerId, {
-        id: b.id, kind: "trigger", b, startX: px, startY: py,
-        lastOffset: 0, lastTime: 0, sampleReady: false,
+        id: b.id, kind: "trigger", b, startX: px, startY: py, baseOffset,
+        lastOffset: Math.abs(baseOffset), lastTime: 0, sampleReady: false,
       });
       this.controlActive.set(b.id, true);
-      this.cb.onTrigger && this.cb.onTrigger(which, 0);
       this.render();
       return;
     }
@@ -1577,6 +1588,11 @@ export class GamepadLayout {
       this.controlActive.set(b.id, false);
     } else if (info.kind === "trigger") {
       const b = info.b;
+      // 自动保持：松手后保留当前行程与模拟值，下一次拖动继续调整。
+      if (b.autoHold && (b._triggerValue || 0) > 0) {
+        this.render();
+        return;
+      }
       // LinearTriggerView ACTION_UP: reset travel + value, release the digital bit.
       b._triggerOffset = 0;
       b._triggerValue = 0;
@@ -1967,11 +1983,12 @@ export class GamepadLayout {
     const dy = py - info.startY;
 
     let offset;
+    const base = info.baseOffset || 0;
     switch (b.slideDirection) {
-      case "UP": offset = Math.max(-travelPx, Math.min(0, dy)); break;
-      case "LEFT": offset = Math.max(-travelPx, Math.min(0, dx)); break;
-      case "RIGHT": offset = Math.max(0, Math.min(travelPx, dx)); break;
-      default: offset = Math.max(0, Math.min(travelPx, dy)); break; // DOWN
+      case "UP": offset = Math.max(-travelPx, Math.min(0, base + dy)); break;
+      case "LEFT": offset = Math.max(-travelPx, Math.min(0, base + dx)); break;
+      case "RIGHT": offset = Math.max(0, Math.min(travelPx, base + dx)); break;
+      default: offset = Math.max(0, Math.min(travelPx, base + dy)); break; // DOWN
     }
     b._triggerOffset = offset;
 

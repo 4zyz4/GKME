@@ -105,7 +105,15 @@ object GamepadLayoutGeometry {
             val cid = getButtonId(child) ?: continue
             val pos = currentButtons.find { it.id == cid } ?: continue
             val vb = visualBounds(pos)
-            if (gridX >= vb[0] && gridX <= vb[0] + vb[2] && gridY >= vb[1] && gridY <= vb[1] + vb[3]) {
+            // Linear triggers slide away from their grid position while held or latched;
+            // hit-test at the visible position instead of the original slot.
+            var vx = vb[0]
+            var vy = vb[1]
+            if (child is LinearTriggerView) {
+                if (cellW > 0f) vx += child.translationX / cellW
+                if (cellH > 0f) vy += child.translationY / cellH
+            }
+            if (gridX >= vx && gridX <= vx + vb[2] && gridY >= vy && gridY <= vy + vb[3]) {
                 result.add(child)
             }
         }
