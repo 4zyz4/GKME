@@ -12,6 +12,7 @@ import {
   encodeGamepadInput,
   decodeServerToClient,
 } from "./proto.js";
+import { t } from "./i18n.js";
 
 const DEVICE_ID_KEY = "gkme.deviceId";
 const DEVICE_NAME_KEY = "gkme.deviceName";
@@ -38,9 +39,9 @@ export function setDeviceName(name) {
 
 function defaultName() {
   const ua = navigator.userAgent || "";
-  if (/iPhone|iPad|iPod/i.test(ua)) return "iPhone 网页手柄";
-  if (/Android/i.test(ua)) return "Android 网页手柄";
-  return "网页手柄";
+  if (/iPhone|iPad|iPod/i.test(ua)) return t("device.iphone");
+  if (/Android/i.test(ua)) return t("device.android");
+  return t("device.web");
 }
 
 export class Connection extends EventTarget {

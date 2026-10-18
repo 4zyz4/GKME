@@ -11,6 +11,7 @@ import {
   controlLabel, keyboardCaption, KB_MODIFIER_CODES, MODIFIER_BITS,
 } from "./controls.js";
 import { drawIcon } from "./icons.js";
+import { t, keypadDefaultTexts, localizeKeypadText } from "./i18n.js";
 import { viewportToLocal } from "./orientation.js";
 
 export const GRID_COLS = 120;
@@ -75,7 +76,7 @@ export function normalizeButton(raw) {
   if (c && c.isDpad) b.isDpad = true;
   if (c && c.isSettings) b.isSettings = true;
   if (b.isCustom && !b.customBits) b.customBits = [];
-  if (b.isCustom && b.customText == null) b.customText = "自定义";
+  if (b.isCustom && b.customText == null) b.customText = t("common.custom");
   return b;
 }
 
@@ -167,7 +168,6 @@ function isCircleButton(id) {
 // ── CustomKeypadView region tables ──
 // Region index: 0=up, 1=down, 2=left, 3=right, 4=centre, 5=up-left, 6=up-right,
 // 7=down-left, 8=down-right (mirrors ButtonPosition.KEYPAD_*).
-const KEYPAD_DEFAULT_TEXTS = ["上", "下", "左", "右", "中", "左上", "右上", "左下", "右下"];
 // 8-direction mode: 3×3 grid cell (row*3+col) → region; -1 = centre cell.
 const KEYPAD_GRID_REGION = [[5, 0, 6], [2, -1, 3], [7, 1, 8]];
 // region index → grid cell index.
@@ -355,7 +355,7 @@ export class GamepadLayout {
         if (b.swipeTrigger) o.swipeTrigger = true;
         if (b.isCustom) {
           o.isCustom = true;
-          o.customText = b.customText || "自定义";
+          o.customText = b.customText || t("common.custom");
           o.customBits = b.customBits || [];
         }
         if (b.roundShape) o.roundShape = true;
@@ -1141,8 +1141,8 @@ export class GamepadLayout {
     }
 
     // ── region texts (0=up,1=down,2=left,3=right,4=centre,5..8=diagonals) ──
-    const texts = b.keypadTexts || KEYPAD_DEFAULT_TEXTS;
-    const t = (i) => (texts[i] != null ? texts[i] : "");
+    const texts = (b.keypadTexts || keypadDefaultTexts()).map(localizeKeypadText);
+    const textAt = (i) => (texts[i] != null ? texts[i] : "");
     const cap = contentCapPx(app);
     const color = app.dpadPadIconColor;
     if (circleCenter) {
@@ -1150,33 +1150,33 @@ export class GamepadLayout {
       const box = (radius - centerR) * 0.9;
       const place = (reg, deg) => {
         const rad = (deg * Math.PI) / 180;
-        this._keypadText(t(reg), midR * Math.cos(rad), midR * Math.sin(rad), box, cap, color);
+        this._keypadText(textAt(reg), midR * Math.cos(rad), midR * Math.sin(rad), box, cap, color);
       };
       place(0, 270); place(1, 90); place(2, 180); place(3, 0);
       if (eightWay) { place(5, 225); place(6, 315); place(7, 135); place(8, 45); }
-      this._keypadText(t(4), 0, 0, centerR * 2, cap, color);
+      this._keypadText(textAt(4), 0, 0, centerR * 2, cap, color);
     } else if (eightWay) {
       const a = third;
-      this._keypadText(t(0), 0, -radius + a / 2, a, cap, color);
-      this._keypadText(t(1), 0, -radius + 2.5 * a, a, cap, color);
-      this._keypadText(t(2), -radius + a / 2, 0, a, cap, color);
-      this._keypadText(t(3), -radius + 2.5 * a, 0, a, cap, color);
-      this._keypadText(t(4), 0, 0, a, cap, color);
+      this._keypadText(textAt(0), 0, -radius + a / 2, a, cap, color);
+      this._keypadText(textAt(1), 0, -radius + 2.5 * a, a, cap, color);
+      this._keypadText(textAt(2), -radius + a / 2, 0, a, cap, color);
+      this._keypadText(textAt(3), -radius + 2.5 * a, 0, a, cap, color);
+      this._keypadText(textAt(4), 0, 0, a, cap, color);
       // Corner cells are clipped by the circle, so use a smaller box.
       const cornerBox = radius * 0.5;
       const cOff = radius * 0.57;
-      this._keypadText(t(5), -cOff, -cOff, cornerBox, cap, color);
-      this._keypadText(t(6), cOff, -cOff, cornerBox, cap, color);
-      this._keypadText(t(7), -cOff, cOff, cornerBox, cap, color);
-      this._keypadText(t(8), cOff, cOff, cornerBox, cap, color);
+      this._keypadText(textAt(5), -cOff, -cOff, cornerBox, cap, color);
+      this._keypadText(textAt(6), cOff, -cOff, cornerBox, cap, color);
+      this._keypadText(textAt(7), -cOff, cOff, cornerBox, cap, color);
+      this._keypadText(textAt(8), cOff, cOff, cornerBox, cap, color);
     } else {
       const box = radius * 0.667;
       const off = radius * 0.58;
-      this._keypadText(t(0), 0, -off, box, cap, color);
-      this._keypadText(t(1), 0, off, box, cap, color);
-      this._keypadText(t(2), -off, 0, box, cap, color);
-      this._keypadText(t(3), off, 0, box, cap, color);
-      this._keypadText(t(4), 0, 0, half * 2, cap, color);
+      this._keypadText(textAt(0), 0, -off, box, cap, color);
+      this._keypadText(textAt(1), 0, off, box, cap, color);
+      this._keypadText(textAt(2), -off, 0, box, cap, color);
+      this._keypadText(textAt(3), off, 0, box, cap, color);
+      this._keypadText(textAt(4), 0, 0, half * 2, cap, color);
     }
 
     if (fdx || fdy) ctx.restore();
@@ -1344,7 +1344,7 @@ export class GamepadLayout {
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.font = `500 14px ${UI_FONT}`;
-      ctx.fillText("上", 0, 0);
+      ctx.fillText(t("keypad.up"), 0, 0);
       ctx.restore();
     }
     ctx.restore();
