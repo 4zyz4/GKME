@@ -567,6 +567,7 @@
     <string name="i18n_swipe_trigger" formatted="false">"滑動觸發"</string>
     <string name="i18n_switch_gamepad" formatted="false">"Switch 手把"</string>
     <string name="i18n_switch_target_platform" formatted="false">"切換目標平台"</string>
+    <string name="i18n_system_default" formatted="false">"系統預設"</string>
     <string name="i18n_system_effect" formatted="false">"系統效果"</string>
     <string name="i18n_tap" formatted="false">"輕觸"</string>
     <string name="i18n_tap_anywhere_to_exit" formatted="false">"點選任意處退出"</string>

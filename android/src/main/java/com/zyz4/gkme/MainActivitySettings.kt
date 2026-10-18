@@ -1560,11 +1560,11 @@ internal fun MainActivity.setupMiscPage() {
     )
     languageAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
     languageSpinner.adapter = languageAdapter
-    languageSpinner.setSelection(languages.indexOfFirst { it.code == AppLocale.currentLanguage(a) }.coerceAtLeast(0))
+    languageSpinner.setSelection(languages.indexOfFirst { it.code == AppLocale.storedLanguage(a) }.coerceAtLeast(0))
     languageSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
         override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
             val code = languages.getOrNull(position)?.code ?: return
-            if (code != AppLocale.currentLanguage(a) && AppLocale.setLanguage(a, code)) {
+            if (code != AppLocale.storedLanguage(a) && AppLocale.setLanguage(a, code)) {
                 a.recreate()
             }
         }

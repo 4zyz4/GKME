@@ -567,6 +567,7 @@
     <string name="i18n_swipe_trigger" formatted="false">"Swipe trigger"</string>
     <string name="i18n_switch_gamepad" formatted="false">"Switch gamepad"</string>
     <string name="i18n_switch_target_platform" formatted="false">"Switch target platform"</string>
+    <string name="i18n_system_default" formatted="false">"System default"</string>
     <string name="i18n_system_effect" formatted="false">"System effect"</string>
     <string name="i18n_tap" formatted="false">"Tap"</string>
     <string name="i18n_tap_anywhere_to_exit" formatted="false">"Tap anywhere to exit"</string>

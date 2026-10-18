@@ -2,13 +2,15 @@
 //
 // Mirrors com.zyz4.gkme.i18n.AppLocale: the supported languages and labels are
 // the same as the Android app, the choice is persisted locally and defaults to
-// Simplified Chinese. Switching takes effect immediately, like the Android
-// activity re-creation.
+// the system language (falling back to Simplified Chinese). Switching takes
+// effect immediately, like the Android activity re-creation.
 
 const STORAGE_KEY = "gkme.language.v1";
 const SOURCE_LANGUAGE = "zh";
+const SYSTEM_LANGUAGE = "system";
 
 export const LANGUAGES = [
+  { code: SYSTEM_LANGUAGE, labelKey: "common.systemDefault" },
   { code: "zh", label: "简体中文" },
   { code: "zh-TW", label: "繁體中文（台灣）" },
   { code: "zh-HK", label: "繁體中文（香港）" },
@@ -43,6 +45,7 @@ const STRINGS = {
     "common.ok": "确定",
     "common.cancel": "取消",
     "common.language": "语言",
+    "common.systemDefault": "系统默认",
     "common.appIcon": "应用图标",
 
     "nav.connection": "连接",
@@ -278,6 +281,7 @@ const STRINGS = {
     "common.ok": "確定",
     "common.cancel": "取消",
     "common.language": "語言",
+    "common.systemDefault": "系統預設",
     "common.appIcon": "應用圖示",
 
     "nav.connection": "連線",
@@ -513,6 +517,7 @@ const STRINGS = {
     "common.ok": "確定",
     "common.cancel": "取消",
     "common.language": "語言",
+    "common.systemDefault": "系統預設",
     "common.appIcon": "應用圖標",
 
     "nav.connection": "連接",
@@ -748,6 +753,7 @@ const STRINGS = {
     "common.ok": "OK",
     "common.cancel": "Cancel",
     "common.language": "Language",
+    "common.systemDefault": "System default",
     "common.appIcon": "App icon",
 
     "nav.connection": "Connection",
@@ -958,30 +964,60 @@ const STRINGS = {
 };
 
 function normalizeLanguage(code) {
-  if (!code) return SOURCE_LANGUAGE;
+  if (!code) return SYSTEM_LANGUAGE;
   const exact = LANGUAGES.find((l) => l.code.toLowerCase() === String(code).toLowerCase());
-  return exact ? exact.code : SOURCE_LANGUAGE;
+  return exact ? exact.code : SYSTEM_LANGUAGE;
+}
+
+function matchSupportedLanguage(tag) {
+  const normalized = String(tag).replace(/_/g, "-").toLowerCase();
+  if (normalized === "en" || normalized.startsWith("en-")) return "en";
+  if (normalized === "zh" || normalized.startsWith("zh-")) {
+    if (normalized.includes("-hk") || normalized.includes("-mo")) return "zh-HK";
+    if (normalized.includes("-tw") || normalized.includes("-hant")) return "zh-TW";
+    return "zh";
+  }
+  return null;
+}
+
+function resolveSystemLanguage() {
+  const candidates = [];
+  if (Array.isArray(navigator.languages)) candidates.push(...navigator.languages);
+  if (navigator.language) candidates.push(navigator.language);
+  for (const tag of candidates) {
+    const match = matchSupportedLanguage(tag);
+    if (match) return match;
+  }
+  return SOURCE_LANGUAGE;
+}
+
+function resolveLanguage(preference) {
+  return preference === SYSTEM_LANGUAGE ? resolveSystemLanguage() : preference;
 }
 
 function loadLanguage() {
   try {
-    return normalizeLanguage(localStorage.getItem(STORAGE_KEY));
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? normalizeLanguage(stored) : SYSTEM_LANGUAGE;
   } catch {
-    return SOURCE_LANGUAGE;
+    return SYSTEM_LANGUAGE;
   }
 }
 
-let currentLanguage = loadLanguage();
+let languagePreference = loadLanguage();
+let currentLanguage = resolveLanguage(languagePreference);
 
+/** The persisted preference shown in settings: `system` or an exact language code. */
 export function getLanguage() {
-  return currentLanguage;
+  return languagePreference;
 }
 
 /** Persists `code` and returns true when it actually changed. */
 export function setLanguage(code) {
   const next = normalizeLanguage(code);
-  if (next === currentLanguage) return false;
-  currentLanguage = next;
+  if (next === languagePreference) return false;
+  languagePreference = next;
+  currentLanguage = resolveLanguage(next);
   try {
     localStorage.setItem(STORAGE_KEY, next);
   } catch {}

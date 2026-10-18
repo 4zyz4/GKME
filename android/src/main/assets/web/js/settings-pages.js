@@ -186,7 +186,7 @@ export const PAGES = {
         row(
           t("common.language"),
           select(
-            LANGUAGES.map((l) => [l.code, l.label]),
+            LANGUAGES.map((l) => [l.code, l.labelKey ? t(l.labelKey) : l.label]),
             getLanguage(),
             (v) => {
               if (setLanguage(v)) app._onLanguageChanged();
