@@ -1,5 +1,6 @@
 package com.zyz4.gkme
 
+import com.zyz4.gkme.R
 import android.app.Dialog
 import android.content.Context
 import android.graphics.Color
@@ -27,7 +28,7 @@ object CustomDialog {
 
     fun showConfirm(
         context: Context, title: String, message: String,
-        positiveText: String = "确定", negativeText: String? = "取消",
+        positiveText: String = context.getString(R.string.i18n_ok), negativeText: String? = context.getString(R.string.i18n_cancel),
         onPositive: () -> Unit = {}, onNegative: (() -> Unit)? = null,
     ): Dialog {
         val dialog = baseDialog(context)
@@ -44,7 +45,7 @@ object CustomDialog {
 
     fun showInput(
         context: Context, title: String, hint: String = "", prefill: String = "",
-        positiveText: String = "确定", negativeText: String? = "取消",
+        positiveText: String = context.getString(R.string.i18n_ok), negativeText: String? = context.getString(R.string.i18n_cancel),
         onPositive: (String) -> Unit = {}, onNegative: (() -> Unit)? = null,
     ): Dialog {
         val dialog = baseDialog(context)

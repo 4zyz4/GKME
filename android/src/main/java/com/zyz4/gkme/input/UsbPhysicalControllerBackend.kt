@@ -1,5 +1,6 @@
 package com.zyz4.gkme.input
 
+import com.zyz4.gkme.R
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -858,9 +859,9 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
             "GameSirG7Controller" -> "GameSir G7"
             "Hid8BitdoController" -> "8BitDo"
             else -> when (controller.getType()) {
-                GkmeBridge.LI_CTYPE_XBOX -> "Xbox 手柄"
-                GkmeBridge.LI_CTYPE_PS -> "DS 手柄"
-                GkmeBridge.LI_CTYPE_NINTENDO -> "Switch 手柄"
+                GkmeBridge.LI_CTYPE_XBOX -> context.getString(R.string.i18n_xbox_gamepad)
+                GkmeBridge.LI_CTYPE_PS -> context.getString(R.string.i18n_ds_gamepad)
+                GkmeBridge.LI_CTYPE_NINTENDO -> context.getString(R.string.i18n_switch_gamepad)
                 else -> controller.javaClass.simpleName
             }
         }

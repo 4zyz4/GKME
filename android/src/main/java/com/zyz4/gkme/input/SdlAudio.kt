@@ -1,5 +1,7 @@
 package com.zyz4.gkme.input
 
+import com.zyz4.gkme.R
+import com.zyz4.gkme.i18n.AppStrings
 import com.zyz4.gkme.model.AudioDevice
 
 /**
@@ -63,7 +65,7 @@ object SdlAudio {
                 } catch (_: Throwable) {
                     ""
                 }
-                Device(id, name.ifBlank { "声音设备${index + 1}" })
+                Device(id, name.ifBlank { AppStrings.get(R.string.i18n_sound_device_0, index + 1) })
             }
         }
     }

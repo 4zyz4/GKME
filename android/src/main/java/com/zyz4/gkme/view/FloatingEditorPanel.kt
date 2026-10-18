@@ -6,6 +6,8 @@ import android.graphics.drawable.GradientDrawable
 import android.text.Editable
 import android.text.InputType
 import android.text.TextWatcher
+import android.text.TextUtils
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -108,11 +110,11 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             buttonParamsInner?.visibility = vis
             if (value) {
                 // When entering follow area adjust, show return button
-                adjustingReturnButtonText = getChineseName(currentButton?.id ?: "") + " 调节"
-                btnGlobalSettings?.text = "返回"
+                adjustingReturnButtonText = getControlName(currentButton?.id ?: "") + context.getString(R.string.i18n_adjust)
+                btnGlobalSettings?.text = context.getString(R.string.i18n_back)
             } else {
                 adjustingReturnButtonText = null
-                btnGlobalSettings?.text = "全局设置"
+                btnGlobalSettings?.text = context.getString(R.string.i18n_global_settings)
             }
         }
     private var panelX = 0f
@@ -206,123 +208,123 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         return pos.copy(followAreaW = newW, followAreaH = newH)
     }
 
-    private fun getChineseName(buttonId: String): String {
+    private fun getControlName(buttonId: String): String {
         val base = buttonId.substringBefore("_")
         return when (base) {
-            "btnDpadUp" -> "上方向"
-            "btnDpadDown" -> "下方向"
-            "btnDpadLeft" -> "左方向"
-            "btnDpadRight" -> "右方向"
-            "btnY" -> "手柄：Y"
-            "btnA" -> "手柄：A"
-            "btnX" -> "手柄：X"
-            "btnB" -> "手柄：B"
-            "btnLT" -> "手柄：左扳机"
-            "btnLB" -> "手柄：左肩键"
-            "btnRT" -> "手柄：右扳机"
-            "btnRB" -> "手柄：右肩键"
-            "leftJoystick" -> "手柄：左摇杆"
-            "rightJoystick" -> "手柄：右摇杆"
-            "btnSelect" -> "手柄：选择"
-            "btnHome" -> "手柄：主页"
-            "btnMenu" -> "手柄：菜单"
-            "btnShare" -> "手柄：分享"
-            "btnLS" -> "手柄：左摇杆按下"
-            "btnRS" -> "手柄：右摇杆按下"
-            "touchpad" -> "触摸板（手柄）"
-            "mousepad" -> "触摸板（鼠标）"
-            "dpadPad" -> "一体十字键"
-            "customKeypad" -> "自定义按键盘"
-            "btnCustomCircle" -> "自定义(圆)"
-            "btnCustomRect" -> "自定义(方)"
-            "btnMic" -> "麦克风静音"
-            "btnMouseLMB" -> "鼠标：左键"
-            "btnMouseRMB" -> "鼠标：右键"
-            "btnMouseMMB" -> "鼠标：中键"
-            "btnMouseBack" -> "鼠标：后退"
-            "btnMouseForward" -> "鼠标：前进"
-            "btnSettings" -> "设置按钮"
-            "btn" -> "按钮"
-            "joystick" -> "摇杆"
-            "kbArrowUp" -> "键盘：↑"
-            "kbArrowDown" -> "键盘：↓"
-            "kbArrowLeft" -> "键盘：←"
-            "kbArrowRight" -> "键盘：→"
-            "kbLCtrl" -> "键盘：LCtrl"
-            "kbLShift" -> "键盘：LShift"
-            "kbLAlt" -> "键盘：LAlt"
-            "kbLWin" -> "键盘：Win"
-            "kbRCtrl" -> "键盘：RCtrl"
-            "kbRShift" -> "键盘：RShift"
-            "kbRAlt" -> "键盘：AltGr"
-            "kbRGui" -> "键盘：RWin"
-            "kbQ" -> "键盘：Q"
-            "kbW" -> "键盘：W"
-            "kbE" -> "键盘：E"
-            "kbR" -> "键盘：R"
-            "kbT" -> "键盘：T"
-            "kbY" -> "键盘：Y"
-            "kbU" -> "键盘：U"
-            "kbI" -> "键盘：I"
-            "kbO" -> "键盘：O"
-            "kbP" -> "键盘：P"
-            "kbA" -> "键盘：A"
-            "kbS" -> "键盘：S"
-            "kbD" -> "键盘：D"
-            "kbF" -> "键盘：F"
-            "kbG" -> "键盘：G"
-            "kbH" -> "键盘：H"
-            "kbJ" -> "键盘：J"
-            "kbK" -> "键盘：K"
-            "kbL" -> "键盘：L"
-            "kbZ" -> "键盘：Z"
-            "kbX" -> "键盘：X"
-            "kbC" -> "键盘：C"
-            "kbV" -> "键盘：V"
-            "kbB" -> "键盘：B"
-            "kbN" -> "键盘：N"
-            "kbM" -> "键盘：M"
-            "kb1" -> "键盘：1"
-            "kb2" -> "键盘：2"
-            "kb3" -> "键盘：3"
-            "kb4" -> "键盘：4"
-            "kb5" -> "键盘：5"
-            "kb6" -> "键盘：6"
-            "kb7" -> "键盘：7"
-            "kb8" -> "键盘：8"
-            "kb9" -> "键盘：9"
-            "kb0" -> "键盘：0"
-            "kbSpace" -> "键盘：Space"
-            "kbEnter" -> "键盘：Enter"
-            "kbBackspace" -> "键盘：Bksp"
-            "kbTab" -> "键盘：Tab"
-            "kbCaps" -> "键盘：Caps"
-            "kbEsc" -> "键盘：Esc"
-            "kbDelete" -> "键盘：Del"
-            "kbMenu" -> "键盘：Menu"
-            "kbMinus" -> "键盘：-"
-            "kbEqual" -> "键盘：="
-            "kbLBracket" -> "键盘：["
-            "kbRBracket" -> "键盘：]"
-            "kbBackslash" -> "键盘：\\"
-            "kbSemicolon" -> "键盘：;"
-            "kbApostrophe" -> "键盘：'"
-            "kbComma" -> "键盘：,"
-            "kbDot" -> "键盘：."
-            "kbSlash" -> "键盘：/"
-            "kbGrave" -> "键盘：`"
-            "kbF1" -> "键盘：F1"
-            "kbF2" -> "键盘：F2"
-            "kbF3" -> "键盘：F3"
-            "kbF4" -> "键盘：F4"
-            "kbF5" -> "键盘：F5"
-            "kbF6" -> "键盘：F6"
-            "kbF7" -> "键盘：F7"
-            "kbF8" -> "键盘：F8"
-            "kbF9" -> "键盘：F9"
-            "kbF10" -> "键盘：F10"
-            "kbF11" -> "键盘：F11"
-            "kbF12" -> "键盘：F12"
+            "btnDpadUp" -> context.getString(R.string.i18n_up_3f99c7)
+            "btnDpadDown" -> context.getString(R.string.i18n_down_c761f5)
+            "btnDpadLeft" -> context.getString(R.string.i18n_left_3e0a82)
+            "btnDpadRight" -> context.getString(R.string.i18n_right_b45922)
+            "btnY" -> context.getString(R.string.i18n_gamepad_y)
+            "btnA" -> context.getString(R.string.i18n_gamepad_a)
+            "btnX" -> context.getString(R.string.i18n_gamepad_x)
+            "btnB" -> context.getString(R.string.i18n_gamepad_b)
+            "btnLT" -> context.getString(R.string.i18n_gamepad_left_trigger)
+            "btnLB" -> context.getString(R.string.i18n_gamepad_left_bumper)
+            "btnRT" -> context.getString(R.string.i18n_gamepad_right_trigger)
+            "btnRB" -> context.getString(R.string.i18n_gamepad_right_bumper)
+            "leftJoystick" -> context.getString(R.string.i18n_gamepad_left_stick)
+            "rightJoystick" -> context.getString(R.string.i18n_gamepad_right_stick)
+            "btnSelect" -> context.getString(R.string.i18n_gamepad_select)
+            "btnHome" -> context.getString(R.string.i18n_gamepad_home)
+            "btnMenu" -> context.getString(R.string.i18n_gamepad_menu)
+            "btnShare" -> context.getString(R.string.i18n_gamepad_share)
+            "btnLS" -> context.getString(R.string.i18n_gamepad_left_stick_click)
+            "btnRS" -> context.getString(R.string.i18n_gamepad_right_stick_click)
+            "touchpad" -> context.getString(R.string.i18n_touchpad_gamepad)
+            "mousepad" -> context.getString(R.string.i18n_touchpad_mouse)
+            "dpadPad" -> context.getString(R.string.i18n_integrated_d_pad)
+            "customKeypad" -> context.getString(R.string.i18n_custom_keypad)
+            "btnCustomCircle" -> context.getString(R.string.i18n_custom_circle)
+            "btnCustomRect" -> context.getString(R.string.i18n_custom_rectangle)
+            "btnMic" -> context.getString(R.string.i18n_mic_mute)
+            "btnMouseLMB" -> context.getString(R.string.i18n_mouse_left_button)
+            "btnMouseRMB" -> context.getString(R.string.i18n_mouse_right_button)
+            "btnMouseMMB" -> context.getString(R.string.i18n_mouse_middle_button)
+            "btnMouseBack" -> context.getString(R.string.i18n_mouse_back)
+            "btnMouseForward" -> context.getString(R.string.i18n_mouse_forward)
+            "btnSettings" -> context.getString(R.string.i18n_settings_button)
+            "btn" -> context.getString(R.string.i18n_button)
+            "joystick" -> context.getString(R.string.i18n_stick)
+            "kbArrowUp" -> context.getString(R.string.i18n_keyboard_07bb03)
+            "kbArrowDown" -> context.getString(R.string.i18n_keyboard_7484ad)
+            "kbArrowLeft" -> context.getString(R.string.i18n_keyboard_d4a2fd)
+            "kbArrowRight" -> context.getString(R.string.i18n_keyboard_e013ce)
+            "kbLCtrl" -> context.getString(R.string.i18n_keyboard_left_ctrl)
+            "kbLShift" -> context.getString(R.string.i18n_keyboard_left_shift)
+            "kbLAlt" -> context.getString(R.string.i18n_keyboard_left_alt)
+            "kbLWin" -> context.getString(R.string.i18n_keyboard_win)
+            "kbRCtrl" -> context.getString(R.string.i18n_keyboard_right_ctrl)
+            "kbRShift" -> context.getString(R.string.i18n_keyboard_right_shift)
+            "kbRAlt" -> context.getString(R.string.i18n_keyboard_altgr)
+            "kbRGui" -> context.getString(R.string.i18n_keyboard_right_win)
+            "kbQ" -> context.getString(R.string.i18n_keyboard_q)
+            "kbW" -> context.getString(R.string.i18n_keyboard_w)
+            "kbE" -> context.getString(R.string.i18n_keyboard_e)
+            "kbR" -> context.getString(R.string.i18n_keyboard_r)
+            "kbT" -> context.getString(R.string.i18n_keyboard_t)
+            "kbY" -> context.getString(R.string.i18n_keyboard_y)
+            "kbU" -> context.getString(R.string.i18n_keyboard_u)
+            "kbI" -> context.getString(R.string.i18n_keyboard_i)
+            "kbO" -> context.getString(R.string.i18n_keyboard_o)
+            "kbP" -> context.getString(R.string.i18n_keyboard_p)
+            "kbA" -> context.getString(R.string.i18n_keyboard_a)
+            "kbS" -> context.getString(R.string.i18n_keyboard_s)
+            "kbD" -> context.getString(R.string.i18n_keyboard_d)
+            "kbF" -> context.getString(R.string.i18n_keyboard_f)
+            "kbG" -> context.getString(R.string.i18n_keyboard_g)
+            "kbH" -> context.getString(R.string.i18n_keyboard_h)
+            "kbJ" -> context.getString(R.string.i18n_keyboard_j)
+            "kbK" -> context.getString(R.string.i18n_keyboard_k)
+            "kbL" -> context.getString(R.string.i18n_keyboard_l)
+            "kbZ" -> context.getString(R.string.i18n_keyboard_z)
+            "kbX" -> context.getString(R.string.i18n_keyboard_x)
+            "kbC" -> context.getString(R.string.i18n_keyboard_c)
+            "kbV" -> context.getString(R.string.i18n_keyboard_v)
+            "kbB" -> context.getString(R.string.i18n_keyboard_b)
+            "kbN" -> context.getString(R.string.i18n_keyboard_n)
+            "kbM" -> context.getString(R.string.i18n_keyboard_m)
+            "kb1" -> context.getString(R.string.i18n_keyboard_1)
+            "kb2" -> context.getString(R.string.i18n_keyboard_2)
+            "kb3" -> context.getString(R.string.i18n_keyboard_3)
+            "kb4" -> context.getString(R.string.i18n_keyboard_4)
+            "kb5" -> context.getString(R.string.i18n_keyboard_5)
+            "kb6" -> context.getString(R.string.i18n_keyboard_6)
+            "kb7" -> context.getString(R.string.i18n_keyboard_7)
+            "kb8" -> context.getString(R.string.i18n_keyboard_8)
+            "kb9" -> context.getString(R.string.i18n_keyboard_9)
+            "kb0" -> context.getString(R.string.i18n_keyboard_0)
+            "kbSpace" -> context.getString(R.string.i18n_keyboard_space)
+            "kbEnter" -> context.getString(R.string.i18n_keyboard_enter)
+            "kbBackspace" -> context.getString(R.string.i18n_keyboard_backspace)
+            "kbTab" -> context.getString(R.string.i18n_keyboard_tab)
+            "kbCaps" -> context.getString(R.string.i18n_keyboard_caps_lock)
+            "kbEsc" -> context.getString(R.string.i18n_keyboard_esc)
+            "kbDelete" -> context.getString(R.string.i18n_keyboard_delete)
+            "kbMenu" -> context.getString(R.string.i18n_keyboard_menu)
+            "kbMinus" -> context.getString(R.string.i18n_keyboard_743bab)
+            "kbEqual" -> context.getString(R.string.i18n_keyboard_ea7f6d)
+            "kbLBracket" -> context.getString(R.string.i18n_keyboard_47e933)
+            "kbRBracket" -> context.getString(R.string.i18n_keyboard_75eb76)
+            "kbBackslash" -> context.getString(R.string.i18n_keyboard_0046e9)
+            "kbSemicolon" -> context.getString(R.string.i18n_keyboard_a77d53)
+            "kbApostrophe" -> context.getString(R.string.i18n_keyboard_c15dcd)
+            "kbComma" -> context.getString(R.string.i18n_keyboard_6adcde)
+            "kbDot" -> context.getString(R.string.i18n_keyboard_41fe99)
+            "kbSlash" -> context.getString(R.string.i18n_keyboard_072e9b)
+            "kbGrave" -> context.getString(R.string.i18n_keyboard_06d5f0)
+            "kbF1" -> context.getString(R.string.i18n_keyboard_f1)
+            "kbF2" -> context.getString(R.string.i18n_keyboard_f2)
+            "kbF3" -> context.getString(R.string.i18n_keyboard_f3)
+            "kbF4" -> context.getString(R.string.i18n_keyboard_f4)
+            "kbF5" -> context.getString(R.string.i18n_keyboard_f5)
+            "kbF6" -> context.getString(R.string.i18n_keyboard_f6)
+            "kbF7" -> context.getString(R.string.i18n_keyboard_f7)
+            "kbF8" -> context.getString(R.string.i18n_keyboard_f8)
+            "kbF9" -> context.getString(R.string.i18n_keyboard_f9)
+            "kbF10" -> context.getString(R.string.i18n_keyboard_f10)
+            "kbF11" -> context.getString(R.string.i18n_keyboard_f11)
+            "kbF12" -> context.getString(R.string.i18n_keyboard_f12)
             else -> buttonId
         }
     }
@@ -388,7 +390,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 (6f * density).toInt(), (6f * density).toInt(),
                 (6f * density).toInt(), (6f * density).toInt()
             )
-            contentDescription = "收起/展开面板"
+            contentDescription = context.getString(R.string.i18n_collapse_expand_panel)
             setOnClickListener { toggleCollapsed() }
         }
         toggleBtn = btnToggle
@@ -415,22 +417,22 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
         actionBtnRow = btnRow
         val btnSpacing = (4f * density).toInt()
-        val btnSave = Button(context).apply {
-            text = "保存"
+        val btnSave = EditorButton(context).apply {
+            text = context.getString(R.string.i18n_save)
             setTextColor(-0x1)
             textSize = 13f
             setBackgroundResource(R.drawable.button_flat)
             setOnClickListener { editorListener?.onSave() }
         }
-        val btnDiscard = Button(context).apply {
-            text = "放弃"
+        val btnDiscard = EditorButton(context).apply {
+            text = context.getString(R.string.i18n_discard)
             setTextColor(-0x1)
             textSize = 13f
             setBackgroundResource(R.drawable.button_flat)
             setOnClickListener { editorListener?.onDiscard() }
         }
-        val btnAdd = Button(context).apply {
-            text = "+ 添加"
+        val btnAdd = EditorButton(context).apply {
+            text = context.getString(R.string.i18n_add)
             setTextColor(-0x1)
             textSize = 13f
             setBackgroundResource(R.drawable.button_flat)
@@ -439,8 +441,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         this.btnSave = btnSave
         this.btnDiscard = btnDiscard
         this.btnAdd = btnAdd
-        btnGlobalSettings = Button(context).apply {
-            text = "全局设置"
+        btnGlobalSettings = EditorButton(context).apply {
+            text = context.getString(R.string.i18n_global_settings)
             setTextColor(-0x1)
             textSize = 13f
             setBackgroundResource(R.drawable.button_flat)
@@ -697,7 +699,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
 
         val tvId = TextView(context).apply {
-            text = getChineseName(buttonId)
+            text = getControlName(buttonId)
             setTextColor(-0x1)
             textSize = 16f
         }
@@ -710,19 +712,19 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             val keypadAdjust = ButtonPosition.isKeypad(buttonId)
             val maxAw = maxOf(40, button.followAreaW)
             val maxAh = maxOf(40, button.followAreaH)
-            addSeekbar(buttonParamsInner, "区域宽度", button.followAreaW, 1, maxAw, onChange = { value ->
+            addSeekbar(buttonParamsInner, context.getString(R.string.i18n_area_width), button.followAreaW, 1, maxAw, onChange = { value ->
                 var updated = currentButton?.copy(followAreaW = value) ?: return@addSeekbar
                 if (touchpadAdjust) updated = shrinkTouchpadToArea(updated)
                 currentButton = updated
                 editorListener?.onButtonUpdated(buttonId, updated)
             })
-            addSeekbar(buttonParamsInner, "区域高度", button.followAreaH, 1, maxAh, onChange = { value ->
+            addSeekbar(buttonParamsInner, context.getString(R.string.i18n_area_height), button.followAreaH, 1, maxAh, onChange = { value ->
                 var updated = currentButton?.copy(followAreaH = value) ?: return@addSeekbar
                 if (touchpadAdjust) updated = shrinkTouchpadToArea(updated)
                 currentButton = updated
                 editorListener?.onButtonUpdated(buttonId, updated)
             })
-            addSeekbar(buttonParamsInner, "矩形区域不透明度(%)", button.followAreaOpacity.coerceIn(0, 100), 0, 100,
+            addSeekbar(buttonParamsInner, context.getString(R.string.i18n_follow_area_opacity), button.followAreaOpacity.coerceIn(0, 100), 0, 100,
                 onChange = { value ->
                     currentButton = currentButton?.copy(followAreaOpacity = value.coerceIn(0, 100))
                     currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
@@ -732,7 +734,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             )
             if (!touchpadAdjust) {
                 val cbFollowOverlap = CheckBox(context).apply {
-                    text = "触发矩形区域重叠触发"
+                    text = context.getString(R.string.i18n_trigger_when_rectangles_overlap)
                     setTextColor(-0x444445)
                     textSize = 14f
                     isChecked = button.followAreaOverlapTrigger
@@ -747,7 +749,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
 
         if (button.lockAspect) {
-            addSeekbar(buttonParamsInner, "大小", button.width, 1, 40, onChange = { value ->
+            addSeekbar(buttonParamsInner, context.getString(R.string.i18n_size), button.width, 1, 40, onChange = { value ->
                 currentButton = currentButton?.copy(width = value, height = value)
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             })
@@ -756,13 +758,13 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             // When the extended range is enabled, growing the touchpad grows the rectangle.
             val areaEnabled = button.followAreaEnabled && isTouchpadId(buttonId)
             val sizeMax = maxOf(40, GamepadLayout.GRID_COLS)
-            addSeekbar(buttonParamsInner, "宽度", if (isSwapped) button.height else button.width, 1, sizeMax, onChange = { value ->
+            addSeekbar(buttonParamsInner, context.getString(R.string.i18n_width), if (isSwapped) button.height else button.width, 1, sizeMax, onChange = { value ->
                 var updated = currentButton?.let { if (isSwapped) it.copy(height = value) else it.copy(width = value) } ?: return@addSeekbar
                 if (areaEnabled) updated = growAreaToContain(updated)
                 currentButton = updated
                 editorListener?.onButtonUpdated(buttonId, updated)
             })
-            addSeekbar(buttonParamsInner, "高度", if (isSwapped) button.width else button.height, 1, sizeMax, onChange = { value ->
+            addSeekbar(buttonParamsInner, context.getString(R.string.i18n_height), if (isSwapped) button.width else button.height, 1, sizeMax, onChange = { value ->
                 var updated = currentButton?.let { if (isSwapped) it.copy(width = value) else it.copy(height = value) } ?: return@addSeekbar
                 if (areaEnabled) updated = growAreaToContain(updated)
                 currentButton = updated
@@ -774,7 +776,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
         // ── Opacity (hidden for settings button) ──
         if (!isSettingsButton(buttonId)) {
-            addSeekbar(buttonParamsInner, "空闲时不透明度(%)", button.idleOpacity.coerceIn(0, 100), 0, 100,
+            addSeekbar(buttonParamsInner, context.getString(R.string.i18n_idle_opacity), button.idleOpacity.coerceIn(0, 100), 0, 100,
                 onChange = { value ->
                     currentButton = currentButton?.copy(idleOpacity = value.coerceIn(0, 100))
                     currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
@@ -782,7 +784,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 onStartTracking = { editorListener?.onOpacityPreviewStart(buttonId, true) },
                 onStopTracking = { editorListener?.onOpacityPreviewEnd(buttonId) }
             )
-            addSeekbar(buttonParamsInner, "操作时不透明度(%)", button.activeOpacity.coerceIn(0, 100), 0, 100,
+            addSeekbar(buttonParamsInner, context.getString(R.string.i18n_active_opacity), button.activeOpacity.coerceIn(0, 100), 0, 100,
                 onChange = { value ->
                     currentButton = currentButton?.copy(activeOpacity = value.coerceIn(0, 100))
                     currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
@@ -795,7 +797,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         // ── Overlap trigger for all controls ──
         if (!isSettingsButton(buttonId)) {
             val cbOverlap = CheckBox(context).apply {
-                text = "重叠区域触发"
+                text = context.getString(R.string.i18n_overlap_trigger)
                 setTextColor(-0x444445)
                 textSize = 14f
                 isChecked = button.overlapTrigger
@@ -809,7 +811,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         // ── Gyro activation for all controls ──
         if (!isSettingsButton(buttonId)) {
             val cbGyro = CheckBox(context).apply {
-                text = "用于激活陀螺仪"
+                text = context.getString(R.string.i18n_used_to_activate_the_gyro)
                 setTextColor(-0x444445)
                 textSize = 14f
                 isChecked = button.gyroActivate
@@ -823,7 +825,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         // ── Auto hold for buttons ──
         if ((isButton(buttonId) || isKeyboardId(buttonId)) && !isSettingsButton(buttonId)) {
             val cbAutoHold = CheckBox(context).apply {
-                text = "自动保持"
+                text = context.getString(R.string.i18n_auto_hold)
                 setTextColor(-0x444445)
                 textSize = 14f
                 isChecked = button.autoHold
@@ -838,7 +840,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         val joystickIds = setOf("leftJoystick", "rightJoystick")
         if (buttonId.substringBefore("_") in joystickOrTouchpadIds) {
             val cb = CheckBox(context).apply {
-                text = "双击按下"
+                text = context.getString(R.string.i18n_double_tap_press)
                 setTextColor(-0x444445)
                 textSize = 14f
                 isChecked = button.doubleClickEnable
@@ -851,7 +853,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         if (isTouchpadId(buttonId)) {
             // ── Extended touch range ──
             val cbExtended = CheckBox(context).apply {
-                text = "扩展触摸范围"
+                text = context.getString(R.string.i18n_extended_touch_area_dac06c)
                 setTextColor(-0x444445)
                 textSize = 14f
                 isChecked = button.followAreaEnabled
@@ -886,8 +888,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                     orientation = LinearLayout.HORIZONTAL
                     layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt() }
                 }
-                val btnEnterAdjust = Button(context).apply {
-                    text = "进入调节"
+                val btnEnterAdjust = EditorButton(context).apply {
+                    text = context.getString(R.string.i18n_adjust_d198bf)
                     setTextColor(-0x1)
                     textSize = 13f
                     setBackgroundResource(R.drawable.button_flat)
@@ -903,65 +905,65 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         if (isMousepadId(buttonId)) {
             // ── 手势动作配置（多个下拉选框）──
             addMouseActionSpinner(
-                buttonParamsInner, "单击", MouseGestureAction.TAP_ACTIONS, button.singleTapAction,
+                buttonParamsInner, context.getString(R.string.i18n_single_tap), MouseGestureAction.TAP_ACTIONS, button.singleTapAction,
             ) { action ->
                 currentButton = currentButton?.copy(singleTapAction = action)
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             }
             addMouseActionSpinner(
-                buttonParamsInner, "双指点击", MouseGestureAction.TAP_ACTIONS, button.twoFingerTapAction,
+                buttonParamsInner, context.getString(R.string.i18n_two_finger_tap), MouseGestureAction.TAP_ACTIONS, button.twoFingerTapAction,
             ) { action ->
                 currentButton = currentButton?.copy(twoFingerTapAction = action)
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             }
             addMouseActionSpinner(
-                buttonParamsInner, "三指点击", MouseGestureAction.TAP_ACTIONS, button.threeFingerTapAction,
+                buttonParamsInner, context.getString(R.string.i18n_three_finger_tap), MouseGestureAction.TAP_ACTIONS, button.threeFingerTapAction,
             ) { action ->
                 currentButton = currentButton?.copy(threeFingerTapAction = action)
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             }
             addMouseActionSpinner(
-                buttonParamsInner, "双击后滑动", MouseGestureAction.SWIPE_ACTIONS, button.doubleTapDragAction,
+                buttonParamsInner, context.getString(R.string.i18n_double_tap_then_drag), MouseGestureAction.SWIPE_ACTIONS, button.doubleTapDragAction,
             ) { action ->
                 currentButton = currentButton?.copy(doubleTapDragAction = action)
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             }
             addMouseActionSpinner(
-                buttonParamsInner, "单指滑动", MouseGestureAction.SWIPE_ACTIONS, button.oneFingerSwipeAction,
+                buttonParamsInner, context.getString(R.string.i18n_one_finger_swipe), MouseGestureAction.SWIPE_ACTIONS, button.oneFingerSwipeAction,
             ) { action ->
                 currentButton = currentButton?.copy(oneFingerSwipeAction = action)
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             }
             addMouseActionSpinner(
-                buttonParamsInner, "双指滑动", MouseGestureAction.SWIPE_ACTIONS, button.twoFingerSwipeAction,
+                buttonParamsInner, context.getString(R.string.i18n_two_finger_swipe), MouseGestureAction.SWIPE_ACTIONS, button.twoFingerSwipeAction,
             ) { action ->
                 currentButton = currentButton?.copy(twoFingerSwipeAction = action)
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             }
             addMouseActionSpinner(
-                buttonParamsInner, "三指滑动", MouseGestureAction.SWIPE_ACTIONS, button.threeFingerSwipeAction,
+                buttonParamsInner, context.getString(R.string.i18n_three_finger_swipe), MouseGestureAction.SWIPE_ACTIONS, button.threeFingerSwipeAction,
             ) { action ->
                 currentButton = currentButton?.copy(threeFingerSwipeAction = action)
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             }
-            addSeekbarFloat(buttonParamsInner, "鼠标灵敏度", button.mouseSensitivity, 0.1f, 3f, 0.05f) { v ->
+            addSeekbarFloat(buttonParamsInner, context.getString(R.string.i18n_mouse_sensitivity), button.mouseSensitivity, 0.1f, 3f, 0.05f) { v ->
                 currentButton = currentButton?.copy(mouseSensitivity = v)
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             }
-            addSeekbar(buttonParamsInner, "滑动判定距离", button.mouseMoveSlop, 0, 20, onChange = { v ->
+            addSeekbar(buttonParamsInner, context.getString(R.string.i18n_swipe_threshold), button.mouseMoveSlop, 0, 20, onChange = { v ->
                 currentButton = currentButton?.copy(mouseMoveSlop = v)
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             })
-            addSeekbarFloat(buttonParamsInner, "滚动灵敏度", button.scrollSensitivity, 0.01f, 1f, 0.01f) { v ->
+            addSeekbarFloat(buttonParamsInner, context.getString(R.string.i18n_scroll_sensitivity), button.scrollSensitivity, 0.01f, 1f, 0.01f) { v ->
                 currentButton = currentButton?.copy(scrollSensitivity = v)
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             }
-            addSeekbarFloat(buttonParamsInner, "指针加速度", button.mouseAcceleration?.get(1) ?: 0f, 0f, 0.5f, 0.01f) { v ->
+            addSeekbarFloat(buttonParamsInner, context.getString(R.string.i18n_pointer_acceleration), button.mouseAcceleration?.get(1) ?: 0f, 0f, 0.5f, 0.01f) { v ->
                 currentButton = currentButton?.copy(mouseAcceleration = listOf(1f, v))
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             }
             val cbInvert = CheckBox(context).apply {
-                text = "反转纵向滚动"
+                text = context.getString(R.string.i18n_invert_vertical_scroll)
                 setTextColor(-0x444445)
                 textSize = 14f
                 isChecked = button.invertScrollV
@@ -971,7 +973,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             }
             buttonParamsInner.addView(cbInvert, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
             val cbInvertH = CheckBox(context).apply {
-                text = "反转横向滚动"
+                text = context.getString(R.string.i18n_invert_horizontal_scroll)
                 setTextColor(-0x444445)
                 textSize = 14f
                 isChecked = button.invertScrollH
@@ -984,7 +986,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         if (buttonId.substringBefore("_") in joystickIds) {
             // ── Rectangular area follow ──
             val cbFollowArea = CheckBox(context).apply {
-                text = "矩形区域内跟随"
+                text = context.getString(R.string.i18n_follow_inside_rectangle)
                 setTextColor(-0x444445)
                 textSize = 14f
                 isChecked = button.followAreaEnabled
@@ -1015,8 +1017,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                     orientation = LinearLayout.HORIZONTAL
                     layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt() }
                 }
-                val btnEnterAdjust = Button(context).apply {
-                    text = "进入调节"
+                val btnEnterAdjust = EditorButton(context).apply {
+                    text = context.getString(R.string.i18n_adjust_d198bf)
                     setTextColor(-0x1)
                     textSize = 13f
                     setBackgroundResource(R.drawable.button_flat)
@@ -1030,7 +1032,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             }
 
             val cbTouchpadMode = CheckBox(context).apply {
-                text = "触摸板模式"
+                text = context.getString(R.string.i18n_touchpad_mode)
                 setTextColor(-0x444445)
                 textSize = 14f
                 isChecked = button.touchpadMode
@@ -1042,7 +1044,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             buttonParamsInner.addView(cbTouchpadMode, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
 
             val cbPrediction = CheckBox(context).apply {
-                text = "快速响应模式"
+                text = context.getString(R.string.i18n_fast_response_mode)
                 setTextColor(-0x444445)
                 textSize = 14f
                 isChecked = button.prediction
@@ -1055,7 +1057,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
             val curveH = (200f * density).toInt()
 
-            val btnSensSeekbar = createSimpleSeekbar("灵敏度(%)", button.joystickSensitivity, 10, 300, { value ->
+            val btnSensSeekbar = createSimpleSeekbar(context.getString(R.string.i18n_sensitivity_a072e4), button.joystickSensitivity, 10, 300, { value ->
                 currentButton = currentButton?.copy(joystickSensitivity = value)
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             })
@@ -1068,7 +1070,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 orientation = LinearLayout.HORIZONTAL
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             }
-            val btnDzSeekbar = createSimpleSeekbar("死区(%)", button.deadZone, 0, 100, { value ->
+            val btnDzSeekbar = createSimpleSeekbar(context.getString(R.string.i18n_dead_zone), button.deadZone, 0, 100, { value ->
                 currentButton = currentButton?.copy(deadZone = value)
                 resolvedDeadZone = value
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
@@ -1080,7 +1082,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 orientation = LinearLayout.HORIZONTAL
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             }
-            val btnRdzSeekbar = createSimpleSeekbar("反死区(%)", button.reverseDeadZone, 0, 100, { value ->
+            val btnRdzSeekbar = createSimpleSeekbar(context.getString(R.string.i18n_anti_dead_zone), button.reverseDeadZone, 0, 100, { value ->
                 currentButton = currentButton?.copy(reverseDeadZone = value)
                 resolvedReverseDeadZone = value
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
@@ -1089,13 +1091,13 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             buttonParamsInner.addView(btnRdzRow)
 
             val tvCurve = TextView(context).apply {
-                text = "灵敏度曲线"
+                text = context.getString(R.string.i18n_sensitivity_curve)
                 setTextColor(-0x444445)
                 textSize = 13f
             }
             buttonParamsInner.addView(tvCurve, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (10f * density).toInt(); bottomMargin = (4f * density).toInt() })
 
-            val curvePresetLabels = listOf("自定义") + SensitivityCurve.PRESETS.map { it.label }
+            val curvePresetLabels = listOf(context.getString(R.string.i18n_custom)) + SensitivityCurve.PRESETS.map { context.getString(it.labelRes) }
             val curvePresetSpinner = Spinner(context).apply {
                 adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, curvePresetLabels).also {
                     it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -1132,15 +1134,15 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 orientation = LinearLayout.HORIZONTAL
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             }
-            val btnDeletePoint = Button(context).apply {
-                text = "删除选中点"
+            val btnDeletePoint = EditorButton(context).apply {
+                text = context.getString(R.string.i18n_delete_selected_point)
                 setTextColor(-0x1)
                 textSize = 12f
                 setBackgroundResource(R.drawable.button_flat)
                 setOnClickListener { curveView.deleteSelected() }
             }
-            val btnResetCurve = Button(context).apply {
-                text = "重置为直线"
+            val btnResetCurve = EditorButton(context).apply {
+                text = context.getString(R.string.i18n_reset_to_straight_line)
                 setTextColor(-0x1)
                 textSize = 12f
                 setBackgroundResource(R.drawable.button_flat)
@@ -1150,8 +1152,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                     curveView.setFromFlatList(null)
                 }
             }
-            val btnEnlargeCurve = Button(context).apply {
-                text = "放大"
+            val btnEnlargeCurve = EditorButton(context).apply {
+                text = context.getString(R.string.i18n_zoom_in)
                 setTextColor(-0x1)
                 textSize = 12f
                 setBackgroundResource(R.drawable.button_flat)
@@ -1172,7 +1174,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             buildCenterShapeParam(density)
             // ── Rectangular area follow ──
             val cbFollowArea = CheckBox(context).apply {
-                text = "矩形区域内跟随"
+                text = context.getString(R.string.i18n_follow_inside_rectangle)
                 setTextColor(-0x444445)
                 textSize = 14f
                 isChecked = button.followAreaEnabled
@@ -1201,8 +1203,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                     orientation = LinearLayout.HORIZONTAL
                     layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt() }
                 }
-                val btnEnterAdjust = Button(context).apply {
-                    text = "进入调节"
+                val btnEnterAdjust = EditorButton(context).apply {
+                    text = context.getString(R.string.i18n_adjust_d198bf)
                     setTextColor(-0x1)
                     textSize = 13f
                     setBackgroundResource(R.drawable.button_flat)
@@ -1219,7 +1221,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         if (buttonId.substringBefore("_") == "customKeypad") {
             // ── Rectangular area follow ──
             val cbFollowArea = CheckBox(context).apply {
-                text = "矩形区域内跟随"
+                text = context.getString(R.string.i18n_follow_inside_rectangle)
                 setTextColor(-0x444445)
                 textSize = 14f
                 isChecked = button.followAreaEnabled
@@ -1248,8 +1250,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                     orientation = LinearLayout.HORIZONTAL
                     layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (4f * density).toInt() }
                 }
-                val btnEnterAdjust = Button(context).apply {
-                    text = "进入调节"
+                val btnEnterAdjust = EditorButton(context).apply {
+                    text = context.getString(R.string.i18n_adjust_d198bf)
                     setTextColor(-0x1)
                     textSize = 13f
                     setBackgroundResource(R.drawable.button_flat)
@@ -1270,7 +1272,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         if (isButton(buttonId) || isKeyboardId(buttonId)) {
             val isTrigger = buttonId in triggerIds
             val cbSwipe = CheckBox(context).apply {
-                text = "滑动触发"
+                text = context.getString(R.string.i18n_swipe_trigger)
                 setTextColor(-0x444445)
                 textSize = 14f
                 isChecked = button.swipeTrigger && !button.linearTriggerEnabled
@@ -1306,7 +1308,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
             if (isTrigger) {
                 val cbLinear = CheckBox(context).apply {
-                    text = "模拟线性扳机"
+                    text = context.getString(R.string.i18n_emulate_linear_trigger)
                     setTextColor(-0x444445)
                     textSize = 14f
                     isChecked = button.linearTriggerEnabled
@@ -1330,13 +1332,13 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
                 // slide direction spinner
                 val tvDirection = TextView(context).apply {
-                    text = "滑动方向"
+                    text = context.getString(R.string.i18n_swipe_direction)
                     setTextColor(-0x444445)
                     textSize = 13f
                 }
                 linearContainer.addView(tvDirection, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
 
-                val directionItems = listOf("向下", "向上", "向左", "向右")
+                val directionItems = listOf(context.getString(R.string.i18n_down_c4557f), context.getString(R.string.i18n_up_00d5a2), context.getString(R.string.i18n_left), context.getString(R.string.i18n_right_6a21ce))
                 val directionSpinner = Spinner(context).apply {
                     adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, directionItems).also {
                         it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -1367,20 +1369,20 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
                 // travel distance seekbar
                 val tvTravel = TextView(context).apply {
-                    text = "扳机行程"
+                    text = context.getString(R.string.i18n_trigger_travel)
                     setTextColor(-0x444445)
                     textSize = 13f
                 }
                 linearContainer.addView(tvTravel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
-                val travelSeekbar = createSimpleSeekbarLinear("行程", button.travelDistance, 1, 40, { value ->
+                val travelSeekbar = createSimpleSeekbarLinear(context.getString(R.string.i18n_travel), button.travelDistance, 1, 40, { value ->
                     currentButton = currentButton?.copy(travelDistance = value)
                     currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
                 })
                 linearContainer.addView(travelSeekbar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
 
                 val cbLinearPrediction = CheckBox(context).apply {
-                    text = "快速响应模式"
+                    text = context.getString(R.string.i18n_fast_response_mode)
                     setTextColor(-0x444445)
                     textSize = 14f
                     isChecked = button.prediction
@@ -1414,13 +1416,13 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         // ── Custom button settings ─────────────────────────
         if (button.isCustom) {
             val tvCustomLabel = TextView(context).apply {
-                text = "显示文本"
+                text = context.getString(R.string.i18n_display_text)
                 setTextColor(-0x444445)
                 textSize = 13f
             }
             buttonParamsInner.addView(tvCustomLabel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (10f * density).toInt() })
 
-            val safeCustomText = button.customText ?: "自定义"
+            val safeCustomText = button.customText ?: context.getString(R.string.i18n_custom)
             val etCustomText = EditText(context).apply {
                 setText(safeCustomText)
                 setTextColor(-0x444445)
@@ -1431,21 +1433,21 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                     override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                     override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                     override fun afterTextChanged(s: Editable?) {
-                        val newText = s.toString().ifEmpty { "自定义" }
+                        val newText = s.toString().ifEmpty { context.getString(R.string.i18n_custom) }
                         currentButton = currentButton?.copy(customText = newText)
                         currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
                     }
                 })
                 setOnFocusChangeListener { _, hasFocus ->
                     if (!hasFocus) {
-                        val newText = text.toString().ifEmpty { "自定义" }
+                        val newText = text.toString().ifEmpty { context.getString(R.string.i18n_custom) }
                         currentButton = currentButton?.copy(customText = newText)
                         currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
                     }
                 }
                 setOnEditorActionListener { _, actionId, _ ->
                     if (actionId == EditorInfo.IME_ACTION_DONE) {
-                        val newText = text.toString().ifEmpty { "自定义" }
+                        val newText = text.toString().ifEmpty { context.getString(R.string.i18n_custom) }
                         currentButton = currentButton?.copy(customText = newText)
                         currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
                         clearFocus()
@@ -1457,7 +1459,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
             // ── Output values section ──
             val tvOutputLabel = TextView(context).apply {
-                text = "映射键值"
+                text = context.getString(R.string.i18n_mapped_keys)
                 setTextColor(-0x1)
                 textSize = 14f
             }
@@ -1499,8 +1501,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             val btnOutputRow = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
             }
-            val btnAddOutput = Button(context).apply {
-                text = "添加"
+            val btnAddOutput = EditorButton(context).apply {
+                text = context.getString(R.string.i18n_add_b58c75)
                 setTextColor(-0x1)
                 textSize = 12f
                 setBackgroundResource(R.drawable.button_flat)
@@ -1512,8 +1514,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                     }
                 }
             }
-            val btnClearOutput = Button(context).apply {
-                text = "清空"
+            val btnClearOutput = EditorButton(context).apply {
+                text = context.getString(R.string.i18n_clear)
                 setTextColor(-0x1)
                 textSize = 12f
                 setBackgroundResource(R.drawable.button_flat)
@@ -1529,8 +1531,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
 
         if (!isSettingsButton(buttonId)) {
-            val btnDelete = Button(context).apply {
-                text = "删除"
+            val btnDelete = EditorButton(context).apply {
+                text = context.getString(R.string.i18n_delete)
                 setTextColor(-0x1)
                 textSize = 14f
                 setBackgroundResource(R.drawable.button_flat)
@@ -1544,13 +1546,13 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     private fun buildCenterShapeParam(density: Float) {
         val cb0 = currentButton ?: return
         val label = TextView(context).apply {
-            text = "中心形状"
+            text = context.getString(R.string.i18n_center_shape)
             setTextColor(-0x1)
             textSize = 14f
         }
         buttonParamsInner.addView(label, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
 
-        val items = listOf("方形", "圆形")
+        val items = listOf(context.getString(R.string.i18n_square), context.getString(R.string.i18n_circle))
         val spinner = Spinner(context).apply {
             adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, items).also {
                 it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -1580,13 +1582,13 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
         // ── 方向模式下拉框 ──
         val modeLabel = TextView(context).apply {
-            text = "方向模式"
+            text = context.getString(R.string.i18n_direction_mode)
             setTextColor(-0x1)
             textSize = 14f
         }
         buttonParamsInner.addView(modeLabel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
 
-        val modeItems = listOf("4方向", "8方向")
+        val modeItems = listOf(context.getString(R.string.i18n_4_way), context.getString(R.string.i18n_8_way))
         val modeSpinner = Spinner(context).apply {
             adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, modeItems).also {
                 it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -1609,12 +1611,12 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
         buildCenterShapeParam(density)
 
-        val dirs = mutableListOf("上方向" to 0, "下方向" to 1, "左方向" to 2, "右方向" to 3)
+        val dirs = mutableListOf(context.getString(R.string.i18n_up_3f99c7) to 0, context.getString(R.string.i18n_down_c761f5) to 1, context.getString(R.string.i18n_left_3e0a82) to 2, context.getString(R.string.i18n_right_b45922) to 3)
         if (cb.keypadEightWay) {
-            dirs += listOf("左上方向" to 5, "右上方向" to 6, "左下方向" to 7, "右下方向" to 8)
+            dirs += listOf(context.getString(R.string.i18n_top_left_07092c) to 5, context.getString(R.string.i18n_top_right_a52f17) to 6, context.getString(R.string.i18n_bottom_left_a289e9) to 7, context.getString(R.string.i18n_bottom_right_553067) to 8)
         }
         // 双击中心固定放最后，保证其文本输入框与下方映射编辑器相邻。
-        dirs += "双击中心" to 4
+        dirs += context.getString(R.string.i18n_double_tap_center) to 4
 
         for ((name, idx) in dirs) {
             buildKeypadRegionParam(density, name, idx, texts[idx], bits[idx])
@@ -1723,8 +1725,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         buttonParamsInner.addView(bitsContainer, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (4f * density).toInt() })
 
         val row2 = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
-        val btnAdd = Button(context).apply {
-            text = "添加"
+        val btnAdd = EditorButton(context).apply {
+            text = context.getString(R.string.i18n_add_b58c75)
             setTextColor(-0x1)
             textSize = 12f
             setBackgroundResource(R.drawable.button_flat)
@@ -1736,8 +1738,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 }
             }
         }
-        val btnClear = Button(context).apply {
-            text = "清空"
+        val btnClear = EditorButton(context).apply {
+            text = context.getString(R.string.i18n_clear)
             setTextColor(-0x1)
             textSize = 12f
             setBackgroundResource(R.drawable.button_flat)
@@ -1804,7 +1806,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
         colCcw.addView(btnCcw, LinearLayout.LayoutParams(btnSize, btnSize))
         colCcw.addView(TextView(context).apply {
-            text = "逆时针"
+            text = context.getString(R.string.i18n_counterclockwise)
             setTextColor(-0x444445)
             textSize = 11f
             gravity = Gravity.CENTER
@@ -1817,7 +1819,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
         colCw.addView(btnCw, LinearLayout.LayoutParams(btnSize, btnSize))
         colCw.addView(TextView(context).apply {
-            text = "顺时针"
+            text = context.getString(R.string.i18n_clockwise)
             setTextColor(-0x444445)
             textSize = 11f
             gravity = Gravity.CENTER
@@ -1847,7 +1849,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         container.addView(tv, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
-        val items = actions.map { it.displayName }
+        val items = actions.map { context.getString(it.displayNameRes) }
         val spinner = Spinner(context).apply {
             adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, items).also {
                 it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -2336,5 +2338,14 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         container.addView(row)
         container.addView(seek, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (4f * density).toInt() })
         return container
+    }
+}
+
+/** Single-line, auto-shrinking button used by the floating editor so long labels never wrap. */
+private class EditorButton(context: Context) : Button(context) {
+    init {
+        maxLines = 1
+        ellipsize = TextUtils.TruncateAt.END
+        setAutoSizeTextTypeUniformWithConfiguration(8, 13, 1, TypedValue.COMPLEX_UNIT_SP)
     }
 }

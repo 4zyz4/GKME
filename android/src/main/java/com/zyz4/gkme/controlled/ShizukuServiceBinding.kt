@@ -1,5 +1,7 @@
 package com.zyz4.gkme.controlled
 
+import com.zyz4.gkme.R
+import com.zyz4.gkme.i18n.AppStrings
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -118,7 +120,7 @@ class ShizukuServiceBinding(
         bindInFlight = false
         bindAttempts = 0
         bindFailed = false
-        lastError = "Shizuku 已停止"
+        lastError = AppStrings.get(R.string.i18n_shizuku_stopped)
         ShizukuPermission.onBinderDead()
         onDisconnected()
     }
@@ -131,7 +133,7 @@ class ShizukuServiceBinding(
                 lastError = null
                 ensureBound()
             } else {
-                lastError = "Shizuku 权限被拒绝"
+                lastError = AppStrings.get(R.string.i18n_shizuku_permission_denied)
             }
         }
 
@@ -155,7 +157,7 @@ class ShizukuServiceBinding(
             Shizuku.addBinderDeadListener(binderDeadListener)
             Shizuku.addRequestPermissionResultListener(permissionResultListener)
         } catch (t: Throwable) {
-            lastError = "Shizuku 初始化失败: ${t.message}"
+            lastError = AppStrings.get(R.string.i18n_shizuku_initialization_failed_0, t.message)
             Log.e(tag, "init 失败", t)
         }
     }
@@ -170,7 +172,7 @@ class ShizukuServiceBinding(
         handler?.post {
             try {
                 if (Shizuku.isPreV11()) {
-                    lastError = "Shizuku 版本过低，请升级 Shizuku"
+                    lastError = AppStrings.get(R.string.i18n_shizuku_is_too_old_please_update_it)
                     return@post
                 }
                 // 先按服务端真实状态刷新：例如用户已在 Shizuku 中手动授权。
@@ -188,7 +190,7 @@ class ShizukuServiceBinding(
                 Shizuku.requestPermission(REQUEST_CODE)
             } catch (t: Throwable) {
                 ShizukuPermission.clearRequestInFlight()
-                lastError = "申请 Shizuku 权限失败: ${t.message}"
+                lastError = AppStrings.get(R.string.i18n_failed_to_request_shizuku_permission_0, t.message)
             }
         }
     }
@@ -228,14 +230,14 @@ class ShizukuServiceBinding(
             bindAttempts++
             Log.i(
                 tag,
-                "bindUserService 尝试#$bindAttempts (${serviceClass.simpleName}, daemon=$daemon)",
+                AppStrings.get(R.string.i18n_binduserservice_attempt_0_1_daemon_2, bindAttempts, serviceClass.simpleName, daemon),
             )
             try {
                 Shizuku.bindUserService(a, connection)
                 lastError = null
             } catch (t: Throwable) {
                 bindInFlight = false
-                lastError = "绑定 Shizuku 用户服务失败: ${t.message}"
+                lastError = AppStrings.get(R.string.i18n_failed_to_bind_shizuku_user_service_0, t.message)
                 Log.w(tag, "bindUserService 失败 (${serviceClass.simpleName})", t)
                 // 权限/客户端状态异常：作废缓存，下一次 ensureBound 会重新检查并申请。
                 if (t is SecurityException || t is IllegalStateException) {
@@ -305,11 +307,11 @@ class ShizukuServiceBinding(
     }
 
     fun statusText(): String = when {
-        !binderAlive -> "Shizuku 未运行"
-        !permissionGranted -> "Shizuku 未授权"
-        !bound -> if (bindFailed) BIND_FAILED_MESSAGE else "正在启动 Shizuku 用户服务…"
+        !binderAlive -> AppStrings.get(R.string.i18n_shizuku_not_running)
+        !permissionGranted -> AppStrings.get(R.string.i18n_shizuku_not_authorized)
+        !bound -> if (bindFailed) BIND_FAILED_MESSAGE else AppStrings.get(R.string.i18n_starting_shizuku_user_service)
         lastError != null -> lastError!!
-        else -> "已连接"
+        else -> AppStrings.get(R.string.i18n_connected)
     }
 
     companion object {
@@ -317,7 +319,7 @@ class ShizukuServiceBinding(
         const val SHIZUKU_DOWNLOAD_URL = "https://shizuku.rikka.app/download/"
 
         /** 用户服务长时间无法连接时的用户可见提示（疑似 Shizuku 存在重复实例）。 */
-        const val BIND_FAILED_MESSAGE = "Shizuku 服务状态异常，请重启手机后重试"
+        val BIND_FAILED_MESSAGE: String get() = AppStrings.get(R.string.i18n_shizuku_service_is_in_an_unexpected_stat)
 
         /**
          * Shizuku 权限是**应用级一次授权**，所有用户服务（手柄/震动/保活）共用同一个

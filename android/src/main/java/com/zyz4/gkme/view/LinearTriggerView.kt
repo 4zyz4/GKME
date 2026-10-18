@@ -3,8 +3,8 @@ package com.zyz4.gkme.view
 import android.content.Context
 import android.graphics.drawable.GradientDrawable
 import android.util.AttributeSet
-import android.view.MotionEvent
 import android.widget.Button
+import android.view.MotionEvent
 import com.zyz4.gkme.model.SlideDirection
 import kotlin.math.abs
 import kotlin.math.min

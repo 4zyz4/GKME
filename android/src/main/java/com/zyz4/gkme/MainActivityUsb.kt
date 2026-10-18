@@ -1,5 +1,6 @@
 package com.zyz4.gkme
 
+import com.zyz4.gkme.R
 import android.content.Intent
 import android.provider.Settings
 import android.view.ViewGroup
@@ -31,9 +32,9 @@ internal fun MainActivity.checkUsbAdbAndStart() {
 internal fun MainActivity.showUsbAdbGuideDialog() {
     val a = this
     val text = TextView(a).apply {
-        text = "1. 打开「设置 → 关于手机」，连续点击「版本号」7 次，开启开发者选项。\n\n" +
-            "2. 进入「开发者选项」，打开「USB 调试」。\n\n" +
-            "若已开启，请直接点击「启动服务」。"
+        text = getString(R.string.i18n_1_open_settings_about_phone_and_tap_buil) +
+            getString(R.string.i18n_2_open_developer_options_and_enable_usb) +
+            getString(R.string.i18n_if_enabled_simply_tap_start_service)
         textSize = 13f
         setTextColor(0xFFCCCCCC.toInt())
         setPadding(0, 0, 0, 0)
@@ -46,8 +47,8 @@ internal fun MainActivity.showUsbAdbGuideDialog() {
         addView(text)
     }
     CustomDialog.showCustomView(
-        a, "开启开发者选项与 USB 调试", content,
-        positiveText = "去开启", negativeText = "取消",
+        a, getString(R.string.i18n_enable_developer_options_and_usb_debuggi), content,
+        positiveText = getString(R.string.i18n_open_settings), negativeText = getString(R.string.i18n_cancel),
         onPositive = { a.openDeveloperOptions() },
     )
 }
@@ -67,5 +68,5 @@ internal fun MainActivity.openDeveloperOptions() {
         } catch (_: Exception) {
         }
     }
-    showToast("无法打开设置，请手动进入「开发者选项」")
+    showToast(getString(R.string.i18n_failed_to_open_settings_open_developer_o))
 }

@@ -1,5 +1,6 @@
 package com.zyz4.gkme.input
 
+import com.zyz4.gkme.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -74,33 +75,33 @@ class SensitivityCurveTest {
             var x = 0f
             while (x <= 1.0001f) {
                 val y = SensitivityCurve.evaluate(preset.points, x)
-                assertTrue("${preset.label} must not decrease at $x ($prev -> $y)", y >= prev - 1e-4f)
+                assertTrue("${preset.labelRes.toString()} must not decrease at $x ($prev -> $y)", y >= prev - 1e-4f)
                 prev = y
                 x += 0.1f
             }
-            assertClose(0f, SensitivityCurve.evaluate(preset.points, 0f), msg = preset.label)
-            assertClose(1f, SensitivityCurve.evaluate(preset.points, 1f), msg = preset.label)
+            assertClose(0f, SensitivityCurve.evaluate(preset.points, 0f), msg = preset.labelRes.toString())
+            assertClose(1f, SensitivityCurve.evaluate(preset.points, 1f), msg = preset.labelRes.toString())
         }
     }
 
     @Test
     fun preset_instantBulgesAboveLine() {
-        val points = SensitivityCurve.PRESETS.first { it.label == "即时" }.points
+        val points = SensitivityCurve.PRESETS.first { it.labelRes == R.string.i18n_instant }.points
         assertTrue(SensitivityCurve.evaluate(points, 0.25f) > 0.25f)
         assertTrue(SensitivityCurve.evaluate(points, 0.5f) > 0.5f)
     }
 
     @Test
     fun preset_delayedDipsBelowLine() {
-        val points = SensitivityCurve.PRESETS.first { it.label == "延时" }.points
+        val points = SensitivityCurve.PRESETS.first { it.labelRes == R.string.i18n_delayed }.points
         assertTrue(SensitivityCurve.evaluate(points, 0.25f) < 0.25f)
         assertTrue(SensitivityCurve.evaluate(points, 0.5f) < 0.5f)
     }
 
     @Test
     fun presets_instantAndDelayedAreMirrorImages() {
-        val instant = SensitivityCurve.PRESETS.first { it.label == "即时" }.points
-        val delayed = SensitivityCurve.PRESETS.first { it.label == "延时" }.points
+        val instant = SensitivityCurve.PRESETS.first { it.labelRes == R.string.i18n_instant }.points
+        val delayed = SensitivityCurve.PRESETS.first { it.labelRes == R.string.i18n_delayed }.points
         // The delayed curve is the instant curve with every (x, y) swapped (mirror across y = x).
         val expected = instant.chunked(2).map { it[1] to it[0] }.sortedBy { it.first }
             .flatMap { listOf(it.first, it.second) }
@@ -112,7 +113,7 @@ class SensitivityCurveTest {
 
     @Test
     fun preset_dynamicCrossesMidpoint() {
-        val points = SensitivityCurve.PRESETS.first { it.label == "动态" }.points
+        val points = SensitivityCurve.PRESETS.first { it.labelRes == R.string.i18n_dynamic }.points
         assertTrue(SensitivityCurve.evaluate(points, 0.25f) > 0.25f)
         assertClose(0.5f, SensitivityCurve.evaluate(points, 0.5f), 5e-3f, "midpoint")
         assertTrue(SensitivityCurve.evaluate(points, 0.75f) < 0.75f)

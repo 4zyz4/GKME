@@ -25,7 +25,7 @@
                 android:layout_width="120dp"
                 android:layout_height="44dp"
                 android:background="?android:attr/selectableItemBackground"
-                android:text="返回"
+                android:text="@string/i18n_back"
                 android:drawableLeft="@drawable/ic_back"
                 android:paddingStart="8dp"
                 android:textColor="@color/text_primary"
@@ -37,7 +37,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:layout_marginStart="12dp"
-                android:text="作为被控端"
+                android:text="@string/i18n_controlled_mode"
                 android:textColor="@color/text_primary"
                 android:textSize="18sp"
                 android:fontFamily="sans-serif-medium" />
@@ -58,7 +58,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Shizuku 环境"
+                android:text="@string/i18n_shizuku_environment"
                 android:textColor="@color/text_primary"
                 android:textSize="14sp"
                 android:fontFamily="sans-serif-medium" />
@@ -66,7 +66,7 @@
             <Button
                 android:id="@+id/btnShizukuAction"
                 style="@style/GamepadChip"
-                android:text="下载 Shizuku" />
+                android:text="@string/i18n_download_shizuku" />
         </LinearLayout>
 
         <!-- 悬浮窗保活开关（可选，关闭时不影响前台服务） -->
@@ -84,7 +84,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="悬浮窗保活"
+                android:text="@string/i18n_overlay_keep_alive"
                 android:textColor="@color/text_primary"
                 android:textSize="14sp" />
 
@@ -114,7 +114,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="网页手柄"
+                    android:text="@string/i18n_web_gamepad"
                     android:textColor="@color/text_primary"
                     android:textSize="14sp"
                     android:fontFamily="sans-serif-medium" />
@@ -122,7 +122,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="选择网卡"
+                    android:text="@string/i18n_select_network_interface"
                     android:textColor="@color/text_secondary"
                     android:textSize="11sp"
                     android:layout_marginTop="8dp"
@@ -149,7 +149,7 @@
                 android:layout_width="110dp"
                 android:layout_height="110dp"
                 android:layout_marginStart="14dp"
-                android:contentDescription="网页手柄二维码"
+                android:contentDescription="@string/i18n_web_gamepad_qr_code"
                 android:scaleType="fitCenter" />
         </LinearLayout>
 
@@ -166,7 +166,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="IP 地址"
+                android:text="@string/i18n_ip_address"
                 android:textColor="@color/text_primary"
                 android:textSize="13sp"
                 android:layout_marginEnd="8dp" />
@@ -177,7 +177,7 @@
                 android:layout_height="40dp"
                 android:layout_weight="1"
                 android:background="@drawable/bg_small_btn"
-                android:hint="控制端 IP"
+                android:hint="@string/i18n_host_ip"
                 android:inputType="text"
                 android:paddingHorizontal="10dp"
                 android:singleLine="true"
@@ -189,13 +189,13 @@
                 android:id="@+id/btnManualConnect"
                 style="@style/GamepadChip"
                 android:layout_marginStart="8dp"
-                android:text="手动连接" />
+                android:text="@string/i18n_connect_manually" />
 
             <Button
                 android:id="@+id/btnRefreshDevices"
                 style="@style/GamepadChip"
                 android:layout_marginStart="6dp"
-                android:text="刷新" />
+                android:text="@string/i18n_refresh" />
         </LinearLayout>
 
         <!-- 状态 -->
@@ -206,7 +206,7 @@
             android:background="@color/bg_surface"
             android:gravity="center_vertical"
             android:paddingHorizontal="12dp"
-            android:text="未启动"
+            android:text="@string/i18n_not_started"
             android:textColor="@color/text_secondary"
             android:textSize="13sp"
             android:layout_marginBottom="8dp" />

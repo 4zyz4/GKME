@@ -1,5 +1,6 @@
 package com.zyz4.gkme.input
 
+import com.zyz4.gkme.R
 import android.app.Activity
 import android.content.Context
 import android.hardware.input.InputManager
@@ -273,7 +274,7 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
             val androidCount = androidMotorCounts.getOrElse(i) { 0 }
             ControllerInfo(
                 id = SdlNative.nativeGetControllerInstanceId(i),
-                name = SdlNative.nativeGetControllerName(i).ifBlank { "手柄${i + 1}" },
+                name = SdlNative.nativeGetControllerName(i).ifBlank { context.getString(R.string.i18n_gamepad_0, i + 1) },
                 motorCount = if (androidCount > 0) androidCount else SdlNative.nativeGetControllerMotorCount(i),
                 hasTriggerRumble = SdlNative.nativeGetControllerHasTriggerRumble(i),
                 hasAdaptiveTrigger = false,

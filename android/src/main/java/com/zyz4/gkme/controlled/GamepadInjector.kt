@@ -1,5 +1,7 @@
 package com.zyz4.gkme.controlled
 
+import com.zyz4.gkme.R
+import com.zyz4.gkme.i18n.AppStrings
 import android.content.Context
 import android.util.Log
 import com.zyz4.gkme.input.SdlNative
@@ -116,11 +118,11 @@ object GamepadInjector {
                 createKeyboardMouse(svc)
                 lastError = null
             } else {
-                lastError = "创建虚拟手柄失败 (code=$r)，可能需要以 root 启动 Shizuku"
+                lastError = AppStrings.get(R.string.i18n_failed_to_create_virtual_gamepad_code_0, r)
             }
         } catch (t: Throwable) {
             setCreated(false)
-            lastError = "创建虚拟手柄异常: ${t.message}"
+            lastError = AppStrings.get(R.string.i18n_virtual_gamepad_creation_error_0, t.message)
         }
     }
 
@@ -147,19 +149,19 @@ object GamepadInjector {
     ): Boolean {
         val b = binding
         if (b == null || !b.binderAlive) {
-            lastError = "Shizuku 未运行"
+            lastError = AppStrings.get(R.string.i18n_shizuku_not_running)
             return false
         }
         if (!b.permissionGranted) {
             if (b.permissionDenied) {
-                lastError = b.lastError ?: "Shizuku 权限被拒绝"
+                lastError = b.lastError ?: AppStrings.get(R.string.i18n_shizuku_permission_denied)
             }
             b.requestPermission()
             return false
         }
         val svc = service
         if (svc == null) {
-            lastError = "正在启动 Shizuku 用户服务…"
+            lastError = AppStrings.get(R.string.i18n_starting_shizuku_user_service)
             b.ensureBound()
             return false
         }
@@ -184,11 +186,11 @@ object GamepadInjector {
                 lastError = null
                 true
             } else {
-                lastError = "创建虚拟手柄失败 (code=$r)，可能需要以 root 启动 Shizuku"
+                lastError = AppStrings.get(R.string.i18n_failed_to_create_virtual_gamepad_code_0, r)
                 false
             }
         } catch (t: Throwable) {
-            lastError = "创建虚拟手柄异常: ${t.message}"
+            lastError = AppStrings.get(R.string.i18n_virtual_gamepad_creation_error_0, t.message)
             false
         }
     }
@@ -349,19 +351,19 @@ object GamepadInjector {
     }
 
     fun statusText(): String {
-        val b = binding ?: return "Shizuku 未运行"
+        val b = binding ?: return AppStrings.get(R.string.i18n_shizuku_not_running)
         return when {
-            !b.binderAlive -> "Shizuku 未运行"
+            !b.binderAlive -> AppStrings.get(R.string.i18n_shizuku_not_running)
             !b.permissionGranted ->
-                if (b.permissionDenied) (b.lastError ?: "Shizuku 权限被拒绝") else "Shizuku 未授权"
+                if (b.permissionDenied) (b.lastError ?: AppStrings.get(R.string.i18n_shizuku_permission_denied)) else AppStrings.get(R.string.i18n_shizuku_not_authorized)
             service == null -> if (b.bindFailed) {
                 ShizukuServiceBinding.BIND_FAILED_MESSAGE
             } else {
-                "正在启动 Shizuku 用户服务…"
+                AppStrings.get(R.string.i18n_starting_shizuku_user_service)
             }
             lastError != null -> lastError!!
-            created -> "虚拟手柄已就绪"
-            else -> "正在创建虚拟手柄…"
+            created -> AppStrings.get(R.string.i18n_virtual_gamepad_is_ready)
+            else -> AppStrings.get(R.string.i18n_creating_virtual_gamepad)
         }
     }
 

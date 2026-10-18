@@ -1,5 +1,7 @@
 package com.zyz4.gkme.controlled
 
+import com.zyz4.gkme.R
+import com.zyz4.gkme.i18n.AppStrings
 import android.util.Log
 import com.zyz4.gkme.proto.ClientToServer
 import com.zyz4.gkme.proto.CompactFrame
@@ -50,7 +52,7 @@ object ControlledHostManager {
 
     enum class Phase { IDLE, STARTING, LISTENING, CONNECTING, CONNECTED, RECONNECTING, ERROR }
 
-    data class HostState(val phase: Phase = Phase.IDLE, val statusText: String = "未启动")
+    data class HostState(val phase: Phase = Phase.IDLE, val statusText: String = AppStrings.get(R.string.i18n_not_started))
 
     private val _devices = MutableStateFlow<List<ControlledDeviceCard>>(emptyList())
     val devices: StateFlow<List<ControlledDeviceCard>> = _devices.asStateFlow()
@@ -107,18 +109,18 @@ object ControlledHostManager {
         running = true
         val s = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         scope = s
-        _state.value = HostState(Phase.STARTING, "正在启动服务…")
+        _state.value = HostState(Phase.STARTING, AppStrings.get(R.string.i18n_starting_service_7b3971))
         bindSockets()
         if (sockets.isEmpty()) {
             _state.value = HostState(
                 Phase.ERROR,
-                if (portInUse) "端口 $PORT 被占用，可能已有服务在运行" else "无法获取本机 IP",
+                if (portInUse) AppStrings.get(R.string.i18n_port_0_is_in_use_a_service_may_already_b, PORT) else AppStrings.get(R.string.i18n_failed_to_get_local_ip_address),
             )
             running = false
             scope = null
             return
         }
-        _state.value = HostState(Phase.LISTENING, "正在扫描…")
+        _state.value = HostState(Phase.LISTENING, AppStrings.get(R.string.i18n_scanning))
         jobs += s.launch { pruneLoop() }
         jobs += s.launch { watchdogLoop() }
         updateShizukuStatus()
@@ -151,7 +153,7 @@ object ControlledHostManager {
         scope = null
         deviceMap.clear()
         _devices.value = emptyList()
-        _state.value = HostState(Phase.IDLE, "未启动")
+        _state.value = HostState(Phase.IDLE, AppStrings.get(R.string.i18n_not_started))
     }
 
     fun isRunning(): Boolean = running
@@ -162,7 +164,7 @@ object ControlledHostManager {
         deviceMap.keys.retainAll { it == activeIp }
         publish()
         if (active == null) {
-            _state.value = HostState(Phase.LISTENING, "正在扫描…")
+            _state.value = HostState(Phase.LISTENING, AppStrings.get(R.string.i18n_scanning))
         }
     }
 
@@ -174,12 +176,12 @@ object ControlledHostManager {
                 if (active != null) disconnectInternal(null)
                 _connectingIp.value = device.ip
                 reconnecting = false
-                _state.value = HostState(Phase.CONNECTING, "正在连接到 ${device.ip}…")
+                _state.value = HostState(Phase.CONNECTING, AppStrings.get(R.string.i18n_connecting_to_0, device.ip))
                 val ready = awaitInjectorReady(8_000)
                 if (!ready) {
                     _state.value = HostState(
                         Phase.ERROR,
-                        "连接失败: ${device.ip}（${GamepadInjector.statusText()}）",
+                        AppStrings.get(R.string.i18n_connection_failed_0_1, device.ip, GamepadInjector.statusText()),
                     )
                     return@launch
                 }
@@ -190,7 +192,7 @@ object ControlledHostManager {
                 deviceMap[device.ip] = device
                 sendServerHello()
                 startRumblePump(device)
-                _state.value = HostState(Phase.CONNECTED, "已连接: ${device.ip}")
+                _state.value = HostState(Phase.CONNECTED, AppStrings.get(R.string.i18n_connected_0, device.ip))
             } finally {
                 if (_connectingIp.value == device.ip) _connectingIp.value = null
                 publish()
@@ -202,7 +204,7 @@ object ControlledHostManager {
         if (!running) return
         val ip = rawIp.trim()
         if (ip.isEmpty() || !isValidIp(ip)) {
-            _state.value = HostState(_state.value.phase, "IP 地址格式无效")
+            _state.value = HostState(_state.value.phase, AppStrings.get(R.string.i18n_invalid_ip_address_format))
             return
         }
         val device = deviceMap[ip] ?: ControlledDevice(ip = ip)
@@ -227,12 +229,12 @@ object ControlledHostManager {
                 if (active != null) disconnectInternal(null)
                 _connectingIp.value = device.ip
                 reconnecting = false
-                _state.value = HostState(Phase.CONNECTING, "正在连接: ${device.displayName}…")
+                _state.value = HostState(Phase.CONNECTING, AppStrings.get(R.string.i18n_connecting_0, device.displayName))
                 val ready = awaitInjectorReady(8_000)
                 if (!ready) {
                     _state.value = HostState(
                         Phase.ERROR,
-                        "连接失败: ${device.displayName}（${GamepadInjector.statusText()}）",
+                        AppStrings.get(R.string.i18n_connection_failed_0_1, device.displayName, GamepadInjector.statusText()),
                     )
                     return@launch
                 }
@@ -243,7 +245,7 @@ object ControlledHostManager {
                 deviceMap[device.ip] = device
                 sendServerHello()
                 startRumblePump(device)
-                _state.value = HostState(Phase.CONNECTED, "已连接: ${device.displayName}")
+                _state.value = HostState(Phase.CONNECTED, AppStrings.get(R.string.i18n_connected_0, device.displayName))
             } finally {
                 if (_connectingIp.value == device.ip) _connectingIp.value = null
                 publish()
@@ -273,7 +275,7 @@ object ControlledHostManager {
     fun disconnect() {
         connectJob?.cancel()
         connectJob = null
-        scope?.launch { disconnectInternal("已断开") }
+        scope?.launch { disconnectInternal(AppStrings.get(R.string.i18n_disconnected)) }
     }
 
     fun updateShizukuStatus() {
@@ -379,7 +381,7 @@ object ControlledHostManager {
             lastSeen = System.currentTimeMillis(),
         )
         if (active == null && existing == null) {
-            _state.value = HostState(Phase.LISTENING, "发现设备: $srcIp")
+            _state.value = HostState(Phase.LISTENING, AppStrings.get(R.string.i18n_device_found_0, srcIp))
         }
         // 控制端在重连时会恢复广播（ConnectionManager.startAutoReconnect），此时
         // 重新下发 ServerHello 让它完成握手。对齐电脑端 HandleDiscovery 的行为。
@@ -437,7 +439,7 @@ object ControlledHostManager {
                     sendServerHello()
                     val dev = active ?: return@launch
                     startRumblePump(dev)
-                    _state.value = HostState(Phase.CONNECTED, "已连接: $srcIp")
+                    _state.value = HostState(Phase.CONNECTED, AppStrings.get(R.string.i18n_connected_0, srcIp))
                 } else {
                     _state.value = HostState(Phase.RECONNECTING, GamepadInjector.statusText())
                 }
@@ -491,9 +493,9 @@ object ControlledHostManager {
         }
         GamepadInjector.release()
         _state.value = if (running) {
-            HostState(Phase.LISTENING, reason ?: "已断开")
+            HostState(Phase.LISTENING, reason ?: AppStrings.get(R.string.i18n_disconnected))
         } else {
-            HostState(Phase.IDLE, "未启动")
+            HostState(Phase.IDLE, AppStrings.get(R.string.i18n_not_started))
         }
     }
 
@@ -528,7 +530,7 @@ object ControlledHostManager {
                 // GamepadSession.WatchdogLoop：超时只重置控制器，不销毁会话。
                 reconnecting = true
                 GamepadInjector.release()
-                _state.value = HostState(Phase.RECONNECTING, "连接丢失: ${current.ip}")
+                _state.value = HostState(Phase.RECONNECTING, AppStrings.get(R.string.i18n_connection_lost_0, current.ip))
             }
             delay(500.milliseconds)
         }

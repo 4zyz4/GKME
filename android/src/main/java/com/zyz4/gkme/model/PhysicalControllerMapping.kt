@@ -1,5 +1,8 @@
 package com.zyz4.gkme.model
 
+import androidx.annotation.StringRes
+import com.zyz4.gkme.R
+
 /** Which kind of physical input a [PhysicalInput] describes. */
 enum class PhysicalInputKind { BUTTON, JOYSTICK, TOUCHPAD }
 
@@ -18,6 +21,7 @@ data class PhysicalInput(
     val kind: PhysicalInputKind,
     val defaultOutputs: List<Int> = emptyList(),
     val bitMask: Int = 0,
+    @StringRes val labelRes: Int = 0,
 )
 
 /**
@@ -109,28 +113,28 @@ object PhysicalInputs {
         PhysicalInput(KEY_RB, "RB", PhysicalInputKind.BUTTON, listOf(GamepadState.RB), GamepadState.RB),
         PhysicalInput(KEY_LT, "LT", PhysicalInputKind.BUTTON, listOf(GamepadState.LT), GamepadState.LT),
         PhysicalInput(KEY_RT, "RT", PhysicalInputKind.BUTTON, listOf(GamepadState.RT), GamepadState.RT),
-        PhysicalInput(KEY_SELECT, "选择", PhysicalInputKind.BUTTON, listOf(GamepadState.SELECT), GamepadState.SELECT),
-        PhysicalInput(KEY_START, "菜单", PhysicalInputKind.BUTTON, listOf(GamepadState.START), GamepadState.START),
-        PhysicalInput(KEY_L3, "左摇杆按下", PhysicalInputKind.BUTTON, listOf(GamepadState.L3), GamepadState.L3),
-        PhysicalInput(KEY_R3, "右摇杆按下", PhysicalInputKind.BUTTON, listOf(GamepadState.R3), GamepadState.R3),
-        PhysicalInput(KEY_DPAD_UP, "方向键上", PhysicalInputKind.BUTTON, listOf(GamepadState.DPAD_BIT_UP), GamepadState.DPAD_BIT_UP),
-        PhysicalInput(KEY_DPAD_DOWN, "方向键下", PhysicalInputKind.BUTTON, listOf(GamepadState.DPAD_BIT_DOWN), GamepadState.DPAD_BIT_DOWN),
-        PhysicalInput(KEY_DPAD_LEFT, "方向键左", PhysicalInputKind.BUTTON, listOf(GamepadState.DPAD_BIT_LEFT), GamepadState.DPAD_BIT_LEFT),
-        PhysicalInput(KEY_DPAD_RIGHT, "方向键右", PhysicalInputKind.BUTTON, listOf(GamepadState.DPAD_BIT_RIGHT), GamepadState.DPAD_BIT_RIGHT),
-        PhysicalInput(KEY_HOME, "主页", PhysicalInputKind.BUTTON, listOf(GamepadState.HOME), GamepadState.HOME),
-        PhysicalInput(KEY_SHARE, "分享", PhysicalInputKind.BUTTON, listOf(GamepadState.TOUCHPAD_CLICK), GamepadState.TOUCHPAD_CLICK),
-        PhysicalInput(KEY_MIC_MUTE, "麦克风静音", PhysicalInputKind.BUTTON, listOf(GamepadState.MIC_MUTE), GamepadState.MIC_MUTE),
-        PhysicalInput(KEY_PADDLE_R1, "背键右上 (P1)", PhysicalInputKind.BUTTON, emptyList(), PADDLE_R1),
-        PhysicalInput(KEY_PADDLE_L1, "背键左上 (P3)", PhysicalInputKind.BUTTON, emptyList(), PADDLE_L1),
-        PhysicalInput(KEY_PADDLE_R2, "背键右下 (P2)", PhysicalInputKind.BUTTON, emptyList(), PADDLE_R2),
-        PhysicalInput(KEY_PADDLE_L2, "背键左下 (P4)", PhysicalInputKind.BUTTON, emptyList(), PADDLE_L2),
+        PhysicalInput(KEY_SELECT, "", PhysicalInputKind.BUTTON, listOf(GamepadState.SELECT), GamepadState.SELECT, labelRes = R.string.i18n_select),
+        PhysicalInput(KEY_START, "", PhysicalInputKind.BUTTON, listOf(GamepadState.START), GamepadState.START, labelRes = R.string.i18n_menu),
+        PhysicalInput(KEY_L3, "", PhysicalInputKind.BUTTON, listOf(GamepadState.L3), GamepadState.L3, labelRes = R.string.i18n_left_stick_click),
+        PhysicalInput(KEY_R3, "", PhysicalInputKind.BUTTON, listOf(GamepadState.R3), GamepadState.R3, labelRes = R.string.i18n_right_stick_click),
+        PhysicalInput(KEY_DPAD_UP, "", PhysicalInputKind.BUTTON, listOf(GamepadState.DPAD_BIT_UP), GamepadState.DPAD_BIT_UP, labelRes = R.string.i18n_d_pad_up),
+        PhysicalInput(KEY_DPAD_DOWN, "", PhysicalInputKind.BUTTON, listOf(GamepadState.DPAD_BIT_DOWN), GamepadState.DPAD_BIT_DOWN, labelRes = R.string.i18n_d_pad_down),
+        PhysicalInput(KEY_DPAD_LEFT, "", PhysicalInputKind.BUTTON, listOf(GamepadState.DPAD_BIT_LEFT), GamepadState.DPAD_BIT_LEFT, labelRes = R.string.i18n_d_pad_left),
+        PhysicalInput(KEY_DPAD_RIGHT, "", PhysicalInputKind.BUTTON, listOf(GamepadState.DPAD_BIT_RIGHT), GamepadState.DPAD_BIT_RIGHT, labelRes = R.string.i18n_d_pad_right),
+        PhysicalInput(KEY_HOME, "", PhysicalInputKind.BUTTON, listOf(GamepadState.HOME), GamepadState.HOME, labelRes = R.string.i18n_home),
+        PhysicalInput(KEY_SHARE, "", PhysicalInputKind.BUTTON, listOf(GamepadState.TOUCHPAD_CLICK), GamepadState.TOUCHPAD_CLICK, labelRes = R.string.i18n_share),
+        PhysicalInput(KEY_MIC_MUTE, "", PhysicalInputKind.BUTTON, listOf(GamepadState.MIC_MUTE), GamepadState.MIC_MUTE, labelRes = R.string.i18n_mic_mute),
+        PhysicalInput(KEY_PADDLE_R1, "", PhysicalInputKind.BUTTON, emptyList(), PADDLE_R1, labelRes = R.string.i18n_back_button_top_right_p1),
+        PhysicalInput(KEY_PADDLE_L1, "", PhysicalInputKind.BUTTON, emptyList(), PADDLE_L1, labelRes = R.string.i18n_back_button_top_left_p3),
+        PhysicalInput(KEY_PADDLE_R2, "", PhysicalInputKind.BUTTON, emptyList(), PADDLE_R2, labelRes = R.string.i18n_back_button_bottom_right_p2),
+        PhysicalInput(KEY_PADDLE_L2, "", PhysicalInputKind.BUTTON, emptyList(), PADDLE_L2, labelRes = R.string.i18n_back_button_bottom_left_p4),
     )
 
     /** Inputs that only gate the gyro (no key remapping). */
     val GYRO_ONLY: List<PhysicalInput> = listOf(
-        PhysicalInput(KEY_LEFT_JOYSTICK, "左摇杆", PhysicalInputKind.JOYSTICK),
-        PhysicalInput(KEY_RIGHT_JOYSTICK, "右摇杆", PhysicalInputKind.JOYSTICK),
-        PhysicalInput(KEY_TOUCHPAD, "触摸板", PhysicalInputKind.TOUCHPAD),
+        PhysicalInput(KEY_LEFT_JOYSTICK, "", PhysicalInputKind.JOYSTICK, labelRes = R.string.i18n_left_stick),
+        PhysicalInput(KEY_RIGHT_JOYSTICK, "", PhysicalInputKind.JOYSTICK, labelRes = R.string.i18n_right_stick),
+        PhysicalInput(KEY_TOUCHPAD, "", PhysicalInputKind.TOUCHPAD, labelRes = R.string.i18n_touchpad),
     )
 
     /** Every configurable input, buttons first. */

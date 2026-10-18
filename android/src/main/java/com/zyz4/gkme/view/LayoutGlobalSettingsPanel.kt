@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.text.InputType
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -343,10 +344,13 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         root.addView(sidebar, LinearLayout.LayoutParams(sidebarWidth, ViewGroup.LayoutParams.MATCH_PARENT))
 
         val btnBack = Button(context).apply {
-            text = "返回"
+            text = context.getString(R.string.i18n_back)
             gravity = Gravity.CENTER
             setTextColor(androidx.core.content.ContextCompat.getColor(context, R.color.text_primary))
             textSize = 13f
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            setAutoSizeTextTypeUniformWithConfiguration(9, 13, 1, TypedValue.COMPLEX_UNIT_SP)
             setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_back, 0, 0, 0)
             compoundDrawablePadding = (4f * density).toInt()
             background = androidx.core.content.ContextCompat.getDrawable(context, R.drawable.bg_sidebar_item)
@@ -368,15 +372,18 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
             gravity = Gravity.CENTER
             setTextColor(androidx.core.content.ContextCompat.getColor(context, R.color.text_secondary))
             textSize = 13f
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            setAutoSizeTextTypeUniformWithConfiguration(9, 13, 1, TypedValue.COMPLEX_UNIT_SP)
             val drawable = SidebarItemDrawable()
             tabButtonDrawables[this] = drawable
             background = drawable
             stateListAnimator = null
         }
 
-        val btnGyro = tabButton("陀螺仪")
-        val btnPhysical = tabButton("实体手柄")
-        val btnVolume = tabButton("音量键")
+        val btnGyro = tabButton(context.getString(R.string.i18n_gyro))
+        val btnPhysical = tabButton(context.getString(R.string.i18n_physical_gamepad))
+        val btnVolume = tabButton(context.getString(R.string.i18n_volume_keys))
         tabButtons = listOf(btnGyro, btnPhysical, btnVolume)
         tabButtons.forEach { btn ->
             sidebar.addView(btn, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (48f * density).toInt()))
@@ -436,9 +443,9 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         })
 
         // ── Gyro activation mode ──
-        container.addView(sectionLabel("陀螺仪激活方式", density))
+        container.addView(sectionLabel(context.getString(R.string.i18n_gyro_activation), density))
 
-        val gyroActivateItems = listOf("始终开启", "按下特定按钮开启")
+        val gyroActivateItems = listOf(context.getString(R.string.i18n_always_on), context.getString(R.string.i18n_enable_while_a_specific_button_is_held))
         val gyroActivateSpinner = Spinner(context).apply {
             adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, gyroActivateItems).also {
                 it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -462,7 +469,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         })
 
         // ── Gyro mapping mode ──
-        container.addView(sectionLabel("陀螺仪行为", density))
+        container.addView(sectionLabel(context.getString(R.string.i18n_gyro_behavior), density))
 
         val modeSpinner = Spinner(context).apply {
             adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, gyroModeItems).also {
@@ -492,13 +499,13 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         val advanced = gyroAdvancedContainer!!
 
         // Gyro base direction
-        gyroBaseDirectionLabel = sectionLabel("基准方向", density)
+        gyroBaseDirectionLabel = sectionLabel(context.getString(R.string.i18n_base_direction), density)
         advanced.addView(gyroBaseDirectionLabel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             topMargin = (4f * density).toInt()
             bottomMargin = (2f * density).toInt()
         })
 
-        val baseDirectionItems = listOf("竖放", "平放")
+        val baseDirectionItems = listOf(context.getString(R.string.i18n_vertical), context.getString(R.string.i18n_flat))
         gyroBaseDirectionSpinner = Spinner(context).apply {
             adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, baseDirectionItems).also {
                 it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -522,9 +529,9 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         })
 
         // Gyro coordinate system
-        advanced.addView(sectionLabel("坐标系", density))
+        advanced.addView(sectionLabel(context.getString(R.string.i18n_coordinate_system), density))
 
-        val gyroCoordinateSystemItems = listOf("偏航", "滚转", "偏航+滚转", "世界空间")
+        val gyroCoordinateSystemItems = listOf(context.getString(R.string.i18n_yaw), context.getString(R.string.i18n_roll), context.getString(R.string.i18n_yaw_roll), context.getString(R.string.i18n_world_space))
         gyroCoordinateSystemSpinner = Spinner(context).apply {
             adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, gyroCoordinateSystemItems).also {
                 it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -548,7 +555,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         })
 
         // Sensitivity / dead zones
-        addSeekbar(advanced, "灵敏度", gyroModeSensitivity, 1, 100) {
+        addSeekbar(advanced, context.getString(R.string.i18n_sensitivity), gyroModeSensitivity, 1, 100) {
             gyroModeSensitivity = it
             listener?.onGyroModeSensitivityChanged(it)
         }
@@ -564,11 +571,11 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         )
         advanced.addView(gyroStickCurveContainer!!)
 
-        addSeekbar(advanced, "陀螺仪死区(%)", gyroDeadZone, 0, 100) {
+        addSeekbar(advanced, context.getString(R.string.i18n_gyro_dead_zone), gyroDeadZone, 0, 100) {
             gyroDeadZone = it
             listener?.onGyroDeadZoneChanged(it)
         }
-        addSeekbar(advanced, "陀螺仪反死区(%)", gyroReverseDeadZone, 0, 100) {
+        addSeekbar(advanced, context.getString(R.string.i18n_gyro_anti_dead_zone), gyroReverseDeadZone, 0, 100) {
             gyroReverseDeadZone = it
             listener?.onGyroReverseDeadZoneChanged(it)
         }
@@ -578,8 +585,8 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
     }
 
     private val gyroModeItems = listOf(
-        "手柄陀螺仪", "陀螺仪转鼠标", "陀螺仪转左摇杆视角", "陀螺仪转右摇杆视角",
-        "陀螺仪转左摇杆方向", "陀螺仪转右摇杆方向",
+        context.getString(R.string.i18n_gamepad_gyro), context.getString(R.string.i18n_gyro_to_mouse), context.getString(R.string.i18n_gyro_to_left_stick_view), context.getString(R.string.i18n_gyro_to_right_stick_view),
+        context.getString(R.string.i18n_gyro_to_left_stick_direction), context.getString(R.string.i18n_gyro_to_right_stick_direction),
     )
 
     private fun sectionLabel(text: String, density: Float): TextView = TextView(context).apply {
@@ -591,7 +598,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
 
     private fun buildGyroSelector(density: Float, container: LinearLayout) {
         val tv = TextView(context).apply {
-            text = "体感握持方向"
+            text = context.getString(R.string.i18n_motion_orientation)
             setTextColor(-0x1)
             textSize = 14f
         }
@@ -599,7 +606,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
             bottomMargin = (6f * density).toInt()
         })
 
-        val items = listOf("不指定", "横屏", "竖屏", "倒置竖屏")
+        val items = listOf(context.getString(R.string.i18n_unspecified), context.getString(R.string.i18n_landscape), context.getString(R.string.i18n_portrait), context.getString(R.string.i18n_inverted_portrait))
         val spinner = Spinner(context).apply {
             adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, items).also {
                 it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -669,8 +676,8 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         onChanged: (List<Float>?) -> Unit,
         onOverlayChanged: ((List<Float>?) -> Unit)? = null,
     ): CurveEditorView {
-        container.addView(sectionLabel("灵敏度曲线", density))
-        val presetLabels = listOf("自定义") + SensitivityCurve.PRESETS.map { it.label }
+        container.addView(sectionLabel(context.getString(R.string.i18n_sensitivity_curve), density))
+        val presetLabels = listOf(context.getString(R.string.i18n_custom)) + SensitivityCurve.PRESETS.map { context.getString(it.labelRes) }
         val presetSpinner = Spinner(context).apply {
             adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, presetLabels).also {
                 it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -706,20 +713,23 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
             text = label
             setTextColor(-0x1)
             textSize = 12f
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            setAutoSizeTextTypeUniformWithConfiguration(8, 12, 1, TypedValue.COMPLEX_UNIT_SP)
             setBackgroundResource(R.drawable.button_flat)
             setOnClickListener { onClick() }
         }
-        btnRow.addView(curveButton("删除选中点") { curveView.deleteSelected() },
+        btnRow.addView(curveButton(context.getString(R.string.i18n_delete_selected_point)) { curveView.deleteSelected() },
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
                 rightMargin = (4f * density).toInt()
             })
-        btnRow.addView(curveButton("重置为直线") {
+        btnRow.addView(curveButton(context.getString(R.string.i18n_reset_to_straight_line)) {
             curveView.setFromFlatList(null)
             onChanged(null)
         }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
             rightMargin = (4f * density).toInt()
         })
-        btnRow.addView(curveButton("放大") {
+        btnRow.addView(curveButton(context.getString(R.string.i18n_zoom_in)) {
             curveZoom?.show(curveView.flatList()) { list ->
                 if (onOverlayChanged != null) {
                     onOverlayChanged(list)
@@ -757,11 +767,11 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         val set: (PhysicalStickSettings) -> Unit =
             if (isLeft) ({ physicalLeftStick = it }) else ({ physicalRightStick = it })
 
-        addSeekbar(container, "死区(%)", get().deadZone, 0, 100) {
+        addSeekbar(container, context.getString(R.string.i18n_dead_zone), get().deadZone, 0, 100) {
             set(get().copy(deadZone = it))
             notifyStickSettings()
         }
-        addSeekbar(container, "反死区(%)", get().reverseDeadZone, 0, 100) {
+        addSeekbar(container, context.getString(R.string.i18n_anti_dead_zone), get().reverseDeadZone, 0, 100) {
             set(get().copy(reverseDeadZone = it))
             notifyStickSettings()
         }

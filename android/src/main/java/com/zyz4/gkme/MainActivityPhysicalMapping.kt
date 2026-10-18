@@ -1,5 +1,6 @@
 package com.zyz4.gkme
 
+import com.zyz4.gkme.R
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -101,7 +102,7 @@ internal fun MainActivity.populatePhysicalMapping(container: LinearLayout) {
             }
             row.addView(
                 TextView(a).apply {
-                    text = input.label
+                    text = if (input.labelRes != 0) getString(input.labelRes) else input.label
                     setTextColor(COLOR_TEXT_PRIMARY)
                     textSize = 13f
                 },
@@ -139,7 +140,7 @@ private fun MainActivity.buildPhysicalMappingRow(
 
     row.addView(
         TextView(a).apply {
-            text = input.label
+            text = if (input.labelRes != 0) getString(input.labelRes) else input.label
             setTextColor(COLOR_TEXT_PRIMARY)
             textSize = 13f
         },
@@ -158,7 +159,7 @@ private fun MainActivity.buildPhysicalMappingRow(
 
     row.addView(
         Button(a, null, 0, R.style.GamepadChip).apply {
-            text = "添加"
+            text = getString(R.string.i18n_add_b58c75)
             setOnClickListener {
                 a.showOutputValuePicker(outputs) { newBits ->
                     a.updatePhysicalMappingOutputs(input.key, newBits)
@@ -171,7 +172,7 @@ private fun MainActivity.buildPhysicalMappingRow(
 
     row.addView(
         Button(a, null, 0, R.style.GamepadChip).apply {
-            text = "清空"
+            text = getString(R.string.i18n_clear)
             setOnClickListener {
                 a.updatePhysicalMappingOutputs(input.key, emptyList())
                 onChanged()
@@ -182,7 +183,7 @@ private fun MainActivity.buildPhysicalMappingRow(
 
     row.addView(
         Button(a, null, 0, R.style.GamepadChip).apply {
-            text = "重置"
+            text = getString(R.string.i18n_reset)
             setOnClickListener {
                 a.resetPhysicalMapping(input.key)
                 onChanged()
@@ -200,7 +201,7 @@ private fun MainActivity.buildPhysicalGyroCheckbox(
     density: Float,
     onChanged: () -> Unit,
 ): CheckBox = CheckBox(this).apply {
-    text = "用于激活陀螺仪"
+    text = getString(R.string.i18n_used_to_activate_the_gyro)
     setTextColor(COLOR_TEXT_SECONDARY)
     textSize = 13f
     isChecked = checked
@@ -221,7 +222,7 @@ private fun MainActivity.fillPhysicalMappingChips(
     if (outputs.isEmpty()) {
         container.addView(
             TextView(this).apply {
-                text = "未映射"
+                text = getString(R.string.i18n_unmapped)
                 setTextColor(COLOR_TEXT_SECONDARY)
                 textSize = 12f
             },

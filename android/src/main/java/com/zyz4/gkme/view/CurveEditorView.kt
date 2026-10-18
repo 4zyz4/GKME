@@ -1,5 +1,6 @@
 package com.zyz4.gkme.view
 
+import com.zyz4.gkme.R
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
@@ -67,10 +68,10 @@ class CurveEditorView @JvmOverloads constructor(
         }
 
         val labelY = top + size + labelPaint.textSize * 1.8f
-        canvas.drawText("手指距离 ->", left + size / 2f, labelY, labelPaint)
+        canvas.drawText(context.getString(R.string.i18n_finger_distance), left + size / 2f, labelY, labelPaint)
         canvas.save()
         canvas.rotate(-90f, left - labelPaint.textSize * 1.2f, top + size / 2f)
-        canvas.drawText("输出距离 ->", left - labelPaint.textSize * 1.2f, top + size / 2f, labelPaint)
+        canvas.drawText(context.getString(R.string.i18n_output_distance), left - labelPaint.textSize * 1.2f, top + size / 2f, labelPaint)
         canvas.restore()
     }
 

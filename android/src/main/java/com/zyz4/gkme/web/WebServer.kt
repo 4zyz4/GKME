@@ -1,5 +1,7 @@
 package com.zyz4.gkme.web
 
+import com.zyz4.gkme.R
+import com.zyz4.gkme.i18n.AppStrings
 import android.content.Context
 import android.util.Base64
 import android.util.Log
@@ -196,7 +198,7 @@ object WebServer {
 
         val id = req.query["id"]?.takeIf { it.isNotBlank() }
             ?: UUID.randomUUID().toString().replace("-", "")
-        val name = req.query["name"]?.takeIf { it.isNotBlank() } ?: "Web 浏览器"
+        val name = req.query["name"]?.takeIf { it.isNotBlank() } ?: AppStrings.get(R.string.i18n_web_browser)
 
         val device = ControlledDevice(ip = clientIp, name = name, mac = id, isWeb = true)
 

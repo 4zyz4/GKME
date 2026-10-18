@@ -13,6 +13,7 @@ import android.os.Looper
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
+import com.zyz4.gkme.R
 import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.model.CenterShape
 import com.zyz4.gkme.model.FillType
@@ -425,7 +426,7 @@ class CustomKeypadView @JvmOverloads constructor(
             }
         }
 
-        val textAt: (Int) -> String = { keypadTexts.getOrElse(it) { "" } }
+        val textAt: (Int) -> String = { localizeKeypadText(keypadTexts.getOrElse(it) { "" }) }
         if (centerShape == CenterShape.CIRCLE) {
             // 圆形模式：每个方向文本放在对应扇环的中间半径处。
             val midR = centerRadius + (radius - centerRadius) * 0.62f
@@ -652,4 +653,18 @@ class CustomKeypadView @JvmOverloads constructor(
         super.onDetachedFromWindow()
         handler.removeCallbacksAndMessages(null)
     }
+    /** Legacy presets store the built-in default labels in Chinese; localize them at draw time. */
+    private fun localizeKeypadText(text: String): String = when (text) {
+        "上" -> context.getString(R.string.i18n_up)
+        "下" -> context.getString(R.string.i18n_down)
+        "左" -> context.getString(R.string.i18n_left_d2aff1)
+        "右" -> context.getString(R.string.i18n_right)
+        "中" -> context.getString(R.string.i18n_center)
+        "左上" -> context.getString(R.string.i18n_top_left)
+        "右上" -> context.getString(R.string.i18n_top_right)
+        "左下" -> context.getString(R.string.i18n_bottom_left)
+        "右下" -> context.getString(R.string.i18n_bottom_right)
+        else -> text
+    }
+
 }

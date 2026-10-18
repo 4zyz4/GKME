@@ -1,5 +1,7 @@
 package com.zyz4.gkme.input
 
+import androidx.annotation.StringRes
+import com.zyz4.gkme.R
 import kotlin.math.sqrt
 
 /**
@@ -19,7 +21,7 @@ import kotlin.math.sqrt
 object SensitivityCurve {
 
     /** A named sensitivity-curve preset offered by the joystick and gyro curve editors. */
-    data class Preset(val label: String, val points: List<Float>)
+    data class Preset(@StringRes val labelRes: Int, val points: List<Float>)
 
     /**
      * Built-in presets. [Preset.points] are flat `[x0, y0, x1, y1, ...]` pairs strictly inside
@@ -31,9 +33,9 @@ object SensitivityCurve {
      *   `(0.5, 0.5)` midpoint stays fixed.
      */
     val PRESETS: List<Preset> = listOf(
-        Preset("即时", listOf(0.4f, 0.6f)),
-        Preset("延时", listOf(0.6f, 0.4f)),
-        Preset("动态", listOf(0.25f, 0.34f, 0.5f, 0.5f, 0.75f, 0.66f)),
+        Preset(R.string.i18n_instant, listOf(0.4f, 0.6f)),
+        Preset(R.string.i18n_delayed, listOf(0.6f, 0.4f)),
+        Preset(R.string.i18n_dynamic, listOf(0.25f, 0.34f, 0.5f, 0.5f, 0.75f, 0.66f)),
     )
 
     /** Evaluates the curve's `y` for an input `t` in `[0, 1]`. Returns [t] for an empty curve. */

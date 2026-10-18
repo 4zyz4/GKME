@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.util.AttributeSet
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -45,7 +46,7 @@ class CurveZoomOverlay @JvmOverloads constructor(
         }
 
         column.addView(TextView(context).apply {
-            text = "灵敏度曲线"
+            text = context.getString(R.string.i18n_sensitivity_curve)
             setTextColor(Color.WHITE)
             textSize = 16f
             gravity = Gravity.CENTER
@@ -67,16 +68,22 @@ class CurveZoomOverlay @JvmOverloads constructor(
         }
         val btnHeight = (48f * density).toInt()
         btnRow.addView(Button(context).apply {
-            text = "删除选中点"
+            text = context.getString(R.string.i18n_delete_selected_point)
             setTextColor(Color.WHITE)
             textSize = 14f
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            setAutoSizeTextTypeUniformWithConfiguration(9, 14, 1, TypedValue.COMPLEX_UNIT_SP)
             setBackgroundResource(R.drawable.button_flat)
             setOnClickListener { curveEditor.deleteSelected() }
         }, LinearLayout.LayoutParams(0, btnHeight, 1f).apply { rightMargin = (6f * density).toInt() })
         btnRow.addView(Button(context).apply {
-            text = "重置为直线"
+            text = context.getString(R.string.i18n_reset_to_straight_line)
             setTextColor(Color.WHITE)
             textSize = 14f
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            setAutoSizeTextTypeUniformWithConfiguration(9, 14, 1, TypedValue.COMPLEX_UNIT_SP)
             setBackgroundResource(R.drawable.button_flat)
             setOnClickListener {
                 curveEditor.setFromFlatList(null)
@@ -89,10 +96,13 @@ class CurveZoomOverlay @JvmOverloads constructor(
 
         // Added last so it sits on top and reliably receives the tap in its slot.
         addView(Button(context).apply {
-            text = "返回"
+            text = context.getString(R.string.i18n_back)
             gravity = Gravity.CENTER
             setTextColor(ContextCompat.getColor(context, R.color.text_primary))
             textSize = 13f
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            setAutoSizeTextTypeUniformWithConfiguration(9, 13, 1, TypedValue.COMPLEX_UNIT_SP)
             setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_back, 0, 0, 0)
             compoundDrawablePadding = (4f * density).toInt()
             background = ColorDrawable(ContextCompat.getColor(context, R.color.bg_surface))

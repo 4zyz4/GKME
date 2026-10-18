@@ -21,12 +21,18 @@
             android:layout_width="match_parent"
             android:layout_height="44dp"
             android:background="?android:attr/selectableItemBackground"
-            android:text="返回"
+            android:text="@string/i18n_back"
             android:drawableLeft="@drawable/ic_back"
             android:paddingStart="8dp"
             android:textColor="@color/text_primary"
             android:textSize="13sp"
-            android:stateListAnimator="@null" />
+            android:stateListAnimator="@null"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:autoSizeTextType="uniform"
+                    android:autoSizeMinTextSize="9sp"
+                    android:autoSizeMaxTextSize="13sp"
+                    android:autoSizeStepGranularity="1sp"/>
 
         <View
             android:layout_width="match_parent"
@@ -54,11 +60,17 @@
                     android:layout_height="48dp"
                     android:gravity="center"
                     android:paddingHorizontal="8dp"
-                    android:text="连接"
+                    android:text="@string/i18n_connect"
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp"
                     android:stateListAnimator="@null"
-                    android:background="@drawable/bg_sidebar_item" />
+                    android:background="@drawable/bg_sidebar_item"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:autoSizeTextType="uniform"
+                    android:autoSizeMinTextSize="9sp"
+                    android:autoSizeMaxTextSize="13sp"
+                    android:autoSizeStepGranularity="1sp"/>
 
                 <Button
                     android:id="@+id/btnCategoryPresets"
@@ -66,11 +78,17 @@
                     android:layout_height="48dp"
                     android:gravity="center"
                     android:paddingHorizontal="8dp"
-                    android:text="布局"
+                    android:text="@string/i18n_layout"
                     android:textColor="@color/text_primary"
                     android:textSize="13sp"
                     android:stateListAnimator="@null"
-                    android:background="@drawable/bg_sidebar_item" />
+                    android:background="@drawable/bg_sidebar_item"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:autoSizeTextType="uniform"
+                    android:autoSizeMinTextSize="9sp"
+                    android:autoSizeMaxTextSize="13sp"
+                    android:autoSizeStepGranularity="1sp"/>
 
                 <Button
                     android:id="@+id/btnCategoryAppearance"
@@ -78,11 +96,17 @@
                     android:layout_height="48dp"
                     android:gravity="center"
                     android:paddingHorizontal="8dp"
-                    android:text="外观"
+                    android:text="@string/i18n_appearance"
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp"
                     android:stateListAnimator="@null"
-                    android:background="@drawable/bg_sidebar_item" />
+                    android:background="@drawable/bg_sidebar_item"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:autoSizeTextType="uniform"
+                    android:autoSizeMinTextSize="9sp"
+                    android:autoSizeMaxTextSize="13sp"
+                    android:autoSizeStepGranularity="1sp"/>
 
                 <Button
                     android:id="@+id/btnCategoryPhysicalController"
@@ -90,11 +114,17 @@
                     android:layout_height="48dp"
                     android:gravity="center"
                     android:paddingHorizontal="8dp"
-                    android:text="实体手柄"
+                    android:text="@string/i18n_physical_gamepad"
                     android:textColor="@color/text_primary"
                     android:textSize="13sp"
                     android:stateListAnimator="@null"
-                    android:background="@drawable/bg_sidebar_item" />
+                    android:background="@drawable/bg_sidebar_item"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:autoSizeTextType="uniform"
+                    android:autoSizeMinTextSize="9sp"
+                    android:autoSizeMaxTextSize="13sp"
+                    android:autoSizeStepGranularity="1sp"/>
 
                 <Button
                     android:id="@+id/btnCategoryVibration"
@@ -102,11 +132,17 @@
                     android:layout_height="48dp"
                     android:gravity="center"
                     android:paddingHorizontal="8dp"
-                    android:text="震动"
+                    android:text="@string/i18n_vibration"
                     android:textColor="@color/text_primary"
                     android:textSize="13sp"
                     android:stateListAnimator="@null"
-                    android:background="@drawable/bg_sidebar_item" />
+                    android:background="@drawable/bg_sidebar_item"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:autoSizeTextType="uniform"
+                    android:autoSizeMinTextSize="9sp"
+                    android:autoSizeMaxTextSize="13sp"
+                    android:autoSizeStepGranularity="1sp"/>
 
                 <Button
                     android:id="@+id/btnCategoryAudio"
@@ -114,11 +150,17 @@
                     android:layout_height="48dp"
                     android:gravity="center"
                     android:paddingHorizontal="8dp"
-                    android:text="音频"
+                    android:text="@string/i18n_audio"
                     android:textColor="@color/text_primary"
                     android:textSize="13sp"
                     android:stateListAnimator="@null"
-                    android:background="@drawable/bg_sidebar_item" />
+                    android:background="@drawable/bg_sidebar_item"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:autoSizeTextType="uniform"
+                    android:autoSizeMinTextSize="9sp"
+                    android:autoSizeMaxTextSize="13sp"
+                    android:autoSizeStepGranularity="1sp"/>
 
                 <Button
                     android:id="@+id/btnCategoryGyro"
@@ -126,11 +168,17 @@
                     android:layout_height="48dp"
                     android:gravity="center"
                     android:paddingHorizontal="8dp"
-                    android:text="体感"
+                    android:text="@string/i18n_motion"
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp"
                     android:stateListAnimator="@null"
-                    android:background="@drawable/bg_sidebar_item" />
+                    android:background="@drawable/bg_sidebar_item"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:autoSizeTextType="uniform"
+                    android:autoSizeMinTextSize="9sp"
+                    android:autoSizeMaxTextSize="13sp"
+                    android:autoSizeStepGranularity="1sp"/>
 
                 <Button
                     android:id="@+id/btnCategoryMisc"
@@ -138,11 +186,17 @@
                     android:layout_height="48dp"
                     android:gravity="center"
                     android:paddingHorizontal="8dp"
-                    android:text="杂项"
+                    android:text="@string/i18n_miscellaneous"
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp"
                     android:stateListAnimator="@null"
-                    android:background="@drawable/bg_sidebar_item" />
+                    android:background="@drawable/bg_sidebar_item"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:autoSizeTextType="uniform"
+                    android:autoSizeMinTextSize="9sp"
+                    android:autoSizeMaxTextSize="13sp"
+                    android:autoSizeStepGranularity="1sp"/>
 
                 <Button
                     android:id="@+id/btnCategoryAbout"
@@ -150,11 +204,17 @@
                     android:layout_height="48dp"
                     android:gravity="center"
                     android:paddingHorizontal="8dp"
-                    android:text="关于"
+                    android:text="@string/i18n_about"
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp"
                     android:stateListAnimator="@null"
-                    android:background="@drawable/bg_sidebar_item" />
+                    android:background="@drawable/bg_sidebar_item"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:autoSizeTextType="uniform"
+                    android:autoSizeMinTextSize="9sp"
+                    android:autoSizeMaxTextSize="13sp"
+                    android:autoSizeStepGranularity="1sp"/>
 
             </LinearLayout>
         </ScrollView>
@@ -184,7 +244,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="布局预设"
+                    android:text="@string/i18n_layout_presets"
                     android:textColor="@color/text_primary"
                     android:textSize="18sp"
                     android:fontFamily="sans-serif-medium"
@@ -201,49 +261,49 @@
 <Button
                         android:id="@+id/btnPresetNew"
                         style="@style/GamepadChip"
-                        android:text="新建"
+                        android:text="@string/i18n_new"
                         android:layout_marginEnd="6dp" />
 
                     <Button
                         android:id="@+id/switchEditMode"
                         style="@style/GamepadChip"
-                        android:text="编辑"
+                        android:text="@string/i18n_edit"
                         android:layout_marginEnd="6dp" />
 
                     <Button
                         android:id="@+id/btnPresetRestoreDefault"
                         style="@style/GamepadChip"
-                        android:text="恢复默认"
+                        android:text="@string/i18n_restore_defaults"
                         android:layout_marginEnd="6dp" />
 
                     <Button
                         android:id="@+id/btnPresetCopy"
                         style="@style/GamepadChip"
-                        android:text="复制"
+                        android:text="@string/i18n_copy_79d3ab"
                         android:layout_marginEnd="6dp" />
 
                     <Button
                         android:id="@+id/btnPresetExport"
                         style="@style/GamepadChip"
-                        android:text="导出"
+                        android:text="@string/i18n_export"
                         android:layout_marginEnd="6dp" />
 
                     <Button
                         android:id="@+id/btnPresetImport"
                         style="@style/GamepadChip"
-                        android:text="导入"
+                        android:text="@string/i18n_import"
                         android:layout_marginEnd="6dp" />
 
                     <Button
                         android:id="@+id/btnPresetRename"
                         style="@style/GamepadChip"
-                        android:text="重命名"
+                        android:text="@string/i18n_rename"
                         android:layout_marginEnd="6dp" />
 
                     <Button
                         android:id="@+id/btnPresetDelete"
                         style="@style/GamepadChip"
-                        android:text="删除" />
+                        android:text="@string/i18n_delete" />
                 </LinearLayout>
 
                 <TextView
@@ -297,7 +357,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="外观"
+                        android:text="@string/i18n_appearance"
                         android:textColor="@color/text_primary"
                         android:textSize="18sp"
                         android:fontFamily="sans-serif-medium"
@@ -307,7 +367,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="手柄显示"
+                        android:text="@string/i18n_gamepad_display"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp"
                         android:fontFamily="sans-serif-medium"
@@ -353,7 +413,7 @@
                             android:id="@+id/tvIconMaxSize"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="最大图标大小: 28sp"
+                            android:text="@string/i18n_max_icon_size_28sp"
                             android:textColor="@color/text_primary"
                             android:textSize="14sp" />
 
@@ -374,7 +434,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="背景"
+                        android:text="@string/i18n_background"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp"
                         android:fontFamily="sans-serif-medium"
@@ -387,8 +447,8 @@
                         android:orientation="horizontal"
                         android:gravity="center"
                         android:layout_marginBottom="4dp">
-                        <Button android:id="@+id/btnBgFillSolid" style="@style/GamepadChip" android:layout_marginEnd="4dp" android:text="纯色" />
-                        <Button android:id="@+id/btnBgFillImage" style="@style/GamepadChip" android:text="图片" />
+                        <Button android:id="@+id/btnBgFillSolid" style="@style/GamepadChip" android:layout_marginEnd="4dp" android:text="@string/i18n_solid_color" />
+                        <Button android:id="@+id/btnBgFillImage" style="@style/GamepadChip" android:text="@string/i18n_image" />
                     </LinearLayout>
 
                     <LinearLayout
@@ -405,7 +465,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="背景颜色"
+                            android:text="@string/i18n_background_color"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                         <Button
@@ -421,7 +481,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:paddingHorizontal="8dp"
-                            android:text="重置"
+                            android:text="@string/i18n_reset"
                             android:textSize="10sp"
                             android:stateListAnimator="@null" />
                      </LinearLayout>
@@ -430,7 +490,7 @@
                         android:id="@+id/btnBgPickImage"
                         style="@style/GamepadChip"
                         android:layout_width="match_parent"
-                        android:text="选择背景图片"
+                        android:text="@string/i18n_select_background_image"
                         android:visibility="gone"
                         android:layout_marginBottom="4dp" />
 
@@ -444,7 +504,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="按钮"
+                        android:text="@string/i18n_button"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp"
                         android:fontFamily="sans-serif-medium"
@@ -457,8 +517,8 @@
                         android:orientation="horizontal"
                         android:gravity="center"
                         android:layout_marginBottom="4dp">
-                        <Button android:id="@+id/btnBtnFillSolid" style="@style/GamepadChip" android:layout_marginEnd="4dp" android:text="纯色" />
-                        <Button android:id="@+id/btnBtnFillImage" style="@style/GamepadChip" android:text="图片" />
+                        <Button android:id="@+id/btnBtnFillSolid" style="@style/GamepadChip" android:layout_marginEnd="4dp" android:text="@string/i18n_solid_color" />
+                        <Button android:id="@+id/btnBtnFillImage" style="@style/GamepadChip" android:text="@string/i18n_image" />
                     </LinearLayout>
 
                     <LinearLayout
@@ -474,7 +534,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="按钮颜色"
+                            android:text="@string/i18n_button_color"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                         <Button
@@ -490,7 +550,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:paddingHorizontal="8dp"
-                            android:text="重置"
+                            android:text="@string/i18n_reset"
                             android:textSize="10sp"
                             android:stateListAnimator="@null" />
                      </LinearLayout>
@@ -499,7 +559,7 @@
                         android:id="@+id/btnBtnPickImage"
                         style="@style/GamepadChip"
                         android:layout_width="match_parent"
-                        android:text="选择按钮图片"
+                        android:text="@string/i18n_select_button_image"
                         android:visibility="gone"
                         android:layout_marginBottom="4dp" />
 
@@ -515,7 +575,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="轮廓颜色"
+                            android:text="@string/i18n_outline_color"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                          <Button
@@ -531,7 +591,7 @@
                              android:layout_width="wrap_content"
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
-                             android:text="重置"
+                             android:text="@string/i18n_reset"
                              android:textSize="10sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
@@ -549,7 +609,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="轮廓粗细"
+                            android:text="@string/i18n_outline_width"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                         <SeekBar
@@ -572,7 +632,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="图标颜色"
+                            android:text="@string/i18n_icon_color"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                          <Button
@@ -588,7 +648,7 @@
                              android:layout_width="wrap_content"
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
-                             android:text="重置"
+                             android:text="@string/i18n_reset"
                              android:textSize="10sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
@@ -597,7 +657,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="- 线性扳机线框"
+                        android:text="@string/i18n_linear_trigger_wireframe"
                         android:textColor="@color/text_secondary"
                         android:textSize="11sp"
                         android:layout_marginBottom="2dp"
@@ -615,7 +675,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="线框颜色"
+                            android:text="@string/i18n_wireframe_color"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                          <Button
@@ -631,7 +691,7 @@
                              android:layout_width="wrap_content"
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
-                             android:text="重置"
+                             android:text="@string/i18n_reset"
                              android:textSize="10sp"
                              android:stateListAnimator="@null" />
                       </LinearLayout>
@@ -649,7 +709,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="线框粗细"
+                            android:text="@string/i18n_wireframe_width"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                         <SeekBar
@@ -670,7 +730,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="摇杆"
+                        android:text="@string/i18n_stick"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp"
                         android:fontFamily="sans-serif-medium"
@@ -679,7 +739,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="- 底座"
+                        android:text="@string/i18n_base"
                         android:textColor="@color/text_secondary"
                         android:textSize="11sp"
                         android:layout_marginBottom="2dp" />
@@ -691,8 +751,8 @@
                         android:orientation="horizontal"
                         android:gravity="center"
                         android:layout_marginBottom="4dp">
-                        <Button android:id="@+id/btnJoyBaseFillSolid" style="@style/GamepadChip" android:layout_marginEnd="4dp" android:text="纯色" />
-                        <Button android:id="@+id/btnJoyBaseFillImage" style="@style/GamepadChip" android:text="图片" />
+                        <Button android:id="@+id/btnJoyBaseFillSolid" style="@style/GamepadChip" android:layout_marginEnd="4dp" android:text="@string/i18n_solid_color" />
+                        <Button android:id="@+id/btnJoyBaseFillImage" style="@style/GamepadChip" android:text="@string/i18n_image" />
                     </LinearLayout>
 
                     <LinearLayout
@@ -708,7 +768,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="底座颜色"
+                            android:text="@string/i18n_base_color"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                          <Button
@@ -724,7 +784,7 @@
                              android:layout_width="wrap_content"
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
-                             android:text="重置"
+                             android:text="@string/i18n_reset"
                              android:textSize="10sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
@@ -733,7 +793,7 @@
                          android:id="@+id/btnJoyBasePickImage"
                         style="@style/GamepadChip"
                         android:layout_width="match_parent"
-                        android:text="选择底座图片"
+                        android:text="@string/i18n_select_base_image"
                         android:visibility="gone"
                         android:layout_marginBottom="4dp" />
 
@@ -749,7 +809,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="底座轮廓颜色"
+                            android:text="@string/i18n_base_outline_color"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                          <Button
@@ -765,7 +825,7 @@
                              android:layout_width="wrap_content"
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
-                             android:text="重置"
+                             android:text="@string/i18n_reset"
                              android:textSize="10sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
@@ -783,7 +843,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="底座轮廓粗细"
+                            android:text="@string/i18n_base_outline_width"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                         <SeekBar
@@ -797,7 +857,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="- 摇杆帽"
+                        android:text="@string/i18n_stick_cap"
                         android:textColor="@color/text_secondary"
                         android:textSize="11sp"
                         android:layout_marginBottom="2dp" />
@@ -809,8 +869,8 @@
                         android:orientation="horizontal"
                         android:gravity="center"
                         android:layout_marginBottom="4dp">
-                        <Button android:id="@+id/btnJoyCapFillSolid" style="@style/GamepadChip" android:layout_marginEnd="4dp" android:text="纯色" />
-                        <Button android:id="@+id/btnJoyCapFillImage" style="@style/GamepadChip" android:text="图片" />
+                        <Button android:id="@+id/btnJoyCapFillSolid" style="@style/GamepadChip" android:layout_marginEnd="4dp" android:text="@string/i18n_solid_color" />
+                        <Button android:id="@+id/btnJoyCapFillImage" style="@style/GamepadChip" android:text="@string/i18n_image" />
                     </LinearLayout>
 
                     <LinearLayout
@@ -826,7 +886,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="摇杆帽颜色"
+                            android:text="@string/i18n_stick_cap_color"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                          <Button
@@ -842,7 +902,7 @@
                              android:layout_width="wrap_content"
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
-                             android:text="重置"
+                             android:text="@string/i18n_reset"
                              android:textSize="10sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
@@ -851,7 +911,7 @@
                          android:id="@+id/btnJoyCapPickImage"
                         style="@style/GamepadChip"
                         android:layout_width="match_parent"
-                        android:text="选择摇杆帽图片"
+                        android:text="@string/i18n_select_stick_cap_image"
                         android:visibility="gone"
                         android:layout_marginBottom="4dp" />
 
@@ -867,7 +927,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="摇杆帽轮廓颜色"
+                            android:text="@string/i18n_stick_cap_outline_color"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                          <Button
@@ -883,7 +943,7 @@
                              android:layout_width="wrap_content"
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
-                             android:text="重置"
+                             android:text="@string/i18n_reset"
                              android:textSize="10sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
@@ -901,7 +961,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="摇杆帽轮廓粗细"
+                            android:text="@string/i18n_stick_cap_outline_width"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                         <SeekBar
@@ -924,7 +984,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="图标颜色"
+                            android:text="@string/i18n_icon_color"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                          <Button
@@ -940,7 +1000,7 @@
                              android:layout_width="wrap_content"
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
-                             android:text="重置"
+                             android:text="@string/i18n_reset"
                              android:textSize="10sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
@@ -948,7 +1008,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="- 触发区域"
+                        android:text="@string/i18n_trigger_area"
                         android:textColor="@color/text_secondary"
                         android:textSize="11sp"
                         android:layout_marginBottom="2dp" />
@@ -965,7 +1025,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="触发区域颜色"
+                            android:text="@string/i18n_trigger_area_color"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                          <Button
@@ -981,7 +1041,7 @@
                              android:layout_width="wrap_content"
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
-                             android:text="重置"
+                             android:text="@string/i18n_reset"
                              android:textSize="10sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
@@ -999,7 +1059,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="触发区域粗细"
+                            android:text="@string/i18n_trigger_area_width"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                         <SeekBar
@@ -1020,7 +1080,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="触摸板"
+                        android:text="@string/i18n_touchpad"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp"
                         android:fontFamily="sans-serif-medium"
@@ -1033,8 +1093,8 @@
                         android:orientation="horizontal"
                         android:gravity="center"
                         android:layout_marginBottom="4dp">
-                        <Button android:id="@+id/btnTpFillSolid" style="@style/GamepadChip" android:layout_marginEnd="4dp" android:text="纯色" />
-                        <Button android:id="@+id/btnTpFillImage" style="@style/GamepadChip" android:text="图片" />
+                        <Button android:id="@+id/btnTpFillSolid" style="@style/GamepadChip" android:layout_marginEnd="4dp" android:text="@string/i18n_solid_color" />
+                        <Button android:id="@+id/btnTpFillImage" style="@style/GamepadChip" android:text="@string/i18n_image" />
                     </LinearLayout>
 
                     <LinearLayout
@@ -1050,7 +1110,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="触摸板颜色"
+                            android:text="@string/i18n_touchpad_color"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                          <Button
@@ -1066,7 +1126,7 @@
                              android:layout_width="wrap_content"
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
-                             android:text="重置"
+                             android:text="@string/i18n_reset"
                              android:textSize="10sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
@@ -1075,7 +1135,7 @@
                          android:id="@+id/btnTpPickImage"
                         style="@style/GamepadChip"
                         android:layout_width="match_parent"
-                        android:text="选择触摸板图片"
+                        android:text="@string/i18n_select_touchpad_image"
                         android:visibility="gone"
                         android:layout_marginBottom="4dp" />
 
@@ -1091,7 +1151,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="轮廓颜色"
+                            android:text="@string/i18n_outline_color"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                          <Button
@@ -1107,7 +1167,7 @@
                              android:layout_width="wrap_content"
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
-                             android:text="重置"
+                             android:text="@string/i18n_reset"
                              android:textSize="10sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
@@ -1125,7 +1185,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="轮廓粗细"
+                            android:text="@string/i18n_outline_width"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                         <SeekBar
@@ -1148,7 +1208,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="状态文本颜色"
+                            android:text="@string/i18n_status_text_color"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                          <Button
@@ -1164,7 +1224,7 @@
                              android:layout_width="wrap_content"
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
-                             android:text="重置"
+                             android:text="@string/i18n_reset"
                              android:textSize="10sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
@@ -1172,7 +1232,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="- 扩展触摸范围"
+                        android:text="@string/i18n_extended_touch_area"
                         android:textColor="@color/text_secondary"
                         android:textSize="11sp"
                         android:layout_marginTop="4dp"
@@ -1190,7 +1250,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="区域颜色"
+                            android:text="@string/i18n_area_color"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                          <Button
@@ -1206,7 +1266,7 @@
                              android:layout_width="wrap_content"
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
-                             android:text="重置"
+                             android:text="@string/i18n_reset"
                              android:textSize="10sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
@@ -1224,7 +1284,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="区域粗细"
+                            android:text="@string/i18n_area_width_875556"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                         <SeekBar
@@ -1245,7 +1305,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="一体十字键/自定义按键盘"
+                        android:text="@string/i18n_integrated_d_pad_custom_keypad"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp"
                         android:fontFamily="sans-serif-medium"
@@ -1258,8 +1318,8 @@
                         android:orientation="horizontal"
                         android:gravity="center"
                         android:layout_marginBottom="4dp">
-                        <Button android:id="@+id/btnPadFillSolid" style="@style/GamepadChip" android:layout_marginEnd="4dp" android:text="纯色" />
-                        <Button android:id="@+id/btnPadFillImage" style="@style/GamepadChip" android:text="图片" />
+                        <Button android:id="@+id/btnPadFillSolid" style="@style/GamepadChip" android:layout_marginEnd="4dp" android:text="@string/i18n_solid_color" />
+                        <Button android:id="@+id/btnPadFillImage" style="@style/GamepadChip" android:text="@string/i18n_image" />
                     </LinearLayout>
 
                     <LinearLayout
@@ -1275,7 +1335,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="控件颜色"
+                            android:text="@string/i18n_control_color"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                          <Button
@@ -1291,7 +1351,7 @@
                              android:layout_width="wrap_content"
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
-                             android:text="重置"
+                             android:text="@string/i18n_reset"
                              android:textSize="10sp"
                              android:stateListAnimator="@null" />
                       </LinearLayout>
@@ -1300,7 +1360,7 @@
                           android:id="@+id/btnPadPickImage"
                          style="@style/GamepadChip"
                          android:layout_width="match_parent"
-                         android:text="选择图片"
+                         android:text="@string/i18n_select_image"
                          android:visibility="gone"
                          android:layout_marginBottom="4dp" />
 
@@ -1316,7 +1376,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="控件轮廓颜色"
+                            android:text="@string/i18n_control_outline_color"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                          <Button
@@ -1332,7 +1392,7 @@
                              android:layout_width="wrap_content"
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
-                             android:text="重置"
+                             android:text="@string/i18n_reset"
                              android:textSize="10sp"
                              android:stateListAnimator="@null" />
                       </LinearLayout>
@@ -1350,7 +1410,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="控件轮廓粗细"
+                            android:text="@string/i18n_control_outline_width"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                         <SeekBar
@@ -1373,7 +1433,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="图标颜色"
+                            android:text="@string/i18n_icon_color"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                          <Button
@@ -1389,7 +1449,7 @@
                              android:layout_width="wrap_content"
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
-                             android:text="重置"
+                             android:text="@string/i18n_reset"
                              android:textSize="10sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
@@ -1398,7 +1458,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="- 触发区域"
+                        android:text="@string/i18n_trigger_area"
                         android:textColor="@color/text_secondary"
                         android:textSize="11sp"
                         android:layout_marginBottom="2dp" />
@@ -1415,7 +1475,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="触发区域轮廓颜色"
+                            android:text="@string/i18n_trigger_area_outline_color"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                          <Button
@@ -1431,7 +1491,7 @@
                              android:layout_width="wrap_content"
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
-                             android:text="重置"
+                             android:text="@string/i18n_reset"
                              android:textSize="10sp"
                              android:stateListAnimator="@null" />
                       </LinearLayout>
@@ -1449,7 +1509,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="触发区域轮廓粗细"
+                            android:text="@string/i18n_trigger_area_outline_width"
                             android:textColor="@color/text_primary"
                             android:textSize="12sp" />
                         <SeekBar
@@ -1481,7 +1541,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="预览"
+                        android:text="@string/i18n_preview"
                         android:textColor="@color/text_primary"
                         android:textSize="18sp"
                         android:fontFamily="sans-serif-medium"
@@ -1507,7 +1567,7 @@
                             android:layout_gravity="top|end"
                             android:background="@android:color/transparent"
                             android:src="@drawable/ic_zoom"
-                            android:contentDescription="放大预览"
+                            android:contentDescription="@string/i18n_zoom_preview"
                             android:padding="8dp" />
                     </FrameLayout>
 
@@ -1527,7 +1587,7 @@
                             android:layout_weight="1"
                             android:layout_marginEnd="8dp"
                             android:background="@drawable/bg_small_btn"
-                            android:text="导出外观设置"
+                            android:text="@string/i18n_export_appearance"
                             android:textColor="@color/text_primary"
                             android:textSize="14sp"
                             android:stateListAnimator="@null" />
@@ -1539,7 +1599,7 @@
                             android:layout_weight="1"
                             android:layout_marginStart="8dp"
                             android:background="@drawable/bg_small_btn"
-                            android:text="导入外观设置"
+                            android:text="@string/i18n_import_appearance"
                             android:textColor="@color/text_primary"
                             android:textSize="14sp"
                             android:stateListAnimator="@null" />
@@ -1565,7 +1625,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="连接"
+                    android:text="@string/i18n_connect"
                     android:textColor="@color/text_primary"
                     android:textSize="18sp"
                     android:fontFamily="sans-serif-medium"
@@ -1575,7 +1635,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="连接方式"
+                    android:text="@string/i18n_connection_method"
                     android:textColor="@color/text_primary"
                     android:textSize="14sp"
                     android:fontFamily="sans-serif-medium"
@@ -1598,7 +1658,7 @@
                         android:id="@+id/btnConnBluetooth"
                         style="@style/GamepadChip"
                         android:layout_marginEnd="6dp"
-                        android:text="蓝牙" />
+                        android:text="@string/i18n_bluetooth" />
 
                     <Button
                         android:id="@+id/btnConnUsb"
@@ -1609,7 +1669,7 @@
                     <Button
                         android:id="@+id/btnConnLocal"
                         style="@style/GamepadChip"
-                        android:text="本机" />
+                        android:text="@string/i18n_this_device" />
                 </LinearLayout>
 
                 <!-- Shizuku 环境（仅本机模式显示） -->
@@ -1628,7 +1688,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Shizuku 环境"
+                        android:text="@string/i18n_shizuku_environment"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp"
                         android:fontFamily="sans-serif-medium" />
@@ -1636,7 +1696,7 @@
                     <Button
                         android:id="@+id/btnShizukuEntry"
                         style="@style/GamepadChip"
-                        android:text="下载 Shizuku" />
+                        android:text="@string/i18n_download_shizuku" />
                 </LinearLayout>
 
                 <!-- 模拟手柄类型（Shizuku 本机模式 / 被控端模式） -->
@@ -1650,7 +1710,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="模拟手柄类型"
+                        android:text="@string/i18n_emulated_gamepad_type"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp"
                         android:fontFamily="sans-serif-medium"
@@ -1706,7 +1766,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="控制类型"
+                        android:text="@string/i18n_control_type"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp"
                         android:fontFamily="sans-serif-medium"
@@ -1723,12 +1783,12 @@
                             android:id="@+id/btnControlTypeController"
                             style="@style/GamepadChip"
                             android:layout_marginEnd="6dp"
-                            android:text="作为控制端" />
+                            android:text="@string/i18n_controller_mode" />
 
                         <Button
                             android:id="@+id/btnControlTypeControlled"
                             style="@style/GamepadChip"
-                            android:text="作为被控端" />
+                            android:text="@string/i18n_controlled_mode" />
                     </LinearLayout>
                 </LinearLayout>
 
@@ -1745,7 +1805,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="目标平台"
+                        android:text="@string/i18n_target_platform"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp"
                         android:fontFamily="sans-serif-medium"
@@ -1787,18 +1847,18 @@
                             android:id="@+id/btnTargetWindowsGamepad"
                             style="@style/GamepadChip"
                             android:layout_marginEnd="6dp"
-                            android:text="Windows仅手柄" />
+                            android:text="@string/i18n_windows_gamepad_only" />
 
                         <Button
                             android:id="@+id/btnTargetAndroidGamepad"
                             style="@style/GamepadChip"
                             android:layout_marginEnd="6dp"
-                            android:text="Android仅手柄" />
+                            android:text="@string/i18n_android_gamepad_only" />
 
                         <Button
                             android:id="@+id/btnTargetUniversalKm"
                             style="@style/GamepadChip"
-                            android:text="通用键鼠" />
+                            android:text="@string/i18n_universal_keyboard_mouse" />
                     </LinearLayout>
                 </LinearLayout>
 
@@ -1808,7 +1868,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="40dp"
                     android:gravity="center"
-                    android:text="未启动"
+                    android:text="@string/i18n_not_started"
                     android:textColor="@color/text_secondary"
                     android:textSize="14sp"
                     android:background="@color/bg_surface"
@@ -1820,7 +1880,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="44dp"
                     android:background="@drawable/bg_small_btn"
-                    android:text="启动服务"
+                    android:text="@string/i18n_start_service"
                     android:textColor="@color/text_primary"
                     android:textSize="14sp"
                     android:stateListAnimator="@null"
@@ -1849,7 +1909,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="40dp"
                         android:background="@drawable/bg_small_btn"
-                        android:text="取消配对"
+                        android:text="@string/i18n_unpair"
                         android:textColor="#FF5252"
                         android:textSize="14sp"
                         android:stateListAnimator="@null" />
@@ -1869,7 +1929,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="应用打开时自动启动服务"
+                        android:text="@string/i18n_start_service_automatically_when_the_app"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp" />
 
@@ -1883,7 +1943,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="轮询率"
+                    android:text="@string/i18n_polling_rate"
                     android:textColor="@color/text_primary"
                     android:textSize="14sp"
                     android:fontFamily="sans-serif-medium"
@@ -1908,7 +1968,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="服务信息"
+                    android:text="@string/i18n_service_information"
                     android:textColor="@color/text_primary"
                     android:textSize="14sp"
                     android:fontFamily="sans-serif-medium"
@@ -1943,7 +2003,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="震动"
+                    android:text="@string/i18n_vibration"
                     android:textColor="@color/text_primary"
                     android:textSize="18sp"
                     android:fontFamily="sans-serif-medium"
@@ -1953,7 +2013,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="高清震动 (HD)"
+                    android:text="@string/i18n_hd_vibration_hd"
                     android:textColor="@color/text_primary"
                     android:textSize="14sp"
                     android:fontFamily="sans-serif-medium"
@@ -1965,7 +2025,7 @@
                     android:layout_height="wrap_content"
                     android:paddingHorizontal="12dp"
                     android:paddingBottom="4dp"
-                    android:text="HD 未启用"
+                    android:text="@string/i18n_hd_disabled"
                     android:textColor="@color/text_secondary"
                     android:textSize="12sp" />
 
@@ -1982,7 +2042,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="启用 HD 震动"
+                        android:text="@string/i18n_enable_hd_vibration"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp" />
 
@@ -2001,7 +2061,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="按钮震动"
+                    android:text="@string/i18n_button_vibration"
                     android:textColor="@color/text_primary"
                     android:textSize="14sp"
                     android:fontFamily="sans-serif-medium"
@@ -2025,7 +2085,7 @@
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="按下"
+                            android:text="@string/i18n_press"
                             android:gravity="center"
                             android:textColor="@color/text_primary"
                             android:textSize="14sp"
@@ -2039,22 +2099,22 @@
                             android:gravity="center"
                             android:layout_marginBottom="4dp">
 
-                            <Button android:id="@+id/btnVibPressTypeNone" style="@style/GamepadChip" android:layout_marginEnd="3dp" android:text="无" android:textSize="10sp" />
-                            <Button android:id="@+id/btnVibPressTypeView" style="@style/GamepadChip" android:layout_marginEnd="3dp" android:text="系统效果" android:textSize="10sp" />
-                            <Button android:id="@+id/btnVibPressTypeEffect" style="@style/GamepadChip" android:text="自定义" android:textSize="10sp" />
+                            <Button android:id="@+id/btnVibPressTypeNone" style="@style/GamepadChip" android:layout_marginEnd="3dp" android:text="@string/i18n_none" android:textSize="10sp" />
+                            <Button android:id="@+id/btnVibPressTypeView" style="@style/GamepadChip" android:layout_marginEnd="3dp" android:text="@string/i18n_system_effect" android:textSize="10sp" />
+                            <Button android:id="@+id/btnVibPressTypeEffect" style="@style/GamepadChip" android:text="@string/i18n_custom" android:textSize="10sp" />
                         </LinearLayout>
 
                         <LinearLayout android:id="@+id/layoutPressViewEffects" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone" android:background="@color/bg_surface" android:padding="6dp" android:layout_marginBottom="4dp">
-                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="系统效果" android:textColor="@color/text_secondary" android:textSize="11sp" android:layout_marginBottom="4dp" />
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/i18n_system_effect" android:textColor="@color/text_secondary" android:textSize="11sp" android:layout_marginBottom="4dp" />
                             <Spinner android:id="@+id/spinnerPressEffect" android:layout_width="match_parent" android:layout_height="32dp" />
                         </LinearLayout>
 
                         <LinearLayout android:id="@+id/layoutPressVibEffect" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone" android:background="@color/bg_surface" android:padding="6dp" android:layout_marginBottom="4dp">
-                            <TextView android:id="@+id/tvPressDuration" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="时长: 50ms" android:textColor="@color/text_secondary" android:textSize="11sp" />
+                            <TextView android:id="@+id/tvPressDuration" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/i18n_duration_50ms" android:textColor="@color/text_secondary" android:textSize="11sp" />
                             <SeekBar android:id="@+id/seekPressDuration" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="500" android:min="1" android:progress="50" />
-                            <TextView android:id="@+id/tvPressIntensity" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="强度: 128" android:textColor="@color/text_secondary" android:textSize="11sp" />
+                            <TextView android:id="@+id/tvPressIntensity" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/i18n_intensity_128" android:textColor="@color/text_secondary" android:textSize="11sp" />
                             <SeekBar android:id="@+id/seekPressIntensity" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="255" android:min="1" android:progress="128" />
-                            <TextView android:id="@+id/tvPressFrequency" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="频率: 56" android:textColor="@color/text_secondary" android:textSize="11sp" />
+                            <TextView android:id="@+id/tvPressFrequency" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/i18n_frequency_56" android:textColor="@color/text_secondary" android:textSize="11sp" />
                             <SeekBar android:id="@+id/seekPressFrequency" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="100" android:min="0" android:progress="56" />
                         </LinearLayout>
                     </LinearLayout>
@@ -2070,7 +2130,7 @@
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="松开"
+                            android:text="@string/i18n_release"
                             android:gravity="center"
                             android:textColor="@color/text_primary"
                             android:textSize="14sp"
@@ -2084,22 +2144,22 @@
                             android:gravity="center"
                             android:layout_marginBottom="4dp">
 
-                            <Button android:id="@+id/btnVibReleaseTypeNone" style="@style/GamepadChip" android:layout_marginEnd="3dp" android:text="无" android:textSize="10sp" />
-                            <Button android:id="@+id/btnVibReleaseTypeView" style="@style/GamepadChip" android:layout_marginEnd="3dp" android:text="系统效果" android:textSize="10sp" />
-                            <Button android:id="@+id/btnVibReleaseTypeEffect" style="@style/GamepadChip" android:text="自定义" android:textSize="10sp" />
+                            <Button android:id="@+id/btnVibReleaseTypeNone" style="@style/GamepadChip" android:layout_marginEnd="3dp" android:text="@string/i18n_none" android:textSize="10sp" />
+                            <Button android:id="@+id/btnVibReleaseTypeView" style="@style/GamepadChip" android:layout_marginEnd="3dp" android:text="@string/i18n_system_effect" android:textSize="10sp" />
+                            <Button android:id="@+id/btnVibReleaseTypeEffect" style="@style/GamepadChip" android:text="@string/i18n_custom" android:textSize="10sp" />
                         </LinearLayout>
 
                         <LinearLayout android:id="@+id/layoutReleaseViewEffects" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone" android:background="@color/bg_surface" android:padding="6dp" android:layout_marginBottom="4dp">
-                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="系统效果" android:textColor="@color/text_secondary" android:textSize="11sp" android:layout_marginBottom="4dp" />
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/i18n_system_effect" android:textColor="@color/text_secondary" android:textSize="11sp" android:layout_marginBottom="4dp" />
                             <Spinner android:id="@+id/spinnerReleaseEffect" android:layout_width="match_parent" android:layout_height="32dp" />
                         </LinearLayout>
 
                         <LinearLayout android:id="@+id/layoutReleaseVibEffect" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone" android:background="@color/bg_surface" android:padding="6dp" android:layout_marginBottom="4dp">
-                            <TextView android:id="@+id/tvReleaseDuration" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="时长: 20ms" android:textColor="@color/text_secondary" android:textSize="11sp" />
+                            <TextView android:id="@+id/tvReleaseDuration" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/i18n_duration_20ms" android:textColor="@color/text_secondary" android:textSize="11sp" />
                             <SeekBar android:id="@+id/seekReleaseDuration" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="500" android:min="1" android:progress="20" />
-                            <TextView android:id="@+id/tvReleaseIntensity" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="强度: 64" android:textColor="@color/text_secondary" android:textSize="11sp" />
+                            <TextView android:id="@+id/tvReleaseIntensity" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/i18n_intensity_64" android:textColor="@color/text_secondary" android:textSize="11sp" />
                             <SeekBar android:id="@+id/seekReleaseIntensity" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="255" android:min="1" android:progress="64" />
-                            <TextView android:id="@+id/tvReleaseFrequency" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="频率: 56" android:textColor="@color/text_secondary" android:textSize="11sp" />
+                            <TextView android:id="@+id/tvReleaseFrequency" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/i18n_frequency_56" android:textColor="@color/text_secondary" android:textSize="11sp" />
                             <SeekBar android:id="@+id/seekReleaseFrequency" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="100" android:min="0" android:progress="56" />
                         </LinearLayout>
                     </LinearLayout>
@@ -2123,7 +2183,7 @@
                         android:layout_width="64dp"
                         android:layout_height="64dp"
                         android:background="@drawable/button_circle"
-                        android:text="测试"
+                        android:text="@string/i18n_test"
                         android:textColor="@color/text_primary"
                         android:textSize="12sp"
                         android:gravity="center"
@@ -2140,7 +2200,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="游戏震动"
+                    android:text="@string/i18n_game_vibration"
                     android:textColor="@color/text_primary"
                     android:textSize="14sp"
                     android:fontFamily="sans-serif-medium"
@@ -2159,7 +2219,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="震动设备"
+                        android:text="@string/i18n_vibration_device"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp" />
 
@@ -2186,7 +2246,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="交换左右马达"
+                        android:text="@string/i18n_swap_left_right_motors"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp" />
 
@@ -2206,7 +2266,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="自适应扳机"
+                    android:text="@string/i18n_adaptive_trigger"
                     android:textColor="@color/text_primary"
                     android:textSize="14sp"
                     android:fontFamily="sans-serif-medium"
@@ -2225,7 +2285,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="自适应扳机设备"
+                        android:text="@string/i18n_adaptive_trigger_device"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp" />
 
@@ -2250,7 +2310,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="交换左右自适应扳机"
+                        android:text="@string/i18n_swap_left_right_adaptive_triggers"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp" />
 
@@ -2278,7 +2338,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="音频"
+                    android:text="@string/i18n_audio"
                     android:textColor="@color/text_primary"
                     android:textSize="18sp"
                     android:fontFamily="sans-serif-medium"
@@ -2287,7 +2347,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="音圈马达"
+                    android:text="@string/i18n_voice_coil"
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp"
                     android:fontFamily="sans-serif-medium"
@@ -2307,7 +2367,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="音圈马达"
+                        android:text="@string/i18n_voice_coil"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp" />
 
@@ -2334,7 +2394,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="交换左右马达"
+                        android:text="@string/i18n_swap_left_right_motors"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp" />
 
@@ -2354,7 +2414,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="控制器音频"
+                    android:text="@string/i18n_controller_audio"
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp"
                     android:fontFamily="sans-serif-medium"
@@ -2374,7 +2434,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="控制器音频输出"
+                        android:text="@string/i18n_controller_audio_output"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp" />
 
@@ -2398,7 +2458,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="音圈马达状态"
+                        android:text="@string/i18n_voice_coil_status"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp"
                         android:fontFamily="sans-serif-medium"
@@ -2414,7 +2474,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="左:"
+                            android:text="@string/i18n_left_a090d7"
                             android:textColor="@color/text_secondary"
                             android:textSize="12sp" />
 
@@ -2444,7 +2504,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="右:"
+                            android:text="@string/i18n_right_1f0051"
                             android:textColor="@color/text_secondary"
                             android:textSize="12sp" />
 
@@ -2476,7 +2536,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="控制器音频"
+                            android:text="@string/i18n_controller_audio"
                             android:textColor="@color/text_secondary"
                             android:textSize="12sp"
                             android:gravity="center_vertical" />
@@ -2517,7 +2577,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="实体手柄"
+                    android:text="@string/i18n_physical_gamepad"
                     android:textColor="@color/text_primary"
                     android:textSize="18sp"
                     android:fontFamily="sans-serif-medium"
@@ -2537,7 +2597,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="手柄驱动"
+                        android:text="@string/i18n_gamepad_driver"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp" />
 
@@ -2562,7 +2622,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="输入手柄"
+                        android:text="@string/i18n_input_gamepad"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp" />
 
@@ -2586,7 +2646,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="手柄详细信息"
+                        android:text="@string/i18n_gamepad_details"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp"
                         android:fontFamily="sans-serif-medium"
@@ -2603,7 +2663,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="驱动"
+                            android:text="@string/i18n_driver"
                             android:textColor="@color/text_secondary"
                             android:textSize="13sp" />
 
@@ -2626,7 +2686,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="震动"
+                            android:text="@string/i18n_vibration"
                             android:textColor="@color/text_secondary"
                             android:textSize="13sp" />
 
@@ -2649,7 +2709,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="体感"
+                            android:text="@string/i18n_motion"
                             android:textColor="@color/text_secondary"
                             android:textSize="13sp" />
 
@@ -2672,7 +2732,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="触摸板"
+                            android:text="@string/i18n_touchpad"
                             android:textColor="@color/text_secondary"
                             android:textSize="13sp" />
 
@@ -2695,7 +2755,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="扳机"
+                            android:text="@string/i18n_trigger"
                             android:textColor="@color/text_secondary"
                             android:textSize="13sp" />
 
@@ -2723,7 +2783,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="重新检测手柄"
+                        android:text="@string/i18n_detect_gamepad_again"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp" />
 
@@ -2731,7 +2791,7 @@
                         android:id="@+id/btnRedetectController"
                         style="@style/GamepadChip"
                         android:background="@drawable/bg_chip_selected"
-                        android:text="检测" />
+                        android:text="@string/i18n_detect" />
                 </LinearLayout>
 
             </LinearLayout>
@@ -2752,7 +2812,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="体感"
+                    android:text="@string/i18n_motion"
                     android:textColor="@color/text_primary"
                     android:textSize="18sp"
                     android:fontFamily="sans-serif-medium"
@@ -2772,7 +2832,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="体感来源"
+                        android:text="@string/i18n_motion_source"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp" />
 
@@ -2793,7 +2853,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="体感握持方向"
+                        android:text="@string/i18n_motion_orientation"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp"
                         android:fontFamily="sans-serif-medium"
@@ -2810,25 +2870,25 @@
                             android:id="@+id/btnGyroOriLandscape"
                             style="@style/GamepadChip"
                             android:layout_marginEnd="4dp"
-                            android:text="横屏" />
+                            android:text="@string/i18n_landscape" />
 
                         <Button
                             android:id="@+id/btnGyroOriPortrait"
                             style="@style/GamepadChip"
                             android:layout_marginEnd="4dp"
-                            android:text="竖屏" />
+                            android:text="@string/i18n_portrait" />
 
                         <Button
                             android:id="@+id/btnGyroOriPortraitInverted"
                             style="@style/GamepadChip"
-                            android:text="倒置竖屏" />
+                            android:text="@string/i18n_inverted_portrait" />
                     </LinearLayout>
 
                     <TextView
                         android:id="@+id/tvGyroLandscapeInvertedNote"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="当前屏幕方向会交换竖屏和倒置竖屏的效果"
+                        android:text="@string/i18n_the_current_screen_orientation_swaps_the"
                         android:textColor="#FF9800"
                         android:textSize="12sp"
                         android:gravity="center"
@@ -2841,7 +2901,7 @@
                     android:id="@+id/tvControllerGyroNote"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="使用手柄陀螺仪后，体感方向由手柄决定，不可调节"
+                    android:text="@string/i18n_when_the_gamepad_gyro_is_used_motion_ori"
                     android:textColor="#FF9800"
                     android:textSize="12sp"
                     android:gravity="center"
@@ -3029,11 +3089,36 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="杂项"
+                    android:text="@string/i18n_miscellaneous"
                     android:textColor="@color/text_primary"
                     android:textSize="18sp"
                     android:fontFamily="sans-serif-medium"
                     android:layout_marginBottom="16dp" />
+
+                <!-- Language -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:background="@color/bg_surface"
+                    android:paddingHorizontal="12dp"
+                    android:layout_marginBottom="16dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/i18n_language"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp" />
+
+                    <Spinner
+                        android:id="@+id/spinnerLanguage"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:minWidth="140dp" />
+                </LinearLayout>
 
                 <!-- Screen Always On -->
                 <LinearLayout
@@ -3049,7 +3134,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="屏幕常亮"
+                        android:text="@string/i18n_keep_screen_on"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp" />
 
@@ -3076,7 +3161,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="息屏模式"
+                        android:text="@string/i18n_screen_off_mode"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp" />
 
@@ -3084,7 +3169,7 @@
                         android:id="@+id/btnScreenOff"
                         style="@style/GamepadChip"
                         android:background="@drawable/bg_chip_selected"
-                        android:text="进入" />
+                        android:text="@string/i18n_enter" />
                 </LinearLayout>
 
                 <!-- Floating Mode -->
@@ -3104,7 +3189,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="悬浮模式"
+                        android:text="@string/i18n_floating_mode"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp" />
 
@@ -3112,7 +3197,7 @@
                         android:id="@+id/btnFloatingMode"
                         style="@style/GamepadChip"
                         android:background="@drawable/bg_chip_selected"
-                        android:text="进入" />
+                        android:text="@string/i18n_enter" />
                 </LinearLayout>
 
                 <LinearLayout
@@ -3126,7 +3211,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="悬浮不透明度"
+                        android:text="@string/i18n_floating_opacity"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp" />
 
@@ -3169,7 +3254,7 @@
                     android:layout_width="72dp"
                     android:layout_height="72dp"
                     android:layout_marginTop="24dp"
-                    android:contentDescription="应用图标" />
+                    android:contentDescription="@string/i18n_app_icon" />
 
                 <TextView
                     android:id="@+id/tvAppName"
@@ -3205,7 +3290,7 @@
                     android:layout_height="44dp"
                     android:layout_marginTop="28dp"
                     android:background="@drawable/bg_small_btn"
-                    android:text="赞助"
+                    android:text="@string/i18n_sponsor"
                     android:textColor="@color/text_primary"
                     android:textSize="14sp"
                     android:stateListAnimator="@null" />
