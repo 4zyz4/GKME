@@ -1,5 +1,6 @@
 package com.zyz4.gkme
 
+import com.zyz4.gkme.R
 import android.content.Context
 import android.graphics.PixelFormat
 import android.graphics.Point
@@ -253,7 +254,7 @@ internal class FloatingModeController(private val activity: MainActivity) {
             scaleType = ImageView.ScaleType.CENTER_INSIDE
             val pad = (8f * density).toInt()
             setPadding(pad, pad, pad, pad)
-            contentDescription = "显示/隐藏悬浮按钮"
+            contentDescription = activity.getString(R.string.i18n_show_hide_floating_button)
             isClickable = true
         }
         // Match the settings button's background / border configuration.

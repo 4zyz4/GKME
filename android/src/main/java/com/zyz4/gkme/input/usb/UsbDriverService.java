@@ -17,6 +17,9 @@ import android.os.IBinder;
 import android.view.InputDevice;
 import android.widget.Toast;
 
+import com.zyz4.gkme.R;
+import com.zyz4.gkme.i18n.AppLocale;
+
 import com.zyz4.gkme.input.usb.LimeLog;
 
 import java.io.File;
@@ -194,7 +197,7 @@ public class UsbDriverService extends Service implements UsbDriverListener {
 
                     usbManager.requestPermission(device, PendingIntent.getBroadcast(UsbDriverService.this, 0, i, intentFlags));
                 } catch (SecurityException e) {
-                    Toast.makeText(this, "USB 设备被系统策略禁止访问", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, getString(R.string.i18n_usb_device_access_is_blocked_by_system_p), Toast.LENGTH_LONG).show();
                     if (stateListener != null) {
                         stateListener.onUsbPermissionPromptCompleted();
                     }
@@ -384,6 +387,11 @@ public class UsbDriverService extends Service implements UsbDriverListener {
             // Stop and remove the controller
             controllers.remove(0).stop();
         }
+    }
+
+    @Override
+    protected void attachBaseContext(Context newBase) {
+        super.attachBaseContext(AppLocale.INSTANCE.wrap(newBase));
     }
 
     @Override

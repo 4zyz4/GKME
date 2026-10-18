@@ -55,13 +55,13 @@
         android:id="@+id/btnDeviceConnect"
         style="@style/GamepadChip"
         android:layout_marginStart="8dp"
-        android:text="连接" />
+        android:text="@string/i18n_connect" />
 
     <Button
         android:id="@+id/btnDeviceDisconnect"
         style="@style/GamepadChip"
         android:layout_marginStart="8dp"
-        android:text="断开"
+        android:text="@string/i18n_disconnect"
         android:visibility="gone" />
 
 </LinearLayout>

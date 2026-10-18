@@ -1,21 +1,24 @@
 package com.zyz4.gkme.model
 
+import androidx.annotation.StringRes
+import com.zyz4.gkme.R
+
 /**
  * 鼠标触控板手势动作。
  *
  * 点击类手势（单击 / 双指点击 / 三指点击）只使用 [NONE] + 三种鼠标点击；
  * 滑动类手势（双击后滑动 / 单指 / 双指 / 三指滑动）额外支持移动光标、拖拽与滚动。
  */
-enum class MouseGestureAction(val displayName: String) {
-    NONE("无"),
-    MOVE_CURSOR("移动光标"),
-    LEFT_CLICK("左键点击"),
-    RIGHT_CLICK("右键点击"),
-    MIDDLE_CLICK("中键点击"),
-    LEFT_DRAG("左键拖拽"),
-    RIGHT_DRAG("右键拖拽"),
-    MIDDLE_DRAG("中键拖拽"),
-    SCROLL("滚动");
+enum class MouseGestureAction(@StringRes val displayNameRes: Int) {
+    NONE(R.string.i18n_none),
+    MOVE_CURSOR(R.string.i18n_move_cursor),
+    LEFT_CLICK(R.string.i18n_left_click),
+    RIGHT_CLICK(R.string.i18n_right_click),
+    MIDDLE_CLICK(R.string.i18n_middle_click),
+    LEFT_DRAG(R.string.i18n_left_button_drag),
+    RIGHT_DRAG(R.string.i18n_right_button_drag),
+    MIDDLE_DRAG(R.string.i18n_middle_button_drag),
+    SCROLL(R.string.i18n_scroll);
 
     companion object {
         /** 点击手势可选动作（4 项）。 */

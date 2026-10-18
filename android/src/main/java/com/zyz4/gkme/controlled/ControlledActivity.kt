@@ -1,6 +1,8 @@
 package com.zyz4.gkme.controlled
 
+import com.zyz4.gkme.i18n.AppLocale
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -69,6 +71,10 @@ class ControlledActivity : ComponentActivity() {
     /** 每台已发现控制端（按 MAC/IP）各自记忆的模拟手柄类型。 */
     private var deviceModes: Map<String, VirtualGamepadType> = emptyMap()
 
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_controlled)
@@ -93,7 +99,7 @@ class ControlledActivity : ComponentActivity() {
         })
         findViewById<Button>(R.id.btnRefreshDevices).setOnClickListener {
             ControlledHostManager.refresh()
-            showToast("正在扫描…")
+            showToast(getString(R.string.i18n_scanning))
         }
         findViewById<Button>(R.id.btnManualConnect).setOnClickListener {
             val ip = etManualIp.text.toString().trim()
@@ -133,7 +139,7 @@ class ControlledActivity : ComponentActivity() {
         spinnerWebInterface.adapter = adapter
 
         if (interfaces.isEmpty()) {
-            tvWebHost.text = "未找到可用网卡"
+            tvWebHost.text = getString(R.string.i18n_no_available_network_interface)
             ivWebQr.setImageDrawable(null)
             spinnerWebInterface.isEnabled = false
             return
@@ -251,7 +257,7 @@ class ControlledActivity : ComponentActivity() {
             applyFloatingKeepAlive(true)
         } else {
             syncFloatingKeepAliveSwitch()
-            showToast("未授予悬浮窗权限，无法启用悬浮窗保活")
+            showToast(getString(R.string.i18n_overlay_permission_is_not_granted_cannot))
         }
     }
 
@@ -288,7 +294,7 @@ class ControlledActivity : ComponentActivity() {
             Uri.parse("package:$packageName"),
         )
         runCatching { overlayPermissionLauncher.launch(intent) }
-            .onFailure { showToast("无法打开悬浮窗权限设置") }
+            .onFailure { showToast(getString(R.string.i18n_failed_to_open_overlay_permission_settin)) }
     }
 
     private fun syncFloatingKeepAliveSwitch() {
@@ -303,10 +309,10 @@ class ControlledActivity : ComponentActivity() {
         exitDialogShowing = true
         CustomDialog.showConfirm(
             this,
-            "退出被控端",
-            "返回后将停止服务，确认返回吗？",
-            positiveText = "确认返回",
-            negativeText = "取消",
+            getString(R.string.i18n_exit_controlled_mode),
+            getString(R.string.i18n_going_back_will_stop_the_service_go_back),
+            positiveText = getString(R.string.i18n_confirm_and_go_back),
+            negativeText = getString(R.string.i18n_cancel),
             onPositive = {
                 ControlledHostService.stop(this)
                 finish()
@@ -377,14 +383,14 @@ class ControlledActivity : ComponentActivity() {
     ) {
         val item = inflater.inflate(R.layout.item_controlled_device_group, deviceList, false)
         item.findViewById<TextView>(R.id.tvDeviceName).text = card.title
-        item.findViewById<TextView>(R.id.tvGroupSubtitle).text = "${card.endpoints.size} 个可用连接"
+        item.findViewById<TextView>(R.id.tvGroupSubtitle).text = getString(R.string.i18n_0_available_connections, card.endpoints.size)
         val endpointList = item.findViewById<LinearLayout>(R.id.endpointList)
         for (endpoint in card.endpoints) {
             val row = inflater.inflate(R.layout.item_controlled_endpoint, endpointList, false)
             row.findViewById<TextView>(R.id.tvEndpointIp).text = endpoint.ip
             val btnConnect = row.findViewById<Button>(R.id.btnEndpointConnect)
             if (endpoint.ip == connectingIp) {
-                btnConnect.text = "连接中…"
+                btnConnect.text = getString(R.string.i18n_connecting)
                 btnConnect.isEnabled = false
             }
             btnConnect.setOnClickListener { connectDevice(endpoint, card.groupKey) }
@@ -406,10 +412,10 @@ class ControlledActivity : ComponentActivity() {
         item.findViewById<TextView>(R.id.tvDeviceIp).text = device.subtitle
         val isActive = active?.ip == device.ip
         item.findViewById<TextView>(R.id.tvDeviceStatus).text = when {
-            isActive && reconnecting -> "尝试连接"
-            isActive -> "已连接"
-            device.ip == connectingIp -> "尝试连接"
-            else -> "可连接"
+            isActive && reconnecting -> getString(R.string.i18n_try_to_connect)
+            isActive -> getString(R.string.i18n_connected)
+            device.ip == connectingIp -> getString(R.string.i18n_try_to_connect)
+            else -> getString(R.string.i18n_available)
         }
         val btnConnect = item.findViewById<Button>(R.id.btnDeviceConnect)
         val btnDisconnect = item.findViewById<Button>(R.id.btnDeviceDisconnect)
@@ -441,11 +447,11 @@ class ControlledActivity : ComponentActivity() {
     private fun updateShizukuAction() {
         btnShizukuAction.isEnabled = true
         when (GamepadInjector.requiredAction(this)) {
-            GamepadInjector.Action.DOWNLOAD -> btnShizukuAction.text = "下载 Shizuku"
-            GamepadInjector.Action.OPEN -> btnShizukuAction.text = "打开 Shizuku"
-            GamepadInjector.Action.REQUEST_PERMISSION -> btnShizukuAction.text = "申请授权"
+            GamepadInjector.Action.DOWNLOAD -> btnShizukuAction.text = getString(R.string.i18n_download_shizuku)
+            GamepadInjector.Action.OPEN -> btnShizukuAction.text = getString(R.string.i18n_open_shizuku)
+            GamepadInjector.Action.REQUEST_PERMISSION -> btnShizukuAction.text = getString(R.string.i18n_request_permission)
             GamepadInjector.Action.NONE -> {
-                btnShizukuAction.text = "已授权"
+                btnShizukuAction.text = getString(R.string.i18n_authorized)
                 btnShizukuAction.isEnabled = false
             }
         }

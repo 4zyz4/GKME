@@ -1,5 +1,7 @@
 package com.zyz4.gkme.controlled
 
+import com.zyz4.gkme.R
+import com.zyz4.gkme.i18n.AppStrings
 import android.content.Context
 import android.util.Log
 import com.zyz4.gkme.haptic.HapticArbiter
@@ -236,13 +238,13 @@ object HapticInjector {
     }
 
     fun statusText(): String {
-        if (!available) return "本机不支持 HD 震动"
+        if (!available) return AppStrings.get(R.string.i18n_this_device_does_not_support_hd_vibratio)
         val type = when (playerType) {
             2 -> "type2 RichTap"
             1 -> "type1 Tencent"
             else -> "type?"
         }
-        return "HD 已就绪 ($type)"
+        return AppStrings.get(R.string.i18n_hd_ready_0, type)
     }
 
     fun destroy() {

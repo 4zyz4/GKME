@@ -1,5 +1,6 @@
 package com.zyz4.gkme
 
+import com.zyz4.gkme.R
 import android.bluetooth.BluetoothAdapter
 import android.content.Intent
 import android.view.View
@@ -36,11 +37,11 @@ internal fun MainActivity.observeState() {
                     if (a.settingsInflated) {
                         a.findViewById<TextView>(R.id.tvConnectionStatus).text = st.statusText
                         val btn = a.findViewById<Button>(R.id.btnConnectAction)
-                        btn.text = if (st.phase != ConnectionPhase.IDLE) "停止服务" else "启动服务"
+                        btn.text = if (st.phase != ConnectionPhase.IDLE) getString(R.string.i18n_stop_service) else getString(R.string.i18n_start_service)
                         val ip = if (a.viewModel.settings.value.connectionMode == ConnectionMode.WIFI &&
-                            st.statusText != "未启动"
+                            st.phase != ConnectionPhase.IDLE
                         ) {
-                            "本机 IP: ${a.viewModel.getServerIp()}"
+                            getString(R.string.i18n_local_ip_0, a.viewModel.getServerIp())
                         } else ""
                         a.findViewById<TextView>(R.id.tvServerIp).text = ip
                     }

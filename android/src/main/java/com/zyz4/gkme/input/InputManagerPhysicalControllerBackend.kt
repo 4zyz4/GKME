@@ -1,5 +1,6 @@
 package com.zyz4.gkme.input
 
+import com.zyz4.gkme.R
 import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -266,7 +267,7 @@ open class InputManagerPhysicalControllerBackend(private val context: Context) :
         val analogTriggers = axes.leftTrigger >= 0 && axes.rightTrigger >= 0
         return ControllerInfo(
             id = device.id,
-            name = device.name?.takeIf { it.isNotBlank() } ?: "手柄",
+            name = device.name?.takeIf { it.isNotBlank() } ?: context.getString(R.string.i18n_gamepad),
             motorCount = binding?.motorCount ?: 0,
             hasTriggerRumble = false,
             hasAdaptiveTrigger = false,

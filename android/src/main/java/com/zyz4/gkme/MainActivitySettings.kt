@@ -1,5 +1,7 @@
 package com.zyz4.gkme
 
+import com.zyz4.gkme.R
+import com.zyz4.gkme.i18n.AppLocale
 import android.Manifest
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
@@ -99,6 +101,15 @@ private val SETTINGS_CATEGORY_BUTTONS = listOf(
 )
 
 internal fun easeOutQuint(): Interpolator = PathInterpolator(0.22f, 1f, 0.36f, 1f)
+
+
+/** Built-in preset names are persisted as stable Chinese ids; localize them for display. */
+internal fun android.content.Context.localizedPresetName(name: String): String = when (name) {
+    "完整控制器" -> getString(R.string.i18n_full_controller)
+    "鼠标" -> getString(R.string.i18n_mouse)
+    "键盘" -> getString(R.string.i18n_keyboard)
+    else -> name
+}
 
 internal fun MainActivity.settingsButtonView(): View? {
     val a = this
@@ -411,14 +422,14 @@ internal fun MainActivity.setupSettings() {
     a.findViewById<Button>(R.id.btnPresetRestoreDefault).setOnClickListener {
         val name = a.viewModel.settings.value.currentPresetName
         CustomDialog.showConfirm(
-            a, "恢复默认",
-            "确定将内置布局「$name」恢复为默认？",
-            positiveText = "恢复默认", onPositive = {
+            a, getString(R.string.i18n_restore_defaults),
+            getString(R.string.i18n_restore_built_in_layout_0_to_defaults, localizedPresetName(name)),
+            positiveText = getString(R.string.i18n_restore_defaults), onPositive = {
                 val preset = a.viewModel.restoreBuiltInPreset(name)
                 if (preset != null) {
                     a.applyPreset(preset)
                     a.refreshPresetList()
-                    a.showToast("已恢复「$name」为默认")
+                    a.showToast(getString(R.string.i18n_restored_0_to_defaults, localizedPresetName(name)))
                 }
             })
     }
@@ -447,7 +458,7 @@ internal fun MainActivity.setupSettings() {
         val current = a.viewModel.settings.value.currentPresetName
         val idx = infos.indexOfFirst { it.name == current }
         val name = if (idx >= 0) infos[idx].name else infos.firstOrNull()?.name ?: return@setOnClickListener
-        if (a.viewModel.isBuiltInPreset(name)) { a.showToast("内置布局禁止重命名"); return@setOnClickListener }
+        if (a.viewModel.isBuiltInPreset(name)) { a.showToast(getString(R.string.i18n_built_in_layouts_cannot_be_renamed)); return@setOnClickListener }
         a.showRenameDialog(name)
     }
 
@@ -456,9 +467,9 @@ internal fun MainActivity.setupSettings() {
         val current = a.viewModel.settings.value.currentPresetName
         val idx = infos.indexOfFirst { it.name == current }
         val selected = if (idx >= 0) infos[idx].name else infos.firstOrNull()?.name ?: return@setOnClickListener
-        if (a.viewModel.isBuiltInPreset(selected)) { a.showToast("内置布局禁止删除"); return@setOnClickListener }
-        CustomDialog.showConfirm(a, "删除预设", "确定删除「$selected」？",
-            positiveText = "删除", onPositive = { a.viewModel.deletePreset(selected); a.refreshPresetList() })
+        if (a.viewModel.isBuiltInPreset(selected)) { a.showToast(getString(R.string.i18n_built_in_layouts_cannot_be_deleted)); return@setOnClickListener }
+        CustomDialog.showConfirm(a, getString(R.string.i18n_delete_preset), getString(R.string.i18n_delete_0, selected),
+            positiveText = getString(R.string.i18n_delete), onPositive = { a.viewModel.deletePreset(selected); a.refreshPresetList() })
     }
 
     // ── Controller page ──
@@ -507,7 +518,7 @@ internal fun MainActivity.setupSettings() {
     listOf(R.id.btnConnWifi to 0, R.id.btnConnBluetooth to 1, R.id.btnConnUsb to 2, R.id.btnConnLocal to 3).forEach { (id, idx) ->
         a.findViewById<Button>(id).setOnClickListener {
             if (a.viewModel.connectionState.value.phase != ConnectionPhase.IDLE) {
-                a.showToast("请先停止服务")
+                a.showToast(getString(R.string.i18n_stop_the_service_first))
                 return@setOnClickListener
             }
             a.selectChipGroup(connectionChipIds, idx)
@@ -521,7 +532,7 @@ internal fun MainActivity.setupSettings() {
     listOf(R.id.btnControlTypeController to 0, R.id.btnControlTypeControlled to 1).forEach { (id, idx) ->
         a.findViewById<Button>(id).setOnClickListener {
             if (a.viewModel.connectionState.value.phase != ConnectionPhase.IDLE) {
-                a.showToast("请先停止服务")
+                a.showToast(getString(R.string.i18n_stop_the_service_first))
                 return@setOnClickListener
             }
             a.selectChipGroup(controlTypeChipIds, idx)
@@ -537,9 +548,9 @@ internal fun MainActivity.setupSettings() {
         a.findViewById<Button>(id).setOnClickListener {
             val platform = TargetPlatform.entries[idx]
             if (platform == a.viewModel.settings.value.targetPlatform) return@setOnClickListener
-            CustomDialog.showConfirm(a, "切换目标平台",
-                "将删除已保存的配对设备，是否继续？",
-                positiveText = "确定", onPositive = {
+            CustomDialog.showConfirm(a, getString(R.string.i18n_switch_target_platform),
+                getString(R.string.i18n_the_saved_paired_device_will_be_removed),
+                positiveText = getString(R.string.i18n_ok), onPositive = {
                     a.selectChipGroup(targetChipIds, idx)
                     a.viewModel.switchTargetPlatform(platform)
                 })
@@ -643,7 +654,7 @@ internal fun MainActivity.setupSettings() {
                 if (!fromUser) return
                 if (progress < 1) { sb.progress = 1; return }
                 a.viewModel.updateVibrationPressDuration(progress)
-                a.findViewById<TextView>(R.id.tvPressDuration).text = "时长: ${progress}ms"
+                a.findViewById<TextView>(R.id.tvPressDuration).text = getString(R.string.i18n_duration_0_ms, progress)
             }
             override fun onStartTrackingTouch(sb: SeekBar?) {}
             override fun onStopTrackingTouch(sb: SeekBar?) {}
@@ -654,7 +665,7 @@ internal fun MainActivity.setupSettings() {
             override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
                 if (!fromUser) return
                 a.viewModel.updateVibrationPressIntensity(progress)
-                a.findViewById<TextView>(R.id.tvPressIntensity).text = "强度: $progress"
+                a.findViewById<TextView>(R.id.tvPressIntensity).text = getString(R.string.i18n_intensity_0, progress)
             }
             override fun onStartTrackingTouch(sb: SeekBar?) {}
             override fun onStopTrackingTouch(sb: SeekBar?) {}
@@ -679,7 +690,7 @@ internal fun MainActivity.setupSettings() {
                 if (!fromUser) return
                 if (progress < 1) { sb.progress = 1; return }
                 a.viewModel.updateVibrationReleaseDuration(progress)
-                a.findViewById<TextView>(R.id.tvReleaseDuration).text = "时长: ${progress}ms"
+                a.findViewById<TextView>(R.id.tvReleaseDuration).text = getString(R.string.i18n_duration_0_ms, progress)
             }
             override fun onStartTrackingTouch(sb: SeekBar?) {}
             override fun onStopTrackingTouch(sb: SeekBar?) {}
@@ -690,7 +701,7 @@ internal fun MainActivity.setupSettings() {
             override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
                 if (!fromUser) return
                 a.viewModel.updateVibrationReleaseIntensity(progress)
-                a.findViewById<TextView>(R.id.tvReleaseIntensity).text = "强度: $progress"
+                a.findViewById<TextView>(R.id.tvReleaseIntensity).text = getString(R.string.i18n_intensity_0, progress)
             }
             override fun onStartTrackingTouch(sb: SeekBar?) {}
             override fun onStopTrackingTouch(sb: SeekBar?) {}
@@ -746,7 +757,7 @@ internal fun MainActivity.setupSettings() {
             val locked = a.viewModel.currentPreset.value.gyroOrientation
             if (locked != null) {
                 val name = a.viewModel.settings.value.currentPresetName
-                a.showToast("体感握持方向被布局「$name」锁定")
+                a.showToast(getString(R.string.i18n_motion_orientation_is_locked_by_layout_0, localizedPresetName(name)))
                 return@setOnClickListener
             }
             a.selectChipGroup(
@@ -788,7 +799,7 @@ internal fun MainActivity.setupSettings() {
             a.controllerDriverUserSelecting = true
             false
         }
-        val names = a.controllerDriverEntries.map { it.displayName }.toTypedArray()
+        val names = a.controllerDriverEntries.map { a.getString(it.displayNameRes) }.toTypedArray()
         adapter = ArrayAdapter(a, android.R.layout.simple_spinner_item, names).apply {
             setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         }
@@ -866,7 +877,7 @@ internal fun MainActivity.setupSettings() {
 internal fun MainActivity.setupEffectSpinner(spinnerId: Int, isPress: Boolean) {
     val a = this
     val spinner = a.findViewById<Spinner>(spinnerId)
-    val names = HapticEffect.entries.map { it.displayName }.toTypedArray()
+    val names = HapticEffect.entries.map { a.getString(it.displayNameRes) }.toTypedArray()
     val adapter = ArrayAdapter(a, android.R.layout.simple_spinner_item, names)
     adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
     spinner.adapter = adapter
@@ -905,11 +916,11 @@ internal fun MainActivity.updateGameVibrationDeviceAdapter(spinner: Spinner, ent
     val a = this
     val names = entries.map { device ->
         when (device.type) {
-            VibrationDeviceType.PHONE -> "手机马达"
-            VibrationDeviceType.NONE -> "无"
+            VibrationDeviceType.PHONE -> getString(R.string.i18n_phone_motor)
+            VibrationDeviceType.NONE -> getString(R.string.i18n_none)
             VibrationDeviceType.CONTROLLER -> {
                 val info = a.physicalControllerHandler.connectedControllers.value.getOrNull(device.controllerIndex)
-                info?.name?.takeIf { it.isNotBlank() } ?: "手柄${device.controllerIndex + 1}"
+                info?.name?.takeIf { it.isNotBlank() } ?: getString(R.string.i18n_gamepad_0, device.controllerIndex + 1)
             }
         }
     }.toTypedArray()
@@ -978,12 +989,12 @@ internal fun MainActivity.buildAdaptiveTriggerDeviceEntries(): List<AdaptiveTrig
 internal fun MainActivity.adaptiveTriggerDeviceName(device: AdaptiveTriggerDevice): String {
     val a = this
     val info = a.physicalControllerHandler.connectedControllers.value.getOrNull(device.controllerIndex)
-    val controllerName = info?.name?.takeIf { it.isNotBlank() } ?: "手柄${device.controllerIndex + 1}"
+    val controllerName = info?.name?.takeIf { it.isNotBlank() } ?: getString(R.string.i18n_gamepad_0, device.controllerIndex + 1)
     return when (device.type) {
-        AdaptiveTriggerTargetType.PHONE_MOTOR -> "手机马达"
-        AdaptiveTriggerTargetType.CONTROLLER_MOTOR -> "$controllerName 马达"
-        AdaptiveTriggerTargetType.CONTROLLER_TRIGGER -> "$controllerName 扳机"
-        AdaptiveTriggerTargetType.NONE -> "无"
+        AdaptiveTriggerTargetType.PHONE_MOTOR -> getString(R.string.i18n_phone_motor)
+        AdaptiveTriggerTargetType.CONTROLLER_MOTOR -> getString(R.string.i18n_0_motor, controllerName)
+        AdaptiveTriggerTargetType.CONTROLLER_TRIGGER -> getString(R.string.i18n_0_trigger, controllerName)
+        AdaptiveTriggerTargetType.NONE -> getString(R.string.i18n_none)
     }
 }
 
@@ -1090,10 +1101,10 @@ internal fun MainActivity.updateInputControllerAdapter(spinner: Spinner, indices
     val a = this
     val names = indices.map { index ->
         if (index < 0) {
-            "不使用手柄"
+            getString(R.string.i18n_no_gamepad)
         } else {
             a.physicalControllerHandler.connectedControllers.value.getOrNull(index)?.name
-                ?.takeIf { it.isNotBlank() } ?: "手柄${index + 1}"
+                ?.takeIf { it.isNotBlank() } ?: getString(R.string.i18n_gamepad_0, index + 1)
         }
     }.toTypedArray()
     val adapter = ArrayAdapter(a, android.R.layout.simple_spinner_item, names)
@@ -1141,31 +1152,31 @@ internal fun MainActivity.currentInputControllerInfo(): ControllerInfo? {
 }
 
 internal fun MainActivity.controllerDetailVibrationText(info: ControllerInfo?): String = when {
-    info == null -> "未连接"
-    info.motorCount <= 0 -> "不支持"
-    else -> "${info.motorCount}个马达"
+    info == null -> getString(R.string.i18n_disconnected_7f3a55)
+    info.motorCount <= 0 -> getString(R.string.i18n_unsupported)
+    else -> getString(R.string.i18n_0_motors, info.motorCount)
 }
 
 internal fun MainActivity.controllerDetailGyroText(info: ControllerInfo?): String =
     when {
-        info == null -> "未连接"
-        info.hasGyro -> "支持"
-        else -> "不支持"
+        info == null -> getString(R.string.i18n_disconnected_7f3a55)
+        info.hasGyro -> getString(R.string.i18n_supported)
+        else -> getString(R.string.i18n_unsupported)
     }
 
 internal fun MainActivity.controllerDetailTouchpadText(info: ControllerInfo?): String =
     when {
-        info == null -> "未连接"
-        info.hasTouchpad -> "支持"
-        else -> "不支持"
+        info == null -> getString(R.string.i18n_disconnected_7f3a55)
+        info.hasTouchpad -> getString(R.string.i18n_supported)
+        else -> getString(R.string.i18n_unsupported)
     }
 
 internal fun MainActivity.controllerDetailTriggerText(info: ControllerInfo?): String = when {
-    info == null -> "未连接"
-    info.hasAdaptiveTrigger -> "自适应扳机"
-    info.hasTriggerRumble -> "带有震动的线性扳机"
-    info.hasAnalogTrigger -> "线性扳机"
-    else -> "非线性扳机"
+    info == null -> getString(R.string.i18n_disconnected_7f3a55)
+    info.hasAdaptiveTrigger -> getString(R.string.i18n_adaptive_trigger)
+    info.hasTriggerRumble -> getString(R.string.i18n_linear_trigger_with_vibration)
+    info.hasAnalogTrigger -> getString(R.string.i18n_linear_trigger)
+    else -> getString(R.string.i18n_non_linear_trigger)
 }
 
 /** Refreshes the read-only detail card for the controller selected as the input source. */
@@ -1174,7 +1185,7 @@ internal fun MainActivity.syncControllerDetailUI() {
     if (!a.settingsInflated) return
     val info = a.currentInputControllerInfo()
     a.findViewById<TextView>(R.id.tvControllerDetailDriver).text =
-        if (info == null) "未连接" else a.physicalControllerHandler.activeDriver.value.displayName
+        if (info == null) getString(R.string.i18n_disconnected_7f3a55) else a.getString(a.physicalControllerHandler.activeDriver.value.displayNameRes)
     a.findViewById<TextView>(R.id.tvControllerDetailVibration).text =
         a.controllerDetailVibrationText(info)
     a.findViewById<TextView>(R.id.tvControllerDetailGyro).text =
@@ -1206,9 +1217,9 @@ internal fun MainActivity.gyroSourceDisplayName(source: GyroSource): String {
     return when (source.type) {
         GyroSourceType.CONTROLLER ->
             controllers.getOrNull(source.controllerIndex)?.name?.takeIf { it.isNotBlank() }
-                ?: "手柄${source.controllerIndex + 1}"
-        GyroSourceType.PHONE -> "手机陀螺仪"
-        GyroSourceType.NONE -> "不使用体感"
+                ?: getString(R.string.i18n_gamepad_0, source.controllerIndex + 1)
+        GyroSourceType.PHONE -> getString(R.string.i18n_phone_gyro)
+        GyroSourceType.NONE -> getString(R.string.i18n_no_motion)
     }
 }
 
@@ -1313,11 +1324,16 @@ internal fun MainActivity.updateVoiceCoilDeviceAdapter(spinner: Spinner, entries
         when (device.type) {
             AudioDeviceType.CONTROLLER ->
                 controllers.getOrNull(device.controllerIndex)?.name?.takeIf { it.isNotBlank() }
-                    ?: "手柄${device.controllerIndex + 1}"
-            AudioDeviceType.PHONE_MOTOR -> "手机马达"
-            AudioDeviceType.PHONE_SPEAKER -> "手机扬声器"
-            AudioDeviceType.SOUND_DEVICE -> device.deviceName.ifBlank { "声音设备" }
-            AudioDeviceType.NONE -> "无"
+                    ?: getString(R.string.i18n_gamepad_0, device.controllerIndex + 1)
+            AudioDeviceType.PHONE_MOTOR -> getString(R.string.i18n_phone_motor)
+            AudioDeviceType.PHONE_SPEAKER -> getString(R.string.i18n_phone_speaker)
+            AudioDeviceType.SOUND_DEVICE -> {
+                val name = device.deviceName
+                if (device.deviceId == AudioDevice.AUTO_SOUND_DEVICE_ID || name.isBlank() || name == "默认设备") {
+                    getString(R.string.i18n_default_device)
+                } else name
+            }
+            AudioDeviceType.NONE -> getString(R.string.i18n_none)
         }
     }.toTypedArray()
     val adapter = ArrayAdapter(a, android.R.layout.simple_spinner_item, names)
@@ -1432,11 +1448,16 @@ internal fun MainActivity.updateControllerAudioAdapter(spinner: Spinner) {
         when (device.type) {
             AudioDeviceType.CONTROLLER ->
                 controllers.getOrNull(device.controllerIndex)?.name?.takeIf { it.isNotBlank() }
-                    ?: "手柄${device.controllerIndex + 1}"
-            AudioDeviceType.SOUND_DEVICE -> device.deviceName.ifBlank { "声音设备" }
+                    ?: getString(R.string.i18n_gamepad_0, device.controllerIndex + 1)
+            AudioDeviceType.SOUND_DEVICE -> {
+                val name = device.deviceName
+                if (device.deviceId == AudioDevice.AUTO_SOUND_DEVICE_ID || name.isBlank() || name == "默认设备") {
+                    getString(R.string.i18n_default_device)
+                } else name
+            }
             AudioDeviceType.PHONE_MOTOR,
-            AudioDeviceType.PHONE_SPEAKER -> "手机马达"
-            AudioDeviceType.NONE -> "无"
+            AudioDeviceType.PHONE_SPEAKER -> getString(R.string.i18n_phone_motor)
+            AudioDeviceType.NONE -> getString(R.string.i18n_none)
         }
     }.toTypedArray()
     val adapter = ArrayAdapter(a, android.R.layout.simple_spinner_item, names)
@@ -1457,8 +1478,8 @@ internal fun MainActivity.refreshAudioVCIndicators() {
     a.findViewById<TextView>(R.id.tvControllerAudioValue)?.text = controllerAmp.toString()
 }
 
-private fun frequencyLabel(he: Int): String =
-    "频率: $he (${RichTapFrequency.heToHz(he).roundToInt()}Hz)"
+private fun MainActivity.frequencyLabel(he: Int): String =
+    getString(R.string.i18n_frequency_0_1_hz, he, RichTapFrequency.heToHz(he).roundToInt())
 
 @SuppressLint("SetTextI18n")
 internal fun MainActivity.updateVibrationUI() {
@@ -1472,8 +1493,8 @@ internal fun MainActivity.updateVibrationUI() {
     a.findViewById<View>(R.id.layoutPressVibEffect).visibility =
         if (s.vibrationPressType == VibrationType.VIBRATION_EFFECT) View.VISIBLE else View.GONE
     a.findViewById<Spinner>(R.id.spinnerPressEffect).setSelection(s.vibrationPressViewEffect.ordinal)
-    a.findViewById<TextView>(R.id.tvPressDuration).text = "时长: ${s.vibrationPressDuration}ms"
-    a.findViewById<TextView>(R.id.tvPressIntensity).text = "强度: ${s.vibrationPressIntensity}"
+    a.findViewById<TextView>(R.id.tvPressDuration).text = getString(R.string.i18n_duration_0_ms, s.vibrationPressDuration)
+    a.findViewById<TextView>(R.id.tvPressIntensity).text = getString(R.string.i18n_intensity_0, s.vibrationPressIntensity)
     a.findViewById<SeekBar>(R.id.seekPressDuration).progress = s.vibrationPressDuration
     a.findViewById<SeekBar>(R.id.seekPressIntensity).progress = s.vibrationPressIntensity
     a.findViewById<TextView>(R.id.tvPressFrequency).text = frequencyLabel(s.vibrationPressFrequency)
@@ -1486,8 +1507,8 @@ internal fun MainActivity.updateVibrationUI() {
     a.findViewById<View>(R.id.layoutReleaseVibEffect).visibility =
         if (s.vibrationReleaseType == VibrationType.VIBRATION_EFFECT) View.VISIBLE else View.GONE
     a.findViewById<Spinner>(R.id.spinnerReleaseEffect).setSelection(s.vibrationReleaseViewEffect.ordinal)
-    a.findViewById<TextView>(R.id.tvReleaseDuration).text = "时长: ${s.vibrationReleaseDuration}ms"
-    a.findViewById<TextView>(R.id.tvReleaseIntensity).text = "强度: ${s.vibrationReleaseIntensity}"
+    a.findViewById<TextView>(R.id.tvReleaseDuration).text = getString(R.string.i18n_duration_0_ms, s.vibrationReleaseDuration)
+    a.findViewById<TextView>(R.id.tvReleaseIntensity).text = getString(R.string.i18n_intensity_0, s.vibrationReleaseIntensity)
     a.findViewById<SeekBar>(R.id.seekReleaseDuration).progress = s.vibrationReleaseDuration
     a.findViewById<SeekBar>(R.id.seekReleaseIntensity).progress = s.vibrationReleaseIntensity
     a.findViewById<TextView>(R.id.tvReleaseFrequency).text = frequencyLabel(s.vibrationReleaseFrequency)
@@ -1522,14 +1543,33 @@ internal fun MainActivity.setupUnpairButton() {
     val nameView = a.findViewById<TextView>(R.id.tvPairedDeviceName)
     a.findViewById<Button>(R.id.btnUnpairDevice).setOnClickListener {
         val deviceName = nameView.text.toString()
-        CustomDialog.showConfirm(a, "取消配对",
-            "确定取消与「$deviceName」的配对？下次连接需要重新配对。",
-            positiveText = "取消配对", onPositive = { a.viewModel.unpairDevice() })
+        CustomDialog.showConfirm(a, getString(R.string.i18n_unpair),
+            getString(R.string.i18n_unpair_from_0_you_will_need_to_pair_agai, deviceName),
+            positiveText = getString(R.string.i18n_unpair), onPositive = { a.viewModel.unpairDevice() })
     }
 }
 
 internal fun MainActivity.setupMiscPage() {
     val a = this
+    val languages = AppLocale.availableLanguages(a)
+    val languageSpinner = a.findViewById<Spinner>(R.id.spinnerLanguage)
+    val languageAdapter = ArrayAdapter(
+        a, android.R.layout.simple_spinner_item, languages.map { it.label }
+    )
+    languageAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+    languageSpinner.adapter = languageAdapter
+    languageSpinner.setSelection(languages.indexOfFirst { it.code == AppLocale.currentLanguage(a) }.coerceAtLeast(0))
+    languageSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+        override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+            val code = languages.getOrNull(position)?.code ?: return
+            if (code != AppLocale.currentLanguage(a) && AppLocale.setLanguage(a, code)) {
+                a.recreate()
+            }
+        }
+
+        override fun onNothingSelected(parent: AdapterView<*>?) {}
+    }
+
     a.findViewById<Switch>(R.id.switchKeepScreenOn).setOnCheckedChangeListener { _, isChecked ->
         a.viewModel.updateKeepScreenOn(isChecked)
         if (isChecked) {
@@ -1565,10 +1605,10 @@ internal fun MainActivity.setupAboutPage() {
     val a = this
     val packageInfo = a.packageManager.getPackageInfo(a.packageName, 0)
     a.findViewById<TextView>(R.id.tvAppName).text = "GKME"
-    a.findViewById<TextView>(R.id.tvAppVersion).text = "版本 ${packageInfo.versionName}"
-    a.findViewById<TextView>(R.id.tvAppDescription).text = "作者：4zyz4  软件Q群：639317971\n\n" +
-            "开源地址：https://github.com/4zyz4/gkme\n" +
-            "注意：本软件不是Emotion，请进入Q群1045923515以下载正版Emotion"
+    a.findViewById<TextView>(R.id.tvAppVersion).text = getString(R.string.i18n_version_0, packageInfo.versionName)
+    a.findViewById<TextView>(R.id.tvAppDescription).text = getString(R.string.i18n_author_4zyz4_qq_group_639317971) +
+            getString(R.string.i18n_source_https_github_com_4zyz4_gkme) +
+            getString(R.string.i18n_note_this_app_is_not_emotion_join_qq_gro)
 
     a.findViewById<ImageView>(R.id.ivAppIcon).setImageResource(R.mipmap.icon)
 
@@ -1586,10 +1626,10 @@ internal fun MainActivity.showSponsorDialog() {
     }
     val content = LinearLayout(a).apply {
         orientation = LinearLayout.VERTICAL
-        addView(TextView(a).apply { text = "感谢您的支持！"; textSize = 14f; setTextColor(-0x777778); gravity = Gravity.CENTER })
+        addView(TextView(a).apply { text = getString(R.string.i18n_thank_you_for_your_support); textSize = 14f; setTextColor(-0x777778); gravity = Gravity.CENTER })
         addView(imageView)
     }
-    CustomDialog.showCustomView(a, "赞助", content, negativeText = "关闭")
+    CustomDialog.showCustomView(a, getString(R.string.i18n_sponsor), content, negativeText = getString(R.string.i18n_close))
 }
 
 internal fun MainActivity.setupConnectionPage() {
@@ -1668,7 +1708,7 @@ internal fun MainActivity.tryStartLocalVirtualDevice(): Boolean {
             a.localStartPending = false
             a.stopShizukuPolling()
             a.updateShizukuEntry()
-            a.viewModel.setLocalModeStatus("Shizuku 授权失败，请在 Shizuku 中手动授权后重试")
+            a.viewModel.setLocalModeStatus(getString(R.string.i18n_shizuku_authorization_failed_grant_permi))
         } else if (GamepadInjector.bindFailed) {
             // 已授权但用户服务始终连不上（疑似 Shizuku 存在重复实例），停止轮询并提示重启。
             a.localStartPending = false
@@ -1730,11 +1770,11 @@ internal fun MainActivity.updateShizukuEntry() {
     val btn = a.findViewById<Button>(R.id.btnShizukuEntry) ?: return
     btn.isEnabled = true
     when (GamepadInjector.requiredAction(a)) {
-        GamepadInjector.Action.DOWNLOAD -> btn.text = "下载 Shizuku"
-        GamepadInjector.Action.OPEN -> btn.text = "打开 Shizuku"
-        GamepadInjector.Action.REQUEST_PERMISSION -> btn.text = "申请授权"
+        GamepadInjector.Action.DOWNLOAD -> btn.text = getString(R.string.i18n_download_shizuku)
+        GamepadInjector.Action.OPEN -> btn.text = getString(R.string.i18n_open_shizuku)
+        GamepadInjector.Action.REQUEST_PERMISSION -> btn.text = getString(R.string.i18n_request_permission)
         GamepadInjector.Action.NONE -> {
-            btn.text = "已授权"
+            btn.text = getString(R.string.i18n_authorized)
             btn.isEnabled = false
         }
     }
@@ -1763,7 +1803,7 @@ internal fun MainActivity.updateHdVibrationUI() {
     val sw = a.findViewById<Switch>(R.id.switchHdVibration)
     if (sw != null && sw.isChecked != s.hdVibrationEnabled) sw.isChecked = s.hdVibrationEnabled
     a.findViewById<TextView>(R.id.tvHdStatus).text =
-        if (s.hdVibrationEnabled) HapticInjector.statusText() else "HD 未启用"
+        if (s.hdVibrationEnabled) HapticInjector.statusText() else getString(R.string.i18n_hd_disabled)
 }
 
 /** 进入“作为被控端”的连接页面（接收远端控制端输入并创建本地虚拟手柄）。 */
@@ -1814,19 +1854,19 @@ internal fun MainActivity.loadPresetByName(name: String) {
     if (!a.viewModel.loadPreset(name)) return
     val preset = a.viewModel.currentPreset.value
     a.applyPreset(preset)
-    a.showToast("已加载「$name」")
+    a.showToast(getString(R.string.i18n_loaded_0, localizedPresetName(name)))
     a.refreshPresetList()
 }
 
 internal fun MainActivity.showNewPresetDialog() {
-    CustomDialog.showInput(this, "新建布局", hint = "输入新预设名称",
-        positiveText = "创建", onPositive = { name ->
+    CustomDialog.showInput(this, getString(R.string.i18n_new_layout), hint = getString(R.string.i18n_enter_a_new_preset_name),
+        positiveText = getString(R.string.i18n_create), onPositive = { name ->
             if (name.isNotEmpty()) {
                 val preset = viewModel.createDefaultLayout()
                 viewModel.savePreset(name, preset)
                 applyPreset(preset)
                 refreshPresetList()
-                showToast("已创建「$name」")
+                showToast(getString(R.string.i18n_created_0, name))
             }
         })
 }
@@ -1835,17 +1875,17 @@ internal fun MainActivity.importPresetFromUri(uri: Uri) {
     try {
         val json = contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: return
         val preset = LayoutPreset.fromJson(json)
-        CustomDialog.showInput(this, "导入布局", hint = "输入预设名称",
-            positiveText = "保存", onPositive = { name ->
+        CustomDialog.showInput(this, getString(R.string.i18n_import_layout), hint = getString(R.string.i18n_enter_preset_name),
+            positiveText = getString(R.string.i18n_save), onPositive = { name ->
                 if (name.isNotEmpty()) {
                     viewModel.savePreset(name, preset)
                     applyPreset(preset)
                     refreshPresetList()
-                    showToast("已导入「$name」")
+                    showToast(getString(R.string.i18n_imported_0, name))
                 }
             })
     } catch (e: Exception) {
-        showToast("导入失败: ${e.message}")
+        showToast(getString(R.string.i18n_import_failed_0, e.message))
     }
 }
 
@@ -1854,33 +1894,33 @@ internal fun MainActivity.exportPresetToUri(uri: Uri) {
     try {
         val json = a.viewModel.currentPreset.value.toJson()
         a.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(json) }
-        a.showToast("导出成功")
+        a.showToast(getString(R.string.i18n_export_successful))
     } catch (e: Exception) {
-        a.showToast("导出失败: ${e.message}")
+        a.showToast(getString(R.string.i18n_export_failed_0, e.message))
     }
 }
 
 internal fun MainActivity.showRenameDialog(oldName: String) {
-    CustomDialog.showInput(this, "重命名", prefill = oldName,
-        positiveText = "确定", onPositive = { newName ->
+    CustomDialog.showInput(this, getString(R.string.i18n_rename), prefill = oldName,
+        positiveText = getString(R.string.i18n_ok), onPositive = { newName ->
             if (newName.isNotEmpty() && newName != oldName) {
                 viewModel.renamePreset(oldName, newName)
                 refreshPresetList()
-                showToast("已重命名为「$newName」")
+                showToast(getString(R.string.i18n_renamed_to_0, newName))
             }
         })
 }
 
 internal fun MainActivity.showCopyPresetDialog(sourceName: String) {
     val candidate = sourceName.replace(Regex("^复制_"), "")
-    CustomDialog.showInput(this, "复制布局", hint = "输入新预设名称", prefill = "复制_$candidate",
-        positiveText = "创建", onPositive = { name ->
+    CustomDialog.showInput(this, getString(R.string.i18n_copy_layout), hint = getString(R.string.i18n_enter_a_new_preset_name), prefill = getString(R.string.i18n_copy_0, candidate),
+        positiveText = getString(R.string.i18n_create), onPositive = { name ->
             if (name.isNotEmpty()) {
                 val preset = viewModel.currentPreset.value.copy()
                 viewModel.savePreset(name, preset)
                 applyPreset(preset)
                 refreshPresetList()
-                showToast("已复制为「$name」")
+                showToast(getString(R.string.i18n_copied_as_0, name))
             }
         })
 }
@@ -1892,7 +1932,7 @@ internal fun MainActivity.refreshPresetList() {
     val infos = a.viewModel.presetInfos.value
     val current = a.viewModel.settings.value.currentPresetName
     val isBuiltIn = a.viewModel.isBuiltInPreset(current)
-    a.findViewById<TextView>(R.id.tvCurrentPreset).text = "当前预设: $current"
+    a.findViewById<TextView>(R.id.tvCurrentPreset).text = getString(R.string.i18n_current_preset_0, localizedPresetName(current))
     a.findViewById<Button>(R.id.btnPresetCopy).visibility = View.VISIBLE
     // 三个内置预设（完整控制器/鼠标/键盘）均可编辑并恢复默认；重命名/删除仍禁用（名称保留）。
     a.findViewById<Button>(R.id.btnPresetRename).visibility = if (isBuiltIn) View.GONE else View.VISIBLE
@@ -1924,7 +1964,7 @@ internal class PresetGridAdapter(
             .inflate(R.layout.item_preset_card, parent, false)
         val info = infos[position]
         view.findViewById<PresetPreviewView>(R.id.presetPreview).setButtons(info.buttons)
-        view.findViewById<TextView>(R.id.presetName).text = info.name
+        view.findViewById<TextView>(R.id.presetName).text = activity.localizedPresetName(info.name)
         view.findViewById<View>(R.id.cardBackground).setBackgroundResource(
             if (info.name == currentPresetName) R.drawable.bg_chip_selected else R.drawable.bg_chip
         )
@@ -1950,7 +1990,7 @@ internal fun MainActivity.updateSettingsVisibility(mode: ConnectionMode) {
     } else {
         a.localStartPending = false
         a.stopShizukuPolling()
-        a.viewModel.setLocalModeStatus("未启动")
+        a.viewModel.setLocalModeStatus(getString(R.string.i18n_not_started))
     }
     a.updatePairedDeviceVisibility(a.viewModel.pairedDeviceName.value)
 }
@@ -1964,7 +2004,7 @@ internal fun MainActivity.updatePairedDeviceVisibility(name: String?) {
     if (name != null && isBt) {
         section.visibility = View.VISIBLE
         @SuppressLint("SetTextI18n")
-        nameView.text = "蓝牙已配对: $name"
+        nameView.text = getString(R.string.i18n_bluetooth_paired_0, name)
     } else {
         section.visibility = View.GONE
     }
@@ -1991,14 +2031,14 @@ internal fun MainActivity.updateGyroLandscapeInvertedNote(inverted: Boolean) {
 internal fun MainActivity.syncSettingsUI() {
     val a = this
     val s = a.viewModel.settings.value
-    a.findViewById<Button>(R.id.switchEditMode).text = "编辑"
+    a.findViewById<Button>(R.id.switchEditMode).text = getString(R.string.i18n_edit)
 
     // Re-sync connection status here too: observers may have dropped emissions
     // while the settings panel was not yet inflated.
     val st = a.viewModel.connectionState.value
     a.findViewById<TextView>(R.id.tvConnectionStatus).text = st.statusText
     a.findViewById<Button>(R.id.btnConnectAction).text =
-        if (st.phase != ConnectionPhase.IDLE) "停止服务" else "启动服务"
+        if (st.phase != ConnectionPhase.IDLE) getString(R.string.i18n_stop_service) else getString(R.string.i18n_start_service)
 
     a.selectChipGroup(listOf(R.id.btnDisplayXbox, R.id.btnDisplayPlaystation, R.id.btnDisplaySwitch),
         DisplayMode.entries.indexOf(s.displayMode).coerceAtLeast(0))

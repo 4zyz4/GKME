@@ -1,5 +1,6 @@
 package com.zyz4.gkme.controlled
 
+import com.zyz4.gkme.i18n.AppLocale
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -61,6 +62,10 @@ class ControlledHostService : Service() {
     private var keepAliveJob: Job? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -128,10 +133,10 @@ class ControlledHostService : Service() {
         val manager = getSystemService(NotificationManager::class.java) ?: return
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "被控端",
+            getString(R.string.i18n_controlled_mode_5bf179),
             NotificationManager.IMPORTANCE_LOW,
         ).apply {
-            description = "被控端运行期间的常驻通知，用于防止后台被系统清理"
+            description = getString(R.string.i18n_persistent_notification_while_controlled)
             setShowBadge(false)
         }
         manager.createNotificationChannel(channel)
@@ -156,14 +161,14 @@ class ControlledHostService : Service() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("GKME 被控端运行中")
+            .setContentTitle(getString(R.string.i18n_gkme_controlled_mode_is_running))
             .setContentText(statusText)
             .setSmallIcon(R.drawable.ic_home)
             .setOngoing(true)
             .setShowWhen(false)
             .setContentIntent(contentIntent)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .addAction(0, "停止", stopIntent)
+            .addAction(0, getString(R.string.i18n_stop), stopIntent)
             .build()
     }
 }

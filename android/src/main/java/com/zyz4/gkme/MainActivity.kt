@@ -1,7 +1,10 @@
 package com.zyz4.gkme
 
+import com.zyz4.gkme.i18n.AppLocale
+import com.zyz4.gkme.R
 import android.annotation.SuppressLint
 import android.app.Dialog
+import android.content.Context
 import android.content.Intent
 import android.hardware.display.DisplayManager
 import android.view.Display
@@ -112,7 +115,7 @@ class MainActivity : ComponentActivity() {
             }
         } else {
             pendingBluetoothStart = false
-            showToast("需要蓝牙权限才能使用蓝牙模式")
+            showToast(getString(R.string.i18n_bluetooth_permission_is_required_for_blu))
         }
     }
 
@@ -152,7 +155,7 @@ class MainActivity : ComponentActivity() {
         if (result.resultCode == RESULT_OK) {
             viewModel.startServer()
         } else {
-            showToast("需要开启蓝牙才能使用蓝牙模式")
+            showToast(getString(R.string.i18n_turn_on_bluetooth_to_use_bluetooth_mode))
         }
     }
 
@@ -190,7 +193,7 @@ class MainActivity : ComponentActivity() {
         if (Settings.canDrawOverlays(this)) {
             continueEnterFloating()
         } else {
-            showToast("需要悬浮窗权限才能使用悬浮模式")
+            showToast(getString(R.string.i18n_overlay_permission_is_required_for_float))
         }
     }
 
@@ -238,6 +241,10 @@ class MainActivity : ComponentActivity() {
         if (inSettings) updateGyroLandscapeInvertedNote(inverted)
     }
 
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -276,9 +283,9 @@ class MainActivity : ComponentActivity() {
                     gamepadLayout.isEditModeActive() -> {
                         CustomDialog.showConfirm(
                             context = this@MainActivity,
-                            title = "退出编辑",
-                            message = "是否放弃更改？",
-                            positiveText = "放弃",
+                            title = getString(R.string.i18n_exit_editing),
+                            message = getString(R.string.i18n_discard_changes_17a8d0),
+                            positiveText = getString(R.string.i18n_discard),
                             onPositive = {
                                 gamepadLayout.discardToSnapshot()
                                 gamepadLayout.exitEditMode()
@@ -400,7 +407,7 @@ class MainActivity : ComponentActivity() {
     internal fun enterFloatingMode() {
         if (::floatingController.isInitialized && floatingController.isActive) return
         if (gamepadLayout.isEditModeActive()) {
-            showToast("请先退出编辑模式")
+            showToast(getString(R.string.i18n_exit_edit_mode_first))
             return
         }
         if (!Settings.canDrawOverlays(this)) {
@@ -434,14 +441,14 @@ class MainActivity : ComponentActivity() {
         floatingController.enter()
         floatingStartedAt = android.os.SystemClock.elapsedRealtime()
         moveTaskToBack(true)
-        showToast("悬浮模式已开启，点按悬浮按钮显示/隐藏")
+        showToast(getString(R.string.i18n_floating_mode_enabled_tap_the_floating_b))
     }
 
     internal fun exitFloatingMode() {
         if (!::floatingController.isInitialized || !floatingController.isActive) return
         runCatching { floatingController.exit() }
         stopService(Intent(this, FloatingOverlayService::class.java))
-        showToast("已退出悬浮模式")
+        showToast(getString(R.string.i18n_exited_floating_mode))
     }
 
     internal var pointerCaptureNeeded = false
@@ -675,7 +682,7 @@ class MainActivity : ComponentActivity() {
         a.setSettingsButtonEnabled(false)
         // Force the screen on while in screen-off mode, regardless of the user setting.
         a.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        a.showToast("使用返回键或返回手势退出")
+        a.showToast(getString(R.string.i18n_press_back_or_use_the_back_gesture_to_ex))
     }
 
     internal fun exitScreenOffMode() {
@@ -870,7 +877,7 @@ internal fun performHaptic(isPress: Boolean) {
         container.removeAllViews()
 
         container.addView(TextView(this).apply {
-            text = "音量键映射"
+            text = getString(R.string.i18n_volume_key_mapping)
             setTextColor(ContextCompat.getColor(context, R.color.text_primary))
             textSize = 15f
             typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
@@ -883,7 +890,7 @@ internal fun performHaptic(isPress: Boolean) {
 
         container.addView(
             buildVolumeMappingRow(
-                label = "音量 +",
+                label = getString(R.string.i18n_volume),
                 bits = currentUp(),
                 density = density,
                 onAdd = {
@@ -908,7 +915,7 @@ internal fun performHaptic(isPress: Boolean) {
 
         container.addView(
             buildVolumeMappingRow(
-                label = "音量 -",
+                label = getString(R.string.i18n_volume_80d5c3),
                 bits = currentDown(),
                 density = density,
                 onAdd = {
@@ -959,14 +966,14 @@ internal fun performHaptic(isPress: Boolean) {
         fillVolumeChips(chips, bits, density, onRemove)
 
         row.addView(Button(this, null, 0, R.style.GamepadChip).apply {
-            text = "添加"
+            text = getString(R.string.i18n_add_b58c75)
             setOnClickListener { onAdd() }
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(36)).apply {
             rightMargin = dp(4)
         })
 
         row.addView(Button(this, null, 0, R.style.GamepadChip).apply {
-            text = "清空"
+            text = getString(R.string.i18n_clear)
             setOnClickListener { onClear() }
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(36)))
 
@@ -982,7 +989,7 @@ internal fun performHaptic(isPress: Boolean) {
         container.removeAllViews()
         if (bits.isEmpty()) {
             container.addView(TextView(this).apply {
-                text = "未映射"
+                text = getString(R.string.i18n_unmapped)
                 setTextColor(-0x777778)
                 textSize = 13f
                 setPadding(0, (4f * density).toInt(), 0, (4f * density).toInt())

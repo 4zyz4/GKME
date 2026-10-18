@@ -1,5 +1,7 @@
 package com.zyz4.gkme.service
 
+import com.zyz4.gkme.R
+import com.zyz4.gkme.i18n.AppStrings
 import android.content.Context
 import android.os.Build
 import android.os.Vibrator
@@ -48,7 +50,7 @@ private enum class ActiveProtocol { NONE, WIFI, EMOTION, USB }
 
 data class ConnectionState(
     val connected: Boolean = false,
-    val statusText: String = "未启动",
+    val statusText: String = AppStrings.get(R.string.i18n_not_started),
     val batteryLevel: Int = 100,
     val phase: ConnectionPhase = ConnectionPhase.IDLE,
     val transportType: BluetoothTransportType? = null,
@@ -273,7 +275,7 @@ class ConnectionManager @Inject constructor(
     fun startServer(scope: CoroutineScope) {
         val s = _settings.value
         activeProtocol = ActiveProtocol.NONE
-        _connectionState.value = _connectionState.value.copy(statusText = "启动服务...")
+        _connectionState.value = _connectionState.value.copy(statusText = context.getString(R.string.i18n_starting_service))
         when (s.connectionMode) {
             ConnectionMode.WIFI -> {
                 serverJob = scope.launch {
@@ -298,7 +300,7 @@ class ConnectionManager @Inject constructor(
                 _connectionState.value = _connectionState.value.copy(
                     connected = true,
                     phase = ConnectionPhase.CONNECTED,
-                    statusText = "本机虚拟手柄已就绪",
+                    statusText = context.getString(R.string.i18n_local_virtual_gamepad_is_ready),
                 )
             }
         }
@@ -342,7 +344,7 @@ class ConnectionManager @Inject constructor(
                         startAutoReconnect()
                         _connectionState.value = _connectionState.value.copy(
                             connected = false, phase = ConnectionPhase.LISTENING,
-                            statusText = "连接已断开，正在重连..."
+                            statusText = context.getString(R.string.i18n_disconnected_reconnecting)
                         )
                     }
                 }
@@ -353,7 +355,7 @@ class ConnectionManager @Inject constructor(
                         activeProtocol = ActiveProtocol.NONE
                         _connectionState.value = _connectionState.value.copy(
                             connected = false, phase = ConnectionPhase.LISTENING,
-                            statusText = "连接已断开，等待重连..."
+                            statusText = context.getString(R.string.i18n_disconnected_waiting_to_reconnect)
                         )
                     }
                 }
@@ -363,7 +365,7 @@ class ConnectionManager @Inject constructor(
                         activeProtocol = ActiveProtocol.NONE
                         _connectionState.value = _connectionState.value.copy(
                             connected = false, phase = ConnectionPhase.LISTENING,
-                            statusText = "连接已断开"
+                            statusText = context.getString(R.string.i18n_disconnected_8439c1)
                         )
                     }
                 }
@@ -379,7 +381,7 @@ class ConnectionManager @Inject constructor(
                 if (activeProtocol == ActiveProtocol.NONE) {
                     _connectionState.value = _connectionState.value.copy(
                         phase = ConnectionPhase.ERROR,
-                        statusText = "无法获取本机 IP"
+                        statusText = context.getString(R.string.i18n_failed_to_get_local_ip_address)
                     )
                 }
                 return
@@ -390,14 +392,14 @@ class ConnectionManager @Inject constructor(
             if (udpService.portInUse) {
                 _connectionState.value = _connectionState.value.copy(
                     phase = ConnectionPhase.ERROR,
-                    statusText = "端口 ${UdpService.PORT} 被占用，可能另一个实例已在运行"
+                    statusText = context.getString(R.string.i18n_port_0_is_in_use_another_instance_may_al, UdpService.PORT)
                 )
                 return
             }
             if (activeProtocol == ActiveProtocol.NONE) {
                 _connectionState.value = _connectionState.value.copy(
                     phase = ConnectionPhase.LISTENING,
-                    statusText = "服务已启动，等待连接..."
+                    statusText = context.getString(R.string.i18n_service_started_waiting_for_connection)
                 )
             }
         } catch (e: Exception) {
@@ -405,7 +407,7 @@ class ConnectionManager @Inject constructor(
             if (activeProtocol == ActiveProtocol.NONE) {
                 _connectionState.value = _connectionState.value.copy(
                     connected = false, phase = ConnectionPhase.ERROR,
-                    statusText = "服务异常: ${e.message}"
+                    statusText = context.getString(R.string.i18n_service_error_0, e.message)
                 )
             }
         }
@@ -424,7 +426,7 @@ class ConnectionManager @Inject constructor(
                 onError = { msg ->
                     if (activeProtocol == ActiveProtocol.EMOTION) {
                         _connectionState.value = _connectionState.value.copy(
-                            statusText = "Emotion 错误: $msg"
+                            statusText = context.getString(R.string.i18n_emotion_error_0, msg)
                         )
                     }
                 },
@@ -433,7 +435,7 @@ class ConnectionManager @Inject constructor(
                     _connectionState.value = _connectionState.value.copy(
                         connected = true,
                         phase = ConnectionPhase.CONNECTED,
-                        statusText = "已连接（Emotion兼容）"
+                        statusText = context.getString(R.string.i18n_connected_emotion_compatible)
                     )
                 }
             )
@@ -452,7 +454,7 @@ class ConnectionManager @Inject constructor(
                     activeProtocol = ActiveProtocol.NONE
                     _connectionState.value = _connectionState.value.copy(
                         connected = false, phase = ConnectionPhase.LISTENING,
-                        statusText = "连接已断开"
+                        statusText = context.getString(R.string.i18n_disconnected_8439c1)
                     )
                 }
             },
@@ -460,14 +462,14 @@ class ConnectionManager @Inject constructor(
         if (!ok) {
             _connectionState.value = _connectionState.value.copy(
                 connected = false, phase = ConnectionPhase.ERROR,
-                statusText = "端口 ${UsbService.PORT} 被占用，可能另一个实例已在运行"
+                statusText = context.getString(R.string.i18n_port_0_is_in_use_another_instance_may_al, UsbService.PORT)
             )
             return
         }
         if (activeProtocol == ActiveProtocol.NONE) {
             _connectionState.value = _connectionState.value.copy(
                 phase = ConnectionPhase.LISTENING,
-                statusText = "服务已启动，等待连接..."
+                statusText = context.getString(R.string.i18n_service_started_waiting_for_connection)
             )
         }
     }
@@ -475,7 +477,7 @@ class ConnectionManager @Inject constructor(
     private fun startBluetooth(scope: CoroutineScope, settings: AppSettings) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
             _connectionState.value = _connectionState.value.copy(
-                connected = false, statusText = "蓝牙 HID 需要 Android 9+"
+                connected = false, statusText = context.getString(R.string.i18n_bluetooth_hid_requires_android_9)
             )
             return
         }
@@ -499,14 +501,14 @@ class ConnectionManager @Inject constructor(
 
     private fun updateBtState(phase: ConnectionPhase) {
         val (connected, text) = when (phase) {
-            ConnectionPhase.IDLE -> false to "未启动"
-            ConnectionPhase.REGISTERING_PROFILE -> false to "正在注册 HID 配置文件..."
-            ConnectionPhase.RECONNECTING -> false to "正在自动回连已配对设备..."
-            ConnectionPhase.LISTENING -> false to "等待主机连接..."
-            ConnectionPhase.DISCOVERABLE -> false to "等待主机连接 — 手机可被发现 (蓝牙)"
-            ConnectionPhase.CONNECTED -> true to "已连接 (蓝牙)"
-            ConnectionPhase.DISCONNECTED -> false to "主机已断开"
-            ConnectionPhase.ERROR -> false to "蓝牙错误"
+            ConnectionPhase.IDLE -> false to context.getString(R.string.i18n_not_started)
+            ConnectionPhase.REGISTERING_PROFILE -> false to context.getString(R.string.i18n_registering_hid_profile)
+            ConnectionPhase.RECONNECTING -> false to context.getString(R.string.i18n_reconnecting_to_paired_device)
+            ConnectionPhase.LISTENING -> false to context.getString(R.string.i18n_waiting_for_host_connection)
+            ConnectionPhase.DISCOVERABLE -> false to context.getString(R.string.i18n_waiting_for_host_phone_is_discoverable_b)
+            ConnectionPhase.CONNECTED -> true to context.getString(R.string.i18n_connected_bluetooth)
+            ConnectionPhase.DISCONNECTED -> false to context.getString(R.string.i18n_host_disconnected)
+            ConnectionPhase.ERROR -> false to context.getString(R.string.i18n_bluetooth_error)
         }
         _connectionState.value = _connectionState.value.copy(
             connected = connected,
@@ -571,7 +573,7 @@ class ConnectionManager @Inject constructor(
             udpService.clearPcAddress()
             udpService.resumeBroadcast()
             activeProtocol = ActiveProtocol.NONE
-            _connectionState.value = ConnectionState(statusText = "已断开")
+            _connectionState.value = ConnectionState(statusText = context.getString(R.string.i18n_disconnected))
             clearTriggerEffects()
             return
         }
@@ -588,7 +590,7 @@ class ConnectionManager @Inject constructor(
             activeProtocol = ActiveProtocol.NONE
             _connectionState.value = _connectionState.value.copy(
                 connected = false, phase = ConnectionPhase.LISTENING,
-                statusText = "连接已断开"
+                statusText = context.getString(R.string.i18n_disconnected_8439c1)
             )
             clearTriggerEffects()
             return
@@ -732,7 +734,7 @@ class ConnectionManager @Inject constructor(
         stopAutoReconnect()
         _connectionState.value = _connectionState.value.copy(
             connected = true, phase = ConnectionPhase.CONNECTED,
-            statusText = "已连接（WiFi）"
+            statusText = context.getString(R.string.i18n_connected_wifi)
         )
         sendDeviceHello()
     }
@@ -741,7 +743,7 @@ class ConnectionManager @Inject constructor(
         activeProtocol = ActiveProtocol.USB
         _connectionState.value = _connectionState.value.copy(
             connected = true, phase = ConnectionPhase.CONNECTED,
-            statusText = "已连接（USB）"
+            statusText = context.getString(R.string.i18n_connected_usb)
         )
         sendDeviceHelloUsb()
     }

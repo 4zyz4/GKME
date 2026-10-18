@@ -1,5 +1,8 @@
 package com.zyz4.gkme.model
 
+import androidx.annotation.StringRes
+import com.zyz4.gkme.R
+
 enum class ConnectionMode { WIFI, BLUETOOTH, USB, LOCAL }
 
 /**
@@ -8,9 +11,9 @@ enum class ConnectionMode { WIFI, BLUETOOTH, USB, LOCAL }
  * - [CONTROLLED] 作为被控端：接收远端控制端的输入，并通过 Shizuku + uinput 在本地
  *   创建一个虚拟手柄。
  */
-enum class ControlType(val displayName: String) {
-    CONTROLLER("作为控制端"),
-    CONTROLLED("作为被控端"),
+enum class ControlType(@StringRes val displayNameRes: Int) {
+    CONTROLLER(R.string.i18n_controller_mode),
+    CONTROLLED(R.string.i18n_controlled_mode),
 }
 
 enum class TargetPlatform { WINDOWS, ANDROID, LINUX, ANDROID_GAMEPAD_ONLY, UNIVERSAL_KM, WINDOWS_GAMEPAD_ONLY }
@@ -32,13 +35,13 @@ enum class VirtualGamepadType(
 enum class DisplayMode { XBOX, PLAYSTATION, SWITCH }
 
 /** Which low-level stack drives the physical gamepads. */
-enum class ControllerDriver(val displayName: String) {
-    SDL3("SDL3"),
-    AXIXI2233_USB("USB驱动·阿西西"),
+enum class ControllerDriver(@StringRes val displayNameRes: Int) {
+    SDL3(R.string.i18n_sdl3),
+    AXIXI2233_USB(R.string.i18n_usb_driver_axixi),
     /** 直接使用 Android 系统 InputManager 读取手柄，VibratorManager 驱动震动。 */
-    INPUT_MANAGER("InputManager"),
+    INPUT_MANAGER(R.string.i18n_input_manager),
     /** 仅处理系统蓝牙连接的 PS5 DualSense：InputManager 读取输入，隐藏 HID Host 直写震动/扳机/LED。 */
-    DUALSENSE_BLUETOOTH("DualSense 蓝牙"),
+    DUALSENSE_BLUETOOTH(R.string.i18n_dualsense_bluetooth),
 }
 
 enum class VibrationType { NONE, VIEW, VIBRATION_EFFECT }
@@ -120,17 +123,17 @@ data class AudioDevice(
         @Deprecated("Phone speaker is enumerated as a sound device now")
         val PHONE_SPEAKER = AudioDevice(AudioDeviceType.PHONE_SPEAKER, 0)
         /** "First available / default" sound device, resolved when playback starts. */
-        val AUTO_SOUND_DEVICE = AudioDevice(AudioDeviceType.SOUND_DEVICE, 0, AUTO_SOUND_DEVICE_ID, "默认设备")
+        val AUTO_SOUND_DEVICE = AudioDevice(AudioDeviceType.SOUND_DEVICE, 0, AUTO_SOUND_DEVICE_ID, "")
         fun controller(index: Int) = AudioDevice(AudioDeviceType.CONTROLLER, index)
         fun soundDevice(deviceId: Int, deviceName: String) =
             AudioDevice(AudioDeviceType.SOUND_DEVICE, 0, deviceId, deviceName)
     }
 }
 
-enum class GyroOrientation(val displayName: String) {
-    LANDSCAPE("横屏"),
-    PORTRAIT("竖屏"),
-    PORTRAIT_INVERTED("倒置竖屏"),
+enum class GyroOrientation(@StringRes val displayNameRes: Int) {
+    LANDSCAPE(R.string.i18n_landscape),
+    PORTRAIT(R.string.i18n_portrait),
+    PORTRAIT_INVERTED(R.string.i18n_inverted_portrait),
 }
 
 /** Which sensor feeds the gyro. Controllers are addressed by their index in the connected list. */
@@ -147,31 +150,31 @@ data class GyroSource(
     }
 }
 
-enum class GyroBaseDirection(val displayName: String) {
-    VERTICAL("竖放"),
-    HORIZONTAL("平放"),
+enum class GyroBaseDirection(@StringRes val displayNameRes: Int) {
+    VERTICAL(R.string.i18n_vertical),
+    HORIZONTAL(R.string.i18n_flat),
 }
 
-enum class GyroCoordinateSystem(val displayName: String) {
-    YAW("偏航"),
-    ROLL("滚转"),
-    YAW_ROLL("偏航+滚转"),
-    WORLD("世界空间"),
+enum class GyroCoordinateSystem(@StringRes val displayNameRes: Int) {
+    YAW(R.string.i18n_yaw),
+    ROLL(R.string.i18n_roll),
+    YAW_ROLL(R.string.i18n_yaw_roll),
+    WORLD(R.string.i18n_world_space),
 }
 
-enum class GyroMode(val displayName: String) {
-    NONE("关闭"),
-    HANDHELD("手柄陀螺仪"),
-    MOUSE("陀螺仪转鼠标"),
-    LEFT_STICK("陀螺仪转左摇杆视角"),
-    RIGHT_STICK("陀螺仪转右摇杆视角"),
-    ACCELEROMETER_LEFT_STICK("陀螺仪转左摇杆方向"),
-    ACCELEROMETER_RIGHT_STICK("陀螺仪转右摇杆方向"),
+enum class GyroMode(@StringRes val displayNameRes: Int) {
+    NONE(R.string.i18n_close),
+    HANDHELD(R.string.i18n_gamepad_gyro),
+    MOUSE(R.string.i18n_gyro_to_mouse),
+    LEFT_STICK(R.string.i18n_gyro_to_left_stick_view),
+    RIGHT_STICK(R.string.i18n_gyro_to_right_stick_view),
+    ACCELEROMETER_LEFT_STICK(R.string.i18n_gyro_to_left_stick_direction),
+    ACCELEROMETER_RIGHT_STICK(R.string.i18n_gyro_to_right_stick_direction),
 }
 
-enum class GyroActivateMode(val displayName: String) {
-    ALWAYS("始终开启"),
-    BUTTON("按下特定按钮开启"),
+enum class GyroActivateMode(@StringRes val displayNameRes: Int) {
+    ALWAYS(R.string.i18n_always_on),
+    BUTTON(R.string.i18n_enable_while_a_specific_button_is_held),
 }
 
 /**
@@ -181,22 +184,22 @@ enum class GyroActivateMode(val displayName: String) {
  * RichTap PrebakedEffect ID（10001-10050）；HD 不可用时仍回退系统效果，该字段不生效。
  */
 enum class HapticEffect(
-    val displayName: String,
+    @StringRes val displayNameRes: Int,
     /** 高清震动下的 RichTap PrebakedEffect ID（对应 SDK `PrebakedEffectId`）。 */
     val prebakedId: Int,
 ) {
-    KEYBOARD_TAP("轻触", 10012),
-    KEYBOARD_PRESS("按键按下", 10011),
-    KEYBOARD_RELEASE("按键抬起", 10016),
-    CONFIRM("确认", 10022),
-    REJECT("拒绝", 10023),
-    CLOCK_TICK("滴答", 10013),
-    CONTEXT_CLICK("上下文", 10015),
-    LONG_PRESS("长按", 10010),
-    GESTURE_START("手势开始", 10021),
-    GESTURE_END("手势结束", 10020),
-    VIRTUAL_KEY("虚拟键", 10011),
-    VIRTUAL_KEY_RELEASE("虚拟键释放", 10017),
+    KEYBOARD_TAP(R.string.i18n_tap, 10012),
+    KEYBOARD_PRESS(R.string.i18n_key_press, 10011),
+    KEYBOARD_RELEASE(R.string.i18n_key_release, 10016),
+    CONFIRM(R.string.i18n_confirm, 10022),
+    REJECT(R.string.i18n_reject, 10023),
+    CLOCK_TICK(R.string.i18n_tick, 10013),
+    CONTEXT_CLICK(R.string.i18n_context, 10015),
+    LONG_PRESS(R.string.i18n_long_press, 10010),
+    GESTURE_START(R.string.i18n_gesture_start, 10021),
+    GESTURE_END(R.string.i18n_gesture_end, 10020),
+    VIRTUAL_KEY(R.string.i18n_virtual_key, 10011),
+    VIRTUAL_KEY_RELEASE(R.string.i18n_virtual_key_release, 10017),
 }
 
 enum class FillType { SOLID_COLOR, IMAGE }

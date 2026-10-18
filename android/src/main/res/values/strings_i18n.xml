@@ -1,0 +1,667 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="i18n_0_available_connections" formatted="true">"%1$s 个可用连接"</string>
+    <string name="i18n_0_motor" formatted="true">"%1$s 马达"</string>
+    <string name="i18n_0_motors" formatted="true">"%1$s个马达"</string>
+    <string name="i18n_0_trigger" formatted="true">"%1$s 扳机"</string>
+    <string name="i18n_1_open_settings_about_phone_and_tap_buil" formatted="false">"1. 打开「设置 → 关于手机」，连续点击「版本号」7 次，开启开发者选项。\n\n"</string>
+    <string name="i18n_2_open_developer_options_and_enable_usb" formatted="false">"2. 进入「开发者选项」，打开「USB 调试」。\n\n"</string>
+    <string name="i18n_4_way" formatted="false">"4方向"</string>
+    <string name="i18n_8_way" formatted="false">"8方向"</string>
+    <string name="i18n_about" formatted="false">"关于"</string>
+    <string name="i18n_active_opacity" formatted="false">"操作时不透明度(%)"</string>
+    <string name="i18n_adaptive_trigger" formatted="false">"自适应扳机"</string>
+    <string name="i18n_adaptive_trigger_device" formatted="false">"自适应扳机设备"</string>
+    <string name="i18n_add" formatted="false">"+ 添加"</string>
+    <string name="i18n_add_b58c75" formatted="false">"添加"</string>
+    <string name="i18n_add_control" formatted="false">"添加控件"</string>
+    <string name="i18n_adjust" formatted="false">" 调节"</string>
+    <string name="i18n_adjust_d198bf" formatted="false">"进入调节"</string>
+    <string name="i18n_always_on" formatted="false">"始终开启"</string>
+    <string name="i18n_android_gamepad_only" formatted="false">"Android仅手柄"</string>
+    <string name="i18n_anti_dead_zone" formatted="false">"反死区(%)"</string>
+    <string name="i18n_app_icon" formatted="false">"应用图标"</string>
+    <string name="i18n_appearance" formatted="false">"外观"</string>
+    <string name="i18n_appearance_exported" formatted="false">"外观设置导出成功"</string>
+    <string name="i18n_appearance_imported" formatted="false">"外观设置导入成功"</string>
+    <string name="i18n_application_oncreate_took_0_ms_from_proc" formatted="true">"Application.onCreate 距进程启动 %1$s ms"</string>
+    <string name="i18n_area_color" formatted="false">"区域颜色"</string>
+    <string name="i18n_area_height" formatted="false">"区域高度"</string>
+    <string name="i18n_area_width" formatted="false">"区域宽度"</string>
+    <string name="i18n_area_width_0" formatted="true">"区域粗细: %1$s"</string>
+    <string name="i18n_area_width_875556" formatted="false">"区域粗细"</string>
+    <string name="i18n_audio" formatted="false">"音频"</string>
+    <string name="i18n_author_4zyz4_qq_group_639317971" formatted="false">"作者：4zyz4  软件Q群：639317971\n\n"</string>
+    <string name="i18n_authorized" formatted="false">"已授权"</string>
+    <string name="i18n_auto_hold" formatted="false">"自动保持"</string>
+    <string name="i18n_available" formatted="false">"可连接"</string>
+    <string name="i18n_axixi2233_usb_driver" formatted="false">"Axixi2233的USB驱动"</string>
+    <string name="i18n_back" formatted="false">"返回"</string>
+    <string name="i18n_back_button_bottom_left_p4" formatted="false">"背键左下 (P4)"</string>
+    <string name="i18n_back_button_bottom_right_p2" formatted="false">"背键右下 (P2)"</string>
+    <string name="i18n_back_button_top_left_p3" formatted="false">"背键左上 (P3)"</string>
+    <string name="i18n_back_button_top_right_p1" formatted="false">"背键右上 (P1)"</string>
+    <string name="i18n_background" formatted="false">"背景"</string>
+    <string name="i18n_background_color" formatted="false">"背景颜色"</string>
+    <string name="i18n_base" formatted="false">"- 底座"</string>
+    <string name="i18n_base_color" formatted="false">"底座颜色"</string>
+    <string name="i18n_base_direction" formatted="false">"基准方向"</string>
+    <string name="i18n_base_outline_color" formatted="false">"底座轮廓颜色"</string>
+    <string name="i18n_base_outline_width" formatted="false">"底座轮廓粗细"</string>
+    <string name="i18n_base_outline_width_0" formatted="true">"底座轮廓粗细: %1$s"</string>
+    <string name="i18n_binduserservice_attempt_0_1_daemon_2" formatted="true">"bindUserService 尝试#%1$s (%2$s, daemon=%3$s)"</string>
+    <string name="i18n_binduserservice_failed_0" formatted="true">"bindUserService 失败 (%1$s)"</string>
+    <string name="i18n_bit_0" formatted="true">"位%1$s"</string>
+    <string name="i18n_bluetooth" formatted="false">"蓝牙"</string>
+    <string name="i18n_bluetooth_error" formatted="false">"蓝牙错误"</string>
+    <string name="i18n_bluetooth_hid_requires_android_9" formatted="false">"蓝牙 HID 需要 Android 9+"</string>
+    <string name="i18n_bluetooth_paired_0" formatted="true">"蓝牙已配对: %1$s"</string>
+    <string name="i18n_bluetooth_permission_is_required_for_blu" formatted="false">"需要蓝牙权限才能使用蓝牙模式"</string>
+    <string name="i18n_bottom_left" formatted="false">"左下"</string>
+    <string name="i18n_bottom_left_a289e9" formatted="false">"左下方向"</string>
+    <string name="i18n_bottom_right" formatted="false">"右下"</string>
+    <string name="i18n_bottom_right_553067" formatted="false">"右下方向"</string>
+    <string name="i18n_built_in_layouts_cannot_be_deleted" formatted="false">"内置布局禁止删除"</string>
+    <string name="i18n_built_in_layouts_cannot_be_renamed" formatted="false">"内置布局禁止重命名"</string>
+    <string name="i18n_button" formatted="false">"按钮"</string>
+    <string name="i18n_button_color" formatted="false">"按钮颜色"</string>
+    <string name="i18n_button_vibration" formatted="false">"按钮震动"</string>
+    <string name="i18n_cancel" formatted="false">"取消"</string>
+    <string name="i18n_center" formatted="false">"中"</string>
+    <string name="i18n_center_shape" formatted="false">"中心形状"</string>
+    <string name="i18n_circle" formatted="false">"圆形"</string>
+    <string name="i18n_clear" formatted="false">"清空"</string>
+    <string name="i18n_clockwise" formatted="false">"顺时针"</string>
+    <string name="i18n_close" formatted="false">"关闭"</string>
+    <string name="i18n_codeword_count_does_not_match_the_versio" formatted="false">"码字数量与版本不符"</string>
+    <string name="i18n_collapse_expand_panel" formatted="false">"收起/展开面板"</string>
+    <string name="i18n_confirm" formatted="false">"确认"</string>
+    <string name="i18n_confirm_and_go_back" formatted="false">"确认返回"</string>
+    <string name="i18n_connect" formatted="false">"连接"</string>
+    <string name="i18n_connect_manually" formatted="false">"手动连接"</string>
+    <string name="i18n_connected" formatted="false">"已连接"</string>
+    <string name="i18n_connected_0" formatted="true">"已连接: %1$s"</string>
+    <string name="i18n_connected_bluetooth" formatted="false">"已连接 (蓝牙)"</string>
+    <string name="i18n_connected_emotion_compatible" formatted="false">"已连接（Emotion兼容）"</string>
+    <string name="i18n_connected_usb" formatted="false">"已连接（USB）"</string>
+    <string name="i18n_connected_wifi" formatted="false">"已连接（WiFi）"</string>
+    <string name="i18n_connecting" formatted="false">"连接中…"</string>
+    <string name="i18n_connecting_0" formatted="true">"正在连接: %1$s…"</string>
+    <string name="i18n_connecting_to_0" formatted="true">"正在连接到 %1$s…"</string>
+    <string name="i18n_connection_failed_0_1" formatted="true">"连接失败: %1$s（%2$s）"</string>
+    <string name="i18n_connection_lost_0" formatted="true">"连接丢失: %1$s"</string>
+    <string name="i18n_connection_method" formatted="false">"连接方式"</string>
+    <string name="i18n_context" formatted="false">"上下文"</string>
+    <string name="i18n_control_color" formatted="false">"控件颜色"</string>
+    <string name="i18n_control_outline_color" formatted="false">"控件轮廓颜色"</string>
+    <string name="i18n_control_outline_width" formatted="false">"控件轮廓粗细"</string>
+    <string name="i18n_control_outline_width_0" formatted="true">"控件轮廓粗细: %1$s"</string>
+    <string name="i18n_control_type" formatted="false">"控制类型"</string>
+    <string name="i18n_controlled_mode" formatted="false">"作为被控端"</string>
+    <string name="i18n_controlled_mode_5bf179" formatted="false">"被控端"</string>
+    <string name="i18n_controller_audio" formatted="false">"控制器音频"</string>
+    <string name="i18n_controller_audio_output" formatted="false">"控制器音频输出"</string>
+    <string name="i18n_controller_led" formatted="false">"控制器LED"</string>
+    <string name="i18n_controller_mode" formatted="false">"作为控制端"</string>
+    <string name="i18n_coordinate_system" formatted="false">"坐标系"</string>
+    <string name="i18n_copied_as_0" formatted="true">"已复制为「%1$s」"</string>
+    <string name="i18n_copy" formatted="false">"^复制_"</string>
+    <string name="i18n_copy_0" formatted="true">"复制_%1$s"</string>
+    <string name="i18n_copy_79d3ab" formatted="false">"复制"</string>
+    <string name="i18n_copy_layout" formatted="false">"复制布局"</string>
+    <string name="i18n_counterclockwise" formatted="false">"逆时针"</string>
+    <string name="i18n_create" formatted="false">"创建"</string>
+    <string name="i18n_created_0" formatted="true">"已创建「%1$s」"</string>
+    <string name="i18n_creating_virtual_gamepad" formatted="false">"正在创建虚拟手柄…"</string>
+    <string name="i18n_current_preset_0" formatted="true">"当前预设: %1$s"</string>
+    <string name="i18n_custom" formatted="false">"自定义"</string>
+    <string name="i18n_custom_circle" formatted="false">"自定义(圆)"</string>
+    <string name="i18n_custom_keypad" formatted="false">"自定义按键盘"</string>
+    <string name="i18n_custom_rectangle" formatted="false">"自定义(方)"</string>
+    <string name="i18n_d_pad_down" formatted="false">"方向键下"</string>
+    <string name="i18n_d_pad_left" formatted="false">"方向键左"</string>
+    <string name="i18n_d_pad_right" formatted="false">"方向键右"</string>
+    <string name="i18n_d_pad_up" formatted="false">"方向键上"</string>
+    <string name="i18n_data_is_too_long_to_generate_a_qr_code" formatted="false">"数据过长，无法生成二维码"</string>
+    <string name="i18n_data_length_does_not_match_the_version" formatted="false">"数据长度与版本不符"</string>
+    <string name="i18n_dead_zone" formatted="false">"死区(%)"</string>
+    <string name="i18n_default_device" formatted="false">"默认设备"</string>
+    <string name="i18n_delayed" formatted="false">"延时"</string>
+    <string name="i18n_delete" formatted="false">"删除"</string>
+    <string name="i18n_delete_0" formatted="true">"确定删除「%1$s」？"</string>
+    <string name="i18n_delete_control" formatted="false">"删除控件"</string>
+    <string name="i18n_delete_preset" formatted="false">"删除预设"</string>
+    <string name="i18n_delete_selected_point" formatted="false">"删除选中点"</string>
+    <string name="i18n_delete_this_control" formatted="false">"确定删除该控件？"</string>
+    <string name="i18n_detect" formatted="false">"检测"</string>
+    <string name="i18n_detect_gamepad_again" formatted="false">"重新检测手柄"</string>
+    <string name="i18n_device_found_0" formatted="true">"发现设备: %1$s"</string>
+    <string name="i18n_direction_mode" formatted="false">"方向模式"</string>
+    <string name="i18n_discard" formatted="false">"放弃"</string>
+    <string name="i18n_discard_changes" formatted="false">"放弃修改"</string>
+    <string name="i18n_discard_changes_17a8d0" formatted="false">"是否放弃更改？"</string>
+    <string name="i18n_discard_the_current_layout_changes" formatted="false">"确定放弃当前布局修改？"</string>
+    <string name="i18n_disconnect" formatted="false">"断开"</string>
+    <string name="i18n_disconnected" formatted="false">"已断开"</string>
+    <string name="i18n_disconnected_7f3a55" formatted="false">"未连接"</string>
+    <string name="i18n_disconnected_8439c1" formatted="false">"连接已断开"</string>
+    <string name="i18n_disconnected_reconnecting" formatted="false">"连接已断开，正在重连..."</string>
+    <string name="i18n_disconnected_waiting_to_reconnect" formatted="false">"连接已断开，等待重连..."</string>
+    <string name="i18n_display_text" formatted="false">"显示文本"</string>
+    <string name="i18n_double_tap_center" formatted="false">"双击中心"</string>
+    <string name="i18n_double_tap_press" formatted="false">"双击按下"</string>
+    <string name="i18n_double_tap_then_drag" formatted="false">"双击后滑动"</string>
+    <string name="i18n_down" formatted="false">"下"</string>
+    <string name="i18n_down_c4557f" formatted="false">"向下"</string>
+    <string name="i18n_down_c761f5" formatted="false">"下方向"</string>
+    <string name="i18n_download_shizuku" formatted="false">"下载 Shizuku"</string>
+    <string name="i18n_driver" formatted="false">"驱动"</string>
+    <string name="i18n_ds_gamepad" formatted="false">"DS 手柄"</string>
+    <string name="i18n_dualsense_bluetooth" formatted="false">"DualSense 蓝牙"</string>
+    <string name="i18n_duration_0_ms" formatted="true">"时长: %1$sms"</string>
+    <string name="i18n_duration_20ms" formatted="false">"时长: 20ms"</string>
+    <string name="i18n_duration_50ms" formatted="false">"时长: 50ms"</string>
+    <string name="i18n_dynamic" formatted="false">"动态"</string>
+    <string name="i18n_edit" formatted="false">"编辑"</string>
+    <string name="i18n_emotion_error_0" formatted="true">"Emotion 错误: %1$s"</string>
+    <string name="i18n_emulate_linear_trigger" formatted="false">"模拟线性扳机"</string>
+    <string name="i18n_emulated_gamepad_type" formatted="false">"模拟手柄类型"</string>
+    <string name="i18n_enable_developer_options_and_usb_debuggi" formatted="false">"开启开发者选项与 USB 调试"</string>
+    <string name="i18n_enable_hd_vibration" formatted="false">"启用 HD 震动"</string>
+    <string name="i18n_enable_while_a_specific_button_is_held" formatted="false">"按下特定按钮开启"</string>
+    <string name="i18n_ensurebound_skipped_shizuku_not_running" formatted="true">"ensureBound 跳过：Shizuku 未运行 (%1$s)"</string>
+    <string name="i18n_enter" formatted="false">"进入"</string>
+    <string name="i18n_enter_a_new_preset_name" formatted="false">"输入新预设名称"</string>
+    <string name="i18n_enter_preset_name" formatted="false">"输入预设名称"</string>
+    <string name="i18n_exit_controlled_mode" formatted="false">"退出被控端"</string>
+    <string name="i18n_exit_edit_mode_first" formatted="false">"请先退出编辑模式"</string>
+    <string name="i18n_exit_editing" formatted="false">"退出编辑"</string>
+    <string name="i18n_exit_floating_mode" formatted="false">"退出悬浮模式"</string>
+    <string name="i18n_exited_floating_mode" formatted="false">"已退出悬浮模式"</string>
+    <string name="i18n_export" formatted="false">"导出"</string>
+    <string name="i18n_export_appearance" formatted="false">"导出外观设置"</string>
+    <string name="i18n_export_failed_0" formatted="true">"导出失败: %1$s"</string>
+    <string name="i18n_export_successful" formatted="false">"导出成功"</string>
+    <string name="i18n_extended_touch_area" formatted="false">"- 扩展触摸范围"</string>
+    <string name="i18n_extended_touch_area_dac06c" formatted="false">"扩展触摸范围"</string>
+    <string name="i18n_failed_to_add_keep_alive_overlay_0" formatted="true">"添加保活悬浮窗失败: %1$s"</string>
+    <string name="i18n_failed_to_bind_shizuku_user_service_0" formatted="true">"绑定 Shizuku 用户服务失败: %1$s"</string>
+    <string name="i18n_failed_to_create_dsu_socket_0" formatted="true">"创建 DSU 套接字失败: %1$s"</string>
+    <string name="i18n_failed_to_create_virtual_gamepad_code_0" formatted="true">"创建虚拟手柄失败 (code=%1$s)，可能需要以 root 启动 Shizuku"</string>
+    <string name="i18n_failed_to_create_virtual_gamepad_via_dev" formatted="true">"无法通过 /dev/uhid 创建虚拟手柄 (errno=%1$s)"</string>
+    <string name="i18n_failed_to_create_virtual_keyboard_errno" formatted="true">"无法创建虚拟键盘 (errno=%1$s)"</string>
+    <string name="i18n_failed_to_create_virtual_mouse_errno_0" formatted="true">"无法创建虚拟鼠标 (errno=%1$s)"</string>
+    <string name="i18n_failed_to_destroy_keyboard" formatted="false">"销毁键盘失败"</string>
+    <string name="i18n_failed_to_destroy_mouse" formatted="false">"销毁鼠标失败"</string>
+    <string name="i18n_failed_to_get_local_ip_address" formatted="false">"无法获取本机 IP"</string>
+    <string name="i18n_failed_to_initialize_type_2_0" formatted="true">"初始化 type 2 失败: %1$s"</string>
+    <string name="i18n_failed_to_load_image_0" formatted="true">"图片加载失败: %1$s"</string>
+    <string name="i18n_failed_to_load_native_library_0" formatted="true">"native 库加载失败: %1$s"</string>
+    <string name="i18n_failed_to_load_preset_he" formatted="false">"加载预置 HE 失败"</string>
+    <string name="i18n_failed_to_open_dev_uinput_errno_0" formatted="true">"无法打开 /dev/uinput (errno=%1$s)"</string>
+    <string name="i18n_failed_to_open_overlay_permission_settin" formatted="false">"无法打开悬浮窗权限设置"</string>
+    <string name="i18n_failed_to_open_settings_open_developer_o" formatted="false">"无法打开设置，请手动进入「开发者选项」"</string>
+    <string name="i18n_failed_to_query_availability" formatted="false">"查询 available 失败"</string>
+    <string name="i18n_failed_to_read_appearance_profile" formatted="false">"无法读取外观配置文件"</string>
+    <string name="i18n_failed_to_remove_keep_alive_overlay_0" formatted="true">"移除保活悬浮窗失败: %1$s"</string>
+    <string name="i18n_failed_to_request_shizuku_permission_0" formatted="true">"申请 Shizuku 权限失败: %1$s"</string>
+    <string name="i18n_fast_response_mode" formatted="false">"快速响应模式"</string>
+    <string name="i18n_finger_distance" formatted="false">"手指距离 -&gt;"</string>
+    <string name="i18n_flat" formatted="false">"平放"</string>
+    <string name="i18n_floating_mode" formatted="false">"悬浮模式"</string>
+    <string name="i18n_floating_mode_enabled_tap_the_floating_b" formatted="false">"悬浮模式已开启，点按悬浮按钮显示/隐藏"</string>
+    <string name="i18n_floating_mode_is_running" formatted="false">"悬浮模式运行中"</string>
+    <string name="i18n_floating_opacity" formatted="false">"悬浮不透明度"</string>
+    <string name="i18n_follow_area_opacity" formatted="false">"矩形区域不透明度(%)"</string>
+    <string name="i18n_follow_inside_rectangle" formatted="false">"矩形区域内跟随"</string>
+    <string name="i18n_frequency_0_1_hz" formatted="true">"频率: %1$s (%2$sHz)"</string>
+    <string name="i18n_frequency_56" formatted="false">"频率: 56"</string>
+    <string name="i18n_full_controller" formatted="false">"完整控制器"</string>
+    <string name="i18n_game_vibration" formatted="false">"游戏震动"</string>
+    <string name="i18n_gamepad" formatted="false">"手柄"</string>
+    <string name="i18n_gamepad_0" formatted="true">"手柄%1$s"</string>
+    <string name="i18n_gamepad_a" formatted="false">"手柄：A"</string>
+    <string name="i18n_gamepad_b" formatted="false">"手柄：B"</string>
+    <string name="i18n_gamepad_details" formatted="false">"手柄详细信息"</string>
+    <string name="i18n_gamepad_display" formatted="false">"手柄显示"</string>
+    <string name="i18n_gamepad_driver" formatted="false">"手柄驱动"</string>
+    <string name="i18n_gamepad_gyro" formatted="false">"手柄陀螺仪"</string>
+    <string name="i18n_gamepad_home" formatted="false">"手柄：主页"</string>
+    <string name="i18n_gamepad_lb" formatted="false">"手柄：LB"</string>
+    <string name="i18n_gamepad_left_bumper" formatted="false">"手柄：左肩键"</string>
+    <string name="i18n_gamepad_left_stick" formatted="false">"手柄：左摇杆"</string>
+    <string name="i18n_gamepad_left_stick_click" formatted="false">"手柄：左摇杆按下"</string>
+    <string name="i18n_gamepad_left_trigger" formatted="false">"手柄：左扳机"</string>
+    <string name="i18n_gamepad_lt" formatted="false">"手柄：LT"</string>
+    <string name="i18n_gamepad_menu" formatted="false">"手柄：菜单"</string>
+    <string name="i18n_gamepad_rb" formatted="false">"手柄：RB"</string>
+    <string name="i18n_gamepad_right_bumper" formatted="false">"手柄：右肩键"</string>
+    <string name="i18n_gamepad_right_stick" formatted="false">"手柄：右摇杆"</string>
+    <string name="i18n_gamepad_right_stick_click" formatted="false">"手柄：右摇杆按下"</string>
+    <string name="i18n_gamepad_right_trigger" formatted="false">"手柄：右扳机"</string>
+    <string name="i18n_gamepad_rt" formatted="false">"手柄：RT"</string>
+    <string name="i18n_gamepad_select" formatted="false">"手柄：选择"</string>
+    <string name="i18n_gamepad_share" formatted="false">"手柄：分享"</string>
+    <string name="i18n_gamepad_x" formatted="false">"手柄：X"</string>
+    <string name="i18n_gamepad_y" formatted="false">"手柄：Y"</string>
+    <string name="i18n_gesture_end" formatted="false">"手势结束"</string>
+    <string name="i18n_gesture_start" formatted="false">"手势开始"</string>
+    <string name="i18n_gkme_controlled_mode_is_running" formatted="false">"GKME 被控端运行中"</string>
+    <string name="i18n_global_settings" formatted="false">"全局设置"</string>
+    <string name="i18n_going_back_will_stop_the_service_go_back" formatted="false">"返回后将停止服务，确认返回吗？"</string>
+    <string name="i18n_gyro" formatted="false">"陀螺仪"</string>
+    <string name="i18n_gyro_activation" formatted="false">"陀螺仪激活方式"</string>
+    <string name="i18n_gyro_anti_dead_zone" formatted="false">"陀螺仪反死区(%)"</string>
+    <string name="i18n_gyro_behavior" formatted="false">"陀螺仪行为"</string>
+    <string name="i18n_gyro_dead_zone" formatted="false">"陀螺仪死区(%)"</string>
+    <string name="i18n_gyro_to_left_stick_direction" formatted="false">"陀螺仪转左摇杆方向"</string>
+    <string name="i18n_gyro_to_left_stick_view" formatted="false">"陀螺仪转左摇杆视角"</string>
+    <string name="i18n_gyro_to_mouse" formatted="false">"陀螺仪转鼠标"</string>
+    <string name="i18n_gyro_to_right_stick_direction" formatted="false">"陀螺仪转右摇杆方向"</string>
+    <string name="i18n_gyro_to_right_stick_view" formatted="false">"陀螺仪转右摇杆视角"</string>
+    <string name="i18n_hd_disabled" formatted="false">"HD 未启用"</string>
+    <string name="i18n_hd_ready_0" formatted="true">"HD 已就绪 (%1$s)"</string>
+    <string name="i18n_hd_vibration_hd" formatted="false">"高清震动 (HD)"</string>
+    <string name="i18n_height" formatted="false">"高度"</string>
+    <string name="i18n_hidden_api_unavailable_0" formatted="true">"隐藏 API 不可用: %1$s"</string>
+    <string name="i18n_hold" formatted="false">"按住"</string>
+    <string name="i18n_home" formatted="false">"主页"</string>
+    <string name="i18n_host_disconnected" formatted="false">"主机已断开"</string>
+    <string name="i18n_host_ip" formatted="false">"控制端 IP"</string>
+    <string name="i18n_http_port_0_unavailable_1" formatted="true">"HTTP 端口 %1$s 不可用: %2$s"</string>
+    <string name="i18n_icon_color" formatted="false">"图标颜色"</string>
+    <string name="i18n_idle_opacity" formatted="false">"空闲时不透明度(%)"</string>
+    <string name="i18n_if_enabled_simply_tap_start_service" formatted="false">"若已开启，请直接点击「启动服务」。"</string>
+    <string name="i18n_image" formatted="false">"图片"</string>
+    <string name="i18n_image_set" formatted="false">"图片已设置"</string>
+    <string name="i18n_import" formatted="false">"导入"</string>
+    <string name="i18n_import_appearance" formatted="false">"导入外观设置"</string>
+    <string name="i18n_import_failed_0" formatted="true">"导入失败: %1$s"</string>
+    <string name="i18n_import_layout" formatted="false">"导入布局"</string>
+    <string name="i18n_imported_0" formatted="true">"已导入「%1$s」"</string>
+    <string name="i18n_in_process_richtap_initialization_error" formatted="false">"进程内 RichTap 初始化异常"</string>
+    <string name="i18n_init_failed" formatted="false">"init 失败"</string>
+    <string name="i18n_input_gamepad" formatted="false">"输入手柄"</string>
+    <string name="i18n_instant" formatted="false">"即时"</string>
+    <string name="i18n_integrated_d_pad" formatted="false">"一体十字键"</string>
+    <string name="i18n_integrated_d_pad_custom_keypad" formatted="false">"一体十字键/自定义按键盘"</string>
+    <string name="i18n_intensity_0" formatted="true">"强度: %1$s"</string>
+    <string name="i18n_intensity_128" formatted="false">"强度: 128"</string>
+    <string name="i18n_intensity_64" formatted="false">"强度: 64"</string>
+    <string name="i18n_invalid_ip_address_format" formatted="false">"IP 地址格式无效"</string>
+    <string name="i18n_invert_horizontal_scroll" formatted="false">"反转横向滚动"</string>
+    <string name="i18n_invert_vertical_scroll" formatted="false">"反转纵向滚动"</string>
+    <string name="i18n_inverted_portrait" formatted="false">"倒置竖屏"</string>
+    <string name="i18n_ip_address" formatted="false">"IP 地址"</string>
+    <string name="i18n_isavailable_call_failed" formatted="false">"isAvailable 调用失败"</string>
+    <string name="i18n_keep_screen_on" formatted="false">"屏幕常亮"</string>
+    <string name="i18n_key_press" formatted="false">"按键按下"</string>
+    <string name="i18n_key_release" formatted="false">"按键抬起"</string>
+    <string name="i18n_keyboard" formatted="false">"键盘"</string>
+    <string name="i18n_keyboard_0" formatted="false">"键盘：0"</string>
+    <string name="i18n_keyboard_0046e9" formatted="false">"键盘：\\"</string>
+    <string name="i18n_keyboard_06d5f0" formatted="false">"键盘：`"</string>
+    <string name="i18n_keyboard_072e9b" formatted="false">"键盘：/"</string>
+    <string name="i18n_keyboard_07bb03" formatted="false">"键盘：↑"</string>
+    <string name="i18n_keyboard_1" formatted="false">"键盘：1"</string>
+    <string name="i18n_keyboard_2" formatted="false">"键盘：2"</string>
+    <string name="i18n_keyboard_3" formatted="false">"键盘：3"</string>
+    <string name="i18n_keyboard_4" formatted="false">"键盘：4"</string>
+    <string name="i18n_keyboard_41fe99" formatted="false">"键盘：."</string>
+    <string name="i18n_keyboard_47e933" formatted="false">"键盘：["</string>
+    <string name="i18n_keyboard_5" formatted="false">"键盘：5"</string>
+    <string name="i18n_keyboard_6" formatted="false">"键盘：6"</string>
+    <string name="i18n_keyboard_6adcde" formatted="false">"键盘：,"</string>
+    <string name="i18n_keyboard_7" formatted="false">"键盘：7"</string>
+    <string name="i18n_keyboard_743bab" formatted="false">"键盘：-"</string>
+    <string name="i18n_keyboard_7484ad" formatted="false">"键盘：↓"</string>
+    <string name="i18n_keyboard_75eb76" formatted="false">"键盘：]"</string>
+    <string name="i18n_keyboard_8" formatted="false">"键盘：8"</string>
+    <string name="i18n_keyboard_9" formatted="false">"键盘：9"</string>
+    <string name="i18n_keyboard_a" formatted="false">"键盘：A"</string>
+    <string name="i18n_keyboard_a77d53" formatted="false">"键盘：;"</string>
+    <string name="i18n_keyboard_altgr" formatted="false">"键盘：AltGr"</string>
+    <string name="i18n_keyboard_b" formatted="false">"键盘：B"</string>
+    <string name="i18n_keyboard_backspace" formatted="false">"键盘：Bksp"</string>
+    <string name="i18n_keyboard_c" formatted="false">"键盘：C"</string>
+    <string name="i18n_keyboard_c15dcd" formatted="false">"键盘：'"</string>
+    <string name="i18n_keyboard_caps_lock" formatted="false">"键盘：Caps"</string>
+    <string name="i18n_keyboard_d" formatted="false">"键盘：D"</string>
+    <string name="i18n_keyboard_d4a2fd" formatted="false">"键盘：←"</string>
+    <string name="i18n_keyboard_delete" formatted="false">"键盘：Del"</string>
+    <string name="i18n_keyboard_e" formatted="false">"键盘：E"</string>
+    <string name="i18n_keyboard_e013ce" formatted="false">"键盘：→"</string>
+    <string name="i18n_keyboard_ea7f6d" formatted="false">"键盘：="</string>
+    <string name="i18n_keyboard_enter" formatted="false">"键盘：Enter"</string>
+    <string name="i18n_keyboard_esc" formatted="false">"键盘：Esc"</string>
+    <string name="i18n_keyboard_f" formatted="false">"键盘：F"</string>
+    <string name="i18n_keyboard_f1" formatted="false">"键盘：F1"</string>
+    <string name="i18n_keyboard_f10" formatted="false">"键盘：F10"</string>
+    <string name="i18n_keyboard_f11" formatted="false">"键盘：F11"</string>
+    <string name="i18n_keyboard_f12" formatted="false">"键盘：F12"</string>
+    <string name="i18n_keyboard_f2" formatted="false">"键盘：F2"</string>
+    <string name="i18n_keyboard_f3" formatted="false">"键盘：F3"</string>
+    <string name="i18n_keyboard_f4" formatted="false">"键盘：F4"</string>
+    <string name="i18n_keyboard_f5" formatted="false">"键盘：F5"</string>
+    <string name="i18n_keyboard_f6" formatted="false">"键盘：F6"</string>
+    <string name="i18n_keyboard_f7" formatted="false">"键盘：F7"</string>
+    <string name="i18n_keyboard_f8" formatted="false">"键盘：F8"</string>
+    <string name="i18n_keyboard_f9" formatted="false">"键盘：F9"</string>
+    <string name="i18n_keyboard_g" formatted="false">"键盘：G"</string>
+    <string name="i18n_keyboard_h" formatted="false">"键盘：H"</string>
+    <string name="i18n_keyboard_i" formatted="false">"键盘：I"</string>
+    <string name="i18n_keyboard_j" formatted="false">"键盘：J"</string>
+    <string name="i18n_keyboard_k" formatted="false">"键盘：K"</string>
+    <string name="i18n_keyboard_key_0" formatted="true">"键盘：Key%1$s"</string>
+    <string name="i18n_keyboard_l" formatted="false">"键盘：L"</string>
+    <string name="i18n_keyboard_left_alt" formatted="false">"键盘：LAlt"</string>
+    <string name="i18n_keyboard_left_ctrl" formatted="false">"键盘：LCtrl"</string>
+    <string name="i18n_keyboard_left_shift" formatted="false">"键盘：LShift"</string>
+    <string name="i18n_keyboard_m" formatted="false">"键盘：M"</string>
+    <string name="i18n_keyboard_menu" formatted="false">"键盘：Menu"</string>
+    <string name="i18n_keyboard_n" formatted="false">"键盘：N"</string>
+    <string name="i18n_keyboard_o" formatted="false">"键盘：O"</string>
+    <string name="i18n_keyboard_p" formatted="false">"键盘：P"</string>
+    <string name="i18n_keyboard_q" formatted="false">"键盘：Q"</string>
+    <string name="i18n_keyboard_r" formatted="false">"键盘：R"</string>
+    <string name="i18n_keyboard_right_ctrl" formatted="false">"键盘：RCtrl"</string>
+    <string name="i18n_keyboard_right_shift" formatted="false">"键盘：RShift"</string>
+    <string name="i18n_keyboard_right_win" formatted="false">"键盘：RWin"</string>
+    <string name="i18n_keyboard_s" formatted="false">"键盘：S"</string>
+    <string name="i18n_keyboard_space" formatted="false">"键盘：Space"</string>
+    <string name="i18n_keyboard_t" formatted="false">"键盘：T"</string>
+    <string name="i18n_keyboard_tab" formatted="false">"键盘：Tab"</string>
+    <string name="i18n_keyboard_u" formatted="false">"键盘：U"</string>
+    <string name="i18n_keyboard_v" formatted="false">"键盘：V"</string>
+    <string name="i18n_keyboard_w" formatted="false">"键盘：W"</string>
+    <string name="i18n_keyboard_win" formatted="false">"键盘：Win"</string>
+    <string name="i18n_keyboard_x" formatted="false">"键盘：X"</string>
+    <string name="i18n_keyboard_y" formatted="false">"键盘：Y"</string>
+    <string name="i18n_keyboard_z" formatted="false">"键盘：Z"</string>
+    <string name="i18n_landscape" formatted="false">"横屏"</string>
+    <string name="i18n_language" formatted="false">"语言"</string>
+    <string name="i18n_layout" formatted="false">"布局"</string>
+    <string name="i18n_layout_loaded_total_startup_time_0_ms_pr" formatted="true">"布局加载完成，启动总耗时 %1$s ms（进程启动→首帧绘制）"</string>
+    <string name="i18n_layout_presets" formatted="false">"布局预设"</string>
+    <string name="i18n_left" formatted="false">"向左"</string>
+    <string name="i18n_left_3e0a82" formatted="false">"左方向"</string>
+    <string name="i18n_left_a090d7" formatted="false">"左:"</string>
+    <string name="i18n_left_button_drag" formatted="false">"左键拖拽"</string>
+    <string name="i18n_left_click" formatted="false">"左键点击"</string>
+    <string name="i18n_left_d2aff1" formatted="false">"左"</string>
+    <string name="i18n_left_stick" formatted="false">"左摇杆"</string>
+    <string name="i18n_left_stick_click" formatted="false">"左摇杆按下"</string>
+    <string name="i18n_linear_trigger" formatted="false">"线性扳机"</string>
+    <string name="i18n_linear_trigger_wireframe" formatted="false">"- 线性扳机线框"</string>
+    <string name="i18n_linear_trigger_with_vibration" formatted="false">"带有震动的线性扳机"</string>
+    <string name="i18n_loaded_0" formatted="true">"已加载「%1$s」"</string>
+    <string name="i18n_local_ip_0" formatted="true">"本机 IP: %1$s"</string>
+    <string name="i18n_local_virtual_gamepad_is_ready" formatted="false">"本机虚拟手柄已就绪"</string>
+    <string name="i18n_long_press" formatted="false">"长按"</string>
+    <string name="i18n_mapped_keys" formatted="false">"映射键值"</string>
+    <string name="i18n_mask_out_of_range" formatted="false">"掩码越界"</string>
+    <string name="i18n_max_icon_size_0_sp" formatted="true">"最大图标大小: %1$ssp"</string>
+    <string name="i18n_max_icon_size_28sp" formatted="false">"最大图标大小: 28sp"</string>
+    <string name="i18n_max_icon_size_unlimited" formatted="false">"最大图标大小: 无限"</string>
+    <string name="i18n_menu" formatted="false">"菜单"</string>
+    <string name="i18n_mic_mute" formatted="false">"麦克风静音"</string>
+    <string name="i18n_middle_button_drag" formatted="false">"中键拖拽"</string>
+    <string name="i18n_middle_click" formatted="false">"中键点击"</string>
+    <string name="i18n_miscellaneous" formatted="false">"杂项"</string>
+    <string name="i18n_motion" formatted="false">"体感"</string>
+    <string name="i18n_motion_orientation" formatted="false">"体感握持方向"</string>
+    <string name="i18n_motion_orientation_is_locked_by_layout_0" formatted="true">"体感握持方向被布局「%1$s」锁定"</string>
+    <string name="i18n_motion_source" formatted="false">"体感来源"</string>
+    <string name="i18n_mouse" formatted="false">"鼠标"</string>
+    <string name="i18n_mouse_back" formatted="false">"鼠标：后退"</string>
+    <string name="i18n_mouse_forward" formatted="false">"鼠标：前进"</string>
+    <string name="i18n_mouse_left_button" formatted="false">"鼠标：左键"</string>
+    <string name="i18n_mouse_lmb" formatted="false">"鼠标：LMB"</string>
+    <string name="i18n_mouse_middle_button" formatted="false">"鼠标：中键"</string>
+    <string name="i18n_mouse_mmb" formatted="false">"鼠标：MMB"</string>
+    <string name="i18n_mouse_right_button" formatted="false">"鼠标：右键"</string>
+    <string name="i18n_mouse_rmb" formatted="false">"鼠标：RMB"</string>
+    <string name="i18n_mouse_sensitivity" formatted="false">"鼠标灵敏度"</string>
+    <string name="i18n_move_cursor" formatted="false">"移动光标"</string>
+    <string name="i18n_mpackagename_is_inaccessible_using_defau" formatted="true">"mPackageName 字段不可访问（app 进程内使用默认值）: %1$s"</string>
+    <string name="i18n_nativedestroy_failed" formatted="false">"nativeDestroy 失败"</string>
+    <string name="i18n_nativewrite_failed" formatted="false">"nativeWrite 失败"</string>
+    <string name="i18n_nativewritekeyboard_failed" formatted="false">"nativeWriteKeyboard 失败"</string>
+    <string name="i18n_nativewritemouse_failed" formatted="false">"nativeWriteMouse 失败"</string>
+    <string name="i18n_new" formatted="false">"新建"</string>
+    <string name="i18n_new_layout" formatted="false">"新建布局"</string>
+    <string name="i18n_no_available_network_interface" formatted="false">"未找到可用网卡"</string>
+    <string name="i18n_no_gamepad" formatted="false">"不使用手柄"</string>
+    <string name="i18n_no_motion" formatted="false">"不使用体感"</string>
+    <string name="i18n_non_linear_trigger" formatted="false">"非线性扳机"</string>
+    <string name="i18n_none" formatted="false">"无"</string>
+    <string name="i18n_not_started" formatted="false">"未启动"</string>
+    <string name="i18n_note_this_app_is_not_emotion_join_qq_gro" formatted="false">"注意：本软件不是Emotion，请进入Q群1045923515以下载正版Emotion"</string>
+    <string name="i18n_ok" formatted="false">"确定"</string>
+    <string name="i18n_one_finger_swipe" formatted="false">"单指滑动"</string>
+    <string name="i18n_open_settings" formatted="false">"去开启"</string>
+    <string name="i18n_open_shizuku" formatted="false">"打开 Shizuku"</string>
+    <string name="i18n_open_the_app_to_exit_floating_mode" formatted="false">"点击返回应用即可退出悬浮模式"</string>
+    <string name="i18n_outline_color" formatted="false">"轮廓颜色"</string>
+    <string name="i18n_outline_width" formatted="false">"轮廓粗细"</string>
+    <string name="i18n_outline_width_0" formatted="true">"轮廓粗细: %1$s"</string>
+    <string name="i18n_output_distance" formatted="false">"输出距离 -&gt;"</string>
+    <string name="i18n_overlap_trigger" formatted="false">"重叠区域触发"</string>
+    <string name="i18n_overlay_keep_alive" formatted="false">"悬浮窗保活"</string>
+    <string name="i18n_overlay_keep_alive_active" formatted="false">"悬浮窗保活已生效"</string>
+    <string name="i18n_overlay_keep_alive_stopped" formatted="false">"悬浮窗保活已停止"</string>
+    <string name="i18n_overlay_permission_is_missing_skipping_o" formatted="false">"缺少悬浮窗权限，跳过悬浮窗保活"</string>
+    <string name="i18n_overlay_permission_is_not_granted_cannot" formatted="false">"未授予悬浮窗权限，无法启用悬浮窗保活"</string>
+    <string name="i18n_overlay_permission_is_required_for_float" formatted="false">"需要悬浮窗权限才能使用悬浮模式"</string>
+    <string name="i18n_persistent_notification_while_controlled" formatted="false">"被控端运行期间的常驻通知，用于防止后台被系统清理"</string>
+    <string name="i18n_persistent_notification_while_floating_m" formatted="false">"悬浮模式运行期间的常驻通知"</string>
+    <string name="i18n_phone_gyro" formatted="false">"手机陀螺仪"</string>
+    <string name="i18n_phone_motor" formatted="false">"手机马达"</string>
+    <string name="i18n_phone_speaker" formatted="false">"手机扬声器"</string>
+    <string name="i18n_physical_gamepad" formatted="false">"实体手柄"</string>
+    <string name="i18n_pointer_acceleration" formatted="false">"指针加速度"</string>
+    <string name="i18n_polling_rate" formatted="false">"轮询率"</string>
+    <string name="i18n_port_0_is_in_use_a_service_may_already_b" formatted="true">"端口 %1$s 被占用，可能已有服务在运行"</string>
+    <string name="i18n_port_0_is_in_use_another_instance_may_al" formatted="true">"端口 %1$s 被占用，可能另一个实例已在运行"</string>
+    <string name="i18n_port_is_in_use_another_instance_may_alre" formatted="true">"端口被占用，可能另一个实例已在运行: %1$s"</string>
+    <string name="i18n_portrait" formatted="false">"竖屏"</string>
+    <string name="i18n_press" formatted="false">"按下"</string>
+    <string name="i18n_press_back_or_use_the_back_gesture_to_ex" formatted="false">"使用返回键或返回手势退出"</string>
+    <string name="i18n_preview" formatted="false">"预览"</string>
+    <string name="i18n_reconnecting_to_paired_device" formatted="false">"正在自动回连已配对设备..."</string>
+    <string name="i18n_refresh" formatted="false">"刷新"</string>
+    <string name="i18n_registering_hid_profile" formatted="false">"正在注册 HID 配置文件..."</string>
+    <string name="i18n_reject" formatted="false">"拒绝"</string>
+    <string name="i18n_release" formatted="false">"松开"</string>
+    <string name="i18n_rename" formatted="false">"重命名"</string>
+    <string name="i18n_renamed_to_0" formatted="true">"已重命名为「%1$s」"</string>
+    <string name="i18n_request_permission" formatted="false">"申请授权"</string>
+    <string name="i18n_requesting_shizuku_permission_requestcod" formatted="true">"发起 Shizuku 权限申请 requestCode=%1$s force=%2$s"</string>
+    <string name="i18n_reset" formatted="false">"重置"</string>
+    <string name="i18n_reset_to_straight_line" formatted="false">"重置为直线"</string>
+    <string name="i18n_restore_built_in_layout_0_to_defaults" formatted="true">"确定将内置布局「%1$s」恢复为默认？"</string>
+    <string name="i18n_restore_defaults" formatted="false">"恢复默认"</string>
+    <string name="i18n_restored_0_to_defaults" formatted="true">"已恢复「%1$s」为默认"</string>
+    <string name="i18n_richtapvibrationeffect_check_0_has_no_va" formatted="true">"RichTapVibrationEffect check=%1$s 无有效版本，回退 type 1"</string>
+    <string name="i18n_richtapvibrationeffect_exists_but_checki" formatted="false">"RichTapVibrationEffect 存在但 checkIfRichTapSupport=2（不支持）"</string>
+    <string name="i18n_right" formatted="false">"右"</string>
+    <string name="i18n_right_1f0051" formatted="false">"右:"</string>
+    <string name="i18n_right_6a21ce" formatted="false">"向右"</string>
+    <string name="i18n_right_b45922" formatted="false">"右方向"</string>
+    <string name="i18n_right_button_drag" formatted="false">"右键拖拽"</string>
+    <string name="i18n_right_click" formatted="false">"右键点击"</string>
+    <string name="i18n_right_stick" formatted="false">"右摇杆"</string>
+    <string name="i18n_right_stick_click" formatted="false">"右摇杆按下"</string>
+    <string name="i18n_roll" formatted="false">"滚转"</string>
+    <string name="i18n_save" formatted="false">"保存"</string>
+    <string name="i18n_scanning" formatted="false">"正在扫描…"</string>
+    <string name="i18n_screen_off_mode" formatted="false">"息屏模式"</string>
+    <string name="i18n_scroll" formatted="false">"滚动"</string>
+    <string name="i18n_scroll_sensitivity" formatted="false">"滚动灵敏度"</string>
+    <string name="i18n_select" formatted="false">"选择"</string>
+    <string name="i18n_select_background_image" formatted="false">"选择背景图片"</string>
+    <string name="i18n_select_base_image" formatted="false">"选择底座图片"</string>
+    <string name="i18n_select_button_image" formatted="false">"选择按钮图片"</string>
+    <string name="i18n_select_color" formatted="false">"选择颜色"</string>
+    <string name="i18n_select_image" formatted="false">"选择图片"</string>
+    <string name="i18n_select_mapped_key" formatted="false">"选择映射键值"</string>
+    <string name="i18n_select_network_interface" formatted="false">"选择网卡"</string>
+    <string name="i18n_select_stick_cap_image" formatted="false">"选择摇杆帽图片"</string>
+    <string name="i18n_select_touchpad_image" formatted="false">"选择触摸板图片"</string>
+    <string name="i18n_sensitivity" formatted="false">"灵敏度"</string>
+    <string name="i18n_sensitivity_a072e4" formatted="false">"灵敏度(%)"</string>
+    <string name="i18n_sensitivity_curve" formatted="false">"灵敏度曲线"</string>
+    <string name="i18n_service_error_0" formatted="true">"服务异常: %1$s"</string>
+    <string name="i18n_service_information" formatted="false">"服务信息"</string>
+    <string name="i18n_service_started_waiting_for_connection" formatted="false">"服务已启动，等待连接..."</string>
+    <string name="i18n_settings_button" formatted="false">"设置按钮"</string>
+    <string name="i18n_share" formatted="false">"分享"</string>
+    <string name="i18n_shizuku_authorization_failed_grant_permi" formatted="false">"Shizuku 授权失败，请在 Shizuku 中手动授权后重试"</string>
+    <string name="i18n_shizuku_environment" formatted="false">"Shizuku 环境"</string>
+    <string name="i18n_shizuku_initialization_failed_0" formatted="true">"Shizuku 初始化失败: %1$s"</string>
+    <string name="i18n_shizuku_is_too_old_please_update_it" formatted="false">"Shizuku 版本过低，请升级 Shizuku"</string>
+    <string name="i18n_shizuku_not_authorized" formatted="false">"Shizuku 未授权"</string>
+    <string name="i18n_shizuku_not_running" formatted="false">"Shizuku 未运行"</string>
+    <string name="i18n_shizuku_permission_denied" formatted="false">"Shizuku 权限被拒绝"</string>
+    <string name="i18n_shizuku_service_is_in_an_unexpected_stat" formatted="false">"Shizuku 服务状态异常，请重启手机后重试"</string>
+    <string name="i18n_shizuku_stopped" formatted="false">"Shizuku 已停止"</string>
+    <string name="i18n_shizuku_user_service_connected_0" formatted="true">"Shizuku 用户服务已连接 (%1$s)"</string>
+    <string name="i18n_shizuku_user_service_disconnected_0" formatted="true">"Shizuku 用户服务已断开 (%1$s)"</string>
+    <string name="i18n_show_hide_floating_button" formatted="false">"显示/隐藏悬浮按钮"</string>
+    <string name="i18n_single_tap" formatted="false">"单击"</string>
+    <string name="i18n_size" formatted="false">"大小"</string>
+    <string name="i18n_solid_color" formatted="false">"纯色"</string>
+    <string name="i18n_sound_device" formatted="false">"声音设备"</string>
+    <string name="i18n_sound_device_0" formatted="true">"声音设备%1$s"</string>
+    <string name="i18n_source_https_github_com_4zyz4_gkme" formatted="false">"开源地址：https://github.com/4zyz4/gkme\n"</string>
+    <string name="i18n_sponsor" formatted="false">"赞助"</string>
+    <string name="i18n_square" formatted="false">"方形"</string>
+    <string name="i18n_start_service" formatted="false">"启动服务"</string>
+    <string name="i18n_start_service_automatically_when_the_app" formatted="false">"应用打开时自动启动服务"</string>
+    <string name="i18n_starteffect_failed_falling_back_to_start" formatted="false">"startEffect 失败，回退 startPattern"</string>
+    <string name="i18n_starting_service" formatted="false">"启动服务..."</string>
+    <string name="i18n_starting_service_7b3971" formatted="false">"正在启动服务…"</string>
+    <string name="i18n_starting_shizuku_user_service" formatted="false">"正在启动 Shizuku 用户服务…"</string>
+    <string name="i18n_startpattern_failed" formatted="false">"startPattern 失败"</string>
+    <string name="i18n_startpattern_fallback_failed" formatted="false">"startPattern 回退失败"</string>
+    <string name="i18n_startrichtap_failed" formatted="false">"startRichtap 失败"</string>
+    <string name="i18n_starttencent_failed" formatted="false">"startTencent 失败"</string>
+    <string name="i18n_starttencenteffect_failed" formatted="false">"startTencentEffect 失败"</string>
+    <string name="i18n_status_text_color" formatted="false">"状态文本颜色"</string>
+    <string name="i18n_stick" formatted="false">"摇杆"</string>
+    <string name="i18n_stick_cap" formatted="false">"- 摇杆帽"</string>
+    <string name="i18n_stick_cap_color" formatted="false">"摇杆帽颜色"</string>
+    <string name="i18n_stick_cap_outline_color" formatted="false">"摇杆帽轮廓颜色"</string>
+    <string name="i18n_stick_cap_outline_width" formatted="false">"摇杆帽轮廓粗细"</string>
+    <string name="i18n_stick_cap_outline_width_0" formatted="true">"摇杆帽轮廓粗细: %1$s"</string>
+    <string name="i18n_stop" formatted="false">"停止"</string>
+    <string name="i18n_stop_service" formatted="false">"停止服务"</string>
+    <string name="i18n_stop_the_service_first" formatted="false">"请先停止服务"</string>
+    <string name="i18n_stoprichtap_failed_0" formatted="true">"stopRichtap 失败: %1$s"</string>
+    <string name="i18n_stoptencent_exception_0" formatted="true">"stopTencent 异常: %1$s"</string>
+    <string name="i18n_supported" formatted="false">"支持"</string>
+    <string name="i18n_swap_left_right_adaptive_triggers" formatted="false">"交换左右自适应扳机"</string>
+    <string name="i18n_swap_left_right_motors" formatted="false">"交换左右马达"</string>
+    <string name="i18n_swipe_direction" formatted="false">"滑动方向"</string>
+    <string name="i18n_swipe_threshold" formatted="false">"滑动判定距离"</string>
+    <string name="i18n_swipe_trigger" formatted="false">"滑动触发"</string>
+    <string name="i18n_switch_gamepad" formatted="false">"Switch 手柄"</string>
+    <string name="i18n_switch_target_platform" formatted="false">"切换目标平台"</string>
+    <string name="i18n_system_effect" formatted="false">"系统效果"</string>
+    <string name="i18n_tap" formatted="false">"轻触"</string>
+    <string name="i18n_tap_anywhere_to_exit" formatted="false">"点击任意处退出"</string>
+    <string name="i18n_target_platform" formatted="false">"目标平台"</string>
+    <string name="i18n_test" formatted="false">"测试"</string>
+    <string name="i18n_thank_you_for_your_support" formatted="false">"感谢您的支持！"</string>
+    <string name="i18n_the_current_screen_orientation_swaps_the" formatted="false">"当前屏幕方向会交换竖屏和倒置竖屏的效果"</string>
+    <string name="i18n_the_saved_paired_device_will_be_removed" formatted="false">"将删除已保存的配对设备，是否继续？"</string>
+    <string name="i18n_this_device" formatted="false">"本机"</string>
+    <string name="i18n_this_device_does_not_support_hd_vibratio" formatted="false">"本机不支持 HD 震动"</string>
+    <string name="i18n_three_finger_swipe" formatted="false">"三指滑动"</string>
+    <string name="i18n_three_finger_tap" formatted="false">"三指点击"</string>
+    <string name="i18n_tick" formatted="false">"滴答"</string>
+    <string name="i18n_top_left" formatted="false">"左上"</string>
+    <string name="i18n_top_left_07092c" formatted="false">"左上方向"</string>
+    <string name="i18n_top_right" formatted="false">"右上"</string>
+    <string name="i18n_top_right_a52f17" formatted="false">"右上方向"</string>
+    <string name="i18n_touchpad" formatted="false">"触摸板"</string>
+    <string name="i18n_touchpad_color" formatted="false">"触摸板颜色"</string>
+    <string name="i18n_touchpad_gamepad" formatted="false">"触摸板（手柄）"</string>
+    <string name="i18n_touchpad_mode" formatted="false">"触摸板模式"</string>
+    <string name="i18n_touchpad_mouse" formatted="false">"触摸板（鼠标）"</string>
+    <string name="i18n_touchpad_outline_width_0" formatted="true">"触摸板轮廓粗细: %1$s"</string>
+    <string name="i18n_travel" formatted="false">"行程"</string>
+    <string name="i18n_trigger" formatted="false">"扳机"</string>
+    <string name="i18n_trigger_area" formatted="false">"- 触发区域"</string>
+    <string name="i18n_trigger_area_color" formatted="false">"触发区域颜色"</string>
+    <string name="i18n_trigger_area_outline_color" formatted="false">"触发区域轮廓颜色"</string>
+    <string name="i18n_trigger_area_outline_width" formatted="false">"触发区域轮廓粗细"</string>
+    <string name="i18n_trigger_area_outline_width_0" formatted="true">"触发区域轮廓粗细: %1$s"</string>
+    <string name="i18n_trigger_area_width" formatted="false">"触发区域粗细"</string>
+    <string name="i18n_trigger_area_width_0" formatted="true">"触发区域粗细: %1$s"</string>
+    <string name="i18n_trigger_travel" formatted="false">"扳机行程"</string>
+    <string name="i18n_trigger_when_rectangles_overlap" formatted="false">"触发矩形区域重叠触发"</string>
+    <string name="i18n_try_to_connect" formatted="false">"尝试连接"</string>
+    <string name="i18n_turn_on_bluetooth_to_use_bluetooth_mode" formatted="false">"需要开启蓝牙才能使用蓝牙模式"</string>
+    <string name="i18n_two_finger_swipe" formatted="false">"双指滑动"</string>
+    <string name="i18n_two_finger_tap" formatted="false">"双指点击"</string>
+    <string name="i18n_type_2_available_but_no_vibrator_instanc" formatted="false">"type 2 可用但没有 Vibrator 实例"</string>
+    <string name="i18n_type_2_failed_to_parse_he" formatted="false">"type 2 解析 HE 失败"</string>
+    <string name="i18n_universal_keyboard_mouse" formatted="false">"通用键鼠"</string>
+    <string name="i18n_unmapped" formatted="false">"未映射"</string>
+    <string name="i18n_unpair" formatted="false">"取消配对"</string>
+    <string name="i18n_unpair_from_0_you_will_need_to_pair_agai" formatted="true">"确定取消与「%1$s」的配对？下次连接需要重新配对。"</string>
+    <string name="i18n_unspecified" formatted="false">"不指定"</string>
+    <string name="i18n_unsupported" formatted="false">"不支持"</string>
+    <string name="i18n_up" formatted="false">"上"</string>
+    <string name="i18n_up_00d5a2" formatted="false">"向上"</string>
+    <string name="i18n_up_3f99c7" formatted="false">"上方向"</string>
+    <string name="i18n_updateparameter_failed" formatted="false">"updateParameter 失败"</string>
+    <string name="i18n_usb_device_access_is_blocked_by_system_p" formatted="false">"USB 设备被系统策略禁止访问"</string>
+    <string name="i18n_usb_driver_axixi" formatted="false">"USB驱动·阿西西"</string>
+    <string name="i18n_use_controller_led_color" formatted="false">"使用控制LED颜色"</string>
+    <string name="i18n_use_gamepad_led_color" formatted="false">"使用手柄LED颜色"</string>
+    <string name="i18n_used_to_activate_the_gyro" formatted="false">"用于激活陀螺仪"</string>
+    <string name="i18n_user_service_failed_to_connect_repeatedl" formatted="true">"用户服务多次未连上，强制移除重建 (%1$s)"</string>
+    <string name="i18n_using_in_process_richtap_playertype_0_ve" formatted="true">"使用 app 进程内 RichTap: playerType=%1$s version=%2$s"</string>
+    <string name="i18n_version_0" formatted="true">"版本 %1$s"</string>
+    <string name="i18n_version_out_of_range" formatted="false">"版本越界"</string>
+    <string name="i18n_vertical" formatted="false">"竖放"</string>
+    <string name="i18n_vibration" formatted="false">"震动"</string>
+    <string name="i18n_vibration_device" formatted="false">"震动设备"</string>
+    <string name="i18n_virtual_gamepad_created_backend_0_profil" formatted="true">"虚拟手柄已创建 backend=%1$s profile=%2$s fd=%3$s"</string>
+    <string name="i18n_virtual_gamepad_creation_error_0" formatted="true">"创建虚拟手柄异常: %1$s"</string>
+    <string name="i18n_virtual_gamepad_destroyed_fd_0" formatted="true">"虚拟手柄已销毁 fd=%1$s"</string>
+    <string name="i18n_virtual_gamepad_is_ready" formatted="false">"虚拟手柄已就绪"</string>
+    <string name="i18n_virtual_key" formatted="false">"虚拟键"</string>
+    <string name="i18n_virtual_key_release" formatted="false">"虚拟键释放"</string>
+    <string name="i18n_virtual_keyboard_created_fd_0" formatted="true">"虚拟键盘已创建 fd=%1$s"</string>
+    <string name="i18n_virtual_keyboard_destroyed_fd_0" formatted="true">"虚拟键盘已销毁 fd=%1$s"</string>
+    <string name="i18n_virtual_mouse_created_fd_0" formatted="true">"虚拟鼠标已创建 fd=%1$s"</string>
+    <string name="i18n_virtual_mouse_destroyed_fd_0" formatted="true">"虚拟鼠标已销毁 fd=%1$s"</string>
+    <string name="i18n_voice_coil" formatted="false">"音圈马达"</string>
+    <string name="i18n_voice_coil_status" formatted="false">"音圈马达状态"</string>
+    <string name="i18n_volume" formatted="false">"音量 +"</string>
+    <string name="i18n_volume_80d5c3" formatted="false">"音量 -"</string>
+    <string name="i18n_volume_key_mapping" formatted="false">"音量键映射"</string>
+    <string name="i18n_volume_keys" formatted="false">"音量键"</string>
+    <string name="i18n_waiting_for_host_connection" formatted="false">"等待主机连接..."</string>
+    <string name="i18n_waiting_for_host_phone_is_discoverable_b" formatted="false">"等待主机连接 — 手机可被发现 (蓝牙)"</string>
+    <string name="i18n_web_browser" formatted="false">"Web 浏览器"</string>
+    <string name="i18n_web_gamepad" formatted="false">"网页手柄"</string>
+    <string name="i18n_web_gamepad_qr_code" formatted="false">"网页手柄二维码"</string>
+    <string name="i18n_when_the_gamepad_gyro_is_used_motion_ori" formatted="false">"使用手柄陀螺仪后，体感方向由手柄决定，不可调节"</string>
+    <string name="i18n_width" formatted="false">"宽度"</string>
+    <string name="i18n_windows_gamepad_only" formatted="false">"Windows仅手柄"</string>
+    <string name="i18n_wireframe_color" formatted="false">"线框颜色"</string>
+    <string name="i18n_wireframe_width" formatted="false">"线框粗细"</string>
+    <string name="i18n_wireframe_width_0" formatted="true">"线框粗细: %1$s"</string>
+    <string name="i18n_world_space" formatted="false">"世界空间"</string>
+    <string name="i18n_xbox_gamepad" formatted="false">"Xbox 手柄"</string>
+    <string name="i18n_yaw" formatted="false">"偏航"</string>
+    <string name="i18n_yaw_roll" formatted="false">"偏航+滚转"</string>
+    <string name="i18n_zoom_in" formatted="false">"放大"</string>
+    <string name="i18n_zoom_preview" formatted="false">"放大预览"</string>
+    <string name="i18n_sdl3" formatted="false">"SDL3"</string>
+    <string name="i18n_input_manager" formatted="false">"InputManager"</string>
+</resources>
