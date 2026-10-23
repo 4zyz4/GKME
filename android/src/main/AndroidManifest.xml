@@ -1,90 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.BLUETOOTH" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
-    <uses-permission android:name="android.permission.VIBRATE" />
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
-    <!-- 被控端：申请 Shizuku 权限 -->
+    <!-- Shizuku API Permission -->
     <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
 
-    <uses-feature android:name="android.hardware.sensor.gyroscope" android:required="false" />
-    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
-    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
-
-    <!-- 用于检测/打开 Shizuku -->
+    <!-- Queries package for Shizuku detection -->
     <queries>
         <package android:name="moe.shizuku.privileged.api" />
     </queries>
 
-
     <application
         android:name=".GkmeApp"
         android:allowBackup="true"
+        android:extractNativeLibs="true"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.GKME"
         android:icon="@mipmap/icon">
 
-        <!-- RichTap：声明该共享库后，ROM 允许 app 进程直接访问 RichTap 隐藏 API
-             （android.os.HapticPlayer / DynamicEffect），从而在前台 uid 下下发 HD 震动。 -->
-        <uses-library
-            android:name="richtap-api"
-            android:required="false" />
-
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:screenOrientation="userLandscape"
-            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
-            android:windowSoftInputMode="adjustResize">
+            android:screenOrientation="unspecified"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
+        <!-- Foreground Service for managing virtual device lifecycle independently of Activity -->
         <service
-            android:name=".input.usb.UsbDriverService"
-            android:exported="false" />
-
-        <service
-            android:name=".service.FloatingOverlayService"
+            android:name=".service.VirtualGamepadService"
             android:exported="false"
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="floating_gamepad_overlay" />
+                android:value="virtual_gamepad_lifecycle" />
         </service>
 
-        <!-- 作为被控端：发现控制端并创建本地虚拟手柄 -->
-        <activity
-            android:name=".controlled.ControlledActivity"
-            android:exported="false"
-            android:screenOrientation="userLandscape"
-            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
-            android:windowSoftInputMode="adjustResize" />
-
-        <!-- 被控端前台服务：常驻通知，防止熄屏/后台时被系统杀进程 -->
-        <service
-            android:name=".controlled.ControlledHostService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="controlled_host_keepalive" />
-        </service>
-
-        <!-- Shizuku（提供 shell/root 身份运行 UserService）。
-             使用本项目子类以串行化并发下发的 binder，规避 Shizuku 库的 onBinderReceived 竞态。 -->
+        <!-- Shizuku Provider (serializes concurrent IPC binders) -->
         <provider
             android:name=".GkmeShizukuProvider"
             android:authorities="${applicationId}.shizuku"

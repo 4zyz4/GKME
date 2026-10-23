@@ -1,43 +1,58 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="24dp">
 
-    <include
-        android:id="@+id/gamepadPanel"
-        layout="@layout/content_gamepad"
+    <TextView
+        android:id="@+id/tvTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="24dp"
+        android:text="Virtual Gamepad"
+        android:textColor="@color/text_primary"
+        android:textSize="28sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tvStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        android:text="Stopped"
+        android:textColor="@color/text_primary"
+        android:textSize="20sp" />
+
+    <TextView
+        android:id="@+id/tvError"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="28dp"
+        android:gravity="center"
+        android:textColor="@color/text_secondary"
+        android:textSize="14sp" />
 
-    <ViewStub
-        android:id="@+id/settingsStub"
-        android:layout="@layout/content_settings"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
 
-        <FrameLayout
-            android:id="@+id/previewZoomOverlay"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="#CC000000"
-            android:clickable="true"
-            android:visibility="gone">
+        <Button
+            android:id="@+id/btnStart"
+            android:layout_width="120dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="16dp"
+            android:text="Start" />
 
-            <ImageView
-                android:id="@+id/zoomImage"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:scaleType="fitCenter" />
+        <Button
+            android:id="@+id/btnStop"
+            android:layout_width="120dp"
+            android:layout_height="wrap_content"
+            android:enabled="false"
+            android:text="Stop" />
 
-        </FrameLayout>
+    </LinearLayout>
 
-        <View
-            android:id="@+id/screenOffOverlay"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="#FF000000"
-            android:clickable="false"
-            android:focusable="false"
-            android:visibility="gone" />
-
-</FrameLayout>
+</LinearLayout>

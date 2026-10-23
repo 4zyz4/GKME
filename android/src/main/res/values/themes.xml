@@ -3,46 +3,10 @@
     <style name="Theme.GKME" parent="android:Theme.Material.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:windowFullscreen">true</item>
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowBackground">@color/bg_dark</item>
         <item name="android:colorAccent">@color/accent</item>
         <item name="android:colorControlActivated">@color/accent</item>
         <item name="android:colorControlNormal">@color/text_secondary</item>
-    </style>
-
-    <style name="GamepadChip">
-        <item name="android:layout_width">wrap_content</item>
-        <item name="android:layout_height">36dp</item>
-        <item name="android:background">@drawable/bg_chip</item>
-        <item name="android:textColor">@color/text_primary</item>
-        <item name="android:textSize">11sp</item>
-        <item name="android:paddingHorizontal">12dp</item>
-        <item name="android:gravity">center</item>
-        <item name="android:stateListAnimator">@null</item>
-        <item name="android:fontFamily">sans-serif-medium</item>
-    </style>
-
-    <style name="GamepadSmallBtn">
-        <item name="android:layout_width">40dp</item>
-        <item name="android:layout_height">40dp</item>
-        <item name="android:background">@drawable/bg_small_btn</item>
-        <item name="android:textColor">@color/text_primary</item>
-        <item name="android:textSize">10sp</item>
-        <item name="android:gravity">center</item>
-        <item name="android:stateListAnimator">@null</item>
-        <item name="android:fontFamily">sans-serif-medium</item>
-    </style>
-
-    <style name="GamepadConnectBtn">
-        <item name="android:layout_width">wrap_content</item>
-        <item name="android:layout_height">36dp</item>
-        <item name="android:background">@drawable/bg_connect_btn</item>
-        <item name="android:textColor">@color/text_primary</item>
-        <item name="android:textSize">12sp</item>
-        <item name="android:paddingHorizontal">24dp</item>
-        <item name="android:gravity">center</item>
-        <item name="android:stateListAnimator">@null</item>
-        <item name="android:fontFamily">sans-serif-medium</item>
     </style>
 </resources>
