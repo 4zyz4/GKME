@@ -18,6 +18,11 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
+        val gamepadProfile = providers.gradleProperty("gamepadProfile").getOrElse("xbox")
+        require(gamepadProfile in setOf("xbox", "ds4", "dualsense")) {
+            "gamepadProfile must be one of: xbox, ds4, dualsense"
+        }
+        buildConfigField("String", "GAMEPAD_PROFILE", "\"$gamepadProfile\"")
 
         ndk {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
@@ -32,6 +37,7 @@ android {
 
     buildFeatures {
         aidl = true
+        buildConfig = true
     }
 
     packaging {

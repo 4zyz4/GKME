@@ -61,7 +61,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun updateUi(status: DeviceStatus) {
-        statusView.text = status.name
+        statusView.text = if (status == DeviceStatus.Running) {
+            "${status.name} (${VirtualGamepadManager.selectedProfile})"
+        } else {
+            status.name
+        }
         startButton.isEnabled = status == DeviceStatus.Stopped || status == DeviceStatus.Error
         stopButton.isEnabled = status == DeviceStatus.Running
     }

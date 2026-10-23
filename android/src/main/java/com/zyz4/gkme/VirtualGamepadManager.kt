@@ -21,6 +21,23 @@ import rikka.shizuku.Shizuku
 
 enum class DeviceStatus { Stopped, Starting, Running, Stopping, Error }
 
+private enum class GamepadProfile(
+    val buildValue: String,
+    val backend: Int,
+    val nativeProfile: Int,
+    val vendorId: Int,
+    val productId: Int,
+) {
+    Xbox("xbox", RemoteGamepadService.BACKEND_UINPUT, 0, 0x045E, 0x02FD),
+    Ds4("ds4", RemoteGamepadService.BACKEND_UHID, 1, 0x054C, 0x09CC),
+    DualSense("dualsense", RemoteGamepadService.BACKEND_UHID, 2, 0x054C, 0x0CE6);
+
+    companion object {
+        fun fromBuildConfig(value: String): GamepadProfile = entries.firstOrNull { it.buildValue == value }
+            ?: error("Unsupported gamepadProfile '$value'")
+    }
+}
+
 internal class GamepadStatusController {
     private val mutableStatus = MutableStateFlow(DeviceStatus.Stopped)
     val status: StateFlow<DeviceStatus> = mutableStatus.asStateFlow()
@@ -44,6 +61,8 @@ object VirtualGamepadManager {
     const val SHIZUKU_REQUEST_CODE = 0x5A17
     private const val BINDER_TIMEOUT_MS = 3_000L
     private const val BIND_TIMEOUT_MS = 30_000L
+    private val gamepadProfile = GamepadProfile.fromBuildConfig(BuildConfig.GAMEPAD_PROFILE)
+    val selectedProfile: String = gamepadProfile.buildValue
 
     private val state = GamepadStatusController()
     val status: StateFlow<DeviceStatus> = state.status
@@ -116,9 +135,20 @@ object VirtualGamepadManager {
             }
             try {
                 gamepadService = IGamepadService.Stub.asInterface(binder)
-                val result = gamepadService!!.create(RemoteGamepadService.BACKEND_UINPUT, 0, false)
+                Log.i(TAG, "Creating ${gamepadProfile.buildValue} profile " +
+                    "(${String.format("%04x:%04x", gamepadProfile.vendorId, gamepadProfile.productId)})")
+                val result = gamepadService!!.create(
+                    gamepadProfile.backend,
+                    gamepadProfile.nativeProfile,
+                    false,
+                )
                 if (result == 0) {
-                    Log.i(TAG, "Virtual gamepad created successfully through uinput")
+                    gamepadService!!.update(
+                        0, 0, 0, 0, 0, 0, 0,
+                        0f, 0f, 0f, 0f, 0f, 0f,
+                        null,
+                    )
+                    Log.i(TAG, "Virtual ${gamepadProfile.buildValue} gamepad created and sent neutral input")
                     state.running()
                 } else {
                     cleanup()
@@ -251,6 +281,10 @@ object VirtualGamepadManager {
 
     private fun createError(result: Int): String {
         val errno = -result
+        if (gamepadProfile.backend == RemoteGamepadService.BACKEND_UHID) {
+            return "Could not create the ${gamepadProfile.buildValue} UHID gamepad (errno=$errno). " +
+                "This ROM blocks /dev/uhid for the shell user"
+        }
         val suffix = if (errno == 19) {
             val loadError = runCatching { RemoteGamepadDevice.loadError() }.getOrNull()
             ". errno 19 means the native library failed to load${loadError?.let { ": $it" } ?: ""}"

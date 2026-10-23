@@ -53,7 +53,8 @@ class RemoteGamepadService @JvmOverloads constructor(
             }
             if (f < 0) {
                 lastError = if (backend == BACKEND_UHID) {
-                    "无法通过 /dev/uhid 创建虚拟手柄 (errno=${-f})"
+                    "Could not open or initialize /dev/uhid (errno=${-f}). " +
+                        "This ROM blocks /dev/uhid for the shell user"
                 } else {
                     "无法打开 /dev/uinput (errno=${-f})"
                 }

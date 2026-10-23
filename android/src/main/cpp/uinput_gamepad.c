@@ -320,14 +320,14 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeCreate(JNIEnv *env, jcla
 
     struct gkme_uinput_setup setup;
     memset(&setup, 0, sizeof(setup));
-    setup.id.bustype = 0x0006; /* BUS_VIRTUAL */
+    setup.id.bustype = 0x0005; /* BUS_BLUETOOTH */
     setup.id.vendor = 0x045E;  /* Microsoft */
     setup.id.product = 0x02FD; /* Xbox One S 手柄 */
     setup.id.version = 0x0001;
-    /* 使用被模拟设备的名称（虚拟 Xbox One S）。App 排除自己创建的虚拟手柄时
+    /* 使用被模拟设备的名称。App 排除自己创建的虚拟手柄时
      * 只依据 vendor/product（SDL 会改写设备名，名称不可靠），见 VirtualGamepad.kt /
      * sdl_bridge.cpp。此处的名称仅用于系统展示。 */
-    snprintf(setup.name, sizeof(setup.name), "%s", "Xbox One S Controller");
+    snprintf(setup.name, sizeof(setup.name), "%s", "Xbox Wireless Controller");
     setup.ff_effects_max = ff_max;
 
     if (ioctl(fd, GKME_UI_DEV_SETUP, &setup) < 0) {
