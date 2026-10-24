@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Virtual Gamepad</string>
+    <string name="app_description">Play Call of Duty: Mobile (CODM) with any controller by emulating an official Xbox/PS controller via Shizuku.</string>
 </resources>

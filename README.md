@@ -1,9 +1,9 @@
-# Virtual Gamepad
+# Virtual Gamepad for Android
 
 [![Build and Release](https://github.com/orson391/GKME/actions/workflows/release.yml/badge.svg)](https://github.com/orson391/GKME/actions/workflows/release.yml)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
-A lightweight Android utility that creates a system-level virtual Xbox or PlayStation controller via [Shizuku](https://shizuku.rikka.app/), allowing you to bypass Call of Duty: Mobile (CODM) controller detection restrictions and play using **any** controller.
+> **Virtual Gamepad for Android** — Play Call of Duty: Mobile (CODM) with any controller (GameSir X5 Lite, generic Bluetooth, USB/OTG) by emulating an official Xbox/PS controller via [Shizuku](https://shizuku.rikka.app/).
 
 ---
 
