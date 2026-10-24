@@ -1,0 +1,668 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="i18n_0_available_connections" formatted="true">"%1$s connexions disponibles"</string>
+    <string name="i18n_0_motor" formatted="true">"%1$s moteur"</string>
+    <string name="i18n_0_motors" formatted="true">"%1$s moteurs"</string>
+    <string name="i18n_0_trigger" formatted="true">"%1$s gâchette"</string>
+    <string name="i18n_1_open_settings_about_phone_and_tap_buil" formatted="false">"1. Ouvrez Paramètres → À propos du téléphone et appuyez 7 fois sur Numéro de build pour activer les Options pour les développeurs.\n\n"</string>
+    <string name="i18n_2_open_developer_options_and_enable_usb" formatted="false">"2. Ouvrez Options pour les développeurs et activez le débogage USB.\n\n"</string>
+    <string name="i18n_4_way" formatted="false">"4 directions"</string>
+    <string name="i18n_8_way" formatted="false">"8 directions"</string>
+    <string name="i18n_about" formatted="false">"À propos"</string>
+    <string name="i18n_active_opacity" formatted="false">"Opacité active (%)"</string>
+    <string name="i18n_adaptive_trigger" formatted="false">"Gâchette adaptative"</string>
+    <string name="i18n_adaptive_trigger_device" formatted="false">"Appareil de gâchette adaptative"</string>
+    <string name="i18n_add" formatted="false">"+ Ajouter"</string>
+    <string name="i18n_add_b58c75" formatted="false">"Ajouter"</string>
+    <string name="i18n_add_control" formatted="false">"Ajouter un contrôle"</string>
+    <string name="i18n_adjust" formatted="false">" Ajuster"</string>
+    <string name="i18n_adjust_d198bf" formatted="false">"Ajuster"</string>
+    <string name="i18n_always_on" formatted="false">"Toujours actif"</string>
+    <string name="i18n_android_gamepad_only" formatted="false">"Manette Android uniquement"</string>
+    <string name="i18n_anti_dead_zone" formatted="false">"Anti-zone morte (%)"</string>
+    <string name="i18n_app_icon" formatted="false">"Icône de l'application"</string>
+    <string name="i18n_appearance" formatted="false">"Apparence"</string>
+    <string name="i18n_appearance_exported" formatted="false">"Apparence exportée"</string>
+    <string name="i18n_appearance_imported" formatted="false">"Apparence importée"</string>
+    <string name="i18n_application_oncreate_took_0_ms_from_proc" formatted="true">"Application.onCreate a pris %1$s ms depuis le démarrage du processus"</string>
+    <string name="i18n_area_color" formatted="false">"Couleur de la zone"</string>
+    <string name="i18n_area_height" formatted="false">"Hauteur de la zone"</string>
+    <string name="i18n_area_width" formatted="false">"Largeur de la zone"</string>
+    <string name="i18n_area_width_0" formatted="true">"Largeur de la zone : %1$s"</string>
+    <string name="i18n_area_width_875556" formatted="false">"Largeur de la zone"</string>
+    <string name="i18n_audio" formatted="false">"Audio"</string>
+    <string name="i18n_author_4zyz4_qq_group_639317971" formatted="false">"Auteur : 4zyz4  Groupe QQ : 639317971\n\n"</string>
+    <string name="i18n_authorized" formatted="false">"Autorisé"</string>
+    <string name="i18n_auto_hold" formatted="false">"Maintien automatique"</string>
+    <string name="i18n_available" formatted="false">"Disponible"</string>
+    <string name="i18n_axixi2233_usb_driver" formatted="false">"Pilote USB Axixi2233"</string>
+    <string name="i18n_back" formatted="false">"Retour"</string>
+    <string name="i18n_back_button_bottom_left_p4" formatted="false">"Bouton Retour en bas à gauche (P4)"</string>
+    <string name="i18n_back_button_bottom_right_p2" formatted="false">"Bouton Retour en bas à droite (P2)"</string>
+    <string name="i18n_back_button_top_left_p3" formatted="false">"Bouton Retour en haut à gauche (P3)"</string>
+    <string name="i18n_back_button_top_right_p1" formatted="false">"Bouton Retour en haut à droite (P1)"</string>
+    <string name="i18n_background" formatted="false">"Arrière-plan"</string>
+    <string name="i18n_background_color" formatted="false">"Couleur d'arrière-plan"</string>
+    <string name="i18n_base" formatted="false">"- Base"</string>
+    <string name="i18n_base_color" formatted="false">"Couleur de base"</string>
+    <string name="i18n_base_direction" formatted="false">"Direction de base"</string>
+    <string name="i18n_base_outline_color" formatted="false">"Couleur du contour de base"</string>
+    <string name="i18n_base_outline_width" formatted="false">"Largeur du contour de base"</string>
+    <string name="i18n_base_outline_width_0" formatted="true">"Largeur du contour de base : %1$s"</string>
+    <string name="i18n_binduserservice_attempt_0_1_daemon_2" formatted="true">"Tentative bindUserService n°%1$s (%2$s, daemon=%3$s)"</string>
+    <string name="i18n_binduserservice_failed_0" formatted="true">"Échec de bindUserService (%1$s)"</string>
+    <string name="i18n_bit_0" formatted="true">"Bit %1$s"</string>
+    <string name="i18n_bluetooth" formatted="false">"Bluetooth"</string>
+    <string name="i18n_bluetooth_error" formatted="false">"Erreur Bluetooth"</string>
+    <string name="i18n_bluetooth_hid_requires_android_9" formatted="false">"Bluetooth HID nécessite Android 9+"</string>
+    <string name="i18n_bluetooth_paired_0" formatted="true">"Bluetooth appairé : %1$s"</string>
+    <string name="i18n_bluetooth_permission_is_required_for_blu" formatted="false">"L'autorisation Bluetooth est requise pour le mode Bluetooth"</string>
+    <string name="i18n_bottom_left" formatted="false">"En bas à gauche"</string>
+    <string name="i18n_bottom_left_a289e9" formatted="false">"En bas à gauche"</string>
+    <string name="i18n_bottom_right" formatted="false">"En bas à droite"</string>
+    <string name="i18n_bottom_right_553067" formatted="false">"En bas à droite"</string>
+    <string name="i18n_built_in_layouts_cannot_be_deleted" formatted="false">"Les dispositions intégrées ne peuvent pas être supprimées"</string>
+    <string name="i18n_built_in_layouts_cannot_be_renamed" formatted="false">"Les dispositions intégrées ne peuvent pas être renommées"</string>
+    <string name="i18n_button" formatted="false">"Bouton"</string>
+    <string name="i18n_button_color" formatted="false">"Couleur du bouton"</string>
+    <string name="i18n_button_vibration" formatted="false">"Vibration des boutons"</string>
+    <string name="i18n_cancel" formatted="false">"Annuler"</string>
+    <string name="i18n_center" formatted="false">"Centre"</string>
+    <string name="i18n_center_shape" formatted="false">"Forme du centre"</string>
+    <string name="i18n_circle" formatted="false">"Cercle"</string>
+    <string name="i18n_clear" formatted="false">"Effacer"</string>
+    <string name="i18n_clockwise" formatted="false">"Sens horaire"</string>
+    <string name="i18n_close" formatted="false">"Fermer"</string>
+    <string name="i18n_codeword_count_does_not_match_the_versio" formatted="false">"Le nombre de mots de code ne correspond pas à la version"</string>
+    <string name="i18n_collapse_expand_panel" formatted="false">"Réduire/développer le panneau"</string>
+    <string name="i18n_confirm" formatted="false">"Confirmer"</string>
+    <string name="i18n_confirm_and_go_back" formatted="false">"Confirmer et revenir"</string>
+    <string name="i18n_connect" formatted="false">"Connecter"</string>
+    <string name="i18n_connect_manually" formatted="false">"Connecter manuellement"</string>
+    <string name="i18n_connected" formatted="false">"Connecté"</string>
+    <string name="i18n_connected_0" formatted="true">"Connecté : %1$s"</string>
+    <string name="i18n_connected_bluetooth" formatted="false">"Connecté (Bluetooth)"</string>
+    <string name="i18n_connected_emotion_compatible" formatted="false">"Connecté (compatible Emotion)"</string>
+    <string name="i18n_connected_usb" formatted="false">"Connecté (USB)"</string>
+    <string name="i18n_connected_wifi" formatted="false">"Connecté (WiFi)"</string>
+    <string name="i18n_connecting" formatted="false">"Connexion..."</string>
+    <string name="i18n_connecting_0" formatted="true">"Connexion : %1$s..."</string>
+    <string name="i18n_connecting_to_0" formatted="true">"Connexion à %1$s..."</string>
+    <string name="i18n_connection_failed_0_1" formatted="true">"Échec de la connexion : %1$s (%2$s)"</string>
+    <string name="i18n_connection_lost_0" formatted="true">"Connexion perdue : %1$s"</string>
+    <string name="i18n_connection_method" formatted="false">"Méthode de connexion"</string>
+    <string name="i18n_context" formatted="false">"Contexte"</string>
+    <string name="i18n_control_color" formatted="false">"Couleur du contrôle"</string>
+    <string name="i18n_control_outline_color" formatted="false">"Couleur du contour du contrôle"</string>
+    <string name="i18n_control_outline_width" formatted="false">"Largeur du contour du contrôle"</string>
+    <string name="i18n_control_outline_width_0" formatted="true">"Largeur du contour du contrôle : %1$s"</string>
+    <string name="i18n_control_type" formatted="false">"Type de contrôle"</string>
+    <string name="i18n_controlled_mode" formatted="false">"Mode contrôlé"</string>
+    <string name="i18n_controlled_mode_5bf179" formatted="false">"Mode contrôlé"</string>
+    <string name="i18n_controller_audio" formatted="false">"Audio de la manette"</string>
+    <string name="i18n_controller_audio_output" formatted="false">"Sortie audio de la manette"</string>
+    <string name="i18n_controller_led" formatted="false">"LED de la manette"</string>
+    <string name="i18n_controller_mode" formatted="false">"Mode manette"</string>
+    <string name="i18n_coordinate_system" formatted="false">"Système de coordonnées"</string>
+    <string name="i18n_copied_as_0" formatted="true">"Copié en tant que \"%1$s\""</string>
+    <string name="i18n_copy" formatted="false">"^Copier_"</string>
+    <string name="i18n_copy_0" formatted="true">"Copier_%1$s"</string>
+    <string name="i18n_copy_79d3ab" formatted="false">"Copier"</string>
+    <string name="i18n_copy_layout" formatted="false">"Copier la disposition"</string>
+    <string name="i18n_counterclockwise" formatted="false">"Sens antihoraire"</string>
+    <string name="i18n_create" formatted="false">"Créer"</string>
+    <string name="i18n_created_0" formatted="true">"Créé \"%1$s\""</string>
+    <string name="i18n_creating_virtual_gamepad" formatted="false">"Création de la manette virtuelle..."</string>
+    <string name="i18n_current_preset_0" formatted="true">"Préréglage actuel : %1$s"</string>
+    <string name="i18n_custom" formatted="false">"Personnalisé"</string>
+    <string name="i18n_custom_circle" formatted="false">"Personnalisé (cercle)"</string>
+    <string name="i18n_custom_keypad" formatted="false">"Pavé personnalisé"</string>
+    <string name="i18n_custom_rectangle" formatted="false">"Personnalisé (rectangle)"</string>
+    <string name="i18n_d_pad_down" formatted="false">"Bas de la croix directionnelle"</string>
+    <string name="i18n_d_pad_left" formatted="false">"Gauche de la croix directionnelle"</string>
+    <string name="i18n_d_pad_right" formatted="false">"Droite de la croix directionnelle"</string>
+    <string name="i18n_d_pad_up" formatted="false">"Haut de la croix directionnelle"</string>
+    <string name="i18n_data_is_too_long_to_generate_a_qr_code" formatted="false">"Les données sont trop longues pour générer un QR code"</string>
+    <string name="i18n_data_length_does_not_match_the_version" formatted="false">"La longueur des données ne correspond pas à la version"</string>
+    <string name="i18n_dead_zone" formatted="false">"Zone morte (%)"</string>
+    <string name="i18n_default_device" formatted="false">"Appareil par défaut"</string>
+    <string name="i18n_delayed" formatted="false">"Différé"</string>
+    <string name="i18n_delete" formatted="false">"Supprimer"</string>
+    <string name="i18n_delete_0" formatted="true">"Supprimer \"%1$s\" ?"</string>
+    <string name="i18n_delete_control" formatted="false">"Supprimer le contrôle"</string>
+    <string name="i18n_delete_preset" formatted="false">"Supprimer le préréglage"</string>
+    <string name="i18n_delete_selected_point" formatted="false">"Supprimer le point sélectionné"</string>
+    <string name="i18n_delete_this_control" formatted="false">"Supprimer ce contrôle ?"</string>
+    <string name="i18n_detect" formatted="false">"Détecter"</string>
+    <string name="i18n_detect_gamepad_again" formatted="false">"Détecter à nouveau la manette"</string>
+    <string name="i18n_device_found_0" formatted="true">"Appareil trouvé : %1$s"</string>
+    <string name="i18n_direction_mode" formatted="false">"Mode direction"</string>
+    <string name="i18n_discard" formatted="false">"Ignorer"</string>
+    <string name="i18n_discard_changes" formatted="false">"Ignorer les modifications"</string>
+    <string name="i18n_discard_changes_17a8d0" formatted="false">"Ignorer les modifications ?"</string>
+    <string name="i18n_discard_the_current_layout_changes" formatted="false">"Ignorer les modifications de la disposition actuelle ?"</string>
+    <string name="i18n_disconnect" formatted="false">"Déconnecter"</string>
+    <string name="i18n_disconnected" formatted="false">"Déconnecté"</string>
+    <string name="i18n_disconnected_7f3a55" formatted="false">"Déconnecté"</string>
+    <string name="i18n_disconnected_8439c1" formatted="false">"Déconnecté"</string>
+    <string name="i18n_disconnected_reconnecting" formatted="false">"Déconnecté, reconnexion..."</string>
+    <string name="i18n_disconnected_waiting_to_reconnect" formatted="false">"Déconnecté, en attente de reconnexion..."</string>
+    <string name="i18n_display_text" formatted="false">"Texte affiché"</string>
+    <string name="i18n_double_tap_center" formatted="false">"Double appui au centre"</string>
+    <string name="i18n_double_tap_press" formatted="false">"Double appui"</string>
+    <string name="i18n_double_tap_then_drag" formatted="false">"Double appui puis glisser"</string>
+    <string name="i18n_down" formatted="false">"Bas"</string>
+    <string name="i18n_down_c4557f" formatted="false">"Bas"</string>
+    <string name="i18n_down_c761f5" formatted="false">"Bas"</string>
+    <string name="i18n_download_shizuku" formatted="false">"Télécharger Shizuku"</string>
+    <string name="i18n_driver" formatted="false">"Pilote"</string>
+    <string name="i18n_ds_gamepad" formatted="false">"Manette DS"</string>
+    <string name="i18n_dualsense_bluetooth" formatted="false">"DualSense Bluetooth"</string>
+    <string name="i18n_duration_0_ms" formatted="true">"Durée : %1$sms"</string>
+    <string name="i18n_duration_20ms" formatted="false">"Durée : 20ms"</string>
+    <string name="i18n_duration_50ms" formatted="false">"Durée : 50ms"</string>
+    <string name="i18n_dynamic" formatted="false">"Dynamique"</string>
+    <string name="i18n_edit" formatted="false">"Modifier"</string>
+    <string name="i18n_emotion_error_0" formatted="true">"Erreur Emotion : %1$s"</string>
+    <string name="i18n_emulate_linear_trigger" formatted="false">"Émuler la gâchette linéaire"</string>
+    <string name="i18n_emulated_gamepad_type" formatted="false">"Type de manette émulée"</string>
+    <string name="i18n_enable_developer_options_and_usb_debuggi" formatted="false">"Activez les Options pour les développeurs et le débogage USB"</string>
+    <string name="i18n_enable_hd_vibration" formatted="false">"Activer la vibration HD"</string>
+    <string name="i18n_enable_while_a_specific_button_is_held" formatted="false">"Activer lorsqu'un bouton spécifique est maintenu"</string>
+    <string name="i18n_ensurebound_skipped_shizuku_not_running" formatted="true">"ensureBound ignoré : Shizuku n'est pas en cours d'exécution (%1$s)"</string>
+    <string name="i18n_enter" formatted="false">"Entrée"</string>
+    <string name="i18n_enter_a_new_preset_name" formatted="false">"Saisissez un nouveau nom de préréglage"</string>
+    <string name="i18n_enter_preset_name" formatted="false">"Saisissez le nom du préréglage"</string>
+    <string name="i18n_exit_controlled_mode" formatted="false">"Quitter le mode contrôlé"</string>
+    <string name="i18n_exit_edit_mode_first" formatted="false">"Quittez d'abord le mode d'édition"</string>
+    <string name="i18n_exit_editing" formatted="false">"Quitter l'édition"</string>
+    <string name="i18n_exit_floating_mode" formatted="false">"Quitter le mode flottant"</string>
+    <string name="i18n_exited_floating_mode" formatted="false">"Mode flottant quitté"</string>
+    <string name="i18n_export" formatted="false">"Exporter"</string>
+    <string name="i18n_export_appearance" formatted="false">"Exporter l'apparence"</string>
+    <string name="i18n_export_failed_0" formatted="true">"Échec de l'exportation : %1$s"</string>
+    <string name="i18n_export_successful" formatted="false">"Exportation réussie"</string>
+    <string name="i18n_extended_touch_area" formatted="false">"- Zone tactile étendue"</string>
+    <string name="i18n_extended_touch_area_dac06c" formatted="false">"Zone tactile étendue"</string>
+    <string name="i18n_failed_to_add_keep_alive_overlay_0" formatted="true">"Échec de l'ajout de la superposition de maintien : %1$s"</string>
+    <string name="i18n_failed_to_bind_shizuku_user_service_0" formatted="true">"Échec de la liaison au service utilisateur Shizuku : %1$s"</string>
+    <string name="i18n_failed_to_create_dsu_socket_0" formatted="true">"Échec de la création du socket DSU : %1$s"</string>
+    <string name="i18n_failed_to_create_virtual_gamepad_code_0" formatted="true">"Échec de la création de la manette virtuelle (code=%1$s) ; vous devrez peut-être démarrer Shizuku en tant que root"</string>
+    <string name="i18n_failed_to_create_virtual_gamepad_via_dev" formatted="true">"Échec de la création de la manette virtuelle via /dev/uhid (errno=%1$s)"</string>
+    <string name="i18n_failed_to_create_virtual_keyboard_errno" formatted="true">"Échec de la création du clavier virtuel (errno=%1$s)"</string>
+    <string name="i18n_failed_to_create_virtual_mouse_errno_0" formatted="true">"Échec de la création de la souris virtuelle (errno=%1$s)"</string>
+    <string name="i18n_failed_to_destroy_keyboard" formatted="false">"Échec de la destruction du clavier"</string>
+    <string name="i18n_failed_to_destroy_mouse" formatted="false">"Échec de la destruction de la souris"</string>
+    <string name="i18n_failed_to_get_local_ip_address" formatted="false">"Échec de l'obtention de l'adresse IP locale"</string>
+    <string name="i18n_failed_to_initialize_type_2_0" formatted="true">"Échec de l'initialisation du type 2 : %1$s"</string>
+    <string name="i18n_failed_to_load_image_0" formatted="true">"Échec du chargement de l'image : %1$s"</string>
+    <string name="i18n_failed_to_load_native_library_0" formatted="true">"Échec du chargement de la bibliothèque native : %1$s"</string>
+    <string name="i18n_failed_to_load_preset_he" formatted="false">"Échec du chargement du préréglage HE"</string>
+    <string name="i18n_failed_to_open_dev_uinput_errno_0" formatted="true">"Échec de l'ouverture de /dev/uinput (errno=%1$s)"</string>
+    <string name="i18n_failed_to_open_overlay_permission_settin" formatted="false">"Échec de l'ouverture des paramètres d'autorisation de superposition"</string>
+    <string name="i18n_failed_to_open_settings_open_developer_o" formatted="false">"Échec de l'ouverture des paramètres. Ouvrez les Options pour les développeurs manuellement"</string>
+    <string name="i18n_failed_to_query_availability" formatted="false">"Échec de la vérification de la disponibilité"</string>
+    <string name="i18n_failed_to_read_appearance_profile" formatted="false">"Échec de la lecture du profil d'apparence"</string>
+    <string name="i18n_failed_to_remove_keep_alive_overlay_0" formatted="true">"Échec de la suppression de la superposition de maintien : %1$s"</string>
+    <string name="i18n_failed_to_request_shizuku_permission_0" formatted="true">"Échec de la demande d'autorisation Shizuku : %1$s"</string>
+    <string name="i18n_fast_response_mode" formatted="false">"Mode réponse rapide"</string>
+    <string name="i18n_finger_distance" formatted="false">"Distance du doigt -&gt;"</string>
+    <string name="i18n_flat" formatted="false">"Plat"</string>
+    <string name="i18n_floating_mode" formatted="false">"Mode flottant"</string>
+    <string name="i18n_floating_mode_enabled_tap_the_floating_b" formatted="false">"Mode flottant activé. Appuyez sur le bouton flottant pour l'afficher ou le masquer"</string>
+    <string name="i18n_floating_mode_is_running" formatted="false">"Le mode flottant est actif"</string>
+    <string name="i18n_floating_opacity" formatted="false">"Opacité flottante"</string>
+    <string name="i18n_follow_area_opacity" formatted="false">"Opacité de la zone de suivi (%)"</string>
+    <string name="i18n_follow_inside_rectangle" formatted="false">"Suivre à l'intérieur du rectangle"</string>
+    <string name="i18n_frequency_0_1_hz" formatted="true">"Fréquence : %1$s (%2$sHz)"</string>
+    <string name="i18n_frequency_56" formatted="false">"Fréquence : 56"</string>
+    <string name="i18n_full_controller" formatted="false">"Manette complète"</string>
+    <string name="i18n_game_vibration" formatted="false">"Vibration du jeu"</string>
+    <string name="i18n_gamepad" formatted="false">"Manette"</string>
+    <string name="i18n_gamepad_0" formatted="true">"Manette %1$s"</string>
+    <string name="i18n_gamepad_a" formatted="false">"Manette : A"</string>
+    <string name="i18n_gamepad_b" formatted="false">"Manette : B"</string>
+    <string name="i18n_gamepad_details" formatted="false">"Détails de la manette"</string>
+    <string name="i18n_gamepad_display" formatted="false">"Affichage de la manette"</string>
+    <string name="i18n_gamepad_driver" formatted="false">"Pilote de manette"</string>
+    <string name="i18n_gamepad_gyro" formatted="false">"Gyroscope de la manette"</string>
+    <string name="i18n_gamepad_home" formatted="false">"Manette : Accueil"</string>
+    <string name="i18n_gamepad_lb" formatted="false">"Manette : LB"</string>
+    <string name="i18n_gamepad_left_bumper" formatted="false">"Manette : Bouton gauche"</string>
+    <string name="i18n_gamepad_left_stick" formatted="false">"Manette : Stick gauche"</string>
+    <string name="i18n_gamepad_left_stick_click" formatted="false">"Manette : Clic stick gauche"</string>
+    <string name="i18n_gamepad_left_trigger" formatted="false">"Manette : Gâchette gauche"</string>
+    <string name="i18n_gamepad_lt" formatted="false">"Manette : LT"</string>
+    <string name="i18n_gamepad_menu" formatted="false">"Manette : Menu"</string>
+    <string name="i18n_gamepad_rb" formatted="false">"Manette : RB"</string>
+    <string name="i18n_gamepad_right_bumper" formatted="false">"Manette : Bouton droit"</string>
+    <string name="i18n_gamepad_right_stick" formatted="false">"Manette : Stick droit"</string>
+    <string name="i18n_gamepad_right_stick_click" formatted="false">"Manette : Clic stick droit"</string>
+    <string name="i18n_gamepad_right_trigger" formatted="false">"Manette : Gâchette droite"</string>
+    <string name="i18n_gamepad_rt" formatted="false">"Manette : RT"</string>
+    <string name="i18n_gamepad_select" formatted="false">"Manette : Sélection"</string>
+    <string name="i18n_gamepad_share" formatted="false">"Manette : Partager"</string>
+    <string name="i18n_gamepad_x" formatted="false">"Manette : X"</string>
+    <string name="i18n_gamepad_y" formatted="false">"Manette : Y"</string>
+    <string name="i18n_gesture_end" formatted="false">"Fin du geste"</string>
+    <string name="i18n_gesture_start" formatted="false">"Début du geste"</string>
+    <string name="i18n_gkme_controlled_mode_is_running" formatted="false">"Le mode contrôlé GKME est actif"</string>
+    <string name="i18n_global_settings" formatted="false">"Paramètres globaux"</string>
+    <string name="i18n_going_back_will_stop_the_service_go_back" formatted="false">"Revenir arrêtera le service. Revenir ?"</string>
+    <string name="i18n_gyro" formatted="false">"Gyroscope"</string>
+    <string name="i18n_gyro_activation" formatted="false">"Activation du gyroscope"</string>
+    <string name="i18n_gyro_anti_dead_zone" formatted="false">"Anti-zone morte du gyroscope (%)"</string>
+    <string name="i18n_gyro_behavior" formatted="false">"Comportement du gyroscope"</string>
+    <string name="i18n_gyro_dead_zone" formatted="false">"Zone morte du gyroscope (%)"</string>
+    <string name="i18n_gyro_to_left_stick_direction" formatted="false">"Gyroscope vers direction du stick gauche"</string>
+    <string name="i18n_gyro_to_left_stick_view" formatted="false">"Gyroscope vers vue du stick gauche"</string>
+    <string name="i18n_gyro_to_mouse" formatted="false">"Gyroscope vers souris"</string>
+    <string name="i18n_gyro_to_right_stick_direction" formatted="false">"Gyroscope vers direction du stick droit"</string>
+    <string name="i18n_gyro_to_right_stick_view" formatted="false">"Gyroscope vers vue du stick droit"</string>
+    <string name="i18n_hd_disabled" formatted="false">"HD désactivé"</string>
+    <string name="i18n_hd_ready_0" formatted="true">"HD prêt (%1$s)"</string>
+    <string name="i18n_hd_vibration_hd" formatted="false">"Vibration HD (HD)"</string>
+    <string name="i18n_height" formatted="false">"Hauteur"</string>
+    <string name="i18n_hidden_api_unavailable_0" formatted="true">"API masquée indisponible : %1$s"</string>
+    <string name="i18n_hold" formatted="false">"Maintenir"</string>
+    <string name="i18n_home" formatted="false">"Accueil"</string>
+    <string name="i18n_host_disconnected" formatted="false">"Hôte déconnecté"</string>
+    <string name="i18n_host_ip" formatted="false">"IP de l'hôte"</string>
+    <string name="i18n_http_port_0_unavailable_1" formatted="true">"Port HTTP %1$s indisponible : %2$s"</string>
+    <string name="i18n_icon_color" formatted="false">"Couleur de l'icône"</string>
+    <string name="i18n_idle_opacity" formatted="false">"Opacité au repos (%)"</string>
+    <string name="i18n_if_enabled_simply_tap_start_service" formatted="false">"Si activé, appuyez simplement sur Démarrer le service."</string>
+    <string name="i18n_image" formatted="false">"Image"</string>
+    <string name="i18n_image_set" formatted="false">"Ensemble d'images"</string>
+    <string name="i18n_import" formatted="false">"Importer"</string>
+    <string name="i18n_import_appearance" formatted="false">"Importer l'apparence"</string>
+    <string name="i18n_import_failed_0" formatted="true">"Échec de l'importation : %1$s"</string>
+    <string name="i18n_import_layout" formatted="false">"Importer la disposition"</string>
+    <string name="i18n_imported_0" formatted="true">"Importé \"%1$s\""</string>
+    <string name="i18n_in_process_richtap_initialization_error" formatted="false">"Erreur d'initialisation de RichTap dans le processus"</string>
+    <string name="i18n_init_failed" formatted="false">"échec de l'initialisation"</string>
+    <string name="i18n_input_gamepad" formatted="false">"Manette d'entrée"</string>
+    <string name="i18n_instant" formatted="false">"Instantané"</string>
+    <string name="i18n_integrated_d_pad" formatted="false">"Croix directionnelle intégrée"</string>
+    <string name="i18n_integrated_d_pad_custom_keypad" formatted="false">"Croix directionnelle intégrée / pavé personnalisé"</string>
+    <string name="i18n_intensity_0" formatted="true">"Intensité : %1$s"</string>
+    <string name="i18n_intensity_128" formatted="false">"Intensité : 128"</string>
+    <string name="i18n_intensity_64" formatted="false">"Intensité : 64"</string>
+    <string name="i18n_invalid_ip_address_format" formatted="false">"Format d'adresse IP invalide"</string>
+    <string name="i18n_invert_horizontal_scroll" formatted="false">"Inverser le défilement horizontal"</string>
+    <string name="i18n_invert_vertical_scroll" formatted="false">"Inverser le défilement vertical"</string>
+    <string name="i18n_inverted_portrait" formatted="false">"Portrait inversé"</string>
+    <string name="i18n_ip_address" formatted="false">"Adresse IP"</string>
+    <string name="i18n_isavailable_call_failed" formatted="false">"Échec de l'appel isAvailable"</string>
+    <string name="i18n_keep_screen_on" formatted="false">"Garder l'écran allumé"</string>
+    <string name="i18n_key_press" formatted="false">"Appui de touche"</string>
+    <string name="i18n_key_release" formatted="false">"Relâchement de touche"</string>
+    <string name="i18n_keyboard" formatted="false">"Clavier"</string>
+    <string name="i18n_keyboard_0" formatted="false">"Clavier : 0"</string>
+    <string name="i18n_keyboard_0046e9" formatted="false">"Clavier : \\"</string>
+    <string name="i18n_keyboard_06d5f0" formatted="false">"Clavier : `"</string>
+    <string name="i18n_keyboard_072e9b" formatted="false">"Clavier : /"</string>
+    <string name="i18n_keyboard_07bb03" formatted="false">"Clavier : ↑"</string>
+    <string name="i18n_keyboard_1" formatted="false">"Clavier : 1"</string>
+    <string name="i18n_keyboard_2" formatted="false">"Clavier : 2"</string>
+    <string name="i18n_keyboard_3" formatted="false">"Clavier : 3"</string>
+    <string name="i18n_keyboard_4" formatted="false">"Clavier : 4"</string>
+    <string name="i18n_keyboard_41fe99" formatted="false">"Clavier : ."</string>
+    <string name="i18n_keyboard_47e933" formatted="false">"Clavier : ["</string>
+    <string name="i18n_keyboard_5" formatted="false">"Clavier : 5"</string>
+    <string name="i18n_keyboard_6" formatted="false">"Clavier : 6"</string>
+    <string name="i18n_keyboard_6adcde" formatted="false">"Clavier : ,"</string>
+    <string name="i18n_keyboard_7" formatted="false">"Clavier : 7"</string>
+    <string name="i18n_keyboard_743bab" formatted="false">"Clavier : -"</string>
+    <string name="i18n_keyboard_7484ad" formatted="false">"Clavier : ↓"</string>
+    <string name="i18n_keyboard_75eb76" formatted="false">"Clavier : ]"</string>
+    <string name="i18n_keyboard_8" formatted="false">"Clavier : 8"</string>
+    <string name="i18n_keyboard_9" formatted="false">"Clavier : 9"</string>
+    <string name="i18n_keyboard_a" formatted="false">"Clavier : A"</string>
+    <string name="i18n_keyboard_a77d53" formatted="false">"Clavier : ;"</string>
+    <string name="i18n_keyboard_altgr" formatted="false">"Clavier : AltGr"</string>
+    <string name="i18n_keyboard_b" formatted="false">"Clavier : B"</string>
+    <string name="i18n_keyboard_backspace" formatted="false">"Clavier : Backspace"</string>
+    <string name="i18n_keyboard_c" formatted="false">"Clavier : C"</string>
+    <string name="i18n_keyboard_c15dcd" formatted="false">"Clavier : '"</string>
+    <string name="i18n_keyboard_caps_lock" formatted="false">"Clavier : Caps Lock"</string>
+    <string name="i18n_keyboard_d" formatted="false">"Clavier : D"</string>
+    <string name="i18n_keyboard_d4a2fd" formatted="false">"Clavier : ←"</string>
+    <string name="i18n_keyboard_delete" formatted="false">"Clavier : Delete"</string>
+    <string name="i18n_keyboard_e" formatted="false">"Clavier : E"</string>
+    <string name="i18n_keyboard_e013ce" formatted="false">"Clavier : →"</string>
+    <string name="i18n_keyboard_ea7f6d" formatted="false">"Clavier : ="</string>
+    <string name="i18n_keyboard_enter" formatted="false">"Clavier : Enter"</string>
+    <string name="i18n_keyboard_esc" formatted="false">"Clavier : Esc"</string>
+    <string name="i18n_keyboard_f" formatted="false">"Clavier : F"</string>
+    <string name="i18n_keyboard_f1" formatted="false">"Clavier : F1"</string>
+    <string name="i18n_keyboard_f10" formatted="false">"Clavier : F10"</string>
+    <string name="i18n_keyboard_f11" formatted="false">"Clavier : F11"</string>
+    <string name="i18n_keyboard_f12" formatted="false">"Clavier : F12"</string>
+    <string name="i18n_keyboard_f2" formatted="false">"Clavier : F2"</string>
+    <string name="i18n_keyboard_f3" formatted="false">"Clavier : F3"</string>
+    <string name="i18n_keyboard_f4" formatted="false">"Clavier : F4"</string>
+    <string name="i18n_keyboard_f5" formatted="false">"Clavier : F5"</string>
+    <string name="i18n_keyboard_f6" formatted="false">"Clavier : F6"</string>
+    <string name="i18n_keyboard_f7" formatted="false">"Clavier : F7"</string>
+    <string name="i18n_keyboard_f8" formatted="false">"Clavier : F8"</string>
+    <string name="i18n_keyboard_f9" formatted="false">"Clavier : F9"</string>
+    <string name="i18n_keyboard_g" formatted="false">"Clavier : G"</string>
+    <string name="i18n_keyboard_h" formatted="false">"Clavier : H"</string>
+    <string name="i18n_keyboard_i" formatted="false">"Clavier : I"</string>
+    <string name="i18n_keyboard_j" formatted="false">"Clavier : J"</string>
+    <string name="i18n_keyboard_k" formatted="false">"Clavier : K"</string>
+    <string name="i18n_keyboard_key_0" formatted="true">"Clavier : Key%1$s"</string>
+    <string name="i18n_keyboard_l" formatted="false">"Clavier : L"</string>
+    <string name="i18n_keyboard_left_alt" formatted="false">"Clavier : Left Alt"</string>
+    <string name="i18n_keyboard_left_ctrl" formatted="false">"Clavier : Left Ctrl"</string>
+    <string name="i18n_keyboard_left_shift" formatted="false">"Clavier : Left Shift"</string>
+    <string name="i18n_keyboard_m" formatted="false">"Clavier : M"</string>
+    <string name="i18n_keyboard_menu" formatted="false">"Clavier : Menu"</string>
+    <string name="i18n_keyboard_n" formatted="false">"Clavier : N"</string>
+    <string name="i18n_keyboard_o" formatted="false">"Clavier : O"</string>
+    <string name="i18n_keyboard_p" formatted="false">"Clavier : P"</string>
+    <string name="i18n_keyboard_q" formatted="false">"Clavier : Q"</string>
+    <string name="i18n_keyboard_r" formatted="false">"Clavier : R"</string>
+    <string name="i18n_keyboard_right_ctrl" formatted="false">"Clavier : Right Ctrl"</string>
+    <string name="i18n_keyboard_right_shift" formatted="false">"Clavier : Right Shift"</string>
+    <string name="i18n_keyboard_right_win" formatted="false">"Clavier : Right Win"</string>
+    <string name="i18n_keyboard_s" formatted="false">"Clavier : S"</string>
+    <string name="i18n_keyboard_space" formatted="false">"Clavier : Space"</string>
+    <string name="i18n_keyboard_t" formatted="false">"Clavier : T"</string>
+    <string name="i18n_keyboard_tab" formatted="false">"Clavier : Tab"</string>
+    <string name="i18n_keyboard_u" formatted="false">"Clavier : U"</string>
+    <string name="i18n_keyboard_v" formatted="false">"Clavier : V"</string>
+    <string name="i18n_keyboard_w" formatted="false">"Clavier : W"</string>
+    <string name="i18n_keyboard_win" formatted="false">"Clavier : Win"</string>
+    <string name="i18n_keyboard_x" formatted="false">"Clavier : X"</string>
+    <string name="i18n_keyboard_y" formatted="false">"Clavier : Y"</string>
+    <string name="i18n_keyboard_z" formatted="false">"Clavier : Z"</string>
+    <string name="i18n_landscape" formatted="false">"Paysage"</string>
+    <string name="i18n_language" formatted="false">"Langue"</string>
+    <string name="i18n_layout" formatted="false">"Disposition"</string>
+    <string name="i18n_layout_loaded_total_startup_time_0_ms_pr" formatted="true">"Disposition chargée, temps de démarrage total %1$s ms (démarrage du processus → première image)"</string>
+    <string name="i18n_layout_presets" formatted="false">"Préréglages de disposition"</string>
+    <string name="i18n_left" formatted="false">"Gauche"</string>
+    <string name="i18n_left_3e0a82" formatted="false">"Gauche"</string>
+    <string name="i18n_left_a090d7" formatted="false">"Gauche :"</string>
+    <string name="i18n_left_button_drag" formatted="false">"Glisser avec le bouton gauche"</string>
+    <string name="i18n_left_click" formatted="false">"Clic gauche"</string>
+    <string name="i18n_left_d2aff1" formatted="false">"Gauche"</string>
+    <string name="i18n_left_stick" formatted="false">"Stick gauche"</string>
+    <string name="i18n_left_stick_click" formatted="false">"Clic stick gauche"</string>
+    <string name="i18n_linear_trigger" formatted="false">"Gâchette linéaire"</string>
+    <string name="i18n_linear_trigger_wireframe" formatted="false">"- Contour filaire de la gâchette linéaire"</string>
+    <string name="i18n_linear_trigger_with_vibration" formatted="false">"Gâchette linéaire avec vibration"</string>
+    <string name="i18n_loaded_0" formatted="true">"Chargé \"%1$s\""</string>
+    <string name="i18n_local_ip_0" formatted="true">"IP locale : %1$s"</string>
+    <string name="i18n_local_virtual_gamepad_is_ready" formatted="false">"La manette virtuelle locale est prête"</string>
+    <string name="i18n_long_press" formatted="false">"Appui long"</string>
+    <string name="i18n_mapped_keys" formatted="false">"Touches mappées"</string>
+    <string name="i18n_mask_out_of_range" formatted="false">"Masque hors plage"</string>
+    <string name="i18n_max_icon_size_0_sp" formatted="true">"Taille maximale de l'icône : %1$ssp"</string>
+    <string name="i18n_max_icon_size_28sp" formatted="false">"Taille maximale de l'icône : 28sp"</string>
+    <string name="i18n_max_icon_size_unlimited" formatted="false">"Taille maximale de l'icône : Illimitée"</string>
+    <string name="i18n_menu" formatted="false">"Menu"</string>
+    <string name="i18n_mic_mute" formatted="false">"Micro coupé"</string>
+    <string name="i18n_middle_button_drag" formatted="false">"Glisser avec le bouton du milieu"</string>
+    <string name="i18n_middle_click" formatted="false">"Clic du milieu"</string>
+    <string name="i18n_miscellaneous" formatted="false">"Divers"</string>
+    <string name="i18n_motion" formatted="false">"Mouvement"</string>
+    <string name="i18n_motion_orientation" formatted="false">"Orientation du mouvement"</string>
+    <string name="i18n_motion_orientation_is_locked_by_layout_0" formatted="true">"L'orientation du mouvement est verrouillée par la disposition \"%1$s\""</string>
+    <string name="i18n_motion_source" formatted="false">"Source du mouvement"</string>
+    <string name="i18n_mouse" formatted="false">"Souris"</string>
+    <string name="i18n_mouse_back" formatted="false">"Souris : Précédent"</string>
+    <string name="i18n_mouse_forward" formatted="false">"Souris : Suivant"</string>
+    <string name="i18n_mouse_left_button" formatted="false">"Souris : Bouton gauche"</string>
+    <string name="i18n_mouse_lmb" formatted="false">"Souris : LMB"</string>
+    <string name="i18n_mouse_middle_button" formatted="false">"Souris : Bouton du milieu"</string>
+    <string name="i18n_mouse_mmb" formatted="false">"Souris : MMB"</string>
+    <string name="i18n_mouse_right_button" formatted="false">"Souris : Bouton droit"</string>
+    <string name="i18n_mouse_rmb" formatted="false">"Souris : RMB"</string>
+    <string name="i18n_mouse_sensitivity" formatted="false">"Sensibilité de la souris"</string>
+    <string name="i18n_move_cursor" formatted="false">"Déplacer le curseur"</string>
+    <string name="i18n_mpackagename_is_inaccessible_using_defau" formatted="true">"mPackageName est inaccessible (utilisation de la valeur par défaut dans le processus de l'application) : %1$s"</string>
+    <string name="i18n_nativedestroy_failed" formatted="false">"Échec de nativeDestroy"</string>
+    <string name="i18n_nativewrite_failed" formatted="false">"Échec de nativeWrite"</string>
+    <string name="i18n_nativewritekeyboard_failed" formatted="false">"Échec de nativeWriteKeyboard"</string>
+    <string name="i18n_nativewritemouse_failed" formatted="false">"Échec de nativeWriteMouse"</string>
+    <string name="i18n_new" formatted="false">"Nouveau"</string>
+    <string name="i18n_new_layout" formatted="false">"Nouvelle disposition"</string>
+    <string name="i18n_no_available_network_interface" formatted="false">"Aucune interface réseau disponible"</string>
+    <string name="i18n_no_gamepad" formatted="false">"Aucune manette"</string>
+    <string name="i18n_no_motion" formatted="false">"Aucun mouvement"</string>
+    <string name="i18n_non_linear_trigger" formatted="false">"Gâchette non linéaire"</string>
+    <string name="i18n_none" formatted="false">"Aucun"</string>
+    <string name="i18n_not_started" formatted="false">"Non démarré"</string>
+    <string name="i18n_note_this_app_is_not_emotion_join_qq_gro" formatted="false">"Remarque : cette application n'est pas Emotion. Rejoignez le groupe QQ 1045923515 pour télécharger l'Emotion officiel"</string>
+    <string name="i18n_ok" formatted="false">"OK"</string>
+    <string name="i18n_one_finger_swipe" formatted="false">"Balayage à un doigt"</string>
+    <string name="i18n_open_settings" formatted="false">"Ouvrir les paramètres"</string>
+    <string name="i18n_open_shizuku" formatted="false">"Ouvrir Shizuku"</string>
+    <string name="i18n_open_the_app_to_exit_floating_mode" formatted="false">"Ouvrez l'application pour quitter le mode flottant"</string>
+    <string name="i18n_outline_color" formatted="false">"Couleur du contour"</string>
+    <string name="i18n_outline_width" formatted="false">"Largeur du contour"</string>
+    <string name="i18n_outline_width_0" formatted="true">"Largeur du contour : %1$s"</string>
+    <string name="i18n_output_distance" formatted="false">"Distance de sortie -&gt;"</string>
+    <string name="i18n_overlap_trigger" formatted="false">"Gâchette de chevauchement"</string>
+    <string name="i18n_overlay_keep_alive" formatted="false">"Maintien de la superposition"</string>
+    <string name="i18n_overlay_keep_alive_active" formatted="false">"Maintien de la superposition actif"</string>
+    <string name="i18n_overlay_keep_alive_stopped" formatted="false">"Maintien de la superposition arrêté"</string>
+    <string name="i18n_overlay_permission_is_missing_skipping_o" formatted="false">"L'autorisation de superposition est manquante ; maintien de la superposition ignoré"</string>
+    <string name="i18n_overlay_permission_is_not_granted_cannot" formatted="false">"L'autorisation de superposition n'est pas accordée, impossible d'activer le maintien de la superposition"</string>
+    <string name="i18n_overlay_permission_is_required_for_float" formatted="false">"L'autorisation de superposition est requise pour le mode flottant"</string>
+    <string name="i18n_persistent_notification_while_controlled" formatted="false">"Notification persistante pendant que le mode contrôlé est actif, utilisée pour empêcher le système de l'arrêter en arrière-plan"</string>
+    <string name="i18n_persistent_notification_while_floating_m" formatted="false">"Notification persistante pendant que le mode flottant est actif"</string>
+    <string name="i18n_phone_gyro" formatted="false">"Gyroscope du téléphone"</string>
+    <string name="i18n_phone_motor" formatted="false">"Moteur du téléphone"</string>
+    <string name="i18n_phone_speaker" formatted="false">"Haut-parleur du téléphone"</string>
+    <string name="i18n_physical_gamepad" formatted="false">"Manette physique"</string>
+    <string name="i18n_pointer_acceleration" formatted="false">"Accélération du pointeur"</string>
+    <string name="i18n_polling_rate" formatted="false">"Fréquence d'interrogation"</string>
+    <string name="i18n_port_0_is_in_use_a_service_may_already_b" formatted="true">"Le port %1$s est utilisé ; un service est peut-être déjà en cours d'exécution"</string>
+    <string name="i18n_port_0_is_in_use_another_instance_may_al" formatted="true">"Le port %1$s est utilisé ; une autre instance est peut-être déjà en cours d'exécution"</string>
+    <string name="i18n_port_is_in_use_another_instance_may_alre" formatted="true">"Le port est utilisé ; une autre instance est peut-être déjà en cours d'exécution : %1$s"</string>
+    <string name="i18n_portrait" formatted="false">"Portrait"</string>
+    <string name="i18n_press" formatted="false">"Appuyer"</string>
+    <string name="i18n_press_back_or_use_the_back_gesture_to_ex" formatted="false">"Appuyez sur Retour ou utilisez le geste Retour pour quitter"</string>
+    <string name="i18n_preview" formatted="false">"Aperçu"</string>
+    <string name="i18n_reconnecting_to_paired_device" formatted="false">"Reconnexion à l'appareil appairé..."</string>
+    <string name="i18n_refresh" formatted="false">"Actualiser"</string>
+    <string name="i18n_registering_hid_profile" formatted="false">"Enregistrement du profil HID..."</string>
+    <string name="i18n_reject" formatted="false">"Refuser"</string>
+    <string name="i18n_release" formatted="false">"Relâcher"</string>
+    <string name="i18n_rename" formatted="false">"Renommer"</string>
+    <string name="i18n_renamed_to_0" formatted="true">"Renommé en \"%1$s\""</string>
+    <string name="i18n_request_permission" formatted="false">"Demander l'autorisation"</string>
+    <string name="i18n_requesting_shizuku_permission_requestcod" formatted="true">"Demande d'autorisation Shizuku requestCode=%1$s force=%2$s"</string>
+    <string name="i18n_reset" formatted="false">"Réinitialiser"</string>
+    <string name="i18n_reset_to_straight_line" formatted="false">"Réinitialiser en ligne droite"</string>
+    <string name="i18n_restore_built_in_layout_0_to_defaults" formatted="true">"Restaurer la disposition intégrée \"%1$s\" par défaut ?"</string>
+    <string name="i18n_restore_defaults" formatted="false">"Restaurer les valeurs par défaut"</string>
+    <string name="i18n_restored_0_to_defaults" formatted="true">"Disposition \"%1$s\" restaurée par défaut"</string>
+    <string name="i18n_richtapvibrationeffect_check_0_has_no_va" formatted="true">"RichTapVibrationEffect check=%1$s n'a pas de version valide, retour au type 1"</string>
+    <string name="i18n_richtapvibrationeffect_exists_but_checki" formatted="false">"RichTapVibrationEffect existe mais checkIfRichTapSupport=2 (non pris en charge)"</string>
+    <string name="i18n_right" formatted="false">"Droite"</string>
+    <string name="i18n_right_1f0051" formatted="false">"Droite :"</string>
+    <string name="i18n_right_6a21ce" formatted="false">"Droite"</string>
+    <string name="i18n_right_b45922" formatted="false">"Droite"</string>
+    <string name="i18n_right_button_drag" formatted="false">"Glisser avec le bouton droit"</string>
+    <string name="i18n_right_click" formatted="false">"Clic droit"</string>
+    <string name="i18n_right_stick" formatted="false">"Stick droit"</string>
+    <string name="i18n_right_stick_click" formatted="false">"Clic stick droit"</string>
+    <string name="i18n_roll" formatted="false">"Roulis"</string>
+    <string name="i18n_save" formatted="false">"Enregistrer"</string>
+    <string name="i18n_scanning" formatted="false">"Analyse..."</string>
+    <string name="i18n_screen_off_mode" formatted="false">"Mode écran éteint"</string>
+    <string name="i18n_scroll" formatted="false">"Défilement"</string>
+    <string name="i18n_scroll_sensitivity" formatted="false">"Sensibilité du défilement"</string>
+    <string name="i18n_select" formatted="false">"Sélectionner"</string>
+    <string name="i18n_select_background_image" formatted="false">"Sélectionner l'image d'arrière-plan"</string>
+    <string name="i18n_select_base_image" formatted="false">"Sélectionner l'image de base"</string>
+    <string name="i18n_select_button_image" formatted="false">"Sélectionner l'image du bouton"</string>
+    <string name="i18n_select_color" formatted="false">"Sélectionner une couleur"</string>
+    <string name="i18n_select_image" formatted="false">"Sélectionner une image"</string>
+    <string name="i18n_select_mapped_key" formatted="false">"Sélectionner la touche mappée"</string>
+    <string name="i18n_select_network_interface" formatted="false">"Sélectionner l'interface réseau"</string>
+    <string name="i18n_select_stick_cap_image" formatted="false">"Sélectionner l'image du capuchon de stick"</string>
+    <string name="i18n_select_touchpad_image" formatted="false">"Sélectionner l'image du pavé tactile"</string>
+    <string name="i18n_sensitivity" formatted="false">"Sensibilité"</string>
+    <string name="i18n_sensitivity_a072e4" formatted="false">"Sensibilité (%)"</string>
+    <string name="i18n_sensitivity_curve" formatted="false">"Courbe de sensibilité"</string>
+    <string name="i18n_service_error_0" formatted="true">"Erreur du service : %1$s"</string>
+    <string name="i18n_service_information" formatted="false">"Informations sur le service"</string>
+    <string name="i18n_service_started_waiting_for_connection" formatted="false">"Service démarré, en attente de connexion..."</string>
+    <string name="i18n_settings_button" formatted="false">"Bouton Paramètres"</string>
+    <string name="i18n_share" formatted="false">"Partager"</string>
+    <string name="i18n_shizuku_authorization_failed_grant_permi" formatted="false">"Échec de l'autorisation Shizuku. Accordez l'autorisation dans Shizuku et réessayez"</string>
+    <string name="i18n_shizuku_environment" formatted="false">"Environnement Shizuku"</string>
+    <string name="i18n_shizuku_initialization_failed_0" formatted="true">"Échec de l'initialisation de Shizuku : %1$s"</string>
+    <string name="i18n_shizuku_is_too_old_please_update_it" formatted="false">"Shizuku est trop ancien, veuillez le mettre à jour"</string>
+    <string name="i18n_shizuku_not_authorized" formatted="false">"Shizuku non autorisé"</string>
+    <string name="i18n_shizuku_not_running" formatted="false">"Shizuku n'est pas en cours d'exécution"</string>
+    <string name="i18n_shizuku_permission_denied" formatted="false">"Autorisation Shizuku refusée"</string>
+    <string name="i18n_shizuku_service_is_in_an_unexpected_stat" formatted="false">"Le service Shizuku est dans un état inattendu. Redémarrez votre téléphone et réessayez"</string>
+    <string name="i18n_shizuku_stopped" formatted="false">"Shizuku arrêté"</string>
+    <string name="i18n_shizuku_user_service_connected_0" formatted="true">"Service utilisateur Shizuku connecté (%1$s)"</string>
+    <string name="i18n_shizuku_user_service_disconnected_0" formatted="true">"Service utilisateur Shizuku déconnecté (%1$s)"</string>
+    <string name="i18n_show_hide_floating_button" formatted="false">"Afficher/masquer le bouton flottant"</string>
+    <string name="i18n_single_tap" formatted="false">"Appui simple"</string>
+    <string name="i18n_size" formatted="false">"Taille"</string>
+    <string name="i18n_solid_color" formatted="false">"Couleur unie"</string>
+    <string name="i18n_sound_device" formatted="false">"Périphérique audio"</string>
+    <string name="i18n_sound_device_0" formatted="true">"Périphérique audio %1$s"</string>
+    <string name="i18n_source_https_github_com_4zyz4_gkme" formatted="false">"Source : https://github.com/4zyz4/gkme\n"</string>
+    <string name="i18n_sponsor" formatted="false">"Sponsor"</string>
+    <string name="i18n_square" formatted="false">"Carré"</string>
+    <string name="i18n_start_service" formatted="false">"Démarrer le service"</string>
+    <string name="i18n_start_service_automatically_when_the_app" formatted="false">"Démarrer le service automatiquement à l'ouverture de l'application"</string>
+    <string name="i18n_starteffect_failed_falling_back_to_start" formatted="false">"Échec de startEffect, retour à startPattern"</string>
+    <string name="i18n_starting_service" formatted="false">"Démarrage du service..."</string>
+    <string name="i18n_starting_service_7b3971" formatted="false">"Démarrage du service..."</string>
+    <string name="i18n_starting_shizuku_user_service" formatted="false">"Démarrage du service utilisateur Shizuku..."</string>
+    <string name="i18n_startpattern_failed" formatted="false">"Échec de startPattern"</string>
+    <string name="i18n_startpattern_fallback_failed" formatted="false">"Échec du repli de startPattern"</string>
+    <string name="i18n_startrichtap_failed" formatted="false">"Échec de startRichtap"</string>
+    <string name="i18n_starttencent_failed" formatted="false">"Échec de startTencent"</string>
+    <string name="i18n_starttencenteffect_failed" formatted="false">"Échec de startTencentEffect"</string>
+    <string name="i18n_status_text_color" formatted="false">"Couleur du texte d'état"</string>
+    <string name="i18n_stick" formatted="false">"Stick"</string>
+    <string name="i18n_stick_cap" formatted="false">"- Capuchon de stick"</string>
+    <string name="i18n_stick_cap_color" formatted="false">"Couleur du capuchon de stick"</string>
+    <string name="i18n_stick_cap_outline_color" formatted="false">"Couleur du contour du capuchon de stick"</string>
+    <string name="i18n_stick_cap_outline_width" formatted="false">"Largeur du contour du capuchon de stick"</string>
+    <string name="i18n_stick_cap_outline_width_0" formatted="true">"Largeur du contour du capuchon de stick : %1$s"</string>
+    <string name="i18n_stop" formatted="false">"Arrêter"</string>
+    <string name="i18n_stop_service" formatted="false">"Arrêter le service"</string>
+    <string name="i18n_stop_the_service_first" formatted="false">"Arrêtez d'abord le service"</string>
+    <string name="i18n_stoprichtap_failed_0" formatted="true">"Échec de stopRichtap : %1$s"</string>
+    <string name="i18n_stoptencent_exception_0" formatted="true">"Exception stopTencent : %1$s"</string>
+    <string name="i18n_supported" formatted="false">"Pris en charge"</string>
+    <string name="i18n_swap_left_right_adaptive_triggers" formatted="false">"Inverser les gâchettes adaptatives gauche/droite"</string>
+    <string name="i18n_swap_left_right_motors" formatted="false">"Inverser les moteurs gauche/droite"</string>
+    <string name="i18n_swipe_direction" formatted="false">"Direction du balayage"</string>
+    <string name="i18n_swipe_threshold" formatted="false">"Seuil de balayage"</string>
+    <string name="i18n_swipe_trigger" formatted="false">"Gâchette de balayage"</string>
+    <string name="i18n_switch_gamepad" formatted="false">"Changer de manette"</string>
+    <string name="i18n_switch_target_platform" formatted="false">"Changer de plateforme cible"</string>
+    <string name="i18n_system_default" formatted="false">"Par défaut du système"</string>
+    <string name="i18n_system_effect" formatted="false">"Effet système"</string>
+    <string name="i18n_tap" formatted="false">"Appuyer"</string>
+    <string name="i18n_tap_anywhere_to_exit" formatted="false">"Appuyez n'importe où pour quitter"</string>
+    <string name="i18n_target_platform" formatted="false">"Plateforme cible"</string>
+    <string name="i18n_test" formatted="false">"Tester"</string>
+    <string name="i18n_thank_you_for_your_support" formatted="false">"Merci pour votre soutien !"</string>
+    <string name="i18n_the_current_screen_orientation_swaps_the" formatted="false">"L'orientation actuelle de l'écran inverse le comportement portrait et portrait inversé"</string>
+    <string name="i18n_the_saved_paired_device_will_be_removed" formatted="false">"L'appareil appairé enregistré sera supprimé. Continuer ?"</string>
+    <string name="i18n_this_device" formatted="false">"Cet appareil"</string>
+    <string name="i18n_this_device_does_not_support_hd_vibratio" formatted="false">"Cet appareil ne prend pas en charge la vibration HD"</string>
+    <string name="i18n_three_finger_swipe" formatted="false">"Balayage à trois doigts"</string>
+    <string name="i18n_three_finger_tap" formatted="false">"Appui à trois doigts"</string>
+    <string name="i18n_tick" formatted="false">"Coche"</string>
+    <string name="i18n_top_left" formatted="false">"En haut à gauche"</string>
+    <string name="i18n_top_left_07092c" formatted="false">"En haut à gauche"</string>
+    <string name="i18n_top_right" formatted="false">"En haut à droite"</string>
+    <string name="i18n_top_right_a52f17" formatted="false">"En haut à droite"</string>
+    <string name="i18n_touchpad" formatted="false">"Pavé tactile"</string>
+    <string name="i18n_touchpad_color" formatted="false">"Couleur du pavé tactile"</string>
+    <string name="i18n_touchpad_gamepad" formatted="false">"Pavé tactile (manette)"</string>
+    <string name="i18n_touchpad_mode" formatted="false">"Mode pavé tactile"</string>
+    <string name="i18n_touchpad_mouse" formatted="false">"Pavé tactile (souris)"</string>
+    <string name="i18n_touchpad_outline_width_0" formatted="true">"Largeur du contour du pavé tactile : %1$s"</string>
+    <string name="i18n_travel" formatted="false">"Course"</string>
+    <string name="i18n_trigger" formatted="false">"Gâchette"</string>
+    <string name="i18n_trigger_area" formatted="false">"- Zone de gâchette"</string>
+    <string name="i18n_trigger_area_color" formatted="false">"Couleur de la zone de gâchette"</string>
+    <string name="i18n_trigger_area_outline_color" formatted="false">"Couleur du contour de la zone de gâchette"</string>
+    <string name="i18n_trigger_area_outline_width" formatted="false">"Largeur du contour de la zone de gâchette"</string>
+    <string name="i18n_trigger_area_outline_width_0" formatted="true">"Largeur du contour de la zone de gâchette : %1$s"</string>
+    <string name="i18n_trigger_area_width" formatted="false">"Largeur de la zone de gâchette"</string>
+    <string name="i18n_trigger_area_width_0" formatted="true">"Largeur de la zone de gâchette : %1$s"</string>
+    <string name="i18n_trigger_travel" formatted="false">"Course de la gâchette"</string>
+    <string name="i18n_trigger_when_rectangles_overlap" formatted="false">"Déclencher lorsque les rectangles se chevauchent"</string>
+    <string name="i18n_try_to_connect" formatted="false">"Essayer de connecter"</string>
+    <string name="i18n_turn_on_bluetooth_to_use_bluetooth_mode" formatted="false">"Activez le Bluetooth pour utiliser le mode Bluetooth"</string>
+    <string name="i18n_two_finger_swipe" formatted="false">"Balayage à deux doigts"</string>
+    <string name="i18n_two_finger_tap" formatted="false">"Appui à deux doigts"</string>
+    <string name="i18n_type_2_available_but_no_vibrator_instanc" formatted="false">"type 2 disponible mais aucune instance Vibrator"</string>
+    <string name="i18n_type_2_failed_to_parse_he" formatted="false">"échec de l'analyse HE pour le type 2"</string>
+    <string name="i18n_universal_keyboard_mouse" formatted="false">"Clavier/souris universel"</string>
+    <string name="i18n_unmapped" formatted="false">"Non mappé"</string>
+    <string name="i18n_unpair" formatted="false">"Dissocier"</string>
+    <string name="i18n_unpair_from_0_you_will_need_to_pair_agai" formatted="true">"Dissocier de \"%1$s\" ? Vous devrez vous appairer à nouveau la prochaine fois."</string>
+    <string name="i18n_unspecified" formatted="false">"Non spécifié"</string>
+    <string name="i18n_unsupported" formatted="false">"Non pris en charge"</string>
+    <string name="i18n_up" formatted="false">"Haut"</string>
+    <string name="i18n_up_00d5a2" formatted="false">"Haut"</string>
+    <string name="i18n_up_3f99c7" formatted="false">"Haut"</string>
+    <string name="i18n_updateparameter_failed" formatted="false">"Échec de updateParameter"</string>
+    <string name="i18n_usb_device_access_is_blocked_by_system_p" formatted="false">"L'accès au périphérique USB est bloqué par la politique du système"</string>
+    <string name="i18n_usb_driver_axixi" formatted="false">"Pilote USB (Axixi)"</string>
+    <string name="i18n_use_controller_led_color" formatted="false">"Utiliser la couleur LED du contrôleur"</string>
+    <string name="i18n_use_gamepad_led_color" formatted="false">"Utiliser la couleur LED de la manette"</string>
+    <string name="i18n_used_to_activate_the_gyro" formatted="false">"Utilisé pour activer le gyroscope"</string>
+    <string name="i18n_user_service_failed_to_connect_repeatedl" formatted="true">"Le service utilisateur n'a pas pu se connecter de façon répétée ; suppression et reconstruction (%1$s)"</string>
+    <string name="i18n_using_in_process_richtap_playertype_0_ve" formatted="true">"Utilisation de RichTap dans le processus : playerType=%1$s version=%2$s"</string>
+    <string name="i18n_version_0" formatted="true">"Version %1$s"</string>
+    <string name="i18n_version_out_of_range" formatted="false">"Version hors plage"</string>
+    <string name="i18n_vertical" formatted="false">"Vertical"</string>
+    <string name="i18n_vibration" formatted="false">"Vibration"</string>
+    <string name="i18n_vibration_device" formatted="false">"Périphérique de vibration"</string>
+    <string name="i18n_virtual_gamepad_created_backend_0_profil" formatted="true">"Manette virtuelle créée backend=%1$s profile=%2$s fd=%3$s"</string>
+    <string name="i18n_virtual_gamepad_creation_error_0" formatted="true">"Erreur de création de la manette virtuelle : %1$s"</string>
+    <string name="i18n_virtual_gamepad_destroyed_fd_0" formatted="true">"Manette virtuelle détruite fd=%1$s"</string>
+    <string name="i18n_virtual_gamepad_is_ready" formatted="false">"La manette virtuelle est prête"</string>
+    <string name="i18n_virtual_key" formatted="false">"Touche virtuelle"</string>
+    <string name="i18n_virtual_key_release" formatted="false">"Relâchement de touche virtuelle"</string>
+    <string name="i18n_virtual_keyboard_created_fd_0" formatted="true">"Clavier virtuel créé fd=%1$s"</string>
+    <string name="i18n_virtual_keyboard_destroyed_fd_0" formatted="true">"Clavier virtuel détruit fd=%1$s"</string>
+    <string name="i18n_virtual_mouse_created_fd_0" formatted="true">"Souris virtuelle créée fd=%1$s"</string>
+    <string name="i18n_virtual_mouse_destroyed_fd_0" formatted="true">"Souris virtuelle détruite fd=%1$s"</string>
+    <string name="i18n_voice_coil" formatted="false">"Bobine vocale"</string>
+    <string name="i18n_voice_coil_status" formatted="false">"État de la bobine vocale"</string>
+    <string name="i18n_volume" formatted="false">"Volume +"</string>
+    <string name="i18n_volume_80d5c3" formatted="false">"Volume -"</string>
+    <string name="i18n_volume_key_mapping" formatted="false">"Mappage des touches de volume"</string>
+    <string name="i18n_volume_keys" formatted="false">"Touches de volume"</string>
+    <string name="i18n_waiting_for_host_connection" formatted="false">"En attente de la connexion de l'hôte..."</string>
+    <string name="i18n_waiting_for_host_phone_is_discoverable_b" formatted="false">"En attente de l'hôte — le téléphone est détectable (Bluetooth)"</string>
+    <string name="i18n_web_browser" formatted="false">"Navigateur Web"</string>
+    <string name="i18n_web_gamepad" formatted="false">"Manette Web"</string>
+    <string name="i18n_web_gamepad_qr_code" formatted="false">"QR code de la manette Web"</string>
+    <string name="i18n_when_the_gamepad_gyro_is_used_motion_ori" formatted="false">"Lorsque le gyroscope de la manette est utilisé, l'orientation du mouvement est déterminée par la manette et ne peut pas être ajustée"</string>
+    <string name="i18n_width" formatted="false">"Largeur"</string>
+    <string name="i18n_windows_gamepad_only" formatted="false">"Manette Windows uniquement"</string>
+    <string name="i18n_wireframe_color" formatted="false">"Couleur du fil de fer"</string>
+    <string name="i18n_wireframe_width" formatted="false">"Largeur du fil de fer"</string>
+    <string name="i18n_wireframe_width_0" formatted="true">"Largeur du fil de fer : %1$s"</string>
+    <string name="i18n_world_space" formatted="false">"Espace mondial"</string>
+    <string name="i18n_xbox_gamepad" formatted="false">"Manette Xbox"</string>
+    <string name="i18n_yaw" formatted="false">"Lacet"</string>
+    <string name="i18n_yaw_roll" formatted="false">"Lacet + roulis"</string>
+    <string name="i18n_zoom_in" formatted="false">"Zoom avant"</string>
+    <string name="i18n_zoom_preview" formatted="false">"Aperçu du zoom"</string>
+    <string name="i18n_sdl3" formatted="false">"SDL3"</string>
+    <string name="i18n_input_manager" formatted="false">"InputManager"</string>
+</resources>

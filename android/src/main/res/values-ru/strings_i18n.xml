@@ -1,0 +1,668 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="i18n_0_available_connections" formatted="true">"%1$s доступных подключений"</string>
+    <string name="i18n_0_motor" formatted="true">"%1$s мотор"</string>
+    <string name="i18n_0_motors" formatted="true">"%1$s моторов"</string>
+    <string name="i18n_0_trigger" formatted="true">"%1$s триггер"</string>
+    <string name="i18n_1_open_settings_about_phone_and_tap_buil" formatted="false">"1. Откройте «Настройки» → «О телефоне» и 7 раз нажмите «Номер сборки», чтобы включить «Для разработчиков».\n\n"</string>
+    <string name="i18n_2_open_developer_options_and_enable_usb" formatted="false">"2. Откройте «Для разработчиков» и включите «Отладка по USB».\n\n"</string>
+    <string name="i18n_4_way" formatted="false">"4 направления"</string>
+    <string name="i18n_8_way" formatted="false">"8 направлений"</string>
+    <string name="i18n_about" formatted="false">"О программе"</string>
+    <string name="i18n_active_opacity" formatted="false">"Непрозрачность активного (%)"</string>
+    <string name="i18n_adaptive_trigger" formatted="false">"Адаптивный триггер"</string>
+    <string name="i18n_adaptive_trigger_device" formatted="false">"Устройство адаптивного триггера"</string>
+    <string name="i18n_add" formatted="false">"+ Добавить"</string>
+    <string name="i18n_add_b58c75" formatted="false">"Добавить"</string>
+    <string name="i18n_add_control" formatted="false">"Добавить элемент"</string>
+    <string name="i18n_adjust" formatted="false">" Настроить"</string>
+    <string name="i18n_adjust_d198bf" formatted="false">"Настроить"</string>
+    <string name="i18n_always_on" formatted="false">"Всегда включено"</string>
+    <string name="i18n_android_gamepad_only" formatted="false">"Только геймпад Android"</string>
+    <string name="i18n_anti_dead_zone" formatted="false">"Анти-мёртвая зона (%)"</string>
+    <string name="i18n_app_icon" formatted="false">"Значок приложения"</string>
+    <string name="i18n_appearance" formatted="false">"Внешний вид"</string>
+    <string name="i18n_appearance_exported" formatted="false">"Внешний вид экспортирован"</string>
+    <string name="i18n_appearance_imported" formatted="false">"Внешний вид импортирован"</string>
+    <string name="i18n_application_oncreate_took_0_ms_from_proc" formatted="true">"Application.onCreate занял %1$s мс от запуска процесса"</string>
+    <string name="i18n_area_color" formatted="false">"Цвет области"</string>
+    <string name="i18n_area_height" formatted="false">"Высота области"</string>
+    <string name="i18n_area_width" formatted="false">"Ширина области"</string>
+    <string name="i18n_area_width_0" formatted="true">"Ширина области: %1$s"</string>
+    <string name="i18n_area_width_875556" formatted="false">"Ширина области"</string>
+    <string name="i18n_audio" formatted="false">"Аудио"</string>
+    <string name="i18n_author_4zyz4_qq_group_639317971" formatted="false">"Автор: 4zyz4  Группа QQ: 639317971\n\n"</string>
+    <string name="i18n_authorized" formatted="false">"Авторизовано"</string>
+    <string name="i18n_auto_hold" formatted="false">"Автоудержание"</string>
+    <string name="i18n_available" formatted="false">"Доступно"</string>
+    <string name="i18n_axixi2233_usb_driver" formatted="false">"Драйвер USB Axixi2233"</string>
+    <string name="i18n_back" formatted="false">"Назад"</string>
+    <string name="i18n_back_button_bottom_left_p4" formatted="false">"Кнопка «Назад» внизу слева (P4)"</string>
+    <string name="i18n_back_button_bottom_right_p2" formatted="false">"Кнопка «Назад» внизу справа (P2)"</string>
+    <string name="i18n_back_button_top_left_p3" formatted="false">"Кнопка «Назад» вверху слева (P3)"</string>
+    <string name="i18n_back_button_top_right_p1" formatted="false">"Кнопка «Назад» вверху справа (P1)"</string>
+    <string name="i18n_background" formatted="false">"Фон"</string>
+    <string name="i18n_background_color" formatted="false">"Цвет фона"</string>
+    <string name="i18n_base" formatted="false">"- Основа"</string>
+    <string name="i18n_base_color" formatted="false">"Цвет основы"</string>
+    <string name="i18n_base_direction" formatted="false">"Направление основы"</string>
+    <string name="i18n_base_outline_color" formatted="false">"Цвет обводки основы"</string>
+    <string name="i18n_base_outline_width" formatted="false">"Ширина обводки основы"</string>
+    <string name="i18n_base_outline_width_0" formatted="true">"Ширина обводки основы: %1$s"</string>
+    <string name="i18n_binduserservice_attempt_0_1_daemon_2" formatted="true">"Попытка bindUserService #%1$s (%2$s, daemon=%3$s)"</string>
+    <string name="i18n_binduserservice_failed_0" formatted="true">"Сбой bindUserService (%1$s)"</string>
+    <string name="i18n_bit_0" formatted="true">"Бит %1$s"</string>
+    <string name="i18n_bluetooth" formatted="false">"Bluetooth"</string>
+    <string name="i18n_bluetooth_error" formatted="false">"Ошибка Bluetooth"</string>
+    <string name="i18n_bluetooth_hid_requires_android_9" formatted="false">"Bluetooth HID требует Android 9+"</string>
+    <string name="i18n_bluetooth_paired_0" formatted="true">"Сопряжено по Bluetooth: %1$s"</string>
+    <string name="i18n_bluetooth_permission_is_required_for_blu" formatted="false">"Для режима Bluetooth требуется разрешение Bluetooth"</string>
+    <string name="i18n_bottom_left" formatted="false">"Внизу слева"</string>
+    <string name="i18n_bottom_left_a289e9" formatted="false">"Внизу слева"</string>
+    <string name="i18n_bottom_right" formatted="false">"Внизу справа"</string>
+    <string name="i18n_bottom_right_553067" formatted="false">"Внизу справа"</string>
+    <string name="i18n_built_in_layouts_cannot_be_deleted" formatted="false">"Встроенные макеты нельзя удалить"</string>
+    <string name="i18n_built_in_layouts_cannot_be_renamed" formatted="false">"Встроенные макеты нельзя переименовать"</string>
+    <string name="i18n_button" formatted="false">"Кнопка"</string>
+    <string name="i18n_button_color" formatted="false">"Цвет кнопки"</string>
+    <string name="i18n_button_vibration" formatted="false">"Вибрация кнопки"</string>
+    <string name="i18n_cancel" formatted="false">"Отмена"</string>
+    <string name="i18n_center" formatted="false">"Центр"</string>
+    <string name="i18n_center_shape" formatted="false">"Форма центра"</string>
+    <string name="i18n_circle" formatted="false">"Круг"</string>
+    <string name="i18n_clear" formatted="false">"Очистить"</string>
+    <string name="i18n_clockwise" formatted="false">"По часовой стрелке"</string>
+    <string name="i18n_close" formatted="false">"Закрыть"</string>
+    <string name="i18n_codeword_count_does_not_match_the_versio" formatted="false">"Количество кодовых слов не соответствует версии"</string>
+    <string name="i18n_collapse_expand_panel" formatted="false">"Свернуть/развернуть панель"</string>
+    <string name="i18n_confirm" formatted="false">"Подтвердить"</string>
+    <string name="i18n_confirm_and_go_back" formatted="false">"Подтвердить и вернуться"</string>
+    <string name="i18n_connect" formatted="false">"Подключиться"</string>
+    <string name="i18n_connect_manually" formatted="false">"Подключиться вручную"</string>
+    <string name="i18n_connected" formatted="false">"Подключено"</string>
+    <string name="i18n_connected_0" formatted="true">"Подключено: %1$s"</string>
+    <string name="i18n_connected_bluetooth" formatted="false">"Подключено (Bluetooth)"</string>
+    <string name="i18n_connected_emotion_compatible" formatted="false">"Подключено (совместимо с Emotion)"</string>
+    <string name="i18n_connected_usb" formatted="false">"Подключено (USB)"</string>
+    <string name="i18n_connected_wifi" formatted="false">"Подключено (WiFi)"</string>
+    <string name="i18n_connecting" formatted="false">"Подключение..."</string>
+    <string name="i18n_connecting_0" formatted="true">"Подключение: %1$s..."</string>
+    <string name="i18n_connecting_to_0" formatted="true">"Подключение к %1$s..."</string>
+    <string name="i18n_connection_failed_0_1" formatted="true">"Сбой подключения: %1$s (%2$s)"</string>
+    <string name="i18n_connection_lost_0" formatted="true">"Соединение потеряно: %1$s"</string>
+    <string name="i18n_connection_method" formatted="false">"Способ подключения"</string>
+    <string name="i18n_context" formatted="false">"Контекст"</string>
+    <string name="i18n_control_color" formatted="false">"Цвет элемента"</string>
+    <string name="i18n_control_outline_color" formatted="false">"Цвет обводки элемента"</string>
+    <string name="i18n_control_outline_width" formatted="false">"Ширина обводки элемента"</string>
+    <string name="i18n_control_outline_width_0" formatted="true">"Ширина обводки элемента: %1$s"</string>
+    <string name="i18n_control_type" formatted="false">"Тип элемента"</string>
+    <string name="i18n_controlled_mode" formatted="false">"Управляемый режим"</string>
+    <string name="i18n_controlled_mode_5bf179" formatted="false">"Управляемый режим"</string>
+    <string name="i18n_controller_audio" formatted="false">"Аудио контроллера"</string>
+    <string name="i18n_controller_audio_output" formatted="false">"Аудиовыход контроллера"</string>
+    <string name="i18n_controller_led" formatted="false">"LED контроллера"</string>
+    <string name="i18n_controller_mode" formatted="false">"Режим контроллера"</string>
+    <string name="i18n_coordinate_system" formatted="false">"Система координат"</string>
+    <string name="i18n_copied_as_0" formatted="true">"Скопировано как \"%1$s\""</string>
+    <string name="i18n_copy" formatted="false">"^Копировать_"</string>
+    <string name="i18n_copy_0" formatted="true">"Копировать_%1$s"</string>
+    <string name="i18n_copy_79d3ab" formatted="false">"Копировать"</string>
+    <string name="i18n_copy_layout" formatted="false">"Копировать макет"</string>
+    <string name="i18n_counterclockwise" formatted="false">"Против часовой стрелки"</string>
+    <string name="i18n_create" formatted="false">"Создать"</string>
+    <string name="i18n_created_0" formatted="true">"Создано \"%1$s\""</string>
+    <string name="i18n_creating_virtual_gamepad" formatted="false">"Создание виртуального геймпада..."</string>
+    <string name="i18n_current_preset_0" formatted="true">"Текущий пресет: %1$s"</string>
+    <string name="i18n_custom" formatted="false">"Свой"</string>
+    <string name="i18n_custom_circle" formatted="false">"Свой (круг)"</string>
+    <string name="i18n_custom_keypad" formatted="false">"Своя клавиатура"</string>
+    <string name="i18n_custom_rectangle" formatted="false">"Свой (прямоугольник)"</string>
+    <string name="i18n_d_pad_down" formatted="false">"D-pad вниз"</string>
+    <string name="i18n_d_pad_left" formatted="false">"D-pad влево"</string>
+    <string name="i18n_d_pad_right" formatted="false">"D-pad вправо"</string>
+    <string name="i18n_d_pad_up" formatted="false">"D-pad вверх"</string>
+    <string name="i18n_data_is_too_long_to_generate_a_qr_code" formatted="false">"Данные слишком длинные для создания QR-кода"</string>
+    <string name="i18n_data_length_does_not_match_the_version" formatted="false">"Длина данных не соответствует версии"</string>
+    <string name="i18n_dead_zone" formatted="false">"Мёртвая зона (%)"</string>
+    <string name="i18n_default_device" formatted="false">"Устройство по умолчанию"</string>
+    <string name="i18n_delayed" formatted="false">"С задержкой"</string>
+    <string name="i18n_delete" formatted="false">"Удалить"</string>
+    <string name="i18n_delete_0" formatted="true">"Удалить \"%1$s\"?"</string>
+    <string name="i18n_delete_control" formatted="false">"Удалить элемент"</string>
+    <string name="i18n_delete_preset" formatted="false">"Удалить пресет"</string>
+    <string name="i18n_delete_selected_point" formatted="false">"Удалить выбранную точку"</string>
+    <string name="i18n_delete_this_control" formatted="false">"Удалить этот элемент?"</string>
+    <string name="i18n_detect" formatted="false">"Определить"</string>
+    <string name="i18n_detect_gamepad_again" formatted="false">"Определить геймпад снова"</string>
+    <string name="i18n_device_found_0" formatted="true">"Устройство найдено: %1$s"</string>
+    <string name="i18n_direction_mode" formatted="false">"Режим направления"</string>
+    <string name="i18n_discard" formatted="false">"Отменить"</string>
+    <string name="i18n_discard_changes" formatted="false">"Отменить изменения"</string>
+    <string name="i18n_discard_changes_17a8d0" formatted="false">"Отменить изменения?"</string>
+    <string name="i18n_discard_the_current_layout_changes" formatted="false">"Отменить изменения текущего макета?"</string>
+    <string name="i18n_disconnect" formatted="false">"Отключиться"</string>
+    <string name="i18n_disconnected" formatted="false">"Отключено"</string>
+    <string name="i18n_disconnected_7f3a55" formatted="false">"Отключено"</string>
+    <string name="i18n_disconnected_8439c1" formatted="false">"Отключено"</string>
+    <string name="i18n_disconnected_reconnecting" formatted="false">"Отключено, переподключение..."</string>
+    <string name="i18n_disconnected_waiting_to_reconnect" formatted="false">"Отключено, ожидание переподключения..."</string>
+    <string name="i18n_display_text" formatted="false">"Отображаемый текст"</string>
+    <string name="i18n_double_tap_center" formatted="false">"Двойное нажатие по центру"</string>
+    <string name="i18n_double_tap_press" formatted="false">"Двойное нажатие"</string>
+    <string name="i18n_double_tap_then_drag" formatted="false">"Двойное нажатие, затем перетаскивание"</string>
+    <string name="i18n_down" formatted="false">"Вниз"</string>
+    <string name="i18n_down_c4557f" formatted="false">"Вниз"</string>
+    <string name="i18n_down_c761f5" formatted="false">"Вниз"</string>
+    <string name="i18n_download_shizuku" formatted="false">"Скачать Shizuku"</string>
+    <string name="i18n_driver" formatted="false">"Драйвер"</string>
+    <string name="i18n_ds_gamepad" formatted="false">"Геймпад DS"</string>
+    <string name="i18n_dualsense_bluetooth" formatted="false">"DualSense Bluetooth"</string>
+    <string name="i18n_duration_0_ms" formatted="true">"Длительность: %1$s мс"</string>
+    <string name="i18n_duration_20ms" formatted="false">"Длительность: 20 мс"</string>
+    <string name="i18n_duration_50ms" formatted="false">"Длительность: 50 мс"</string>
+    <string name="i18n_dynamic" formatted="false">"Динамический"</string>
+    <string name="i18n_edit" formatted="false">"Изменить"</string>
+    <string name="i18n_emotion_error_0" formatted="true">"Ошибка Emotion: %1$s"</string>
+    <string name="i18n_emulate_linear_trigger" formatted="false">"Имитировать линейный триггер"</string>
+    <string name="i18n_emulated_gamepad_type" formatted="false">"Тип эмулируемого геймпада"</string>
+    <string name="i18n_enable_developer_options_and_usb_debuggi" formatted="false">"Включите «Для разработчиков» и «Отладка по USB»"</string>
+    <string name="i18n_enable_hd_vibration" formatted="false">"Включить HD-вибрацию"</string>
+    <string name="i18n_enable_while_a_specific_button_is_held" formatted="false">"Включать при удержании определённой кнопки"</string>
+    <string name="i18n_ensurebound_skipped_shizuku_not_running" formatted="true">"ensureBound пропущен: Shizuku не запущен (%1$s)"</string>
+    <string name="i18n_enter" formatted="false">"Ввод"</string>
+    <string name="i18n_enter_a_new_preset_name" formatted="false">"Введите новое имя пресета"</string>
+    <string name="i18n_enter_preset_name" formatted="false">"Введите имя пресета"</string>
+    <string name="i18n_exit_controlled_mode" formatted="false">"Выйти из управляемого режима"</string>
+    <string name="i18n_exit_edit_mode_first" formatted="false">"Сначала выйдите из режима редактирования"</string>
+    <string name="i18n_exit_editing" formatted="false">"Выйти из редактирования"</string>
+    <string name="i18n_exit_floating_mode" formatted="false">"Выйти из плавающего режима"</string>
+    <string name="i18n_exited_floating_mode" formatted="false">"Плавающий режим закрыт"</string>
+    <string name="i18n_export" formatted="false">"Экспорт"</string>
+    <string name="i18n_export_appearance" formatted="false">"Экспортировать внешний вид"</string>
+    <string name="i18n_export_failed_0" formatted="true">"Сбой экспорта: %1$s"</string>
+    <string name="i18n_export_successful" formatted="false">"Экспорт выполнен"</string>
+    <string name="i18n_extended_touch_area" formatted="false">"- Расширенная область касания"</string>
+    <string name="i18n_extended_touch_area_dac06c" formatted="false">"Расширенная область касания"</string>
+    <string name="i18n_failed_to_add_keep_alive_overlay_0" formatted="true">"Не удалось добавить оверлей поддержания активности: %1$s"</string>
+    <string name="i18n_failed_to_bind_shizuku_user_service_0" formatted="true">"Не удалось привязать пользовательский сервис Shizuku: %1$s"</string>
+    <string name="i18n_failed_to_create_dsu_socket_0" formatted="true">"Не удалось создать сокет DSU: %1$s"</string>
+    <string name="i18n_failed_to_create_virtual_gamepad_code_0" formatted="true">"Не удалось создать виртуальный геймпад (code=%1$s); возможно, нужно запустить Shizuku с правами root"</string>
+    <string name="i18n_failed_to_create_virtual_gamepad_via_dev" formatted="true">"Не удалось создать виртуальный геймпад через /dev/uhid (errno=%1$s)"</string>
+    <string name="i18n_failed_to_create_virtual_keyboard_errno" formatted="true">"Не удалось создать виртуальную клавиатуру (errno=%1$s)"</string>
+    <string name="i18n_failed_to_create_virtual_mouse_errno_0" formatted="true">"Не удалось создать виртуальную мышь (errno=%1$s)"</string>
+    <string name="i18n_failed_to_destroy_keyboard" formatted="false">"Не удалось уничтожить клавиатуру"</string>
+    <string name="i18n_failed_to_destroy_mouse" formatted="false">"Не удалось уничтожить мышь"</string>
+    <string name="i18n_failed_to_get_local_ip_address" formatted="false">"Не удалось получить локальный IP-адрес"</string>
+    <string name="i18n_failed_to_initialize_type_2_0" formatted="true">"Не удалось инициализировать тип 2: %1$s"</string>
+    <string name="i18n_failed_to_load_image_0" formatted="true">"Не удалось загрузить изображение: %1$s"</string>
+    <string name="i18n_failed_to_load_native_library_0" formatted="true">"Не удалось загрузить нативную библиотеку: %1$s"</string>
+    <string name="i18n_failed_to_load_preset_he" formatted="false">"Не удалось загрузить пресет HE"</string>
+    <string name="i18n_failed_to_open_dev_uinput_errno_0" formatted="true">"Не удалось открыть /dev/uinput (errno=%1$s)"</string>
+    <string name="i18n_failed_to_open_overlay_permission_settin" formatted="false">"Не удалось открыть настройки разрешения наложения"</string>
+    <string name="i18n_failed_to_open_settings_open_developer_o" formatted="false">"Не удалось открыть настройки. Откройте «Для разработчиков» вручную"</string>
+    <string name="i18n_failed_to_query_availability" formatted="false">"Не удалось проверить доступность"</string>
+    <string name="i18n_failed_to_read_appearance_profile" formatted="false">"Не удалось прочитать профиль внешнего вида"</string>
+    <string name="i18n_failed_to_remove_keep_alive_overlay_0" formatted="true">"Не удалось удалить оверлей поддержания активности: %1$s"</string>
+    <string name="i18n_failed_to_request_shizuku_permission_0" formatted="true">"Не удалось запросить разрешение Shizuku: %1$s"</string>
+    <string name="i18n_fast_response_mode" formatted="false">"Режим быстрого отклика"</string>
+    <string name="i18n_finger_distance" formatted="false">"Расстояние между пальцами -&gt;"</string>
+    <string name="i18n_flat" formatted="false">"Плоский"</string>
+    <string name="i18n_floating_mode" formatted="false">"Плавающий режим"</string>
+    <string name="i18n_floating_mode_enabled_tap_the_floating_b" formatted="false">"Плавающий режим включён. Нажмите плавающую кнопку, чтобы показать или скрыть"</string>
+    <string name="i18n_floating_mode_is_running" formatted="false">"Плавающий режим работает"</string>
+    <string name="i18n_floating_opacity" formatted="false">"Непрозрачность плавающего окна"</string>
+    <string name="i18n_follow_area_opacity" formatted="false">"Непрозрачность области следования (%)"</string>
+    <string name="i18n_follow_inside_rectangle" formatted="false">"Следовать внутри прямоугольника"</string>
+    <string name="i18n_frequency_0_1_hz" formatted="true">"Частота: %1$s (%2$s Гц)"</string>
+    <string name="i18n_frequency_56" formatted="false">"Частота: 56"</string>
+    <string name="i18n_full_controller" formatted="false">"Полный контроллер"</string>
+    <string name="i18n_game_vibration" formatted="false">"Вибрация игры"</string>
+    <string name="i18n_gamepad" formatted="false">"Геймпад"</string>
+    <string name="i18n_gamepad_0" formatted="true">"Геймпад %1$s"</string>
+    <string name="i18n_gamepad_a" formatted="false">"Геймпад: A"</string>
+    <string name="i18n_gamepad_b" formatted="false">"Геймпад: B"</string>
+    <string name="i18n_gamepad_details" formatted="false">"Сведения о геймпаде"</string>
+    <string name="i18n_gamepad_display" formatted="false">"Отображение геймпада"</string>
+    <string name="i18n_gamepad_driver" formatted="false">"Драйвер геймпада"</string>
+    <string name="i18n_gamepad_gyro" formatted="false">"Гироскоп геймпада"</string>
+    <string name="i18n_gamepad_home" formatted="false">"Геймпад: Домой"</string>
+    <string name="i18n_gamepad_lb" formatted="false">"Геймпад: LB"</string>
+    <string name="i18n_gamepad_left_bumper" formatted="false">"Геймпад: левый бампер"</string>
+    <string name="i18n_gamepad_left_stick" formatted="false">"Геймпад: левый стик"</string>
+    <string name="i18n_gamepad_left_stick_click" formatted="false">"Геймпад: нажатие левого стика"</string>
+    <string name="i18n_gamepad_left_trigger" formatted="false">"Геймпад: левый триггер"</string>
+    <string name="i18n_gamepad_lt" formatted="false">"Геймпад: LT"</string>
+    <string name="i18n_gamepad_menu" formatted="false">"Геймпад: Меню"</string>
+    <string name="i18n_gamepad_rb" formatted="false">"Геймпад: RB"</string>
+    <string name="i18n_gamepad_right_bumper" formatted="false">"Геймпад: правый бампер"</string>
+    <string name="i18n_gamepad_right_stick" formatted="false">"Геймпад: правый стик"</string>
+    <string name="i18n_gamepad_right_stick_click" formatted="false">"Геймпад: нажатие правого стика"</string>
+    <string name="i18n_gamepad_right_trigger" formatted="false">"Геймпад: правый триггер"</string>
+    <string name="i18n_gamepad_rt" formatted="false">"Геймпад: RT"</string>
+    <string name="i18n_gamepad_select" formatted="false">"Геймпад: Выбор"</string>
+    <string name="i18n_gamepad_share" formatted="false">"Геймпад: Поделиться"</string>
+    <string name="i18n_gamepad_x" formatted="false">"Геймпад: X"</string>
+    <string name="i18n_gamepad_y" formatted="false">"Геймпад: Y"</string>
+    <string name="i18n_gesture_end" formatted="false">"Конец жеста"</string>
+    <string name="i18n_gesture_start" formatted="false">"Начало жеста"</string>
+    <string name="i18n_gkme_controlled_mode_is_running" formatted="false">"Управляемый режим GKME работает"</string>
+    <string name="i18n_global_settings" formatted="false">"Общие настройки"</string>
+    <string name="i18n_going_back_will_stop_the_service_go_back" formatted="false">"Возврат остановит сервис. Вернуться?"</string>
+    <string name="i18n_gyro" formatted="false">"Гироскоп"</string>
+    <string name="i18n_gyro_activation" formatted="false">"Активация гироскопа"</string>
+    <string name="i18n_gyro_anti_dead_zone" formatted="false">"Анти-мёртвая зона гироскопа (%)"</string>
+    <string name="i18n_gyro_behavior" formatted="false">"Поведение гироскопа"</string>
+    <string name="i18n_gyro_dead_zone" formatted="false">"Мёртвая зона гироскопа (%)"</string>
+    <string name="i18n_gyro_to_left_stick_direction" formatted="false">"Гироскоп → направление левого стика"</string>
+    <string name="i18n_gyro_to_left_stick_view" formatted="false">"Гироскоп → обзор левого стика"</string>
+    <string name="i18n_gyro_to_mouse" formatted="false">"Гироскоп → мышь"</string>
+    <string name="i18n_gyro_to_right_stick_direction" formatted="false">"Гироскоп → направление правого стика"</string>
+    <string name="i18n_gyro_to_right_stick_view" formatted="false">"Гироскоп → обзор правого стика"</string>
+    <string name="i18n_hd_disabled" formatted="false">"HD отключено"</string>
+    <string name="i18n_hd_ready_0" formatted="true">"HD готово (%1$s)"</string>
+    <string name="i18n_hd_vibration_hd" formatted="false">"HD-вибрация (HD)"</string>
+    <string name="i18n_height" formatted="false">"Высота"</string>
+    <string name="i18n_hidden_api_unavailable_0" formatted="true">"Скрытый API недоступен: %1$s"</string>
+    <string name="i18n_hold" formatted="false">"Удержание"</string>
+    <string name="i18n_home" formatted="false">"Домой"</string>
+    <string name="i18n_host_disconnected" formatted="false">"Хост отключён"</string>
+    <string name="i18n_host_ip" formatted="false">"IP хоста"</string>
+    <string name="i18n_http_port_0_unavailable_1" formatted="true">"HTTP-порт %1$s недоступен: %2$s"</string>
+    <string name="i18n_icon_color" formatted="false">"Цвет значка"</string>
+    <string name="i18n_idle_opacity" formatted="false">"Непрозрачность в покое (%)"</string>
+    <string name="i18n_if_enabled_simply_tap_start_service" formatted="false">"Если включено, просто нажмите «Запустить сервис»."</string>
+    <string name="i18n_image" formatted="false">"Изображение"</string>
+    <string name="i18n_image_set" formatted="false">"Набор изображений"</string>
+    <string name="i18n_import" formatted="false">"Импорт"</string>
+    <string name="i18n_import_appearance" formatted="false">"Импортировать внешний вид"</string>
+    <string name="i18n_import_failed_0" formatted="true">"Сбой импорта: %1$s"</string>
+    <string name="i18n_import_layout" formatted="false">"Импортировать макет"</string>
+    <string name="i18n_imported_0" formatted="true">"Импортировано \"%1$s\""</string>
+    <string name="i18n_in_process_richtap_initialization_error" formatted="false">"Ошибка инициализации RichTap в процессе"</string>
+    <string name="i18n_init_failed" formatted="false">"сбой инициализации"</string>
+    <string name="i18n_input_gamepad" formatted="false">"Входной геймпад"</string>
+    <string name="i18n_instant" formatted="false">"Мгновенно"</string>
+    <string name="i18n_integrated_d_pad" formatted="false">"Встроенная крестовина"</string>
+    <string name="i18n_integrated_d_pad_custom_keypad" formatted="false">"Встроенная крестовина / своя клавиатура"</string>
+    <string name="i18n_intensity_0" formatted="true">"Интенсивность: %1$s"</string>
+    <string name="i18n_intensity_128" formatted="false">"Интенсивность: 128"</string>
+    <string name="i18n_intensity_64" formatted="false">"Интенсивность: 64"</string>
+    <string name="i18n_invalid_ip_address_format" formatted="false">"Неверный формат IP-адреса"</string>
+    <string name="i18n_invert_horizontal_scroll" formatted="false">"Инвертировать горизонтальную прокрутку"</string>
+    <string name="i18n_invert_vertical_scroll" formatted="false">"Инвертировать вертикальную прокрутку"</string>
+    <string name="i18n_inverted_portrait" formatted="false">"Перевёрнутая книжная ориентация"</string>
+    <string name="i18n_ip_address" formatted="false">"IP-адрес"</string>
+    <string name="i18n_isavailable_call_failed" formatted="false">"Сбой вызова isAvailable"</string>
+    <string name="i18n_keep_screen_on" formatted="false">"Не выключать экран"</string>
+    <string name="i18n_key_press" formatted="false">"Нажатие клавиши"</string>
+    <string name="i18n_key_release" formatted="false">"Отпускание клавиши"</string>
+    <string name="i18n_keyboard" formatted="false">"Клавиатура"</string>
+    <string name="i18n_keyboard_0" formatted="false">"Клавиатура: 0"</string>
+    <string name="i18n_keyboard_0046e9" formatted="false">"Клавиатура: \\"</string>
+    <string name="i18n_keyboard_06d5f0" formatted="false">"Клавиатура: `"</string>
+    <string name="i18n_keyboard_072e9b" formatted="false">"Клавиатура: /"</string>
+    <string name="i18n_keyboard_07bb03" formatted="false">"Клавиатура: ↑"</string>
+    <string name="i18n_keyboard_1" formatted="false">"Клавиатура: 1"</string>
+    <string name="i18n_keyboard_2" formatted="false">"Клавиатура: 2"</string>
+    <string name="i18n_keyboard_3" formatted="false">"Клавиатура: 3"</string>
+    <string name="i18n_keyboard_4" formatted="false">"Клавиатура: 4"</string>
+    <string name="i18n_keyboard_41fe99" formatted="false">"Клавиатура: ."</string>
+    <string name="i18n_keyboard_47e933" formatted="false">"Клавиатура: ["</string>
+    <string name="i18n_keyboard_5" formatted="false">"Клавиатура: 5"</string>
+    <string name="i18n_keyboard_6" formatted="false">"Клавиатура: 6"</string>
+    <string name="i18n_keyboard_6adcde" formatted="false">"Клавиатура: ,"</string>
+    <string name="i18n_keyboard_7" formatted="false">"Клавиатура: 7"</string>
+    <string name="i18n_keyboard_743bab" formatted="false">"Клавиатура: -"</string>
+    <string name="i18n_keyboard_7484ad" formatted="false">"Клавиатура: ↓"</string>
+    <string name="i18n_keyboard_75eb76" formatted="false">"Клавиатура: ]"</string>
+    <string name="i18n_keyboard_8" formatted="false">"Клавиатура: 8"</string>
+    <string name="i18n_keyboard_9" formatted="false">"Клавиатура: 9"</string>
+    <string name="i18n_keyboard_a" formatted="false">"Клавиатура: A"</string>
+    <string name="i18n_keyboard_a77d53" formatted="false">"Клавиатура: ;"</string>
+    <string name="i18n_keyboard_altgr" formatted="false">"Клавиатура: AltGr"</string>
+    <string name="i18n_keyboard_b" formatted="false">"Клавиатура: B"</string>
+    <string name="i18n_keyboard_backspace" formatted="false">"Клавиатура: Backspace"</string>
+    <string name="i18n_keyboard_c" formatted="false">"Клавиатура: C"</string>
+    <string name="i18n_keyboard_c15dcd" formatted="false">"Клавиатура: '"</string>
+    <string name="i18n_keyboard_caps_lock" formatted="false">"Клавиатура: Caps Lock"</string>
+    <string name="i18n_keyboard_d" formatted="false">"Клавиатура: D"</string>
+    <string name="i18n_keyboard_d4a2fd" formatted="false">"Клавиатура: ←"</string>
+    <string name="i18n_keyboard_delete" formatted="false">"Клавиатура: Delete"</string>
+    <string name="i18n_keyboard_e" formatted="false">"Клавиатура: E"</string>
+    <string name="i18n_keyboard_e013ce" formatted="false">"Клавиатура: →"</string>
+    <string name="i18n_keyboard_ea7f6d" formatted="false">"Клавиатура: ="</string>
+    <string name="i18n_keyboard_enter" formatted="false">"Клавиатура: Enter"</string>
+    <string name="i18n_keyboard_esc" formatted="false">"Клавиатура: Esc"</string>
+    <string name="i18n_keyboard_f" formatted="false">"Клавиатура: F"</string>
+    <string name="i18n_keyboard_f1" formatted="false">"Клавиатура: F1"</string>
+    <string name="i18n_keyboard_f10" formatted="false">"Клавиатура: F10"</string>
+    <string name="i18n_keyboard_f11" formatted="false">"Клавиатура: F11"</string>
+    <string name="i18n_keyboard_f12" formatted="false">"Клавиатура: F12"</string>
+    <string name="i18n_keyboard_f2" formatted="false">"Клавиатура: F2"</string>
+    <string name="i18n_keyboard_f3" formatted="false">"Клавиатура: F3"</string>
+    <string name="i18n_keyboard_f4" formatted="false">"Клавиатура: F4"</string>
+    <string name="i18n_keyboard_f5" formatted="false">"Клавиатура: F5"</string>
+    <string name="i18n_keyboard_f6" formatted="false">"Клавиатура: F6"</string>
+    <string name="i18n_keyboard_f7" formatted="false">"Клавиатура: F7"</string>
+    <string name="i18n_keyboard_f8" formatted="false">"Клавиатура: F8"</string>
+    <string name="i18n_keyboard_f9" formatted="false">"Клавиатура: F9"</string>
+    <string name="i18n_keyboard_g" formatted="false">"Клавиатура: G"</string>
+    <string name="i18n_keyboard_h" formatted="false">"Клавиатура: H"</string>
+    <string name="i18n_keyboard_i" formatted="false">"Клавиатура: I"</string>
+    <string name="i18n_keyboard_j" formatted="false">"Клавиатура: J"</string>
+    <string name="i18n_keyboard_k" formatted="false">"Клавиатура: K"</string>
+    <string name="i18n_keyboard_key_0" formatted="true">"Клавиатура: Key%1$s"</string>
+    <string name="i18n_keyboard_l" formatted="false">"Клавиатура: L"</string>
+    <string name="i18n_keyboard_left_alt" formatted="false">"Клавиатура: Left Alt"</string>
+    <string name="i18n_keyboard_left_ctrl" formatted="false">"Клавиатура: Left Ctrl"</string>
+    <string name="i18n_keyboard_left_shift" formatted="false">"Клавиатура: Left Shift"</string>
+    <string name="i18n_keyboard_m" formatted="false">"Клавиатура: M"</string>
+    <string name="i18n_keyboard_menu" formatted="false">"Клавиатура: Menu"</string>
+    <string name="i18n_keyboard_n" formatted="false">"Клавиатура: N"</string>
+    <string name="i18n_keyboard_o" formatted="false">"Клавиатура: O"</string>
+    <string name="i18n_keyboard_p" formatted="false">"Клавиатура: P"</string>
+    <string name="i18n_keyboard_q" formatted="false">"Клавиатура: Q"</string>
+    <string name="i18n_keyboard_r" formatted="false">"Клавиатура: R"</string>
+    <string name="i18n_keyboard_right_ctrl" formatted="false">"Клавиатура: Right Ctrl"</string>
+    <string name="i18n_keyboard_right_shift" formatted="false">"Клавиатура: Right Shift"</string>
+    <string name="i18n_keyboard_right_win" formatted="false">"Клавиатура: Right Win"</string>
+    <string name="i18n_keyboard_s" formatted="false">"Клавиатура: S"</string>
+    <string name="i18n_keyboard_space" formatted="false">"Клавиатура: Space"</string>
+    <string name="i18n_keyboard_t" formatted="false">"Клавиатура: T"</string>
+    <string name="i18n_keyboard_tab" formatted="false">"Клавиатура: Tab"</string>
+    <string name="i18n_keyboard_u" formatted="false">"Клавиатура: U"</string>
+    <string name="i18n_keyboard_v" formatted="false">"Клавиатура: V"</string>
+    <string name="i18n_keyboard_w" formatted="false">"Клавиатура: W"</string>
+    <string name="i18n_keyboard_win" formatted="false">"Клавиатура: Win"</string>
+    <string name="i18n_keyboard_x" formatted="false">"Клавиатура: X"</string>
+    <string name="i18n_keyboard_y" formatted="false">"Клавиатура: Y"</string>
+    <string name="i18n_keyboard_z" formatted="false">"Клавиатура: Z"</string>
+    <string name="i18n_landscape" formatted="false">"Альбомная"</string>
+    <string name="i18n_language" formatted="false">"Язык"</string>
+    <string name="i18n_layout" formatted="false">"Макет"</string>
+    <string name="i18n_layout_loaded_total_startup_time_0_ms_pr" formatted="true">"Макет загружен, общее время запуска %1$s мс (запуск процесса → первый кадр)"</string>
+    <string name="i18n_layout_presets" formatted="false">"Пресеты макетов"</string>
+    <string name="i18n_left" formatted="false">"Влево"</string>
+    <string name="i18n_left_3e0a82" formatted="false">"Влево"</string>
+    <string name="i18n_left_a090d7" formatted="false">"Влево:"</string>
+    <string name="i18n_left_button_drag" formatted="false">"Перетаскивание левой кнопкой"</string>
+    <string name="i18n_left_click" formatted="false">"Левый клик"</string>
+    <string name="i18n_left_d2aff1" formatted="false">"Влево"</string>
+    <string name="i18n_left_stick" formatted="false">"Левый стик"</string>
+    <string name="i18n_left_stick_click" formatted="false">"Нажатие левого стика"</string>
+    <string name="i18n_linear_trigger" formatted="false">"Линейный триггер"</string>
+    <string name="i18n_linear_trigger_wireframe" formatted="false">"- Каркас линейного триггера"</string>
+    <string name="i18n_linear_trigger_with_vibration" formatted="false">"Линейный триггер с вибрацией"</string>
+    <string name="i18n_loaded_0" formatted="true">"Загружено \"%1$s\""</string>
+    <string name="i18n_local_ip_0" formatted="true">"Локальный IP: %1$s"</string>
+    <string name="i18n_local_virtual_gamepad_is_ready" formatted="false">"Локальный виртуальный геймпад готов"</string>
+    <string name="i18n_long_press" formatted="false">"Долгое нажатие"</string>
+    <string name="i18n_mapped_keys" formatted="false">"Назначенные клавиши"</string>
+    <string name="i18n_mask_out_of_range" formatted="false">"Маска вне диапазона"</string>
+    <string name="i18n_max_icon_size_0_sp" formatted="true">"Макс. размер значка: %1$ssp"</string>
+    <string name="i18n_max_icon_size_28sp" formatted="false">"Макс. размер значка: 28sp"</string>
+    <string name="i18n_max_icon_size_unlimited" formatted="false">"Макс. размер значка: без ограничений"</string>
+    <string name="i18n_menu" formatted="false">"Меню"</string>
+    <string name="i18n_mic_mute" formatted="false">"Выключение микрофона"</string>
+    <string name="i18n_middle_button_drag" formatted="false">"Перетаскивание средней кнопкой"</string>
+    <string name="i18n_middle_click" formatted="false">"Средний клик"</string>
+    <string name="i18n_miscellaneous" formatted="false">"Разное"</string>
+    <string name="i18n_motion" formatted="false">"Движение"</string>
+    <string name="i18n_motion_orientation" formatted="false">"Ориентация движений"</string>
+    <string name="i18n_motion_orientation_is_locked_by_layout_0" formatted="true">"Ориентация движений заблокирована макетом \"%1$s\""</string>
+    <string name="i18n_motion_source" formatted="false">"Источник движений"</string>
+    <string name="i18n_mouse" formatted="false">"Мышь"</string>
+    <string name="i18n_mouse_back" formatted="false">"Мышь: назад"</string>
+    <string name="i18n_mouse_forward" formatted="false">"Мышь: вперёд"</string>
+    <string name="i18n_mouse_left_button" formatted="false">"Мышь: левая кнопка"</string>
+    <string name="i18n_mouse_lmb" formatted="false">"Мышь: ЛКМ"</string>
+    <string name="i18n_mouse_middle_button" formatted="false">"Мышь: средняя кнопка"</string>
+    <string name="i18n_mouse_mmb" formatted="false">"Мышь: СКМ"</string>
+    <string name="i18n_mouse_right_button" formatted="false">"Мышь: правая кнопка"</string>
+    <string name="i18n_mouse_rmb" formatted="false">"Мышь: ПКМ"</string>
+    <string name="i18n_mouse_sensitivity" formatted="false">"Чувствительность мыши"</string>
+    <string name="i18n_move_cursor" formatted="false">"Переместить курсор"</string>
+    <string name="i18n_mpackagename_is_inaccessible_using_defau" formatted="true">"mPackageName недоступен (используется значение по умолчанию в процессе приложения): %1$s"</string>
+    <string name="i18n_nativedestroy_failed" formatted="false">"Сбой nativeDestroy"</string>
+    <string name="i18n_nativewrite_failed" formatted="false">"Сбой nativeWrite"</string>
+    <string name="i18n_nativewritekeyboard_failed" formatted="false">"Сбой nativeWriteKeyboard"</string>
+    <string name="i18n_nativewritemouse_failed" formatted="false">"Сбой nativeWriteMouse"</string>
+    <string name="i18n_new" formatted="false">"Новый"</string>
+    <string name="i18n_new_layout" formatted="false">"Новый макет"</string>
+    <string name="i18n_no_available_network_interface" formatted="false">"Нет доступного сетевого интерфейса"</string>
+    <string name="i18n_no_gamepad" formatted="false">"Нет геймпада"</string>
+    <string name="i18n_no_motion" formatted="false">"Нет движений"</string>
+    <string name="i18n_non_linear_trigger" formatted="false">"Нелинейный триггер"</string>
+    <string name="i18n_none" formatted="false">"Нет"</string>
+    <string name="i18n_not_started" formatted="false">"Не запущено"</string>
+    <string name="i18n_note_this_app_is_not_emotion_join_qq_gro" formatted="false">"Примечание: это приложение не Emotion. Вступите в группу QQ 1045923515, чтобы скачать официальный Emotion"</string>
+    <string name="i18n_ok" formatted="false">"ОК"</string>
+    <string name="i18n_one_finger_swipe" formatted="false">"Свайп одним пальцем"</string>
+    <string name="i18n_open_settings" formatted="false">"Открыть настройки"</string>
+    <string name="i18n_open_shizuku" formatted="false">"Открыть Shizuku"</string>
+    <string name="i18n_open_the_app_to_exit_floating_mode" formatted="false">"Откройте приложение, чтобы выйти из плавающего режима"</string>
+    <string name="i18n_outline_color" formatted="false">"Цвет обводки"</string>
+    <string name="i18n_outline_width" formatted="false">"Ширина обводки"</string>
+    <string name="i18n_outline_width_0" formatted="true">"Ширина обводки: %1$s"</string>
+    <string name="i18n_output_distance" formatted="false">"Выходное расстояние -&gt;"</string>
+    <string name="i18n_overlap_trigger" formatted="false">"Триггер перекрытия"</string>
+    <string name="i18n_overlay_keep_alive" formatted="false">"Поддержание активности оверлея"</string>
+    <string name="i18n_overlay_keep_alive_active" formatted="false">"Поддержание активности оверлея активно"</string>
+    <string name="i18n_overlay_keep_alive_stopped" formatted="false">"Поддержание активности оверлея остановлено"</string>
+    <string name="i18n_overlay_permission_is_missing_skipping_o" formatted="false">"Разрешение на наложение отсутствует; пропуск поддержания активности оверлея"</string>
+    <string name="i18n_overlay_permission_is_not_granted_cannot" formatted="false">"Разрешение на наложение не выдано, невозможно включить поддержание активности оверлея"</string>
+    <string name="i18n_overlay_permission_is_required_for_float" formatted="false">"Для плавающего режима требуется разрешение на наложение"</string>
+    <string name="i18n_persistent_notification_while_controlled" formatted="false">"Постоянное уведомление при активном управляемом режиме; используется, чтобы система не завершила его в фоне"</string>
+    <string name="i18n_persistent_notification_while_floating_m" formatted="false">"Постоянное уведомление при активном плавающем режиме"</string>
+    <string name="i18n_phone_gyro" formatted="false">"Гироскоп телефона"</string>
+    <string name="i18n_phone_motor" formatted="false">"Мотор телефона"</string>
+    <string name="i18n_phone_speaker" formatted="false">"Динамик телефона"</string>
+    <string name="i18n_physical_gamepad" formatted="false">"Физический геймпад"</string>
+    <string name="i18n_pointer_acceleration" formatted="false">"Ускорение указателя"</string>
+    <string name="i18n_polling_rate" formatted="false">"Частота опроса"</string>
+    <string name="i18n_port_0_is_in_use_a_service_may_already_b" formatted="true">"Порт %1$s занят; возможно, сервис уже запущен"</string>
+    <string name="i18n_port_0_is_in_use_another_instance_may_al" formatted="true">"Порт %1$s занят; возможно, другой экземпляр уже запущен"</string>
+    <string name="i18n_port_is_in_use_another_instance_may_alre" formatted="true">"Порт занят; возможно, другой экземпляр уже запущен: %1$s"</string>
+    <string name="i18n_portrait" formatted="false">"Книжная"</string>
+    <string name="i18n_press" formatted="false">"Нажатие"</string>
+    <string name="i18n_press_back_or_use_the_back_gesture_to_ex" formatted="false">"Нажмите «Назад» или используйте жест «Назад», чтобы выйти"</string>
+    <string name="i18n_preview" formatted="false">"Предпросмотр"</string>
+    <string name="i18n_reconnecting_to_paired_device" formatted="false">"Переподключение к сопряжённому устройству..."</string>
+    <string name="i18n_refresh" formatted="false">"Обновить"</string>
+    <string name="i18n_registering_hid_profile" formatted="false">"Регистрация профиля HID..."</string>
+    <string name="i18n_reject" formatted="false">"Отклонить"</string>
+    <string name="i18n_release" formatted="false">"Отпускание"</string>
+    <string name="i18n_rename" formatted="false">"Переименовать"</string>
+    <string name="i18n_renamed_to_0" formatted="true">"Переименовано в \"%1$s\""</string>
+    <string name="i18n_request_permission" formatted="false">"Запросить разрешение"</string>
+    <string name="i18n_requesting_shizuku_permission_requestcod" formatted="true">"Запрос разрешения Shizuku requestCode=%1$s force=%2$s"</string>
+    <string name="i18n_reset" formatted="false">"Сброс"</string>
+    <string name="i18n_reset_to_straight_line" formatted="false">"Сбросить до прямой линии"</string>
+    <string name="i18n_restore_built_in_layout_0_to_defaults" formatted="true">"Восстановить встроенный макет \"%1$s\" по умолчанию?"</string>
+    <string name="i18n_restore_defaults" formatted="false">"Восстановить значения по умолчанию"</string>
+    <string name="i18n_restored_0_to_defaults" formatted="true">"Макет \"%1$s\" восстановлен по умолчанию"</string>
+    <string name="i18n_richtapvibrationeffect_check_0_has_no_va" formatted="true">"RichTapVibrationEffect check=%1$s не имеет допустимой версии, откат к типу 1"</string>
+    <string name="i18n_richtapvibrationeffect_exists_but_checki" formatted="false">"RichTapVibrationEffect существует, но checkIfRichTapSupport=2 (не поддерживается)"</string>
+    <string name="i18n_right" formatted="false">"Вправо"</string>
+    <string name="i18n_right_1f0051" formatted="false">"Вправо:"</string>
+    <string name="i18n_right_6a21ce" formatted="false">"Вправо"</string>
+    <string name="i18n_right_b45922" formatted="false">"Вправо"</string>
+    <string name="i18n_right_button_drag" formatted="false">"Перетаскивание правой кнопкой"</string>
+    <string name="i18n_right_click" formatted="false">"Правый клик"</string>
+    <string name="i18n_right_stick" formatted="false">"Правый стик"</string>
+    <string name="i18n_right_stick_click" formatted="false">"Нажатие правого стика"</string>
+    <string name="i18n_roll" formatted="false">"Крен"</string>
+    <string name="i18n_save" formatted="false">"Сохранить"</string>
+    <string name="i18n_scanning" formatted="false">"Сканирование..."</string>
+    <string name="i18n_screen_off_mode" formatted="false">"Режим выключенного экрана"</string>
+    <string name="i18n_scroll" formatted="false">"Прокрутка"</string>
+    <string name="i18n_scroll_sensitivity" formatted="false">"Чувствительность прокрутки"</string>
+    <string name="i18n_select" formatted="false">"Выбрать"</string>
+    <string name="i18n_select_background_image" formatted="false">"Выбрать фоновое изображение"</string>
+    <string name="i18n_select_base_image" formatted="false">"Выбрать изображение основы"</string>
+    <string name="i18n_select_button_image" formatted="false">"Выбрать изображение кнопки"</string>
+    <string name="i18n_select_color" formatted="false">"Выбрать цвет"</string>
+    <string name="i18n_select_image" formatted="false">"Выбрать изображение"</string>
+    <string name="i18n_select_mapped_key" formatted="false">"Выбрать назначенную клавишу"</string>
+    <string name="i18n_select_network_interface" formatted="false">"Выбрать сетевой интерфейс"</string>
+    <string name="i18n_select_stick_cap_image" formatted="false">"Выбрать изображение накладки стика"</string>
+    <string name="i18n_select_touchpad_image" formatted="false">"Выбрать изображение тачпада"</string>
+    <string name="i18n_sensitivity" formatted="false">"Чувствительность"</string>
+    <string name="i18n_sensitivity_a072e4" formatted="false">"Чувствительность (%)"</string>
+    <string name="i18n_sensitivity_curve" formatted="false">"Кривая чувствительности"</string>
+    <string name="i18n_service_error_0" formatted="true">"Ошибка сервиса: %1$s"</string>
+    <string name="i18n_service_information" formatted="false">"Информация о сервисе"</string>
+    <string name="i18n_service_started_waiting_for_connection" formatted="false">"Сервис запущен, ожидание подключения..."</string>
+    <string name="i18n_settings_button" formatted="false">"Кнопка настроек"</string>
+    <string name="i18n_share" formatted="false">"Поделиться"</string>
+    <string name="i18n_shizuku_authorization_failed_grant_permi" formatted="false">"Авторизация Shizuku не удалась. Выдайте разрешение в Shizuku и повторите попытку"</string>
+    <string name="i18n_shizuku_environment" formatted="false">"Окружение Shizuku"</string>
+    <string name="i18n_shizuku_initialization_failed_0" formatted="true">"Сбой инициализации Shizuku: %1$s"</string>
+    <string name="i18n_shizuku_is_too_old_please_update_it" formatted="false">"Shizuku слишком старый, обновите его"</string>
+    <string name="i18n_shizuku_not_authorized" formatted="false">"Shizuku не авторизован"</string>
+    <string name="i18n_shizuku_not_running" formatted="false">"Shizuku не запущен"</string>
+    <string name="i18n_shizuku_permission_denied" formatted="false">"Разрешение Shizuku отклонено"</string>
+    <string name="i18n_shizuku_service_is_in_an_unexpected_stat" formatted="false">"Сервис Shizuku находится в неожиданном состоянии. Перезагрузите телефон и повторите попытку"</string>
+    <string name="i18n_shizuku_stopped" formatted="false">"Shizuku остановлен"</string>
+    <string name="i18n_shizuku_user_service_connected_0" formatted="true">"Пользовательский сервис Shizuku подключён (%1$s)"</string>
+    <string name="i18n_shizuku_user_service_disconnected_0" formatted="true">"Пользовательский сервис Shizuku отключён (%1$s)"</string>
+    <string name="i18n_show_hide_floating_button" formatted="false">"Показать/скрыть плавающую кнопку"</string>
+    <string name="i18n_single_tap" formatted="false">"Одинарное нажатие"</string>
+    <string name="i18n_size" formatted="false">"Размер"</string>
+    <string name="i18n_solid_color" formatted="false">"Сплошной цвет"</string>
+    <string name="i18n_sound_device" formatted="false">"Звуковое устройство"</string>
+    <string name="i18n_sound_device_0" formatted="true">"Звуковое устройство %1$s"</string>
+    <string name="i18n_source_https_github_com_4zyz4_gkme" formatted="false">"Исходники: https://github.com/4zyz4/gkme\n"</string>
+    <string name="i18n_sponsor" formatted="false">"Спонсор"</string>
+    <string name="i18n_square" formatted="false">"Квадрат"</string>
+    <string name="i18n_start_service" formatted="false">"Запустить сервис"</string>
+    <string name="i18n_start_service_automatically_when_the_app" formatted="false">"Запускать сервис автоматически при открытии приложения"</string>
+    <string name="i18n_starteffect_failed_falling_back_to_start" formatted="false">"Сбой startEffect, откат к startPattern"</string>
+    <string name="i18n_starting_service" formatted="false">"Запуск сервиса..."</string>
+    <string name="i18n_starting_service_7b3971" formatted="false">"Запуск сервиса..."</string>
+    <string name="i18n_starting_shizuku_user_service" formatted="false">"Запуск пользовательского сервиса Shizuku..."</string>
+    <string name="i18n_startpattern_failed" formatted="false">"Сбой startPattern"</string>
+    <string name="i18n_startpattern_fallback_failed" formatted="false">"Сбой отката startPattern"</string>
+    <string name="i18n_startrichtap_failed" formatted="false">"Сбой startRichtap"</string>
+    <string name="i18n_starttencent_failed" formatted="false">"Сбой startTencent"</string>
+    <string name="i18n_starttencenteffect_failed" formatted="false">"Сбой startTencentEffect"</string>
+    <string name="i18n_status_text_color" formatted="false">"Цвет текста состояния"</string>
+    <string name="i18n_stick" formatted="false">"Стик"</string>
+    <string name="i18n_stick_cap" formatted="false">"- Накладка стика"</string>
+    <string name="i18n_stick_cap_color" formatted="false">"Цвет накладки стика"</string>
+    <string name="i18n_stick_cap_outline_color" formatted="false">"Цвет обводки накладки стика"</string>
+    <string name="i18n_stick_cap_outline_width" formatted="false">"Ширина обводки накладки стика"</string>
+    <string name="i18n_stick_cap_outline_width_0" formatted="true">"Ширина обводки накладки стика: %1$s"</string>
+    <string name="i18n_stop" formatted="false">"Стоп"</string>
+    <string name="i18n_stop_service" formatted="false">"Остановить сервис"</string>
+    <string name="i18n_stop_the_service_first" formatted="false">"Сначала остановите сервис"</string>
+    <string name="i18n_stoprichtap_failed_0" formatted="true">"Сбой stopRichtap: %1$s"</string>
+    <string name="i18n_stoptencent_exception_0" formatted="true">"Исключение stopTencent: %1$s"</string>
+    <string name="i18n_supported" formatted="false">"Поддерживается"</string>
+    <string name="i18n_swap_left_right_adaptive_triggers" formatted="false">"Поменять местами левый/правый адаптивные триггеры"</string>
+    <string name="i18n_swap_left_right_motors" formatted="false">"Поменять местами левый/правый моторы"</string>
+    <string name="i18n_swipe_direction" formatted="false">"Направление свайпа"</string>
+    <string name="i18n_swipe_threshold" formatted="false">"Порог свайпа"</string>
+    <string name="i18n_swipe_trigger" formatted="false">"Триггер свайпа"</string>
+    <string name="i18n_switch_gamepad" formatted="false">"Переключить геймпад"</string>
+    <string name="i18n_switch_target_platform" formatted="false">"Переключить целевую платформу"</string>
+    <string name="i18n_system_default" formatted="false">"Системное по умолчанию"</string>
+    <string name="i18n_system_effect" formatted="false">"Системный эффект"</string>
+    <string name="i18n_tap" formatted="false">"Касание"</string>
+    <string name="i18n_tap_anywhere_to_exit" formatted="false">"Нажмите в любом месте, чтобы выйти"</string>
+    <string name="i18n_target_platform" formatted="false">"Целевая платформа"</string>
+    <string name="i18n_test" formatted="false">"Тест"</string>
+    <string name="i18n_thank_you_for_your_support" formatted="false">"Спасибо за поддержку!"</string>
+    <string name="i18n_the_current_screen_orientation_swaps_the" formatted="false">"Текущая ориентация экрана меняет местами поведение книжной и перевёрнутой книжной ориентации"</string>
+    <string name="i18n_the_saved_paired_device_will_be_removed" formatted="false">"Сохранённое сопряжённое устройство будет удалено. Продолжить?"</string>
+    <string name="i18n_this_device" formatted="false">"Это устройство"</string>
+    <string name="i18n_this_device_does_not_support_hd_vibratio" formatted="false">"Это устройство не поддерживает HD-вибрацию"</string>
+    <string name="i18n_three_finger_swipe" formatted="false">"Свайп тремя пальцами"</string>
+    <string name="i18n_three_finger_tap" formatted="false">"Касание тремя пальцами"</string>
+    <string name="i18n_tick" formatted="false">"Тик"</string>
+    <string name="i18n_top_left" formatted="false">"Вверху слева"</string>
+    <string name="i18n_top_left_07092c" formatted="false">"Вверху слева"</string>
+    <string name="i18n_top_right" formatted="false">"Вверху справа"</string>
+    <string name="i18n_top_right_a52f17" formatted="false">"Вверху справа"</string>
+    <string name="i18n_touchpad" formatted="false">"Тачпад"</string>
+    <string name="i18n_touchpad_color" formatted="false">"Цвет тачпада"</string>
+    <string name="i18n_touchpad_gamepad" formatted="false">"Тачпад (геймпад)"</string>
+    <string name="i18n_touchpad_mode" formatted="false">"Режим тачпада"</string>
+    <string name="i18n_touchpad_mouse" formatted="false">"Тачпад (мышь)"</string>
+    <string name="i18n_touchpad_outline_width_0" formatted="true">"Ширина обводки тачпада: %1$s"</string>
+    <string name="i18n_travel" formatted="false">"Ход"</string>
+    <string name="i18n_trigger" formatted="false">"Триггер"</string>
+    <string name="i18n_trigger_area" formatted="false">"- Область триггера"</string>
+    <string name="i18n_trigger_area_color" formatted="false">"Цвет области триггера"</string>
+    <string name="i18n_trigger_area_outline_color" formatted="false">"Цвет обводки области триггера"</string>
+    <string name="i18n_trigger_area_outline_width" formatted="false">"Ширина обводки области триггера"</string>
+    <string name="i18n_trigger_area_outline_width_0" formatted="true">"Ширина обводки области триггера: %1$s"</string>
+    <string name="i18n_trigger_area_width" formatted="false">"Ширина области триггера"</string>
+    <string name="i18n_trigger_area_width_0" formatted="true">"Ширина области триггера: %1$s"</string>
+    <string name="i18n_trigger_travel" formatted="false">"Ход триггера"</string>
+    <string name="i18n_trigger_when_rectangles_overlap" formatted="false">"Срабатывать при перекрытии прямоугольников"</string>
+    <string name="i18n_try_to_connect" formatted="false">"Попробовать подключиться"</string>
+    <string name="i18n_turn_on_bluetooth_to_use_bluetooth_mode" formatted="false">"Включите Bluetooth для режима Bluetooth"</string>
+    <string name="i18n_two_finger_swipe" formatted="false">"Свайп двумя пальцами"</string>
+    <string name="i18n_two_finger_tap" formatted="false">"Касание двумя пальцами"</string>
+    <string name="i18n_type_2_available_but_no_vibrator_instanc" formatted="false">"тип 2 доступен, но нет экземпляра Vibrator"</string>
+    <string name="i18n_type_2_failed_to_parse_he" formatted="false">"тип 2 не удалось разобрать HE"</string>
+    <string name="i18n_universal_keyboard_mouse" formatted="false">"Универсальная клавиатура/мышь"</string>
+    <string name="i18n_unmapped" formatted="false">"Не назначено"</string>
+    <string name="i18n_unpair" formatted="false">"Отменить сопряжение"</string>
+    <string name="i18n_unpair_from_0_you_will_need_to_pair_agai" formatted="true">"Отменить сопряжение с \"%1$s\"? В следующий раз потребуется сопряжение заново."</string>
+    <string name="i18n_unspecified" formatted="false">"Не указано"</string>
+    <string name="i18n_unsupported" formatted="false">"Не поддерживается"</string>
+    <string name="i18n_up" formatted="false">"Вверх"</string>
+    <string name="i18n_up_00d5a2" formatted="false">"Вверх"</string>
+    <string name="i18n_up_3f99c7" formatted="false">"Вверх"</string>
+    <string name="i18n_updateparameter_failed" formatted="false">"Сбой updateParameter"</string>
+    <string name="i18n_usb_device_access_is_blocked_by_system_p" formatted="false">"Доступ к USB-устройству блокируется системной политикой"</string>
+    <string name="i18n_usb_driver_axixi" formatted="false">"Драйвер USB (Axixi)"</string>
+    <string name="i18n_use_controller_led_color" formatted="false">"Использовать цвет LED контроллера"</string>
+    <string name="i18n_use_gamepad_led_color" formatted="false">"Использовать цвет LED геймпада"</string>
+    <string name="i18n_used_to_activate_the_gyro" formatted="false">"Используется для активации гироскопа"</string>
+    <string name="i18n_user_service_failed_to_connect_repeatedl" formatted="true">"Не удалось подключить пользовательский сервис после нескольких попыток; удаление и пересоздание (%1$s)"</string>
+    <string name="i18n_using_in_process_richtap_playertype_0_ve" formatted="true">"Используется RichTap в процессе: playerType=%1$s version=%2$s"</string>
+    <string name="i18n_version_0" formatted="true">"Версия %1$s"</string>
+    <string name="i18n_version_out_of_range" formatted="false">"Версия вне диапазона"</string>
+    <string name="i18n_vertical" formatted="false">"Вертикальная"</string>
+    <string name="i18n_vibration" formatted="false">"Вибрация"</string>
+    <string name="i18n_vibration_device" formatted="false">"Устройство вибрации"</string>
+    <string name="i18n_virtual_gamepad_created_backend_0_profil" formatted="true">"Виртуальный геймпад создан backend=%1$s profile=%2$s fd=%3$s"</string>
+    <string name="i18n_virtual_gamepad_creation_error_0" formatted="true">"Ошибка создания виртуального геймпада: %1$s"</string>
+    <string name="i18n_virtual_gamepad_destroyed_fd_0" formatted="true">"Виртуальный геймпад уничтожен fd=%1$s"</string>
+    <string name="i18n_virtual_gamepad_is_ready" formatted="false">"Виртуальный геймпад готов"</string>
+    <string name="i18n_virtual_key" formatted="false">"Виртуальная клавиша"</string>
+    <string name="i18n_virtual_key_release" formatted="false">"Отпускание виртуальной клавиши"</string>
+    <string name="i18n_virtual_keyboard_created_fd_0" formatted="true">"Виртуальная клавиатура создана fd=%1$s"</string>
+    <string name="i18n_virtual_keyboard_destroyed_fd_0" formatted="true">"Виртуальная клавиатура уничтожена fd=%1$s"</string>
+    <string name="i18n_virtual_mouse_created_fd_0" formatted="true">"Виртуальная мышь создана fd=%1$s"</string>
+    <string name="i18n_virtual_mouse_destroyed_fd_0" formatted="true">"Виртуальная мышь уничтожена fd=%1$s"</string>
+    <string name="i18n_voice_coil" formatted="false">"Звуковая катушка"</string>
+    <string name="i18n_voice_coil_status" formatted="false">"Состояние звуковой катушки"</string>
+    <string name="i18n_volume" formatted="false">"Громкость +"</string>
+    <string name="i18n_volume_80d5c3" formatted="false">"Громкость -"</string>
+    <string name="i18n_volume_key_mapping" formatted="false">"Назначение клавиш громкости"</string>
+    <string name="i18n_volume_keys" formatted="false">"Клавиши громкости"</string>
+    <string name="i18n_waiting_for_host_connection" formatted="false">"Ожидание подключения хоста..."</string>
+    <string name="i18n_waiting_for_host_phone_is_discoverable_b" formatted="false">"Ожидание хоста — телефон доступен для обнаружения (Bluetooth)"</string>
+    <string name="i18n_web_browser" formatted="false">"Веб-браузер"</string>
+    <string name="i18n_web_gamepad" formatted="false">"Веб-геймпад"</string>
+    <string name="i18n_web_gamepad_qr_code" formatted="false">"QR-код веб-геймпада"</string>
+    <string name="i18n_when_the_gamepad_gyro_is_used_motion_ori" formatted="false">"Когда используется гироскоп геймпада, ориентация движений определяется геймпадом и не может быть изменена"</string>
+    <string name="i18n_width" formatted="false">"Ширина"</string>
+    <string name="i18n_windows_gamepad_only" formatted="false">"Только геймпад Windows"</string>
+    <string name="i18n_wireframe_color" formatted="false">"Цвет каркаса"</string>
+    <string name="i18n_wireframe_width" formatted="false">"Ширина каркаса"</string>
+    <string name="i18n_wireframe_width_0" formatted="true">"Ширина каркаса: %1$s"</string>
+    <string name="i18n_world_space" formatted="false">"Мировое пространство"</string>
+    <string name="i18n_xbox_gamepad" formatted="false">"Геймпад Xbox"</string>
+    <string name="i18n_yaw" formatted="false">"Рыскание"</string>
+    <string name="i18n_yaw_roll" formatted="false">"Рыскание + крен"</string>
+    <string name="i18n_zoom_in" formatted="false">"Увеличить"</string>
+    <string name="i18n_zoom_preview" formatted="false">"Просмотр масштаба"</string>
+    <string name="i18n_sdl3" formatted="false">"SDL3"</string>
+    <string name="i18n_input_manager" formatted="false">"InputManager"</string>
+</resources>
