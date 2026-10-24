@@ -1,12 +1,12 @@
 /*
- * GKME uhid 虚拟输入后端 —— 直接操作 Linux /dev/uhid。
+ * Virtual UHID input backend -- Directly interfaces with Linux /dev/uhid.
  *
- * 与 uinput_gamepad.c 并行存在：uinput 后端用 BUS_VIRTUAL 伪装成 Xbox One S，
- * 本文件则用真实的 HID report descriptor（取自 GKMD）经 uhid 创建 DS4 /
- * DualSense / Switch Pro 的 HID 身份，并实现各厂商内核驱动所需的 feature
- * 应答与 output（震动）解析。键盘/鼠标同样以真实 HID 报告描述符呈现。
+ * Parallel to uinput_gamepad.c: while uinput emulates Xbox Wireless Controller,
+ * this module creates authentic HID devices for DualShock 4 / DualSense / Switch Pro
+ * using authentic HID report descriptors, implementing feature report responses
+ * and output report (rumble) parsing.
  *
- * 运行在 Shizuku UserService（shell/root 身份）中，因此可以打开 /dev/uhid。
+ * Runs inside Shizuku UserService (shell/root identity) to access /dev/uhid.
  */
 
 #include <jni.h>
@@ -23,7 +23,7 @@
 
 #include "gkme_hid_descriptors.h"
 
-/* ── uhid 协议常量（避免依赖 NDK 头文件版本）───────────────────────────── */
+/* -- UHID protocol constants (matches Linux uhid.h) ----------------------- */
 #define GKME_UHID_DESTROY 1
 #define GKME_UHID_START 2
 #define GKME_UHID_STOP 3
@@ -103,7 +103,7 @@ struct gkme_uhid_event {
     } u;
 } __attribute__((__packed__));
 
-/* ── 设备种类 ─────────────────────────────────────────────────────────── */
+/* ── ─────────────────────────────────────────────────────────── */
 #define GKME_PROFILE_DS4 1
 #define GKME_PROFILE_DUALSENSE 2
 #define GKME_PROFILE_SWITCH_PRO 3
@@ -121,28 +121,28 @@ typedef struct {
     int has_streamer;
     pthread_mutex_t lock;
 
-    /* 手柄震动（0..65535，分别对应左右马达） */
+  /* 0..65535 */
     int left;
     int right;
 
-    /* 本机模式为 0：忽略 output 报告里的震动，避免“手机震动 ↔ 虚拟手柄”回环。 */
+  /* 0 output “ ↔ ” */
     int rumble_enabled;
 
-    /* 运动传感器（rad/s、m/s²），由 App 每帧注入，写入 uhid 手柄的 input 报告。 */
+  /* Motion sensors (rad/s, m/s^2), injected into UHIDrad/sm/s² App uhid input */
     float gyro[3];
     float accel[3];
 
-    /* 触摸板（DS4/DualSense）：2 个触点，每点 [id, x, y, active]，x/y 为 0..1919/0..942。 */
+    /* Touchpad (DS4/DualSense): 2 touch points [id, x, y, active], x/y in 0..1919/0..942. */
     int touch[2][4];
     uint8_t touch_seq;
 
-    /* Switch 状态 */
+  /* Switch */
     uint8_t sw_body[48];
     int sw_imu;
     uint8_t sw_timer;
     uint8_t sw_device_type;
 
-    /* 最近一帧输入报告（Switch 需要周期性重发） */
+  /* Switch */
     uint8_t last_report[64];
     int last_len;
 
@@ -168,7 +168,7 @@ static gkme_uk_dev *gkme_uk_get(int fd) {
     return dev;
 }
 
-/* ── 通用事件发送 ─────────────────────────────────────────────────────── */
+/* ── ─────────────────────────────────────────────────────── */
 static int gkme_uk_send_input(int fd, const uint8_t *data, int len) {
     struct gkme_uhid_event ev;
     if (len > GKME_UHID_DATA_MAX) len = GKME_UHID_DATA_MAX;
@@ -179,7 +179,7 @@ static int gkme_uk_send_input(int fd, const uint8_t *data, int len) {
     return write(fd, &ev, sizeof(ev)) < 0 ? -errno : 0;
 }
 
-/* ── Sony 通用数据（取自 GKMD）────────────────────────────────────────── */
+/* ── Sony GKMD────────────────────────────────────────── */
 static const uint8_t kSonyCalibration[34] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x10, 0x27, 0xF0, 0xD8, 0x10, 0x27, 0xF0, 0xD8, 0x10, 0x27, 0xF0, 0xD8,
@@ -220,7 +220,7 @@ static const uint8_t kDs5Firmware[64] = {
 
 static const uint8_t kSwitchMac[6] = { 0x98, 0xB6, 0xE9, 0x48, 0x4D, 0x30 };
 
-/* ── 输入辅助 ─────────────────────────────────────────────────────────── */
+/* ── ─────────────────────────────────────────────────────────── */
 static int gkme_axis_u8(int v) {
     if (v < -32768) v = -32768;
     if (v > 32767) v = 32767;
@@ -236,7 +236,7 @@ static int gkme_trig_u8(int v) {
     return v;
 }
 
-/* XInput 十字键（bit0=上 1=下 2=左 3=右）→ 8 向 hat（0=上，顺时针；8=中） */
+/* XInput bit0= 1= 2= 3=→ 8 hat0=8= */
 static int gkme_hat_octant(int buttons) {
     int up = (buttons >> 0) & 1;
     int down = (buttons >> 1) & 1;
@@ -254,7 +254,7 @@ static int gkme_hat_octant(int buttons) {
     return 8;
 }
 
-/* ── 运动传感器换算与写入 ─────────────────────────────────────────────── */
+/* ── Motion sensors (rad/s, m/s^2), injected into UHID ─────────────────────────────────────────────── */
 static void gkme_put_s16(uint8_t *p, int v) {
     if (v < -32768) v = -32768;
     if (v > 32767) v = 32767;
@@ -262,17 +262,17 @@ static void gkme_put_s16(uint8_t *p, int v) {
     p[1] = (uint8_t)((v >> 8) & 0xFF);
 }
 
-/* rad/s → DS4/DualSense 陀螺仪原始刻度（16 LSB/(°/s)）。 */
+/* rad/s → DS4/DualSense 16 LSB/(°/s) */
 static int gkme_gyro_raw(float rad_s) {
     return (int)(rad_s * 57.2957795f * 16.0f);
 }
 
-/* m/s² → DS4/DualSense 加速度原始刻度（8192 LSB/g）。 */
+/* m/s² → DS4/DualSense 8192 LSB/g */
 static int gkme_accel_raw(float m_s2) {
     return (int)(m_s2 / 9.80665f * 8192.0f);
 }
 
-/* Switch IMU 刻度：加速度约 4096 LSB/g，陀螺仪约 938 LSB/(rad/s)。 */
+/* Switch IMU 4096 LSB/g 938 LSB/(rad/s) */
 static int gkme_switch_accel_raw(float m_s2) {
     return (int)(m_s2 / 9.80665f * 4096.0f);
 }
@@ -281,11 +281,11 @@ static int gkme_switch_gyro_raw(float rad_s) {
     return (int)(rad_s * 938.0f);
 }
 
-/* 写入 2 个触摸点到 DS4/DualSense input 报告（每点 4 字节）。
- * y 按 yscale_num/yscale_den 缩放：DS4 触板 1920x942，DualSense 1920x1080。
- * 每点编码对齐 hid-playstation 的 ps_touch_point（DS4 与 DualSense 相同）：
- * byte0 = bit7 未触摸标志 + 7 位 id；byte1 = X 低 8 位；
- * byte2 = X 高 4 位（低半字节）| Y 低 4 位（高半字节）；byte3 = Y 高 8 位。 */
+/* 2 DS4/DualSense input 4 bytes per touch
+ * y yscale_num/yscale_den DS4 1920x942DualSense 1920x1080
+ * hid-playstation ps_touch_pointDS4 DualSense 
+ * byte0 = bit7 up_flag + 7-bit id; byte1 = X low 8 bits; + 7 idbyte1 = X 8 
+ * byte2 = X high 4 bits (low nibble) | Y low 4 bits (high nibble); byte3 = Y high 8 bits. */
 static void gkme_write_touch(uint8_t *rpt, int offset, gkme_uk_dev *dev,
                              int yscale_num, int yscale_den) {
     for (int i = 0; i < 2; i++) {
@@ -329,10 +329,10 @@ static void gkme_pack_ds4(uint8_t rpt[64], gkme_uk_dev *dev,
     if (buttons & 0x0080) b2 |= 0x80; /* R3 */
     rpt[6] = b2;
     if (buttons & 0x0400) rpt[7] |= 0x01; /* Guide */
-    if (buttons & 0x20000) rpt[7] |= 0x02; /* 触摸板点击 */
+    if (buttons & 0x20000) rpt[7] |= 0x02; /* touchpad click */
     rpt[8] = (uint8_t)gkme_trig_u8(lt);
     rpt[9] = (uint8_t)gkme_trig_u8(rt);
-    /* 运动传感器：gyro X/Y/Z 在 13..18，accel X/Y/Z 在 19..24（hid-playstation）。 */
+    /* Motion sensors: gyro X/Y/Z at 13..18, accel X/Y/Z at 19..24 (hid-playstation). */
     gkme_put_s16(rpt + 13, gkme_gyro_raw(dev->gyro[0]));
     gkme_put_s16(rpt + 15, gkme_gyro_raw(dev->gyro[1]));
     gkme_put_s16(rpt + 17, gkme_gyro_raw(dev->gyro[2]));
@@ -340,8 +340,8 @@ static void gkme_pack_ds4(uint8_t rpt[64], gkme_uk_dev *dev,
     gkme_put_s16(rpt + 21, gkme_accel_raw(dev->accel[1]));
     gkme_put_s16(rpt + 23, gkme_accel_raw(dev->accel[2]));
     rpt[30] = 0x05; /* battery: full-ish */
-    /* 触摸板：rpt[33] = 触点报告数，rpt[34] = 报告时间戳，触点从 rpt[35] 起
-     * （每点 4 字节），DS4 触板 1920x942。 */
+  /* Touchpad: rpt[33/34] = counter, touches start at rpt[35] = rpt[34] = rpt[35] 
+   * 4 bytes per touchDS4 1920x942 */
     rpt[33] = 1;
     rpt[34] = (uint8_t)(dev->touch_seq++ & 0x7F);
     gkme_write_touch(rpt, 35, dev, 1, 1);
@@ -376,8 +376,8 @@ static void gkme_pack_dualsense(uint8_t rpt[64], gkme_uk_dev *dev,
     if (buttons & 0x0080) b2 |= 0x80;
     rpt[9] = b2;
     if (buttons & 0x0400) rpt[10] |= 0x01;
-    if (buttons & 0x20000) rpt[10] |= 0x02; /* 触摸板点击 */
-    /* 运动传感器：gyro X/Y/Z 在 16..21，accel X/Y/Z 在 22..27（hid-playstation）。 */
+    if (buttons & 0x20000) rpt[10] |= 0x02; /* touchpad click */
+  /* Motion sensors (rad/s, m/s^2), injected into UHIDgyro X/Y/Z 16..21accel X/Y/Z 22..27hid-playstation */
     gkme_put_s16(rpt + 16, gkme_gyro_raw(dev->gyro[0]));
     gkme_put_s16(rpt + 18, gkme_gyro_raw(dev->gyro[1]));
     gkme_put_s16(rpt + 20, gkme_gyro_raw(dev->gyro[2]));
@@ -385,13 +385,13 @@ static void gkme_pack_dualsense(uint8_t rpt[64], gkme_uk_dev *dev,
     gkme_put_s16(rpt + 24, gkme_accel_raw(dev->accel[1]));
     gkme_put_s16(rpt + 26, gkme_accel_raw(dev->accel[2]));
     rpt[53] = 0x05;
-    /* 触摸板：触点从 rpt[33] 起（每点 4 字节），DualSense 触板 1920x1080，
-     * 把 0..942 的输入 y 缩放过去；rpt[41] = 报告时间戳。 */
+  /* rpt[33] 4 bytes per touchDualSense 1920x1080
+   * 0..942 y rpt[41] = */
     gkme_write_touch(rpt, 33, dev, 1080, 943);
     rpt[41] = (uint8_t)(dev->touch_seq++ & 0x7F);
 }
 
-/* Switch 12 位摇杆（little-nibble 打包）。 */
+/* Switch 12-bit stick (little-nibble encoding)little-nibble */
 static uint16_t gkme_switch_stick(int v, int invert) {
     if (v < -32768) v = -32768;
     if (v > 32767) v = 32767;
@@ -436,7 +436,7 @@ static void gkme_switch_fill_body(gkme_uk_dev *dev, int buttons, int lt, int rt,
     body[4] = b2;
     gkme_switch_pack_stick(body + 5, gkme_switch_stick(lx, 0), gkme_switch_stick(ly, 1));
     gkme_switch_pack_stick(body + 8, gkme_switch_stick(rx, 0), gkme_switch_stick(ry, 1));
-    /* IMU：3 组 sample，每组 accel X/Y/Z + gyro X/Y/Z（int16 LE），位于 body[12..47]。 */
+  /* IMU3 sample accel X/Y/Z + gyro X/Y/Zint16 LE body[12..47] */
     for (int s = 0; s < 3; s++) {
         uint8_t *imu = body + 12 + s * 12;
         gkme_put_s16(imu + 0, gkme_switch_accel_raw(dev->accel[0]));
@@ -466,7 +466,7 @@ static void gkme_switch_build_frame(gkme_uk_dev *dev, uint8_t frame[64]) {
     memcpy(frame + 13, state + 10, 36);
 }
 
-/* ── Switch SPI 镜像（取自 GKMD）──────────────────────────────────────── */
+/* ── Switch SPI GKMD──────────────────────────────────────── */
 static uint8_t gkme_switch_spi_byte(gkme_uk_dev *dev, uint32_t a) {
     static const uint8_t imuCal[24] = {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -506,7 +506,7 @@ static uint8_t gkme_switch_mac(gkme_uk_dev *dev, int i) {
     return kSwitchMac[i];
 }
 
-/* ── Feature 应答 ─────────────────────────────────────────────────────── */
+/* ── Feature Report Replies ─────────────────────────────────────────────────────── */
 static int gkme_build_feature(gkme_uk_dev *dev, uint8_t rnum, uint8_t *out, int cap) {
     int n = 0;
     if (dev->profile == GKME_PROFILE_DS4) {
@@ -572,8 +572,8 @@ static int gkme_build_feature(gkme_uk_dev *dev, uint8_t rnum, uint8_t *out, int 
         }
     }
     if (dev->profile == GKME_PROFILE_KEYBOARD || dev->profile == GKME_PROFILE_MOUSE) {
-        /* 鼠标的 Resolution Multiplier（无 report id）需返回有效值，否则内核写
-         * feature 时可能阻塞。键盘无 feature，返回 0 即可。 */
+    /* Resolution Multiplier report id
+     * feature feature 0 */
         if (rnum == 0 && cap >= 1) {
             out[0] = 0x01;
             return 1;
@@ -583,7 +583,7 @@ static int gkme_build_feature(gkme_uk_dev *dev, uint8_t rnum, uint8_t *out, int 
     return 0;
 }
 
-/* ── Output（震动）解析 ───────────────────────────────────────────────── */
+/* ── Output (Rumble) Parsing ───────────────────────────────────────────────── */
 static void gkme_set_rumble(gkme_uk_dev *dev, int left, int right) {
     if (left < 0) left = 0; if (left > 255) left = 255;
     if (right < 0) right = 0; if (right > 255) right = 255;
@@ -594,7 +594,7 @@ static void gkme_set_rumble(gkme_uk_dev *dev, int left, int right) {
 }
 
 static void gkme_handle_output(gkme_uk_dev *dev, const uint8_t *data, int len) {
-    /* 本机模式禁用震动回传：忽略 output 报告，避免“手机震动 ↔ 虚拟手柄”死循环。 */
+  /* output “ ↔ ” */
     if (!dev->rumble_enabled) return;
     if (len <= 0) return;
     uint8_t rid = data[0];
@@ -603,7 +603,7 @@ static void gkme_handle_output(gkme_uk_dev *dev, const uint8_t *data, int len) {
     } else if (dev->profile == GKME_PROFILE_DUALSENSE) {
         if (rid == 0x02 && len >= 5) gkme_set_rumble(dev, data[4], data[3]);
     } else if (dev->profile == GKME_PROFILE_SWITCH_PRO) {
-        /* 0x01 携带 rumble+subcommand，0x10 仅 rumble；每侧 4 字节 HD rumble 块。 */
+    /* 0x01 rumble+subcommand0x10 rumble 4 HD rumble */
         if ((rid == 0x01 || rid == 0x10) && len >= 9) {
             int lAmp = data[2] > data[4] ? data[2] : data[4];
             int rAmp = data[6] > data[8] ? data[6] : data[8];
@@ -612,7 +612,7 @@ static void gkme_handle_output(gkme_uk_dev *dev, const uint8_t *data, int len) {
     }
 }
 
-/* ── Switch 协议处理 ──────────────────────────────────────────────────── */
+/* ── Switch ──────────────────────────────────────────────────── */
 static void gkme_switch_proprietary(gkme_uk_dev *dev, const uint8_t *payload, int len) {
     if (len < 1) return;
     uint8_t cmd = payload[0];
@@ -695,7 +695,7 @@ static void gkme_switch_subcommand(gkme_uk_dev *dev, const uint8_t *data, int le
     gkme_uk_send_input(dev->fd, reply, 64);
 }
 
-/* ── 读事件线程 ───────────────────────────────────────────────────────── */
+/* ── ───────────────────────────────────────────────────────── */
 static void *gkme_uk_reader(void *arg) {
     gkme_uk_dev *dev = (gkme_uk_dev *)arg;
     while (dev->running) {
@@ -763,7 +763,7 @@ static void *gkme_uk_streamer(void *arg) {
     return NULL;
 }
 
-/* ── 创建 / 销毁 ──────────────────────────────────────────────────────── */
+/* ── / ──────────────────────────────────────────────────────── */
 static int gkme_uk_create(const uint8_t *desc, int desc_len, const char *name,
                           const char *uniq, uint16_t vid, uint16_t pid,
                           int profile, int rumble_enabled) {
@@ -821,7 +821,7 @@ static void gkme_uk_destroy(int fd) {
     free(dev);
 }
 
-/* ── JNI：手柄 ────────────────────────────────────────────────────────── */
+/* ── JNI: Gamepad ────────────────────────────────────────────────────────── */
 JNIEXPORT jint JNICALL
 Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeCreateUhid(
         JNIEnv *env, jclass clazz, jint profile, jint rumbleEnabled) {
@@ -915,7 +915,7 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeDestroyUhid(
     gkme_uk_destroy(fd);
 }
 
-/* ── JNI：键盘 ────────────────────────────────────────────────────────── */
+/* ── JNI ────────────────────────────────────────────────────────── */
 JNIEXPORT jint JNICALL
 Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeCreateKeyboardUhid(
         JNIEnv *env, jclass clazz) {
@@ -939,7 +939,7 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWriteKeyboardUhid(
             (*env)->GetIntArrayRegion(env, usages, 0, len, buf);
             for (jsize i = 0; i < len; i++) {
                 int u = buf[i] & 0xFF;
-                if (u >= 0xE0 && u <= 0xE7) continue; /* 修饰键走掩码 */
+                if (u >= 0xE0 && u <= 0xE7) continue; /* Modifiers handled via mask */
                 if (u <= 0 || u >= 256) continue;
                 rpt[2 + (u / 8)] |= (uint8_t)(1 << (u % 8));
             }
@@ -948,7 +948,7 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWriteKeyboardUhid(
     gkme_uk_send_input(dev->fd, rpt, 34);
 }
 
-/* ── JNI：鼠标 ────────────────────────────────────────────────────────── */
+/* ── JNI ────────────────────────────────────────────────────────── */
 JNIEXPORT jint JNICALL
 Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeCreateMouseUhid(
         JNIEnv *env, jclass clazz) {

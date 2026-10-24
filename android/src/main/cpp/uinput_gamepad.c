@@ -1,13 +1,13 @@
 /*
- * GKME 被控端虚拟手柄 —— 直接操作 Linux /dev/uinput。
+ * Virtual Gamepad backend -- Directly interfaces with Linux /dev/uinput.
  *
- * 该库运行在 Shizuku UserService 进程（shell/root 身份）中，因为普通 App 进程
- * 无法打开 /dev/uinput。实现参考 starcore_gamepad_reverse.md：
- *   - BUS_VIRTUAL + vendor=0x045E(Microsoft) + product=0x02FD 伪装成 Xbox One S 手柄；
- *   - 按键位沿用 XInput wButtons 掩码，再翻译成 Linux BTN_* / KEY_*；
- *   - 左摇杆 ABS_X/ABS_Y，右摇杆 ABS_Z/ABS_RZ，扳机 ABS_BRAKE/ABS_GAS，
- *     十字键 ABS_HAT0X/ABS_HAT0Y；
- *   - 每次状态变化写 11 个按键事件 + 8 个轴事件 + 1 个 EV_SYN。
+ * Runs inside the Shizuku UserService process (shell/root identity), as regular application processes
+ * cannot access /dev/uinput:
+ *   - BUS_BLUETOOTH + vendor=0x045E(Microsoft) + product=0x02FD emulates an Xbox One S controller;
+ *   - Buttons map from XInput wButtons bitmasks to Linux BTN_* / KEY_*;
+ *   - Left stick: ABS_X/ABS_Y, Right stick: ABS_Z/ABS_RZ, Triggers: ABS_BRAKE/ABS_GAS,
+ *     D-pad: ABS_HAT0X/ABS_HAT0Y;
+ *   - Each state change writes 11 button events + 8 axis events + 1 EV_SYN.
  */
 
 #include <jni.h>
@@ -23,7 +23,7 @@
 
 #define GKME_UINPUT_IOCTL_BASE 'U'
 
-/* ── ioctl 常量（与内核 uinput.h 一致，避免依赖 NDK 头文件版本）────────── */
+/* -- ioctl constants (matches kernel uinput.h) ---------------------------- */
 #define GKME_UI_DEV_CREATE   _IO(GKME_UINPUT_IOCTL_BASE, 1)
 #define GKME_UI_DEV_DESTROY  _IO(GKME_UINPUT_IOCTL_BASE, 2)
 #define GKME_UI_SET_EVBIT    _IOW(GKME_UINPUT_IOCTL_BASE, 100, int)
@@ -32,7 +32,7 @@
 #define GKME_UI_SET_ABSBIT   _IOW(GKME_UINPUT_IOCTL_BASE, 103, int)
 #define GKME_UI_SET_FFBIT    _IOW(GKME_UINPUT_IOCTL_BASE, 107, int)
 
-/* EV_REP 值（个别 NDK 头缺失该枚举），用独立宏名避免与内核头冲突。 */
+/* EV_REP value (fallback for NDK headers missing this enum). */
 #define GKME_EV_REP 0x14
 
 struct gkme_input_id {
@@ -56,7 +56,7 @@ struct gkme_abs_setup {
 #define GKME_UI_DEV_SETUP  _IOW(GKME_UINPUT_IOCTL_BASE, 3, struct gkme_uinput_setup)
 #define GKME_UI_ABS_SETUP  _IOW(GKME_UINPUT_IOCTL_BASE, 4, struct gkme_abs_setup)
 
-/* EV_UINPUT 及其 code 用于 FF 上传/擦除，NDK 头文件可能缺失。 */
+/* EV_UINPUT codes used for FF upload/erase. */
 #ifndef EV_UINPUT
 #define EV_UINPUT 0x0101
 #endif
@@ -80,8 +80,8 @@ struct gkme_ff_erase {
 #define GKME_UI_BEGIN_FF_ERASE  _IOWR(GKME_UINPUT_IOCTL_BASE, 202, struct gkme_ff_erase)
 #define GKME_UI_END_FF_ERASE    _IOW(GKME_UINPUT_IOCTL_BASE, 203, struct gkme_ff_erase)
 
-/* 兼容旧 NDK：缺少数值。
- * 注意不得使用 #ifndef KEY_BACK，否则与 input.h 冲突；这里直接用字面量。 */
+/* Compatibility fallback for older NDK headers.
+ * Literal values used to prevent header conflicts. */
 #define GKME_BTN_SOUTH 0x130
 #define GKME_BTN_EAST  0x131
 #define GKME_BTN_NORTH 0x133
@@ -104,7 +104,7 @@ typedef struct {
     pthread_mutex_t lock;
     int left;  /* 0..65535（Linux ff_rumble strong_magnitude） */
     int right; /* 0..65535（Linux ff_rumble weak_magnitude） */
-    /* 为 0 时仍暴露 FF 能力，但忽略震动数据（本机模式，避免回环）。 */
+    /* When 0, FF is exposed but rumble is ignored to prevent feedback loops. */
     int rumble_enabled;
     unsigned char has_effect[GKME_MAX_FF];
     unsigned char playing[GKME_MAX_FF];
@@ -114,28 +114,28 @@ typedef struct {
 static gkme_dev *g_devs[256];
 static pthread_mutex_t g_devs_lock = PTHREAD_MUTEX_INITIALIZER;
 
-/* ── 虚拟键盘 / 鼠标（uinput）────────────────────────────────────────────
- * 报文语义对齐 GKME-Windows 的 VirtualKeyboardMouse.cs：
- *   - 键盘为「全量状态」：HID 修饰键位掩码 + HID 键位用法（0x04..），本机记录上
- *     一帧状态，只对发生变化的键位写按下/抬起事件；内核负责去重，并由 EV_REP
- *     自动产生长按重复。
- *   - 鼠标为相对位移 + 滚轮/横向滚轮 + 全量按键掩码，同样只在状态变化时写事件。
- * 键盘与鼠标是两个独立 uinput 设备，与 Windows 端的 keyboard-composite /
- * mouse-composite 两种身份对应。
+/* -- Virtual Keyboard / Mouse (uinput) -----------------------------------
+ * Handles keyboard and mouse states via independent uinput devices:
+ *   - - Keyboard: full state with modifier bitmask and HID usage codes.
+ *     - Kernel handles deduplication and automatic key repeat via EV_REP.
+ *     
+ *   - - Mouse: relative motion, scroll wheels, and button masks.
+ * - Separate uinput device nodes for keyboard and mouse.
+ * 
  */
 typedef struct {
     int fd;
-    unsigned char keys[256]; /* HID usage -> 当前是否按下 */
-    unsigned char mods;      /* HID 修饰键位掩码 */
+    unsigned char keys[256]; /* HID usage -> pressed state */
+    unsigned char mods;      /* HID modifier bitmask */
 } gkme_kbd;
 
 typedef struct {
     int fd;
-    int buttons;      /* 上一次的鼠标按键掩码 */
-    int wheel_rem;    /* 垂直滚轮余量（协议单位，120=1 格），用于传统 REL_WHEEL */
-    int pan_rem;      /* 横向滚轮余量（协议单位） */
-    int wheel_hi_rem; /* 垂直滚轮余量（协议单位），用于高精度轴换算 */
-    int pan_hi_rem;   /* 横向滚轮余量（协议单位），用于高精度轴换算 */
+    int buttons;      /* Last mouse button bitmask */
+    int wheel_rem;    /* Vertical scroll remainder (120 = 1 detent) */
+    int pan_rem;      /* Horizontal scroll remainder */
+    int wheel_hi_rem; /* High-res vertical scroll remainder */
+    int pan_hi_rem;   /* Horizontal scroll remainder，for high-resolution axis calculation */
 } gkme_ms;
 
 static gkme_kbd *g_kbds[256];
@@ -147,7 +147,7 @@ static const int g_key_codes[11] = {
     GKME_BTN_MODE, GKME_BTN_THUMBL, GKME_BTN_THUMBR,
 };
 
-/* XInput wButtons 掩码（与 starcore 完全一致）。 */
+/* XInput wButtons bitmasks. */
 static const int g_key_masks[11] = {
     0x00001000, 0x00002000, 0x00004000, 0x00008000,
     0x00000100, 0x00000200, 0x00000020, 0x00000010,
@@ -309,8 +309,8 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeCreate(JNIEnv *env, jcla
         }
     }
 
-    /* 始终暴露 FF 能力：即便本机模式也要在系统/游戏里显示为带震动的设备，
-     * 是否把震动数据转发到手机由 rumbleEnabled（存于 dev->rumble_enabled）决定。 */
+    /* Always expose FF capability so the system/game detects rumble support,
+     * while actual rumble forwarding is controlled by rumbleEnabled. */
     uint32_t ff_max = 0;
     if (ioctl(fd, GKME_UI_SET_EVBIT, EV_FF) == 0 &&
         ioctl(fd, GKME_UI_SET_FFBIT, FF_RUMBLE) == 0) {
@@ -322,11 +322,11 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeCreate(JNIEnv *env, jcla
     memset(&setup, 0, sizeof(setup));
     setup.id.bustype = 0x0005; /* BUS_BLUETOOTH */
     setup.id.vendor = 0x045E;  /* Microsoft */
-    setup.id.product = 0x02FD; /* Xbox One S 手柄 */
+    setup.id.product = 0x02FD; /* Xbox Wireless Controller */
     setup.id.version = 0x0001;
-    /* 使用被模拟设备的名称。App 排除自己创建的虚拟手柄时
-     * 只依据 vendor/product（SDL 会改写设备名，名称不可靠），见 VirtualGamepad.kt /
-     * sdl_bridge.cpp。此处的名称仅用于系统展示。 */
+    /* Display name for the virtual gamepad device.
+     * 
+     *  */
     snprintf(setup.name, sizeof(setup.name), "%s", "Xbox Wireless Controller");
     setup.ff_effects_max = ff_max;
 
@@ -449,7 +449,7 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeDestroy(JNIEnv *env, jcl
     free(dev);
 }
 
-/* ── 虚拟键盘 / 鼠标 实现 ─────────────────────────────────────────────── */
+/* -- Virtual Keyboard / Mouse Implementation ---------------------------─── */
 
 static void gkme_store_kbd(int fd, gkme_kbd *dev) {
     if (fd < 0 || fd >= 256) return;
@@ -481,8 +481,8 @@ static gkme_ms *gkme_get_ms(int fd) {
     return dev;
 }
 
-/* HID Keyboard/Keypad usage（0x04..）→ Linux input key code。修饰键（0xE0..0xE7）
- * 单独走修饰键位掩码，不在此表内。表值直接写 Linux 常量数值，避免依赖 NDK 头版本。 */
+/* HID Keyboard/Keypad usage (0x04..) -> Linux input key code. Modifiers (0xE0..0xE7)
+ * are handled separately via modifier mask. */
 static const struct {
     unsigned short usage;
     unsigned short code;
@@ -545,10 +545,10 @@ static const struct {
     {0x72, 193}, /* F23 */          {0x73, 194}, /* F24 */
 };
 
-/* HID 修饰键位（bit0=LCtrl..bit7=RGui）→ Linux 键码。 */
+/* HID modifier keys (bit0=LCtrl..bit7=RGui) -> Linux key codes. */
 static const int g_hid_modmap[8] = {29, 42, 56, 125, 97, 54, 100, 126};
 
-/* 鼠标按键掩码位（bit0=LMB,1=RMB,2=MMB,3=Back,4=Forward）→ Linux BTN_*。 */
+/* Mouse button bitmask (bit0=LMB, 1=RMB, 2=MMB, 3=Back, 4=Forward) -> Linux BTN_*. */
 static const int g_mouse_btnmap[5] = {272, 273, 274, 275, 276};
 
 /* REL_X=0, REL_Y=1, REL_HWHEEL=6, REL_WHEEL=8, REL_WHEEL_HI_RES=0x0b, REL_HWHEEL_HI_RES=0x0c。 */
@@ -559,11 +559,11 @@ static const int g_mouse_btnmap[5] = {272, 273, 274, 275, 276};
 #define GKME_REL_WHEEL_HI_RES 0x0b
 #define GKME_REL_HWHEEL_HI_RES 0x0c
 
-/* 控制器/协议滚轮单位：120 单位 = 1 格（WHEEL_DELTA，与 GKME-Windows 一致）。 */
+/* Scroll units: 120 units = 1 detent (standard WHEEL_DELTA). */
 #define GKME_PROTOCOL_SCROLL_UNITS_PER_DETENT 120
 
-/* 本机 Android 输入栈识别的高精度滚轮单位：30 单位 = 1 格（实测值，不同 ROM 可能不同）。
- * 下发 REL_WHEEL_HI_RES 前按该比例从协议单位换算，保证每格滚动量与协议一致。 */
+/* High-res scroll scale: 30 units = 1 detent for Android input stack.
+ *  */
 #define GKME_SYSTEM_SCROLL_UNITS_PER_DETENT 30
 
 static int gkme_hid_to_linux(int usage) {
@@ -603,7 +603,7 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeCreateKeyboard(JNIEnv *e
         return -e;
     }
 
-    /* 注册标准键盘键码（1..127）与 F13..F24（183..194）；未用到的位无副作用。 */
+    /* Register standard keyboard keys (1..127) and F13..F24 (183..194). */
     for (int c = 1; c <= 127; c++) {
         if (ioctl(fd, GKME_UI_SET_KEYBIT, c) < 0) {
             int e = errno;
@@ -623,7 +623,7 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeCreateKeyboard(JNIEnv *e
     memset(&setup, 0, sizeof(setup));
     setup.id.bustype = 0x0006; /* BUS_VIRTUAL */
     setup.id.vendor = 0x045E;  /* Microsoft */
-    setup.id.product = 0x00B0; /* 虚拟键盘 */
+    setup.id.product = 0x00B0; /* Virtual Keyboard */
     setup.id.version = 0x0001;
     snprintf(setup.name, sizeof(setup.name), "%s", "GKME Remote Keyboard");
     setup.ff_effects_max = 0;
@@ -660,7 +660,7 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWriteKeyboard(
     memset(events, 0, sizeof(events));
     int n = 0;
 
-    /* 修饰键：仅在位发生变化时写事件。 */
+    /* Modifier keys: write events only when changed. */
     unsigned char newmods = (unsigned char)(modifiers & 0xFF);
     for (int i = 0; i < 8; i++) {
         int bit = 1 << i;
@@ -672,7 +672,7 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWriteKeyboard(
     }
     dev->mods = newmods;
 
-    /* 普通键位：把新状态建表，与上一帧逐位比较，仅在变化时写按下/抬起。 */
+    /* Regular keys: compare with previous frame and write press/release events. */
     unsigned char newmap[256];
     memset(newmap, 0, sizeof(newmap));
     if (usages) {
@@ -683,7 +683,7 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWriteKeyboard(
             (*env)->GetIntArrayRegion(env, usages, 0, len, buf);
             for (jsize i = 0; i < len; i++) {
                 int u = buf[i] & 0xFF;
-                if (u >= 0xE0 && u <= 0xE7) continue; /* 修饰键走掩码 */
+                if (u >= 0xE0 && u <= 0xE7) continue; /* Modifiers handled via mask */
                 newmap[u] = 1;
             }
         }
@@ -740,7 +740,7 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeCreateMouse(JNIEnv *env,
     memset(&setup, 0, sizeof(setup));
     setup.id.bustype = 0x0006; /* BUS_VIRTUAL */
     setup.id.vendor = 0x045E;  /* Microsoft */
-    setup.id.product = 0x00B1; /* 虚拟鼠标 */
+    setup.id.product = 0x00B1; /* Virtual Mouse */
     setup.id.version = 0x0001;
     snprintf(setup.name, sizeof(setup.name), "%s", "GKME Remote Mouse");
     setup.ff_effects_max = 0;
@@ -797,9 +797,9 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWriteMouse(
         events[n].value = gkme_clamp_s16(dy); n++;
     }
     if (wheel != 0) {
-        /* 高精度：把协议单位换算成本机识别单位（GKME_SYSTEM_SCROLL_UNITS_PER_DETENT = 1 格），
-         * 保留亚格精度；用余量累加避免小位移被整除截断。Android 的 CursorScrollAccumulator
-         * 在设备声明了 HI_RES 能力时只认这一路。 */
+        /* High-res scroll: convert protocol units to system detent units,
+         * accumulating remainder to preserve fractional precision.
+         *  */
         dev->wheel_hi_rem += wheel * GKME_SYSTEM_SCROLL_UNITS_PER_DETENT;
         int hi = dev->wheel_hi_rem / GKME_PROTOCOL_SCROLL_UNITS_PER_DETENT;
         dev->wheel_hi_rem -= hi * GKME_PROTOCOL_SCROLL_UNITS_PER_DETENT;
@@ -807,7 +807,7 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWriteMouse(
             events[n].type = EV_REL; events[n].code = GKME_REL_WHEEL_HI_RES;
             events[n].value = hi; n++;
         }
-        /* 兼容不支持高精度的输入栈：REL_WHEEL 以整数格计，按协议单位累积、余量留到下一帧。 */
+        /* Fallback for standard input stacks: accumulate detents for REL_WHEEL. */
         int acc = dev->wheel_rem + wheel;
         int detents = acc / GKME_PROTOCOL_SCROLL_UNITS_PER_DETENT;
         dev->wheel_rem = acc - detents * GKME_PROTOCOL_SCROLL_UNITS_PER_DETENT;

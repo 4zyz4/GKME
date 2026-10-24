@@ -1,22 +1,22 @@
-// 被控端虚拟手柄的用户服务接口。
-// 该接口的 Stub 由 Shizuku 在 shell/root 进程中实例化，App 进程通过 Binder 调用。
+// User service interface for virtual gamepad.
+// The Stub for this interface is instantiated in the Shizuku shell/root process, and the App process communicates via Binder.
 package com.zyz4.gkme.controlled;
 
 interface IGamepadService {
     /**
-     * 创建虚拟手柄，返回 0 表示成功，负数表示 -errno。
-     * backend：0 = uinput（伪装 Xbox One S），1 = uhid（真实 HID 身份）。
-     * profile：backend=uhid 时选择身份，1 = DualShock 4，2 = DualSense，3 = Switch Pro。
-     * rumbleEnabled：是否把虚拟手柄的震动数据转发回控制端/手机。FF 能力始终暴露，
-     *   本机模式传 false 以忽略震动数据，避免“手机震动 ↔ 虚拟手柄”回环。
+     * Create virtual gamepad. Returns 0 on success, or negative (-errno) on error.
+     * backend: 0 = uinput (emulates Xbox One S), 1 = uhid (authentic HID device).
+     * profile: when backend=uhid, select identity: 1 = DualShock 4, 2 = DualSense, 3 = Switch Pro.
+     * rumbleEnabled: whether force feedback vibration is forwarded. FF capability is always exposed;
+     *   local mode passes false to avoid feedback loops.
      */
     int create(int backend, int profile, boolean rumbleEnabled) = 1;
 
     /**
-     * 写入一次手柄状态；buttons 使用 XInput wButtons 掩码（bit17 = 触摸板点击）。
-     * gyro/accel 为运动传感器数据（rad/s、m/s²），仅 uhid 手柄使用；uinput 忽略。
-     * touches 为触摸板数据：最多 2 个触点，每点 4 个 int [id, x, y, active]，
-     * x/y 为 0..1919/0..942；仅 DS4/DualSense 使用，可传 null/空数组。
+     * Write gamepad state; buttons use XInput wButtons bitmask (bit17 = touchpad click).
+     * gyro/accel are motion sensor values (rad/s, m/s^2), only used by uhid; ignored by uinput.
+     * touches are touchpad data: up to 2 touch points, 4 ints each [id, x, y, active],
+     * x/y in 0..1919 / 0..942; only used by DS4/DualSense, can pass null or empty array.
      */
     void update(int buttons, int leftTrigger, int rightTrigger,
                 int leftX, int leftY, int rightX, int rightY,
@@ -24,37 +24,38 @@ interface IGamepadService {
                 float accelX, float accelY, float accelZ,
                 in int[] touches) = 2;
 
-    /** 读取待回传的震动，高 16 位为左马达、低 16 位为右马达（0..65535）。无震动返回 0。 */
+    /** Read pending vibration data. High 16 bits = left motor, low 16 bits = right motor (0..65535). Returns 0 if none. */
     long pumpRumble() = 3;
 
-    /** 销毁虚拟手柄。 */
+    /** Destroy virtual gamepad. */
     void release() = 4;
 
-    /** 创建虚拟键盘，返回 0 表示成功，负数表示 -errno。 */
+    /** Create virtual keyboard. Returns 0 on success, negative (-errno) on error. */
     int createKeyboard() = 5;
 
     /**
-     * 写入一次全量键盘状态。
-     * modifiers 为 HID 修饰键位掩码（bit0=LCtrl … bit7=RGui）；
-     * usages 为 HID Keyboard/Keypad 键位用法（0x04..0xFF，修饰键 0xE0..0xE7 除外）。
+     * Write full keyboard state.
+     * modifiers: HID modifier bitmask (bit0=LCtrl ... bit7=RGui).
+     * usages: HID Keyboard/Keypad usage IDs (0x04..0xFF, excluding modifiers 0xE0..0xE7).
      */
     void updateKeyboard(int modifiers, in int[] usages) = 6;
 
-    /** 创建虚拟鼠标，返回 0 表示成功，负数表示 -errno。 */
+    /** Create virtual mouse. Returns 0 on success, negative (-errno) on error. */
     int createMouse() = 7;
 
     /**
-     * 写入一次鼠标帧。buttons 为按键掩码（bit0 左键、bit1 右键、bit2 中键、
-     * bit3 后退、bit4 前进）；dx/dy 为相对位移；wheel/pan 为垂直/横向滚轮。
+     * Write mouse state frame.
+     * buttons: bitmask (bit0 Left, bit1 Right, bit2 Middle, bit3 Back, bit4 Forward).
+     * dx/dy: relative displacement.
+     * wheel/pan: vertical/horizontal scroll wheel.
      */
     void updateMouse(int dx, int dy, int wheel, int pan, int buttons) = 8;
 
-    /** 销毁虚拟键盘与鼠标。 */
+    /** Destroy virtual keyboard and mouse. */
     void releaseKeyboardMouse() = 9;
 
     /**
-     * 用户服务退出（Shizuku 约定的事务号，见 Shizuku-API 文档：
-     * "The transaction code for that method is 16777115 (use 16777114 in aidl)"）。
+     * UserService exit transaction (Shizuku convention: code 16777114 in AIDL, 16777115 in protocol).
      */
     void exitService() = 16777114;
 }

@@ -6,14 +6,14 @@ import android.util.Log
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * 运行在 Shizuku UserService 进程中的虚拟手柄服务。
+ * Virtual gamepad service running in the Shizuku UserService process.
  *
- * 该进程以 shell(uid 2000) 或 root 身份运行，因此可以打开 /dev/uinput 与 /dev/uhid。
- * Shizuku v13 会优先使用带 [Context] 参数的构造器。
+ * This process runs as shell (uid 2000) or root, granting permission to access
+ * /dev/uinput and /dev/uhid. Shizuku v13+ prefers the constructor with a [Context] parameter.
  *
- * 支持两种后端：
- *  - [BACKEND_UINPUT]：伪装成 Xbox One S 的 Linux input 设备（带内核 FF 震动）。
- *  - [BACKEND_UHID]：用真实 HID 报告描述符创建 DS4 / DualSense / Switch Pro。
+ * Backends:
+ *  - [BACKEND_UINPUT]: Emulates an Xbox One S Linux input device with kernel FF rumble.
+ *  - [BACKEND_UHID]: Creates authentic HID report descriptors for DS4 / DualSense / Switch Pro.
  */
 class RemoteGamepadService @JvmOverloads constructor(
     @Suppress("unused") private val context: Context? = null,
@@ -39,7 +39,7 @@ class RemoteGamepadService @JvmOverloads constructor(
 
     override fun create(backend: Int, profile: Int, rumbleEnabled: Boolean): Int {
         if (!RemoteGamepadDevice.isLoaded()) {
-            lastError = "native 库加载失败: ${RemoteGamepadDevice.loadError()}"
+            lastError = "Native library failed to load: ${RemoteGamepadDevice.loadError()}"
             Log.e(TAG, lastError!!)
             return -19 // -ENODEV
         }
@@ -56,13 +56,13 @@ class RemoteGamepadService @JvmOverloads constructor(
                     "Could not open or initialize /dev/uhid (errno=${-f}). " +
                         "This ROM blocks /dev/uhid for the shell user"
                 } else {
-                    "无法打开 /dev/uinput (errno=${-f})"
+                    "Unable to open /dev/uinput (errno=${-f})"
                 }
                 Log.e(TAG, lastError!!)
                 return f
             }
             fd.set(f)
-            Log.i(TAG, "虚拟手柄已创建 backend=$backend profile=$profile fd=$f")
+            Log.i(TAG, "Virtual gamepad created: backend=$backend profile=$profile fd=$f")
             return 0
         }
     }
@@ -97,7 +97,7 @@ class RemoteGamepadService @JvmOverloads constructor(
                 )
             }
         } catch (t: Throwable) {
-            Log.e(TAG, "nativeWrite 失败", t)
+            Log.e(TAG, "nativeWrite failed", t)
             lastError = t.message
         }
     }
@@ -128,16 +128,16 @@ class RemoteGamepadService @JvmOverloads constructor(
                         RemoteGamepadDevice.nativeDestroy(f)
                     }
                 } catch (t: Throwable) {
-                    Log.e(TAG, "nativeDestroy 失败", t)
+                    Log.e(TAG, "nativeDestroy failed", t)
                 }
-                Log.i(TAG, "虚拟手柄已销毁 fd=$f")
+                Log.i(TAG, "Virtual gamepad destroyed fd=$f")
             }
         }
     }
 
     override fun createKeyboard(): Int {
         if (!RemoteGamepadDevice.isLoaded()) {
-            lastError = "native 库加载失败: ${RemoteGamepadDevice.loadError()}"
+            lastError = "Native library failed to load: ${RemoteGamepadDevice.loadError()}"
             Log.e(TAG, lastError!!)
             return -19 // -ENODEV
         }
@@ -149,12 +149,12 @@ class RemoteGamepadService @JvmOverloads constructor(
                 RemoteGamepadDevice.nativeCreateKeyboard()
             }
             if (f < 0) {
-                lastError = "无法创建虚拟键盘 (errno=${-f})"
+                lastError = "Unable to create virtual keyboard (errno=${-f})"
                 Log.e(TAG, lastError!!)
                 return f
             }
             kbdFd.set(f)
-            Log.i(TAG, "虚拟键盘已创建 fd=$f")
+            Log.i(TAG, "Virtual keyboard created fd=$f")
             return 0
         }
     }
@@ -169,14 +169,14 @@ class RemoteGamepadService @JvmOverloads constructor(
                 RemoteGamepadDevice.nativeWriteKeyboard(f, modifiers, usages ?: IntArray(0))
             }
         } catch (t: Throwable) {
-            Log.e(TAG, "nativeWriteKeyboard 失败", t)
+            Log.e(TAG, "nativeWriteKeyboard failed", t)
             lastError = t.message
         }
     }
 
     override fun createMouse(): Int {
         if (!RemoteGamepadDevice.isLoaded()) {
-            lastError = "native 库加载失败: ${RemoteGamepadDevice.loadError()}"
+            lastError = "Native library failed to load: ${RemoteGamepadDevice.loadError()}"
             Log.e(TAG, lastError!!)
             return -19 // -ENODEV
         }
@@ -188,12 +188,12 @@ class RemoteGamepadService @JvmOverloads constructor(
                 RemoteGamepadDevice.nativeCreateMouse()
             }
             if (f < 0) {
-                lastError = "无法创建虚拟鼠标 (errno=${-f})"
+                lastError = "Unable to create virtual mouse (errno=${-f})"
                 Log.e(TAG, lastError!!)
                 return f
             }
             mouseFd.set(f)
-            Log.i(TAG, "虚拟鼠标已创建 fd=$f")
+            Log.i(TAG, "Virtual mouse created fd=$f")
             return 0
         }
     }
@@ -208,7 +208,7 @@ class RemoteGamepadService @JvmOverloads constructor(
                 RemoteGamepadDevice.nativeWriteMouse(f, dx, dy, wheel, pan, buttons)
             }
         } catch (t: Throwable) {
-            Log.e(TAG, "nativeWriteMouse 失败", t)
+            Log.e(TAG, "nativeWriteMouse failed", t)
             lastError = t.message
         }
     }
@@ -224,9 +224,9 @@ class RemoteGamepadService @JvmOverloads constructor(
                         RemoteGamepadDevice.nativeDestroyInput(k)
                     }
                 } catch (t: Throwable) {
-                    Log.e(TAG, "销毁键盘失败", t)
+                    Log.e(TAG, "Failed to destroy keyboard", t)
                 }
-                Log.i(TAG, "虚拟键盘已销毁 fd=$k")
+                Log.i(TAG, "Virtual keyboard destroyed fd=$k")
             }
             val m = mouseFd.getAndSet(-1)
             if (m >= 0 && RemoteGamepadDevice.isLoaded()) {
@@ -237,16 +237,16 @@ class RemoteGamepadService @JvmOverloads constructor(
                         RemoteGamepadDevice.nativeDestroyInput(m)
                     }
                 } catch (t: Throwable) {
-                    Log.e(TAG, "销毁鼠标失败", t)
+                    Log.e(TAG, "Failed to destroy mouse", t)
                 }
-                Log.i(TAG, "虚拟鼠标已销毁 fd=$m")
+                Log.i(TAG, "Virtual mouse destroyed fd=$m")
             }
         }
     }
 
     override fun exitService() {
         release()
-        // Shizuku 约定：用户服务进程不会被自动杀死，需要自行退出。
+        // Shizuku convention: UserService process is not automatically killed, must terminate itself.
         Process.killProcess(Process.myPid())
     }
 }

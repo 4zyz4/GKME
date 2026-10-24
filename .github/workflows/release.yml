@@ -1,0 +1,67 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Gamepad APKs
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build Xbox Profile APK (Default & Recommended for CODM)
+        run: |
+          ./gradlew :android:assembleDebug -PgamepadProfile=xbox
+          mkdir -p release-apks
+          cp android/build/outputs/apk/debug/android-debug.apk release-apks/VirtualGamepad-xbox.apk
+
+      - name: Build DualShock 4 Profile APK
+        run: |
+          ./gradlew :android:assembleDebug -PgamepadProfile=ds4
+          cp android/build/outputs/apk/debug/android-debug.apk release-apks/VirtualGamepad-ds4.apk
+
+      - name: Build DualSense Profile APK
+        run: |
+          ./gradlew :android:assembleDebug -PgamepadProfile=dualsense
+          cp android/build/outputs/apk/debug/android-debug.apk release-apks/VirtualGamepad-dualsense.apk
+
+      - name: Upload APK Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: VirtualGamepad-APKs
+          path: release-apks/*.apk
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-apks/*.apk
+          generate_release_notes: true
+          draft: false
+          prerelease: false
