@@ -14,157 +14,161 @@
   <a href="https://github.com/4zyz4/GKME/releases"><img src="https://img.shields.io/badge/download-Releases-blue?logo=github" alt="Download Releases"/></a>
 </p>
 
-把你的 Android 手机变成一台虚拟游戏手柄！也可以是虚拟键盘、鼠标！支持 WiFi 局域网、USB 直连与蓝牙直连。
+<p align="center">
+  <strong>English</strong> | <a href="README.zh-CN.md">简体中文</a>
+</p>
 
-- 💬 软件 QQ 群：**639317971**
-- 📖 开发者内部架构文档见 [`docs/`](docs/README.md)（协议、传输、输入、UI、震动、被控端与原生等）
+Turn your Android phone into a virtual gamepad — or a virtual keyboard and mouse! Supports WiFi LAN, direct USB, and direct Bluetooth connections.
 
-## 目录
+- 💬 QQ group: **639317971**
+- 📖 Internal developer architecture docs are in [`docs/`](docs/README.md) (protocol, transport, input, UI, haptics, controlled side, native, etc.)
 
-- [核心概念](#核心概念)
-- [功能特性](#功能特性)
-- [快速上手](#快速上手)
-- [下载与构建](#下载与构建)
-- [系统要求](#系统要求)
-- [开源协议](#开源协议)
-- [鸣谢](#鸣谢)
+## Table of Contents
 
----
-
-## 核心概念
-
-GKME 围绕两个维度组织功能：**连接方式**决定输入如何送达目标设备，**工作模式**决定手机在链路中扮演的角色。
-
-### 连接方式
-
-| 连接方式 | 说明 | 依赖条件 |
-|----------|------|----------|
-| **WiFi 局域网** | 自动发现或手动输入 IP 连接，UDP + protobuf 通信，支持自动重连；可切换「作为控制端」（默认）或「作为被控端」 | 手机与电脑在同一局域网 |
-| **USB (ADB)** | 数据线直连，电脑端经 `adb forward` 与手机通信，无需局域网、延迟更低；USB 发现与 WiFi 广播对齐 | 手机端开启 USB 调试；电脑端具备 adb |
-| **蓝牙 HID** | 手机模拟为蓝牙 HID 手柄，直接连接电脑或另一台手机；支持 Windows / Android / Linux，可选「仅手柄」或「通用键鼠」模式 | Android 9+ |
-| **Emotion (DSU)** | 兼容 DecideX Emotion 软件的 DSU UDP 协议 | — |
-| **本机 (Shizuku)** | 无需任何电脑或其他设备，经 Shizuku + uinput 在当前设备创建虚拟手柄 | 安装并启动 Shizuku |
-
-### 工作模式
-
-| 模式 | 手机角色 | 说明 |
-|------|----------|------|
-| **控制端** | 输入源 | 把触摸、体感、实体手柄等输入发送到电脑（WiFi / USB / 蓝牙 / DSU） |
-| **被控端** | 接收方 | 接收远端控制端下发的输入，经 Shizuku + uinput 在本机创建虚拟手柄，支持注入模拟键盘与鼠标，以前台服务常驻 |
-| **本机模式** | 输入源 + 接收方 | 自己既当控制端又当被控端，创建本地虚拟手柄并进入悬浮模式 |
-| **悬浮模式** | 覆盖层 | 应用最小化，手柄以悬浮窗浮在其他应用之上，边玩边操控 |
-| **网页手柄** | 浏览器作控制端 | 被控端内置 HTTP + WebSocket 服务器（端口 37285），局域网内浏览器打开地址或扫码即可控制，无需安装电脑端 |
-
-> 多设备场景：广播与握手携带设备标识 (ANDROID_ID)，便于区分与连接；被控端扫描到同一设备的多个 IP 时使用合并卡片。
+- [Core Concepts](#core-concepts)
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Download & Build](#download--build)
+- [System Requirements](#system-requirements)
+- [License](#license)
+- [Acknowledgements](#acknowledgements)
 
 ---
 
-## 功能特性
+## Core Concepts
 
-### 🎮 设备模拟与输入
+GKME organizes its functionality along two dimensions: the **connection method** determines how input reaches the target device, and the **working mode** determines the role the phone plays in the link.
 
-| 功能 | 说明 |
-|------|------|
-| **触屏手柄** | 完整模拟：ABXY 按键、摇杆、十字键、线性扳机、肩键、DS4 触摸板 |
-| **键盘和鼠标** | 完整键盘映射和鼠标控制；触摸板支持多点触控、滚轮与 7 种可自定义手势，滑动判定距离可配置；自定义按键盘支持四向 / 八向模式 |
-| **音量键映射** | 支持为手机音量键设置组合键 |
-| **体感操控** | 支持手机/外接手柄的陀螺仪与加速度计，可映射为鼠标/摇杆/手柄输入，支持死区/反死区与加速度计转向 |
-| **灵敏度曲线** | 陀螺仪/加速度计转摇杆与陀螺仪转鼠标共用灵敏度曲线，支持多点编辑与全屏放大编辑 |
-| **外接手柄转发** | OTG 或蓝牙接入实体手柄（基于 SDL3 + HIDAPI），支持多手柄同时接入，全部按键均可自定义映射，与触屏操作一起转发 |
-| **息屏模式** | 进入息屏模式后屏幕关闭，服务继续运行以省电 |
+### Connection Methods
 
-### 🎨 自定义与外观
+| Connection | Description | Requirements |
+|------------|-------------|--------------|
+| **WiFi LAN** | Auto-discovery or manual IP entry, UDP + protobuf communication, automatic reconnection; can switch between "as controller" (default) and "as controlled device" | Phone and PC on the same LAN |
+| **USB (ADB)** | Direct cable connection, the PC communicates with the phone via `adb forward`, no LAN needed and lower latency; USB discovery aligns with WiFi broadcast | USB debugging enabled on the phone; adb available on the PC |
+| **Bluetooth HID** | The phone emulates a Bluetooth HID gamepad and connects directly to a PC or another phone; supports Windows / Android / Linux, with optional "gamepad only" or "generic keyboard & mouse" modes | Android 9+ |
+| **Emotion (DSU)** | Compatible with the DSU UDP protocol used by DecideX Emotion | — |
+| **Local (Shizuku)** | No PC or other device needed; creates a virtual gamepad on the current device via Shizuku + uinput | Shizuku installed and running |
 
-| 功能 | 说明 |
-|------|------|
-| **按键布局自定义** | 布局完全可自定义，支持拖拽调整位置和大小，可导入导出 JSON 布局 |
-| **布局预设系统** | 新建、复制、重命名、删除预设，图形化预览 |
-| **按键显示样式** | Xbox / PlayStation / Nintendo Switch 三种按键样式，Shift 按下时显示上档字符 |
-| **外观定制** | 背景、按钮、摇杆、触摸板等均支持纯色或图片自定义，控件不透明度可调（默认 100%），可导出为 ZIP 配置，颜色可绑定手柄 LED |
-| **布局全局设置** | 陀螺仪设置升级为全屏全局设置页，实体手柄与音量键映射迁入其中，配置随布局预设保存 |
-| **过渡动画** | 设置页切换、编辑布局浮窗与参数切换均带过渡动画 |
+### Working Modes
 
-### ⚡ 震动与反馈
+| Mode | Phone role | Description |
+|------|------------|-------------|
+| **Controller** | Input source | Sends touch, motion, and physical gamepad input to the PC (WiFi / USB / Bluetooth / DSU) |
+| **Controlled device** | Receiver | Receives input from a remote controller, creates a local virtual gamepad via Shizuku + uinput, supports injecting simulated keyboard and mouse, and runs as a foreground service |
+| **Local mode** | Input source + receiver | Acts as both controller and controlled device, creates a local virtual gamepad, and enters floating mode |
+| **Floating mode** | Overlay | The app minimizes and the gamepad floats above other apps as an overlay window, so you can play and control at the same time |
+| **Web gamepad** | Browser as controller | The controlled device runs a built-in HTTP + WebSocket server (port 37285); open the address in a browser on the LAN or scan the QR code to control it, no PC client needed |
 
-| 功能 | 说明 |
-|------|------|
-| **振动反馈** | 按键按下/释放振动；游戏震动可映射到手机/手柄马达，强/弱震动可自由分配并可交换左右马达 |
-| **Switch Pro HD 震动** | 手机本地合成 Switch Pro HD 震动，并将电脑端 PCM 转为 Switch HD 震动 |
-| **手柄音频/音圈马达** | 手机扬声器与控制器音频走 SDL3 多设备低延迟播放；实体 DualSense 扬声器播放 PC 音频，支持音圈马达震动 |
-| **自适应扳机** | 接收 PC 下发的 DualSense 自适应扳机效果，经 USB 转发到实体手柄 |
-| **LED 同步** | 转发手柄 LED 颜色与玩家指示灯，外观颜色可绑定 LED 实时跟随 |
-
-### 🖥️ 电脑端与协议能力
-
-| 功能 | 说明 |
-|------|------|
-| **Switch Pro / Joy-Con 模拟** | 电脑端可经 USB 模拟 Switch Pro 手柄与双 Joy-Con，双 Joy-Con 支持 HD 震动，震动参数由手机端本地合成 |
-| **多平台兼容** | Windows / Android / Linux HID 报告映射 |
-| **可变轮询率** | 支持 30-1000 Hz 可选轮询率 |
-| **电量同步** | 手机电量和充电状态可被 Steam 识别（仅限 WiFi DS4 和 DS5 模式） |
-| **多手柄支持** | 输入、体感、音频、震动与自适应扳机均可分别选择设备 |
+> Multi-device scenarios: broadcasts and handshakes carry a device identifier (ANDROID_ID) for easier identification and connection; when the controlled device scans multiple IPs for the same device, a merged card is used.
 
 ---
 
-## 快速上手
+## Features
 
-### WiFi 连接
+### 🎮 Device Emulation & Input
 
-手机和电脑连上同一个 WiFi，打开 App，点击启动服务即可被发现，电脑端点击连接即可。也可以手动输入 IP 连接。
+| Feature | Description |
+|---------|-------------|
+| **On-screen gamepad** | Full emulation: ABXY buttons, sticks, D-pad, analog triggers, shoulder buttons, DS4 touchpad |
+| **Keyboard & mouse** | Full keyboard mapping and mouse control; the touchpad supports multi-touch, scrolling, and 7 customizable gestures with configurable swipe thresholds; custom keypads support 4-way / 8-way modes |
+| **Volume key mapping** | Set key combinations for the phone's volume keys |
+| **Motion control** | Uses the gyroscope and accelerometer of the phone or an external gamepad, mappable to mouse/stick/gamepad input, with deadzone/anti-deadzone and accelerometer steering |
+| **Sensitivity curves** | The gyro/accelerometer-to-stick and gyro-to-mouse curves share the same sensitivity curve, with multi-point and full-screen magnified editing |
+| **External gamepad forwarding** | Connect physical gamepads via OTG or Bluetooth (based on SDL3 + HIDAPI), with multiple gamepads supported at once; every button can be remapped and forwarded together with touch input |
+| **Screen-off mode** | Turns the screen off while the service keeps running to save power |
 
-### 蓝牙连接
+### 🎨 Customization & Appearance
 
-打开 App 的蓝牙模式，在电脑或另一台 Android 手机的蓝牙设置中搜索并配对，手机就会变成一个真正的无线手柄。
+| Feature | Description |
+|---------|-------------|
+| **Custom button layout** | Fully customizable layout with drag-to-resize and drag-to-move; import/export layouts as JSON |
+| **Layout preset system** | Create, copy, rename, and delete presets with graphical previews |
+| **Button display styles** | Xbox / PlayStation / Nintendo Switch button styles; shows the shifted character when Shift is held |
+| **Appearance customization** | Backgrounds, buttons, sticks, and touchpads support solid colors or custom images, adjustable control opacity (100% by default), exportable as ZIP configs, and colors can bind to gamepad LEDs |
+| **Global layout settings** | Gyro settings are upgraded to a full-screen global settings page, with physical gamepad and volume key mapping moved into it; settings are saved with layout presets |
+| **Transition animations** | Animated transitions for settings page switches, the layout editing overlay, and parameter changes |
 
-### USB 连接 (ADB)
+### ⚡ Haptics & Feedback
 
-用数据线把手机连到电脑，在 App 中选择 USB 模式。首次使用需在手机上开启 USB 调试：
+| Feature | Description |
+|---------|-------------|
+| **Vibration feedback** | Vibrate on button press/release; in-game vibration can be mapped to phone or gamepad motors, with freely assignable strong/weak vibration and left/right motor swapping |
+| **Switch Pro HD rumble** | Synthesizes Switch Pro HD rumble locally on the phone and converts PC-side PCM into Switch HD rumble |
+| **Gamepad audio / voice coil actuators** | Phone speaker and controller audio use SDL3 multi-device low-latency playback; a physical DualSense speaker plays PC audio and supports voice coil actuator haptics |
+| **Adaptive triggers** | Receives DualSense adaptive trigger effects from the PC and forwards them to the physical gamepad over USB |
+| **LED sync** | Forwards gamepad LED colors and player indicators; appearance colors can bind to the LED in real time |
 
-1. 打开「设置 → 关于手机」，连续点击「版本号」7 次，开启开发者选项；
-2. 返回「设置 → 系统 → 开发者选项」，打开「USB 调试」；
-3. 用数据线连接电脑，在手机上允许该电脑进行 USB 调试。
+### 🖥️ PC-side & Protocol Capabilities
 
-电脑端会优先使用正在运行的 adb，其次使用 PATH / Android SDK 中的 adb，最后使用程序目录 `platform-tools` 下的内置 adb（内置 `platform-tools` 已精简为仅含 adb）。电脑端 USB 发现与 WiFi 广播对齐，检测到 USB 设备后点击「连接」即可。
-
-### 本机模式 (Shizuku)
-
-连接方式选择「本机」，点击「启动服务」后，App 会经 Shizuku 授权在当前设备创建虚拟手柄并进入悬浮模式，无需任何电脑或其他设备。
-
-- 首次使用需安装并启动 [Shizuku](https://shizuku.rikka.app/)，连接页会引导完成授权；未就绪时会持续轮询并在授权后自动继续启动。
-- 服务运行期间每次最小化应用都会自动回到悬浮模式。
-- 本机模式不创建虚拟鼠标以避免与屏幕触摸冲突，也不暴露震动能力以避免手机震动与虚拟手柄形成死循环。
-
-### 被控端模式
-
-在 WiFi「控制类型」中选择「作为被控端」，点击「启动服务」进入被控连接页面（布局与操作对标电脑端主机）。被控端扫描并连接远端控制端，接收其下发的输入，经 Shizuku + uinput 在本地创建虚拟手柄，并可注入模拟键盘与鼠标；运行期间以前台服务常驻，返回时会弹出确认框提示将停止服务。
-
-### 网页手柄 (被控端)
-
-被控端启动服务后会内置一个 HTTP + WebSocket 服务器（端口 37285）并托管网页手柄。同一局域网内的任意设备用浏览器打开被控端页面「网页手柄」卡片中显示的地址，或直接扫描卡片上的二维码即可把浏览器变成控制端：网页经 `/ws` 发送 `Hello` / `GamepadInput`，被控端将其桥接到本地虚拟手柄并回传震动，逻辑与电脑端网页手柄一致。卡片支持选择网卡，并显示当前 `IP:端口` 与链接二维码。
-
-### 悬浮模式
-
-进入悬浮模式后 App 会最小化，游戏手柄以悬浮窗形式浮在其他应用之上，可边看攻略/视频边操控；显示按钮会继承所设透明度。首次使用需授予「显示在其他应用上层」权限。
-
-### 外接手柄转发
-
-把支持 Android 的手柄通过 OTG 线或蓝牙连到手机上，可用于拉伸式手柄的无线连接和体感支持：
-
-- 支持 Xbox 360 / Xbox One / PlayStation (DS4/DS5) / Nintendo Switch Pro 等主流手柄
-- 基于 SDL3 + HIDAPI，支持多手柄同时接入，可查看驱动、震动、体感、触摸板、扳机能力并重新检测
-- 支持 DualSense 自适应扳机透传、手柄 LED/玩家灯透传，以及手柄扬声器音频与音圈马达震动
-- 实体手柄全部按键均可自定义映射
-- 支持自定义振动反馈：强震动和弱震动可自由映射到手机马达或手柄马达，并可交换左右马达
+| Feature | Description |
+|---------|-------------|
+| **Switch Pro / Joy-Con emulation** | The PC side can emulate a Switch Pro gamepad and dual Joy-Cons over USB; dual Joy-Cons support HD rumble, with rumble parameters synthesized locally on the phone |
+| **Multi-platform compatibility** | HID report mapping for Windows / Android / Linux |
+| **Variable polling rate** | Selectable polling rate from 30–1000 Hz |
+| **Battery sync** | Phone battery level and charging state are recognized by Steam (WiFi DS4 and DS5 modes only) |
+| **Multi-gamepad support** | Input, motion, audio, haptics, and adaptive triggers can each select a different device |
 
 ---
 
-## 下载与构建
+## Quick Start
 
-### 下载发行版
+### WiFi Connection
 
-前往 [GitHub Releases](https://github.com/4zyz4/GKME/releases) 下载最新版本。
+Connect the phone and PC to the same WiFi, open the app, and tap start service; the PC will discover it and can connect with one click. You can also enter the IP manually.
 
-### 自行构建
+### Bluetooth Connection
+
+Enable Bluetooth mode in the app, then search and pair from the Bluetooth settings of your PC or another Android phone, and the phone becomes a real wireless gamepad.
+
+### USB Connection (ADB)
+
+Connect the phone to the PC with a cable and select USB mode in the app. On first use, enable USB debugging on the phone:
+
+1. Open "Settings → About phone" and tap "Build number" 7 times to enable developer options;
+2. Go back to "Settings → System → Developer options" and enable "USB debugging";
+3. Connect the phone to the PC with a cable and allow USB debugging for that PC on the phone.
+
+The PC side prefers an already-running adb, then adb from PATH / Android SDK, and finally the bundled adb in the program directory under `platform-tools` (the bundled `platform-tools` has been trimmed to contain only adb). PC-side USB discovery aligns with WiFi broadcast; once a USB device is detected, just click "Connect".
+
+### Local Mode (Shizuku)
+
+Select "Local" as the connection method and tap "Start service"; the app will create a virtual gamepad on the current device via Shizuku authorization and enter floating mode, without needing any PC or other device.
+
+- On first use, install and start [Shizuku](https://shizuku.rikka.app/); the connection page guides you through authorization, and if not ready it keeps polling and continues starting automatically after authorization.
+- While the service is running, minimizing the app always returns to floating mode.
+- Local mode does not create a virtual mouse (to avoid conflicts with screen touch) and does not expose haptics (to avoid a feedback loop between phone vibration and the virtual gamepad).
+
+### Controlled Device Mode
+
+Select "As controlled device" under the WiFi "Control type" and tap "Start service" to enter the controlled connection page (its layout and interaction mirror the PC-side host). The controlled device scans for and connects to a remote controller, receives its input, creates a local virtual gamepad via Shizuku + uinput, and can inject simulated keyboard and mouse; it runs persistently as a foreground service, and returning shows a confirmation dialog warning that the service will stop.
+
+### Web Gamepad (Controlled Device)
+
+After the controlled device starts its service, it runs a built-in HTTP + WebSocket server (port 37285) hosting the web gamepad. Any device on the same LAN can open the address shown on the "Web gamepad" card in a browser, or scan the card's QR code, to turn the browser into a controller: the web page sends `Hello` / `GamepadInput` over `/ws`, the controlled device bridges it to the local virtual gamepad and returns haptics, matching the logic of the PC-side web gamepad. The card lets you select a network interface and shows the current `IP:port` and a link QR code.
+
+### Floating Mode
+
+In floating mode the app minimizes and the gamepad floats above other apps as an overlay window, so you can consult guides or watch videos while playing; the displayed buttons inherit the configured opacity. On first use, grant the "Display over other apps" permission.
+
+### External Gamepad Forwarding
+
+Connect an Android-compatible gamepad to the phone via an OTG cable or Bluetooth, useful for wireless connectivity and motion support of telescopic controllers:
+
+- Supports mainstream gamepads such as Xbox 360 / Xbox One / PlayStation (DS4/DS5) / Nintendo Switch Pro
+- Based on SDL3 + HIDAPI, with multiple gamepads supported at once; view driver, rumble, motion, touchpad, and trigger capabilities and re-detect at any time
+- Supports DualSense adaptive trigger passthrough, gamepad LED/player indicator passthrough, and gamepad speaker audio with voice coil actuator haptics
+- Every button on physical gamepads can be remapped
+- Customizable vibration feedback: strong and weak vibration can be freely mapped to the phone or gamepad motors, with left/right motor swapping
+
+---
+
+## Download & Build
+
+### Download Releases
+
+Go to [GitHub Releases](https://github.com/4zyz4/GKME/releases) to download the latest version.
+
+### Build from Source
 
 ```bash
 git clone https://github.com/4zyz4/GKME.git
@@ -174,52 +178,52 @@ cd GKME
 
 ---
 
-## 系统要求
+## System Requirements
 
-### 运行环境
+### Runtime Environment
 
-| 项目 | 要求 |
-|------|------|
-| 基础 | Android **8.0 (API 26)** 及以上，推荐分辨率 1080p+ |
-| 蓝牙模式 | Android **9+ (API 28)** |
-| 多马达支持 | Android S+ (API 31) |
-| 电脑端 | Windows / Android / Linux HID 报告映射；USB 模式需具备 adb（Android SDK platform-tools），也可把 `platform-tools` 放到电脑端程序目录作为内置 adb（内置版仅保留 adb） |
+| Item | Requirement |
+|------|-------------|
+| Base | Android **8.0 (API 26)** or later, 1080p+ resolution recommended |
+| Bluetooth mode | Android **9+ (API 28)** |
+| Multi-motor support | Android S+ (API 31) |
+| PC side | HID report mapping for Windows / Android / Linux; USB mode requires adb (Android SDK platform-tools), or you can place `platform-tools` in the PC program directory as a bundled adb (the bundled version keeps only adb) |
 
-### 按需权限与服务
+### Permissions & Services as Needed
 
-以下功能需要额外的权限或第三方服务支持：
+The following features require additional permissions or third-party service support:
 
-| 功能 | 所需条件 |
-|------|----------|
-| 悬浮模式 | 「显示在其他应用上层」（悬浮窗）权限 |
-| USB 模式 | 手机端开启「USB 调试」（详见 [快速上手](#usb-连接-adb)） |
-| 本机模式 / 被控端模式 | 安装并启动 [Shizuku](https://shizuku.rikka.app/)（通过 Shizuku + uinput 创建虚拟手柄） |
-| 网页手柄 | 浏览器与被控端处于同一局域网（端口 37285） |
-
----
-
-## 开源协议
-
-本项目基于 [GNU General Public License v3.0](LICENSE) 发布。
+| Feature | Requirement |
+|---------|-------------|
+| Floating mode | "Display over other apps" (overlay) permission |
+| USB mode | "USB debugging" enabled on the phone (see [Quick Start](#usb-connection-adb)) |
+| Local mode / Controlled device mode | [Shizuku](https://shizuku.rikka.app/) installed and running (creates a virtual gamepad via Shizuku + uinput) |
+| Web gamepad | Browser and controlled device on the same LAN (port 37285) |
 
 ---
 
-## 鸣谢
+## License
 
-### 参考与衍生项目
+This project is released under the [GNU General Public License v3.0](LICENSE).
 
-| 项目 | 用途 |
-|------|------|
-| [**HIDMaestro**](https://github.com/hifihedgehog/HIDMaestro) | 虚拟手柄驱动框架 |
-| [**usbip-win2**](https://github.com/vadimgrn/usbip-win2) | 电脑端虚拟 HID 设备桥接驱动 |
-| [**Moonlight**](https://github.com/moonlight-stream/moonlight-android) | DualSense 触摸板识别算法参考 |
-| [**Axixi2233/moonlight-android**](https://github.com/Axixi2233/moonlight-android) | 实体手柄 USB 驱动来源 |
-| [**qiin2333/moonlight-vplus**](https://github.com/qiin2333/moonlight-vplus) | DS 蓝牙驱动来源 |
+---
 
-### 使用的开源库
+## Acknowledgements
 
-| 库 | 用途 |
-|----|------|
-| [SDL3 / HIDAPI](https://libsdl.org/) | 实体手柄输入与 HID 访问 |
-| [Dagger Hilt](https://dagger.dev/hilt/) | 依赖注入框架 |
-| [Shizuku](https://shizuku.rikka.app/) | 本机模式 / 被控端模式的虚拟手柄创建授权 |
+### Referenced & Derived Projects
+
+| Project | Purpose |
+|---------|---------|
+| [**HIDMaestro**](https://github.com/hifihedgehog/HIDMaestro) | Virtual gamepad driver framework |
+| [**usbip-win2**](https://github.com/vadimgrn/usbip-win2) | PC-side virtual HID device bridging driver |
+| [**Moonlight**](https://github.com/moonlight-stream/moonlight-android) | Reference for DualSense touchpad recognition algorithm |
+| [**Axixi2233/moonlight-android**](https://github.com/Axixi2233/moonlight-android) | Source of physical gamepad USB driver |
+| [**qiin2333/moonlight-vplus**](https://github.com/qiin2333/moonlight-vplus) | Source of DS Bluetooth driver |
+
+### Open-Source Libraries Used
+
+| Library | Purpose |
+|---------|---------|
+| [SDL3 / HIDAPI](https://libsdl.org/) | Physical gamepad input and HID access |
+| [Dagger Hilt](https://dagger.dev/hilt/) | Dependency injection framework |
+| [Shizuku](https://shizuku.rikka.app/) | Authorization for creating virtual gamepads in local / controlled device modes |
