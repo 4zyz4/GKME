@@ -88,6 +88,8 @@ object AppLocale {
     private fun matchSupportedLanguage(locale: Locale): String? {
         return when (locale.language.lowercase(Locale.ROOT)) {
             "en" -> "en"
+            "ru" -> "ru"
+            "fr" -> "fr"
             "zh" -> when {
                 locale.country.equals("HK", true) || locale.country.equals("MO", true) -> "zh-HK"
                 locale.country.equals("TW", true) || locale.script.equals("Hant", true) -> "zh-TW"
