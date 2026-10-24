@@ -214,7 +214,7 @@ data class AppSettings(
     val displayMode: DisplayMode = DisplayMode.XBOX,
     val pollingRate: Int = 120,
     val wifiServerIp: String = "",
-    val deviceName: String = "Gamepad Emu",
+    val deviceName: String = "GKME",
     val currentPresetName: String = "完整控制器",
     val isEditMode: Boolean = false,
     val vibrationPressType: VibrationType = VibrationType.VIEW,
