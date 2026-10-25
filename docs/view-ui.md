@@ -180,7 +180,7 @@ flowchart TB
   - `applyPhysicalMappings`。
   - `onButtonDown/Up`、`onMouseGestureButton`、`onCustomButtonDown/Up`、`onVolumeKeyDown/Up`。
   - `onLeftStick/onRightStick`、`onDpad`、`updateDpad`、`onLeftTrigger/onRightTrigger`。
-  - 键盘：`onKeyDown/onKeyUp`、`updateKeyboardShiftState`、`sendKeyboardReport`。
+  - 键盘：`onKeyDown/onKeyUp`（内部走 `applyKeyboardChanges`，组合键一次性批量上报）、`updateKeyboardShiftState`、`sendKeyboardReport`。
   - 触摸板：`onTouchpadTouches`。
 - 服务与发送循环：`startServer`（注册 `onMouseReport`）、`startPeriodicSendLoop`（`:852`）、
   `startSensorSendLoop`（`:939`）、`stopServer`。

@@ -809,16 +809,20 @@ class GkViewModel @Inject constructor(
         }
     }
 
-    /** Applies the press/release delta of the keyboard keys produced by the physical mappings. */
+    /**
+     * Applies the press/release delta of the keyboard keys produced by the physical mappings.
+     * All transitions go out in one HID report, so a mapped combination (e.g. Ctrl+C) reaches
+     * the host as a real simultaneous chord instead of a key-at-a-time sequence whose
+     * intermediate reports contain only part of the chord.
+     */
     private fun syncPhysicalMappedKeyboard(desired: List<Int>) {
         val previous = physicalMappedKbCodes
-        for (code in previous) {
-            if (code !in desired) onKeyUp(code)
-        }
-        for (code in desired) {
-            if (code !in previous) onKeyDown(code)
-        }
+        val released = previous.filter { it !in desired }
+        val pressed = desired.filter { it !in previous }
         physicalMappedKbCodes = desired
+        if (released.isNotEmpty() || pressed.isNotEmpty()) {
+            applyKeyboardChanges(down = pressed, up = released)
+        }
     }
 
     // Raw (unscaled) controller gyro in rad/s, kept for accelerometer->stick gyro fusion.
@@ -1370,9 +1374,9 @@ class GkViewModel @Inject constructor(
             }
         }
         if (kbCodes.isNotEmpty()) {
-            for (code in kbCodes) {
-                onKeyDown(code)
-            }
+            // One report for the whole mapped chord: pressing Ctrl+A must not first emit
+            // a lone Ctrl report and then a Ctrl+A report.
+            applyKeyboardChanges(down = kbCodes, up = emptyList())
         }
         if (normalBits.isNotEmpty()) {
             var pb = phoneButtons
@@ -1404,9 +1408,9 @@ class GkViewModel @Inject constructor(
             }
         }
         if (kbCodes.isNotEmpty()) {
-            for (code in kbCodes) {
-                onKeyUp(code)
-            }
+            // Release the whole chord together; releasing the modifier first would leave the
+            // remaining key pressed without it and can produce an unintended extra character.
+            applyKeyboardChanges(down = emptyList(), up = kbCodes)
         }
         if (normalBits.isNotEmpty()) {
             var prevButtons = _gamepadState.value.buttons
@@ -1468,20 +1472,35 @@ class GkViewModel @Inject constructor(
     }
 
     fun onVolumeKeyDown(bits: List<Int>) {
+        // The output picker also offers keyboard keys (stored as negative scan codes).
+        val kbCodes = bits.filter { it < 0 }.map { -it }
+        if (kbCodes.isNotEmpty()) {
+            applyKeyboardChanges(down = kbCodes, up = emptyList())
+        }
         var pb = phoneButtons
-        for (bit in bits) { pb = pb or bit.toUInt() }
-        phoneButtons = pb
         var b = _gamepadState.value.buttons
-        for (bit in bits) { b = b or bit.toUInt() }
+        for (bit in bits) {
+            if (bit < 0) continue
+            pb = pb or bit.toUInt()
+            b = b or bit.toUInt()
+        }
+        phoneButtons = pb
         _gamepadState.value = _gamepadState.value.copy(buttons = b)
     }
 
     fun onVolumeKeyUp(bits: List<Int>) {
+        val kbCodes = bits.filter { it < 0 }.map { -it }
+        if (kbCodes.isNotEmpty()) {
+            applyKeyboardChanges(down = emptyList(), up = kbCodes)
+        }
         var pb = phoneButtons
-        for (bit in bits) { pb = pb and (bit.toUInt().inv()) }
-        phoneButtons = pb
         var b = _gamepadState.value.buttons
-        for (bit in bits) { b = b and (bit.toUInt().inv()) }
+        for (bit in bits) {
+            if (bit < 0) continue
+            pb = pb and (bit.toUInt().inv())
+            b = b and (bit.toUInt().inv())
+        }
+        phoneButtons = pb
         _gamepadState.value = _gamepadState.value.copy(buttons = b)
     }
 
@@ -1559,63 +1578,85 @@ class GkViewModel @Inject constructor(
     }
 
     fun onKeyDown(code: Int) {
-        when (code) {
-            in 0xE0..0xE7 -> {
-                _keyboardModifier = _keyboardModifier or (1u shl (code - 0xE0))
-            }
-            0xE8 -> {
-                _keyboardModifier = _keyboardModifier or 0x10u
-            }
-            0xE9 -> {
-                _keyboardModifier = _keyboardModifier or 0x20u
-            }
-            0xEA -> {
-                _keyboardModifier = _keyboardModifier or 0x40u
-            }
-            0xEB -> {
-                _keyboardModifier = _keyboardModifier or 0x80u
-            }
-            else -> {
-                for (i in _keyboardKeys.indices) {
-                    if (_keyboardKeys[i].toInt() == 0) {
-                        _keyboardKeys[i] = code.toUShort()
-                        break
-                    }
-                }
-            }
-        }
+        applyKeyboardChanges(down = listOf(code), up = emptyList())
+    }
+
+    fun onKeyUp(code: Int) {
+        applyKeyboardChanges(down = emptyList(), up = listOf(code))
+    }
+
+    /**
+     * Applies a batch of keyboard scan-code transitions and emits exactly one HID report.
+     *
+     * Batching is what makes mapped combinations (Ctrl+C, Shift+F1, ...) truly simultaneous:
+     * the HID report carries the modifier byte and all keycodes together, so the host never
+     * sees an intermediate state such as "Ctrl pressed alone" or "C pressed after Ctrl was
+     * released".
+     */
+    private fun applyKeyboardChanges(down: Collection<Int>, up: Collection<Int>) {
+        for (code in up) setKeyboardCode(code, pressed = false)
+        for (code in down) setKeyboardCode(code, pressed = true)
         updateKeyboardShiftState()
         sendKeyboardReport()
     }
 
-    fun onKeyUp(code: Int) {
+    /** Updates the local modifier/key state for one scan code without sending a report. */
+    private fun setKeyboardCode(code: Int, pressed: Boolean) {
         when (code) {
             in 0xE0..0xE7 -> {
-                _keyboardModifier = _keyboardModifier and (1u shl (code - 0xE0)).inv()
+                val mask = 1u shl (code - 0xE0)
+                _keyboardModifier = if (pressed) {
+                    _keyboardModifier or mask
+                } else {
+                    _keyboardModifier and mask.inv()
+                }
             }
             0xE8 -> {
-                _keyboardModifier = _keyboardModifier and 0x10u.inv()
+                _keyboardModifier = if (pressed) {
+                    _keyboardModifier or 0x10u
+                } else {
+                    _keyboardModifier and 0x10u.inv()
+                }
             }
             0xE9 -> {
-                _keyboardModifier = _keyboardModifier and 0x20u.inv()
+                _keyboardModifier = if (pressed) {
+                    _keyboardModifier or 0x20u
+                } else {
+                    _keyboardModifier and 0x20u.inv()
+                }
             }
             0xEA -> {
-                _keyboardModifier = _keyboardModifier and 0x40u.inv()
+                _keyboardModifier = if (pressed) {
+                    _keyboardModifier or 0x40u
+                } else {
+                    _keyboardModifier and 0x40u.inv()
+                }
             }
             0xEB -> {
-                _keyboardModifier = _keyboardModifier and 0x80u.inv()
+                _keyboardModifier = if (pressed) {
+                    _keyboardModifier or 0x80u
+                } else {
+                    _keyboardModifier and 0x80u.inv()
+                }
             }
             else -> {
-                for (i in _keyboardKeys.indices) {
-                    if (_keyboardKeys[i] == code.toUShort()) {
-                        _keyboardKeys[i] = 0u
-                        break
+                if (pressed) {
+                    for (i in _keyboardKeys.indices) {
+                        if (_keyboardKeys[i].toInt() == 0) {
+                            _keyboardKeys[i] = code.toUShort()
+                            break
+                        }
+                    }
+                } else {
+                    for (i in _keyboardKeys.indices) {
+                        if (_keyboardKeys[i].toInt() == code) {
+                            _keyboardKeys[i] = 0u
+                            break
+                        }
                     }
                 }
             }
         }
-        updateKeyboardShiftState()
-        sendKeyboardReport()
     }
 
     private fun updateKeyboardShiftState() {
