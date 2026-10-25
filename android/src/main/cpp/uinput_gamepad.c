@@ -271,7 +271,7 @@ static void *gkme_ff_thread(void *arg) {
 }
 
 JNIEXPORT jint JNICALL
-Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeCreate(JNIEnv *env, jclass clazz,
+Java_com_orson391_virtualgamepad_controlled_RemoteGamepadDevice_nativeCreate(JNIEnv *env, jclass clazz,
                                                               jint rumbleEnabled) {
     int fd = open("/dev/uinput", O_RDWR | O_NONBLOCK | O_CLOEXEC);
     if (fd < 0) return -errno;
@@ -359,7 +359,7 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeCreate(JNIEnv *env, jcla
 }
 
 JNIEXPORT void JNICALL
-Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWrite(
+Java_com_orson391_virtualgamepad_controlled_RemoteGamepadDevice_nativeWrite(
         JNIEnv *env, jclass clazz, jint fd, jint buttons, jint leftTrigger,
         jint rightTrigger, jint leftX, jint leftY, jint rightX, jint rightY) {
     gkme_dev *dev = gkme_get_dev(fd);
@@ -417,7 +417,7 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWrite(
 }
 
 JNIEXPORT jlong JNICALL
-Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeRumble(JNIEnv *env, jclass clazz,
+Java_com_orson391_virtualgamepad_controlled_RemoteGamepadDevice_nativeRumble(JNIEnv *env, jclass clazz,
                                                               jint fd) {
     gkme_dev *dev = gkme_get_dev(fd);
     if (!dev || !dev->rumble_enabled) return 0;
@@ -430,7 +430,7 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeRumble(JNIEnv *env, jcla
 }
 
 JNIEXPORT void JNICALL
-Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeDestroy(JNIEnv *env, jclass clazz,
+Java_com_orson391_virtualgamepad_controlled_RemoteGamepadDevice_nativeDestroy(JNIEnv *env, jclass clazz,
                                                                jint fd) {
     gkme_dev *dev = gkme_get_dev(fd);
     if (!dev) return;
@@ -592,7 +592,7 @@ static void gkme_write_all(int fd, const struct input_event *events, int count) 
 }
 
 JNIEXPORT jint JNICALL
-Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeCreateKeyboard(JNIEnv *env, jclass clazz) {
+Java_com_orson391_virtualgamepad_controlled_RemoteGamepadDevice_nativeCreateKeyboard(JNIEnv *env, jclass clazz) {
     int fd = open("/dev/uinput", O_RDWR | O_NONBLOCK | O_CLOEXEC);
     if (fd < 0) return -errno;
 
@@ -651,7 +651,7 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeCreateKeyboard(JNIEnv *e
 }
 
 JNIEXPORT void JNICALL
-Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWriteKeyboard(
+Java_com_orson391_virtualgamepad_controlled_RemoteGamepadDevice_nativeWriteKeyboard(
         JNIEnv *env, jclass clazz, jint fd, jint modifiers, jintArray usages) {
     gkme_kbd *dev = gkme_get_kbd(fd);
     if (!dev || dev->fd < 0) return;
@@ -708,7 +708,7 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWriteKeyboard(
 }
 
 JNIEXPORT jint JNICALL
-Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeCreateMouse(JNIEnv *env, jclass clazz) {
+Java_com_orson391_virtualgamepad_controlled_RemoteGamepadDevice_nativeCreateMouse(JNIEnv *env, jclass clazz) {
     int fd = open("/dev/uinput", O_RDWR | O_NONBLOCK | O_CLOEXEC);
     if (fd < 0) return -errno;
 
@@ -768,7 +768,7 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeCreateMouse(JNIEnv *env,
 }
 
 JNIEXPORT void JNICALL
-Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWriteMouse(
+Java_com_orson391_virtualgamepad_controlled_RemoteGamepadDevice_nativeWriteMouse(
         JNIEnv *env, jclass clazz, jint fd, jint dx, jint dy, jint wheel, jint pan,
         jint buttons) {
     gkme_ms *dev = gkme_get_ms(fd);
@@ -842,7 +842,7 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWriteMouse(
 }
 
 JNIEXPORT void JNICALL
-Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeDestroyInput(JNIEnv *env, jclass clazz,
+Java_com_orson391_virtualgamepad_controlled_RemoteGamepadDevice_nativeDestroyInput(JNIEnv *env, jclass clazz,
                                                                      jint fd) {
     gkme_kbd *kbd = gkme_get_kbd(fd);
     if (kbd) {

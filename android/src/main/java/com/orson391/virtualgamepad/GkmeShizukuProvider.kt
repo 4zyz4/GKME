@@ -1,4 +1,4 @@
-package com.zyz4.gkme
+package com.orson391.virtualgamepad
 
 import android.os.Bundle
 import rikka.shizuku.ShizukuProvider

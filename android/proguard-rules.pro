@@ -1,5 +1,5 @@
--keep class com.zyz4.gkme.controlled.RemoteGamepadService { *; }
--keep class com.zyz4.gkme.controlled.RemoteGamepadDevice { *; }
--keep class com.zyz4.gkme.controlled.IGamepadService { *; }
--keep class com.zyz4.gkme.controlled.IGamepadService$* { *; }
--keep class com.zyz4.gkme.GkmeShizukuProvider { *; }
+-keep class com.orson391.virtualgamepad.controlled.RemoteGamepadService { *; }
+-keep class com.orson391.virtualgamepad.controlled.RemoteGamepadDevice { *; }
+-keep class com.orson391.virtualgamepad.controlled.IGamepadService { *; }
+-keep class com.orson391.virtualgamepad.controlled.IGamepadService$* { *; }
+-keep class com.orson391.virtualgamepad.GkmeShizukuProvider { *; }

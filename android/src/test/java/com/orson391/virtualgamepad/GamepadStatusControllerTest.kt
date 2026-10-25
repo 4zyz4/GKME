@@ -1,4 +1,4 @@
-package com.zyz4.gkme
+package com.orson391.virtualgamepad
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

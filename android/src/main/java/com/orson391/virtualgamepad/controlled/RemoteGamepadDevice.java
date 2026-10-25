@@ -1,4 +1,4 @@
-package com.zyz4.gkme.controlled;
+package com.orson391.virtualgamepad.controlled;
 
 /**
  * Java wrapper for the native uinput/uhid virtual gamepad backend.

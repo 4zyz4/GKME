@@ -9,11 +9,11 @@ kotlin {
 }
 
 android {
-    namespace = "com.zyz4.gkme"
+    namespace = "com.orson391.virtualgamepad"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.zyz4.gkme"
+        applicationId = "com.orson391.virtualgamepad"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

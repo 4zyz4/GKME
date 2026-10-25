@@ -1,4 +1,4 @@
-package com.zyz4.gkme.service
+package com.orson391.virtualgamepad.service
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -11,9 +11,9 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import com.zyz4.gkme.DeviceStatus
-import com.zyz4.gkme.MainActivity
-import com.zyz4.gkme.VirtualGamepadManager
+import com.orson391.virtualgamepad.DeviceStatus
+import com.orson391.virtualgamepad.MainActivity
+import com.orson391.virtualgamepad.VirtualGamepadManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -23,8 +23,8 @@ import kotlinx.coroutines.launch
 
 class VirtualGamepadService : Service() {
     companion object {
-        const val ACTION_START = "com.zyz4.gkme.action.START_GAMEPAD"
-        const val ACTION_STOP = "com.zyz4.gkme.action.STOP_GAMEPAD"
+        const val ACTION_START = "com.orson391.virtualgamepad.action.START_GAMEPAD"
+        const val ACTION_STOP = "com.orson391.virtualgamepad.action.STOP_GAMEPAD"
         private const val STATUS_CHANNEL_ID = "virtual_gamepad_status"
         private const val EVENTS_CHANNEL_ID = "virtual_gamepad_events"
         private const val NOTIFICATION_ID = 2026

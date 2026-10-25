@@ -823,7 +823,7 @@ static void gkme_uk_destroy(int fd) {
 
 /* ── JNI: Gamepad ────────────────────────────────────────────────────────── */
 JNIEXPORT jint JNICALL
-Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeCreateUhid(
+Java_com_orson391_virtualgamepad_controlled_RemoteGamepadDevice_nativeCreateUhid(
         JNIEnv *env, jclass clazz, jint profile, jint rumbleEnabled) {
     switch (profile) {
     case GKME_PROFILE_DS4:
@@ -843,7 +843,7 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeCreateUhid(
 }
 
 JNIEXPORT void JNICALL
-Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWriteUhid(
+Java_com_orson391_virtualgamepad_controlled_RemoteGamepadDevice_nativeWriteUhid(
         JNIEnv *env, jclass clazz, jint fd, jint buttons, jint leftTrigger,
         jint rightTrigger, jint leftX, jint leftY, jint rightX, jint rightY,
         jfloat gyroX, jfloat gyroY, jfloat gyroZ,
@@ -897,7 +897,7 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWriteUhid(
 }
 
 JNIEXPORT jlong JNICALL
-Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeRumbleUhid(
+Java_com_orson391_virtualgamepad_controlled_RemoteGamepadDevice_nativeRumbleUhid(
         JNIEnv *env, jclass clazz, jint fd) {
     gkme_uk_dev *dev = gkme_uk_get(fd);
     if (!dev) return 0;
@@ -910,21 +910,21 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeRumbleUhid(
 }
 
 JNIEXPORT void JNICALL
-Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeDestroyUhid(
+Java_com_orson391_virtualgamepad_controlled_RemoteGamepadDevice_nativeDestroyUhid(
         JNIEnv *env, jclass clazz, jint fd) {
     gkme_uk_destroy(fd);
 }
 
 /* ── JNI ────────────────────────────────────────────────────────── */
 JNIEXPORT jint JNICALL
-Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeCreateKeyboardUhid(
+Java_com_orson391_virtualgamepad_controlled_RemoteGamepadDevice_nativeCreateKeyboardUhid(
         JNIEnv *env, jclass clazz) {
     return gkme_uk_create(GKMD_DESC_KEYBOARD, GKMD_DESC_KEYBOARD_LEN, "GKME HID Keyboard",
                           "1337", 0x2E8A, 0x0010, GKME_PROFILE_KEYBOARD, 0);
 }
 
 JNIEXPORT void JNICALL
-Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWriteKeyboardUhid(
+Java_com_orson391_virtualgamepad_controlled_RemoteGamepadDevice_nativeWriteKeyboardUhid(
         JNIEnv *env, jclass clazz, jint fd, jint modifiers, jintArray usages) {
     gkme_uk_dev *dev = gkme_uk_get(fd);
     if (!dev) return;
@@ -950,14 +950,14 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWriteKeyboardUhid(
 
 /* ── JNI ────────────────────────────────────────────────────────── */
 JNIEXPORT jint JNICALL
-Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeCreateMouseUhid(
+Java_com_orson391_virtualgamepad_controlled_RemoteGamepadDevice_nativeCreateMouseUhid(
         JNIEnv *env, jclass clazz) {
     return gkme_uk_create(GKMD_DESC_MOUSE, GKMD_DESC_MOUSE_LEN, "GKME HID Mouse",
                           "1337", 0x2E8A, 0x0011, GKME_PROFILE_MOUSE, 0);
 }
 
 JNIEXPORT void JNICALL
-Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWriteMouseUhid(
+Java_com_orson391_virtualgamepad_controlled_RemoteGamepadDevice_nativeWriteMouseUhid(
         JNIEnv *env, jclass clazz, jint fd, jint dx, jint dy, jint wheel, jint pan,
         jint buttons) {
     gkme_uk_dev *dev = gkme_uk_get(fd);
@@ -977,7 +977,7 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWriteMouseUhid(
 }
 
 JNIEXPORT void JNICALL
-Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeDestroyUhidInput(
+Java_com_orson391_virtualgamepad_controlled_RemoteGamepadDevice_nativeDestroyUhidInput(
         JNIEnv *env, jclass clazz, jint fd) {
     gkme_uk_destroy(fd);
 }

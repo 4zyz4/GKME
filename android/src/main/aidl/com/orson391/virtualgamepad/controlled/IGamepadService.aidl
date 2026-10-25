@@ -1,6 +1,6 @@
 // User service interface for virtual gamepad.
 // The Stub for this interface is instantiated in the Shizuku shell/root process, and the App process communicates via Binder.
-package com.zyz4.gkme.controlled;
+package com.orson391.virtualgamepad.controlled;
 
 interface IGamepadService {
     /**
