@@ -75,6 +75,11 @@
     <string name="i18n_close" formatted="false">"Закрыть"</string>
     <string name="i18n_codeword_count_does_not_match_the_versio" formatted="false">"Количество кодовых слов не соответствует версии"</string>
     <string name="i18n_collapse_expand_panel" formatted="false">"Свернуть/развернуть панель"</string>
+    <string name="i18n_combo_interval" formatted="false">"Интервал нажатия"</string>
+    <string name="i18n_combo_timing" formatted="false">"Тайминг комбинации"</string>
+    <string name="i18n_combo_timing_custom" formatted="false">"Свой интервал"</string>
+    <string name="i18n_combo_timing_framed" formatted="false">"Покадрово"</string>
+    <string name="i18n_combo_timing_simultaneous" formatted="false">"Одновременно"</string>
     <string name="i18n_confirm" formatted="false">"Подтвердить"</string>
     <string name="i18n_confirm_and_go_back" formatted="false">"Подтвердить и вернуться"</string>
     <string name="i18n_connect" formatted="false">"Подключиться"</string>

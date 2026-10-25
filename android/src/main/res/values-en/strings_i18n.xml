@@ -75,6 +75,11 @@
     <string name="i18n_close" formatted="false">"Close"</string>
     <string name="i18n_codeword_count_does_not_match_the_versio" formatted="false">"Codeword count does not match the version"</string>
     <string name="i18n_collapse_expand_panel" formatted="false">"Collapse/expand panel"</string>
+    <string name="i18n_combo_interval" formatted="false">"Press interval"</string>
+    <string name="i18n_combo_timing" formatted="false">"Chord timing"</string>
+    <string name="i18n_combo_timing_custom" formatted="false">"Custom interval"</string>
+    <string name="i18n_combo_timing_framed" formatted="false">"Frame by frame"</string>
+    <string name="i18n_combo_timing_simultaneous" formatted="false">"Simultaneous"</string>
     <string name="i18n_confirm" formatted="false">"Confirm"</string>
     <string name="i18n_confirm_and_go_back" formatted="false">"Confirm and go back"</string>
     <string name="i18n_connect" formatted="false">"Connect"</string>

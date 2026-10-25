@@ -108,11 +108,14 @@ fun AppSettings.virtualGamepadUhidProfile(): Int     // 1 DS4 / 2 DS5 / 3 Switch
 
 `LayoutPreset` 字段：`version`、`buttons: List<ButtonPosition>`、陀螺仪字段
 （`gyroOrientation/ActivateMode/Mode/ModeSensitivity/DeadZone/ReverseDeadZone/StickCurve`）、
-`physicalInputMappings`、`volumeUpBits`、`volumeDownBits`。
+`physicalInputMappings`、`volumeUpBits`、`volumeDownBits`，以及音量键的组合键时序
+`volumeUp/DownComboTiming` + `volumeUp/DownComboIntervalMs`。
 
 `ButtonPosition` 字段（关键）：`id`、网格坐标 `x/y/width/height`、`visible`、`lockAspect`、
-`swipeTrigger`、`rotation`、`isCustom/customText/customBits`、`roundShape`、`doubleClickEnable`、
-`isKeypad/keypadTexts/keypadBits/keypadEightWay`、`centerShape`、`sensitivityCurve`、
+`swipeTrigger`、`rotation`、`isCustom/customText/customBits`、`comboTiming/comboIntervalMs`、
+`roundShape`、`doubleClickEnable`、
+`isKeypad/keypadTexts/keypadBits/keypadEightWay`、`keypadComboTimings/keypadComboIntervals`、
+`centerShape`、`sensitivityCurve`、
 `joystickSensitivity`、`touchpadMode`、`prediction`、`deadZone/reverseDeadZone`、`idleOpacity/activeOpacity/followAreaOpacity`、
 `followAreaEnabled/X/Y/W/H`、`overlapTrigger/followAreaOverlapTrigger`、鼠标板字段
 （`mouseSensitivity/Acceleration/scrollSensitivity/mouseMoveSlop/invertScroll*` 与 7 个手势动作）、
@@ -124,11 +127,18 @@ fun AppSettings.virtualGamepadUhidProfile(): Int     // 1 DS4 / 2 DS5 / 3 Switch
 
 - 移除 `lockAspect`/`isKeyboard` 并**从硬编码表重建**（`LOCK_ASPECT_FALSE_IDS`、`IS_KEYBOARD_IDS`）。
 - 为缺失字段补默认（`overlapTrigger`、`followArea*`、`deadZone`、`joystickSensitivity`、`touchpadMode`、`prediction`、鼠标板字段、`keypad*`、
-  `gyroActivate`、`autoHold` 等）。
+  `comboTiming`/`comboIntervalMs`、`keypadCombo*`、`gyroActivate`、`autoHold` 等）。
 - `migrateLegacyOpacity`：旧透明度（0 不透明 / 255 全透明）→ 不透明度（100 不透明 / 0 透明），
   处理 `idleTransparency`/`activeTransparency`/`followAreaTransparency`。
 - `slideDirection` 大小写归一化。
-- 键位表 `keypadTexts`/`keypadBits` 不足时补齐 8 方向默认值。
+- 键位表 `keypadTexts`/`keypadBits`/`keypadComboTimings`/`keypadComboIntervals` 不足时补齐 8 方向默认值。
+
+#### 组合键时序（ComboTiming）
+
+`model/ComboTiming.kt`：`SIMULTANEOUS`（默认，单条 HID 报文同时按下）、
+`FRAME_BY_FRAME`（逐帧按下，间隔 16 ms）、`CUSTOM_INTERVAL`（1–100 ms 自定义间隔）。
+`PhysicalInputMapping` 也带 `comboTiming` / `comboIntervalMs`。旧预设缺少这些字段时按
+`SIMULTANEOUS` 读取。
 
 `toJson` 采用“只在非默认值时才写”的稀疏写法，保持预设文件精简。
 

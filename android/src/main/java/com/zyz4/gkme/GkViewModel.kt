@@ -10,12 +10,14 @@ import androidx.lifecycle.viewModelScope
 import com.zyz4.gkme.data.LayoutRepository
 import com.zyz4.gkme.i18n.AppText
 import com.zyz4.gkme.input.AccelSteeringMapper
+import com.zyz4.gkme.input.ComboSequencer
 import com.zyz4.gkme.input.SensitivityCurve
 import com.zyz4.gkme.input.SensorHandler
 import com.zyz4.gkme.input.StickShaping
 import com.zyz4.gkme.input.toProto
 import com.zyz4.gkme.model.AudioDevice
 import com.zyz4.gkme.model.AppSettings
+import com.zyz4.gkme.model.ComboTiming
 import com.zyz4.gkme.model.ConnectionMode
 import com.zyz4.gkme.model.ControllerDriver
 import com.zyz4.gkme.model.DisplayMode
@@ -146,10 +148,21 @@ class GkViewModel @Inject constructor(
     private var physicalRightTriggerAnalog: Int = 0
     /** Mouse buttons (bit0=LMB, bit1=RMB, bit2=MMB) produced by the physical mappings. */
     private var physicalMappedMouseButtons: Int = 0
-    /** Keyboard scan codes currently emitted by the physical button mappings. */
-    private var physicalMappedKbCodes: List<Int> = emptyList()
     /** Whether any physical input currently asks to activate the gyro. */
     private var physicalGyroActive = false
+
+    /**
+     * Applies mapped phone-side chords (custom buttons, keypad regions, volume keys). Each source
+     * keeps its own state so one button's release cannot cancel another button's pending chord.
+     */
+    private val phoneComboSequencer = ComboSequencer(viewModelScope) { down, up ->
+        applyPhoneComboChanges(down, up)
+    }
+
+    /** Applies mapped physical-controller chords, including the continuous per-frame updates. */
+    private val physicalComboSequencer = ComboSequencer(viewModelScope) { down, up ->
+        applyPhysicalComboChanges(down, up)
+    }
 
     private val _keyboardShiftActive = MutableStateFlow(false)
     val keyboardShiftActive: StateFlow<Boolean> = _keyboardShiftActive.asStateFlow()
@@ -653,33 +666,8 @@ class GkViewModel @Inject constructor(
         val mouseButtonsChanged = physicalMappedMouseButtons != previousPhysicalMouse
         val combinedMouseButtons =
             (_gamepadState.value.mouseButtons and previousPhysicalMouse.inv()) or physicalMappedMouseButtons
-        _physicalDpadBits = 0
-        if ((physicalMappedButtonBits and GamepadState.DPAD_BIT_UP.toUInt()) != 0u) {
-            _physicalDpadBits = _physicalDpadBits or GamepadState.DPAD_UP
-        }
-        if ((physicalMappedButtonBits and GamepadState.DPAD_BIT_DOWN.toUInt()) != 0u) {
-            _physicalDpadBits = _physicalDpadBits or GamepadState.DPAD_DOWN
-        }
-        if ((physicalMappedButtonBits and GamepadState.DPAD_BIT_LEFT.toUInt()) != 0u) {
-            _physicalDpadBits = _physicalDpadBits or GamepadState.DPAD_LEFT
-        }
-        if ((physicalMappedButtonBits and GamepadState.DPAD_BIT_RIGHT.toUInt()) != 0u) {
-            _physicalDpadBits = _physicalDpadBits or GamepadState.DPAD_RIGHT
-        }
-        val combinedBits = _dpadBits or _physicalDpadBits
-        val hatValue = when (combinedBits) {
-            0 -> 0
-            GamepadState.DPAD_UP -> GamepadState.DPAD_UP
-            GamepadState.DPAD_DOWN -> GamepadState.DPAD_DOWN
-            GamepadState.DPAD_LEFT -> GamepadState.DPAD_LEFT
-            GamepadState.DPAD_RIGHT -> GamepadState.DPAD_RIGHT
-            GamepadState.DPAD_UP or GamepadState.DPAD_LEFT -> GamepadState.DPAD_UP_LEFT
-            GamepadState.DPAD_UP or GamepadState.DPAD_RIGHT -> GamepadState.DPAD_UP_RIGHT
-            GamepadState.DPAD_DOWN or GamepadState.DPAD_LEFT -> GamepadState.DPAD_DOWN_LEFT
-            GamepadState.DPAD_DOWN or GamepadState.DPAD_RIGHT -> GamepadState.DPAD_DOWN_RIGHT
-            else -> 0
-        }
-        
+        val hatValue = currentCombinedDpadHat()
+
         _gamepadState.value = _gamepadState.value.copy(
             buttons = phoneButtons or physicalMappedButtonBits,
             mouseButtons = combinedMouseButtons,
@@ -741,9 +729,10 @@ class GkViewModel @Inject constructor(
         touchpadTouch: Boolean,
     ) {
         val mappings = _currentPreset.value.physicalInputMappings
-        var outputBits = 0u
-        val kbCodes = LinkedHashSet<Int>()
+        val orderedOutputs = LinkedHashSet<Int>()
         var gyroActive = false
+        var physicalComboTiming = ComboTiming.SIMULTANEOUS
+        var physicalComboIntervalMs = ComboTiming.DEFAULT_INTERVAL_MS
         // Analog trigger values are routed by the mapping: a trigger only drives the trigger
         // axis it is mapped to. An unmapped/cleared trigger no longer moves its own axis.
         var leftTriggerAnalog = 0
@@ -773,9 +762,13 @@ class GkViewModel @Inject constructor(
             }
             if (!pressed) continue
             if (mapping?.gyroActivate == true) gyroActive = true
-            for (out in outputs) {
-                if (out < 0) kbCodes.add(-out) else outputBits = outputBits or out.toUInt()
+            if (outputs.isNotEmpty() && mapping?.comboTiming?.isSequential == true &&
+                physicalComboTiming == ComboTiming.SIMULTANEOUS
+            ) {
+                physicalComboTiming = mapping.comboTiming
+                physicalComboIntervalMs = mapping.comboIntervalMs
             }
+            for (out in outputs) orderedOutputs.add(out)
         }
 
         for (input in PhysicalInputs.GYRO_ONLY) {
@@ -791,38 +784,106 @@ class GkViewModel @Inject constructor(
             if (active) gyroActive = true
         }
 
-        physicalMappedButtonBits = outputBits
         physicalLeftTriggerAnalog = leftTriggerAnalog
         physicalRightTriggerAnalog = rightTriggerAnalog
-        var mouseButtons = 0
-        val outputBitsInt = outputBits.toInt()
-        if ((outputBitsInt and GamepadState.MOUSE_LMB) != 0) mouseButtons = mouseButtons or 1
-        if ((outputBitsInt and GamepadState.MOUSE_RMB) != 0) mouseButtons = mouseButtons or 2
-        if ((outputBitsInt and GamepadState.MOUSE_MMB) != 0) mouseButtons = mouseButtons or 4
-        if ((outputBitsInt and GamepadState.MOUSE_BACK) != 0) mouseButtons = mouseButtons or 8
-        if ((outputBitsInt and GamepadState.MOUSE_FORWARD) != 0) mouseButtons = mouseButtons or 16
-        physicalMappedMouseButtons = mouseButtons
-        syncPhysicalMappedKeyboard(kbCodes.toList())
+        physicalComboSequencer.setTarget(
+            PHYSICAL_COMBO_SOURCE,
+            orderedOutputs.toList(),
+            physicalComboTiming,
+            physicalComboIntervalMs,
+        )
         if (gyroActive != physicalGyroActive) {
             physicalGyroActive = gyroActive
             if (gyroActive) onGyroActivateButtonDown() else onGyroActivateButtonUp()
         }
     }
 
-    /**
-     * Applies the press/release delta of the keyboard keys produced by the physical mappings.
-     * All transitions go out in one HID report, so a mapped combination (e.g. Ctrl+C) reaches
-     * the host as a real simultaneous chord instead of a key-at-a-time sequence whose
-     * intermediate reports contain only part of the chord.
-     */
-    private fun syncPhysicalMappedKeyboard(desired: List<Int>) {
-        val previous = physicalMappedKbCodes
-        val released = previous.filter { it !in desired }
-        val pressed = desired.filter { it !in previous }
-        physicalMappedKbCodes = desired
-        if (released.isNotEmpty() || pressed.isNotEmpty()) {
-            applyKeyboardChanges(down = pressed, up = released)
+    /** Applies one batch of mapped phone-side outputs and emits at most one HID report per layer. */
+    private fun applyPhoneComboChanges(down: List<Int>, up: List<Int>) {
+        val kbDown = down.filter { it < 0 }.map { -it }
+        val kbUp = up.filter { it < 0 }.map { -it }
+        if (kbDown.isNotEmpty() || kbUp.isNotEmpty()) {
+            applyKeyboardChanges(down = kbDown, up = kbUp)
         }
+        val bitDown = down.filter { it >= 0 }
+        val bitUp = up.filter { it >= 0 }
+        if (bitDown.isEmpty() && bitUp.isEmpty()) return
+        var pb = phoneButtons
+        for (bit in bitUp) pb = pb and bit.toUInt().inv()
+        for (bit in bitDown) pb = pb or bit.toUInt()
+        phoneButtons = pb
+        var b = _gamepadState.value.buttons
+        for (bit in bitUp) b = b and bit.toUInt().inv()
+        for (bit in bitDown) b = b or bit.toUInt()
+        _gamepadState.value = _gamepadState.value.copy(buttons = b)
+        if ((bitUp + bitDown).any { dpadDirOf(it) != null }) syncDpadFromButtons()
+    }
+
+    /** Applies one batch of mapped physical-controller outputs. */
+    private fun applyPhysicalComboChanges(down: List<Int>, up: List<Int>) {
+        var bits = physicalMappedButtonBits
+        for (bit in up) if (bit >= 0) bits = bits and bit.toUInt().inv()
+        for (bit in down) if (bit >= 0) bits = bits or bit.toUInt()
+        physicalMappedButtonBits = bits
+        physicalMappedMouseButtons = mouseButtonsFromPhysicalBits(bits)
+
+        val kbDown = down.filter { it < 0 }.map { -it }
+        val kbUp = up.filter { it < 0 }.map { -it }
+        if (kbDown.isNotEmpty() || kbUp.isNotEmpty()) {
+            applyKeyboardChanges(down = kbDown, up = kbUp)
+        }
+
+        // Keep the live state in sync between physical frames (the sequencer may finish a
+        // delayed step while the controller is still held).
+        _gamepadState.value = _gamepadState.value.copy(buttons = phoneButtons or bits)
+        refreshPhysicalDpadFromMappedBits()
+    }
+
+    private fun mouseButtonsFromPhysicalBits(bits: UInt): Int {
+        var mouseButtons = 0
+        val value = bits.toInt()
+        if ((value and GamepadState.MOUSE_LMB) != 0) mouseButtons = mouseButtons or 1
+        if ((value and GamepadState.MOUSE_RMB) != 0) mouseButtons = mouseButtons or 2
+        if ((value and GamepadState.MOUSE_MMB) != 0) mouseButtons = mouseButtons or 4
+        if ((value and GamepadState.MOUSE_BACK) != 0) mouseButtons = mouseButtons or 8
+        if ((value and GamepadState.MOUSE_FORWARD) != 0) mouseButtons = mouseButtons or 16
+        return mouseButtons
+    }
+
+    /** Recomputes the physical D-pad contribution from the currently applied mapped bits. */
+    private fun currentCombinedDpadHat(): Int {
+        _physicalDpadBits = 0
+        if ((physicalMappedButtonBits and GamepadState.DPAD_BIT_UP.toUInt()) != 0u) {
+            _physicalDpadBits = _physicalDpadBits or GamepadState.DPAD_UP
+        }
+        if ((physicalMappedButtonBits and GamepadState.DPAD_BIT_DOWN.toUInt()) != 0u) {
+            _physicalDpadBits = _physicalDpadBits or GamepadState.DPAD_DOWN
+        }
+        if ((physicalMappedButtonBits and GamepadState.DPAD_BIT_LEFT.toUInt()) != 0u) {
+            _physicalDpadBits = _physicalDpadBits or GamepadState.DPAD_LEFT
+        }
+        if ((physicalMappedButtonBits and GamepadState.DPAD_BIT_RIGHT.toUInt()) != 0u) {
+            _physicalDpadBits = _physicalDpadBits or GamepadState.DPAD_RIGHT
+        }
+        return combinedDpadHat(_dpadBits or _physicalDpadBits)
+    }
+
+    /** Recomputes the D-pad after a delayed combo step changed the mapped bits. */
+    private fun refreshPhysicalDpadFromMappedBits() {
+        _gamepadState.value = _gamepadState.value.copy(dpad = currentCombinedDpadHat())
+    }
+
+    private fun combinedDpadHat(bits: Int): Int = when (bits) {
+        0 -> 0
+        GamepadState.DPAD_UP -> GamepadState.DPAD_UP
+        GamepadState.DPAD_DOWN -> GamepadState.DPAD_DOWN
+        GamepadState.DPAD_LEFT -> GamepadState.DPAD_LEFT
+        GamepadState.DPAD_RIGHT -> GamepadState.DPAD_RIGHT
+        GamepadState.DPAD_UP or GamepadState.DPAD_LEFT -> GamepadState.DPAD_UP_LEFT
+        GamepadState.DPAD_UP or GamepadState.DPAD_RIGHT -> GamepadState.DPAD_UP_RIGHT
+        GamepadState.DPAD_DOWN or GamepadState.DPAD_LEFT -> GamepadState.DPAD_DOWN_LEFT
+        GamepadState.DPAD_DOWN or GamepadState.DPAD_RIGHT -> GamepadState.DPAD_DOWN_RIGHT
+        else -> 0
     }
 
     // Raw (unscaled) controller gyro in rad/s, kept for accelerometer->stick gyro fusion.
@@ -1363,75 +1424,36 @@ class GkViewModel @Inject constructor(
         onHapticFeedbackRelease?.invoke()
     }
 
-    fun onCustomButtonDown(bits: List<Int>) {
-        val kbCodes = mutableListOf<Int>()
-        val normalBits = mutableListOf<Int>()
-        for (bit in bits) {
-            if (bit < 0) {
-                kbCodes.add(-bit)
-            } else {
-                normalBits.add(bit)
-            }
-        }
-        if (kbCodes.isNotEmpty()) {
-            // One report for the whole mapped chord: pressing Ctrl+A must not first emit
-            // a lone Ctrl report and then a Ctrl+A report.
-            applyKeyboardChanges(down = kbCodes, up = emptyList())
-        }
-        if (normalBits.isNotEmpty()) {
-            var pb = phoneButtons
-            for (bit in normalBits) { pb = pb or bit.toUInt() }
-            phoneButtons = pb
-            var prevButtons = _gamepadState.value.buttons
-            var b = prevButtons
-            for (bit in normalBits) { b = b or bit.toUInt() }
-            _gamepadState.value = _gamepadState.value.copy(buttons = b)
-            if (normalBits.any { dpadDirOf(it) != null }) syncDpadFromButtons()
-            for (bit in normalBits) {
-                val wasDown = (prevButtons and bit.toUInt()) != 0u
-                if (!wasDown) {
-                    onHapticFeedbackPress?.invoke()
-                    break
-                }
-            }
-        }
+    /**
+     * Presses the outputs of a custom button / keypad region. [sourceKey] identifies the mapping
+     * so several controls can be held at once; [timing] selects simultaneous vs. sequential output.
+     */
+    fun onCustomButtonDown(
+        sourceKey: String,
+        bits: List<Int>,
+        timing: ComboTiming = ComboTiming.SIMULTANEOUS,
+        intervalMs: Int = ComboTiming.DEFAULT_INTERVAL_MS,
+    ) {
+        val hadTarget = phoneComboSequencer.hasTarget(sourceKey)
+        val hasNormal = bits.any { it >= 0 }
+        val shouldPulse = hasNormal && (!hadTarget || bits.any {
+            it >= 0 && (phoneButtons and it.toUInt()) == 0u
+        })
+        phoneComboSequencer.setTarget(sourceKey, bits, timing, intervalMs)
+        if (shouldPulse) onHapticFeedbackPress?.invoke()
     }
 
-    fun onCustomButtonUp(bits: List<Int>) {
-        val kbCodes = mutableListOf<Int>()
-        val normalBits = mutableListOf<Int>()
-        for (bit in bits) {
-            if (bit < 0) {
-                kbCodes.add(-bit)
-            } else {
-                normalBits.add(bit)
-            }
+    fun onCustomButtonUp(
+        sourceKey: String,
+        bits: List<Int>,
+        timing: ComboTiming = ComboTiming.SIMULTANEOUS,
+        intervalMs: Int = ComboTiming.DEFAULT_INTERVAL_MS,
+    ) {
+        val hasNormalDown = bits.any {
+            it >= 0 && (phoneButtons and it.toUInt()) != 0u
         }
-        if (kbCodes.isNotEmpty()) {
-            // Release the whole chord together; releasing the modifier first would leave the
-            // remaining key pressed without it and can produce an unintended extra character.
-            applyKeyboardChanges(down = emptyList(), up = kbCodes)
-        }
-        if (normalBits.isNotEmpty()) {
-            var prevButtons = _gamepadState.value.buttons
-            var pb = phoneButtons
-            for (bit in normalBits) { pb = pb and (bit.toUInt().inv()) }
-            phoneButtons = pb
-            var b = _gamepadState.value.buttons
-            for (bit in normalBits) { b = b and (bit.toUInt().inv()) }
-            _gamepadState.value = _gamepadState.value.copy(buttons = b)
-            if (normalBits.any { dpadDirOf(it) != null }) syncDpadFromButtons()
-            var anyReleased = false
-            for (bit in normalBits) {
-                if (((prevButtons and bit.toUInt()) != 0u) && ((b and bit.toUInt()) == 0u)) {
-                    anyReleased = true
-                    break
-                }
-            }
-            if (anyReleased) {
-                onHapticFeedbackRelease?.invoke()
-            }
-        }
+        phoneComboSequencer.setTarget(sourceKey, emptyList(), timing, intervalMs)
+        if (hasNormalDown) onHapticFeedbackRelease?.invoke()
     }
 
     /** D-pad hat value (GamepadState.DPAD_UP/DOWN/LEFT/�?or 0) for a single output bit,
@@ -1471,37 +1493,26 @@ class GkViewModel @Inject constructor(
         })
     }
 
-    fun onVolumeKeyDown(bits: List<Int>) {
-        // The output picker also offers keyboard keys (stored as negative scan codes).
-        val kbCodes = bits.filter { it < 0 }.map { -it }
-        if (kbCodes.isNotEmpty()) {
-            applyKeyboardChanges(down = kbCodes, up = emptyList())
-        }
-        var pb = phoneButtons
-        var b = _gamepadState.value.buttons
-        for (bit in bits) {
-            if (bit < 0) continue
-            pb = pb or bit.toUInt()
-            b = b or bit.toUInt()
-        }
-        phoneButtons = pb
-        _gamepadState.value = _gamepadState.value.copy(buttons = b)
+    /**
+     * Presses the outputs mapped to a volume key. [sourceKey] must distinguish volume-up from
+     * volume-down so holding one does not cancel the other's chord sequence.
+     */
+    fun onVolumeKeyDown(
+        sourceKey: String,
+        bits: List<Int>,
+        timing: ComboTiming = ComboTiming.SIMULTANEOUS,
+        intervalMs: Int = ComboTiming.DEFAULT_INTERVAL_MS,
+    ) {
+        phoneComboSequencer.setTarget(sourceKey, bits, timing, intervalMs)
     }
 
-    fun onVolumeKeyUp(bits: List<Int>) {
-        val kbCodes = bits.filter { it < 0 }.map { -it }
-        if (kbCodes.isNotEmpty()) {
-            applyKeyboardChanges(down = emptyList(), up = kbCodes)
-        }
-        var pb = phoneButtons
-        var b = _gamepadState.value.buttons
-        for (bit in bits) {
-            if (bit < 0) continue
-            pb = pb and (bit.toUInt().inv())
-            b = b and (bit.toUInt().inv())
-        }
-        phoneButtons = pb
-        _gamepadState.value = _gamepadState.value.copy(buttons = b)
+    fun onVolumeKeyUp(
+        sourceKey: String,
+        bits: List<Int>,
+        timing: ComboTiming = ComboTiming.SIMULTANEOUS,
+        intervalMs: Int = ComboTiming.DEFAULT_INTERVAL_MS,
+    ) {
+        phoneComboSequencer.setTarget(sourceKey, emptyList(), timing, intervalMs)
     }
 
     
@@ -1699,6 +1710,7 @@ class GkViewModel @Inject constructor(
 
 /** Trigger value (0..255) above which a remapped LT/RT counts as pressed. */
 private const val PHYSICAL_TRIGGER_MAP_THRESHOLD = 128
+private const val PHYSICAL_COMBO_SOURCE = "physical"
 
 /** Short-axis magnitude that maps to full deflection for physical stick shaping. */
 private const val PHYSICAL_STICK_FULL_SCALE = 32767f

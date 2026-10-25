@@ -70,7 +70,8 @@ flowchart TB
 - 触觉：`performHaptic`（VIEW 走 RichTap 预置效果，VIBRATION_EFFECT 走 `PhoneHdHaptics`）、
   `vibratePhoneForAdaptive`。
 - 外观去重：`applyAppearanceIfChanged` 用 `lastAppliedSettings` 避免重复全树 restyle。
-- Chip 组与音量映射 UI：`selectChipGroup`、`updateVolumeBits`、`populateVolumeMapping` 等。
+- Chip 组与音量映射 UI：`selectChipGroup`、`updateVolumeBits`、`updateVolumeComboTiming`、
+  `populateVolumeMapping` 等；每个音量键映射卡片带组合键时序选择（同时按下 / 分帧按下 / 自定义间隔）。
 
 ### 2.2 MainActivityAppearance.kt（外观页）
 
@@ -121,8 +122,9 @@ flowchart TB
 ### 2.6 MainActivityPhysicalMapping.kt（实体手柄重映射页）
 
 - `currentSupportedPhysicalButtons`：当前手柄支持掩码，无手柄回退 `STANDARD_BUTTON_MASK`。
-- `writePhysicalMapping`：默认值不落盘（从 map 移除）。
-- `populatePhysicalMapping` / `buildPhysicalMappingRow` / `fillPhysicalMappingChips`。
+- `writePhysicalMapping`：默认值不落盘（从 map 移除）；同时保存组合键时序。
+- `populatePhysicalMapping` / `buildPhysicalMappingRow` / `fillPhysicalMappingChips`；
+  每个按键卡片通过 `addComboTimingControls` 提供组合键时序。
 
 ### 2.7 MainActivitySettings.kt（设置页，最大 partial）
 
@@ -246,6 +248,7 @@ Activity **不直接改 ViewModel 内部状态**：
 | 视图 | 职责 |
 |------|------|
 | `view/FloatingEditorPanel.kt` | 参数编辑面板，可拖动/折叠，参数区切换动画 |
+| `view/ComboTimingControls.kt` | 复用的组合键时序选择器（3 模式 + 自定义间隔 seekbar） |
 | `view/LayoutGlobalSettingsPanel.kt` | 全屏布局级全局设置（陀螺仪/实体手柄/音量键 3 Tab） |
 | `view/CurveEditorView.kt` / `CurveZoomOverlay.kt` | 灵敏度曲线编辑与放大 |
 | `view/ColorPickerView.kt` | HSV 取色 |
@@ -255,6 +258,7 @@ Activity **不直接改 ViewModel 内部状态**：
 自动保持；摇杆矩形跟随、触摸板模式、预测、灵敏度、死区/反死区、灵敏度曲线；触摸板扩展范围；
 鼠标板 7 个手势动作 + 灵敏度/滑动判定/滚动灵敏度/指针加速度/滚动反转；线性扳机滑动方向/行程、预测；
 `dpadPad`/`customKeypad` 中心形状、方向模式、每区域文本与映射；自定义按钮文本 + 映射键值。
+自定义按钮和每个按键盘区域的映射编辑下方都有 `addComboTimingControls`（时序选择 + 1–100 ms seekbar）。
 
 数值编辑统一封装 `addSeekbar` / `addSeekbarFloat`（输入框 + / - 按钮 + SeekBar，且
 `requestDisallowInterceptTouchEvent`）。

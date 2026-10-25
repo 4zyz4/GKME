@@ -300,7 +300,7 @@ protobuf `GamepadInput`。要点：
 
 - `PhysicalInputKind { BUTTON, JOYSTICK, TOUCHPAD }`。
 - `PhysicalInput(key, label, kind, defaultOutputs, bitMask)`。
-- `PhysicalInputMapping(outputs: List<Int>, gyroActivate: Boolean)`。
+- `PhysicalInputMapping(outputs, gyroActivate, comboTiming, comboIntervalMs)`。
 - `PhysicalInputs`：
   - 背键位：`PADDLE_R1=0x400000`(bit22) … `PADDLE_L2=0x2000000`(25)（需与 `sdl_bridge.cpp` 一致）。
   - `STANDARD_BUTTON_MASK`、`BUTTONS`、`GYRO_ONLY`、`ALL`。
@@ -309,6 +309,20 @@ protobuf `GamepadInput`。要点：
 
 `GkViewModel.applyPhysicalMappings` 把 raw 输入映射成 output bits / 负键盘码 / 陀螺激活；
 `PHYSICAL_TRIGGER_MAP_THRESHOLD=128`、`PHYSICAL_STICK_GYRO_THRESHOLD=8000`。
+
+### 6.1 组合键时序
+
+`input/ComboSequencer.kt` 把映射输出（负值 = 键盘 scan code，非负值 = 手柄/鼠标 bit）
+从目标列表转成 HID 变化：
+
+- `SIMULTANEOUS`：一次 `applyChanges(down, up)`，保持原有单报文同时按下。
+- 顺序模式：按下按映射列表顺序逐项发送，松开按相反顺序发送；每一步间隔由
+  `ComboTiming.effectiveIntervalMs` 决定（分帧 16 ms / 自定义 1–100 ms）。
+- 每个来源（自定义按钮、按键盘区域、音量键、物理手柄整体）各有独立状态；持续更新的
+  物理映射用幂等 `setTarget`，目标不变时不会重启序列。
+
+`GkViewModel` 中 `phoneComboSequencer` 处理屏幕自定义控件与音量键，
+`physicalComboSequencer` 处理物理手柄映射。
 
 ---
 

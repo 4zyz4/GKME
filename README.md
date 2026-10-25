@@ -72,6 +72,7 @@ GKME organizes its functionality along two dimensions: the **connection method**
 | **On-screen gamepad** | Full emulation: ABXY buttons, sticks, D-pad, analog triggers, shoulder buttons, DS4 touchpad |
 | **Keyboard & mouse** | Full keyboard mapping and mouse control; the touchpad supports multi-touch, scrolling, and 7 customizable gestures with configurable swipe thresholds; custom keypads support 4-way / 8-way modes |
 | **Volume key mapping** | Set key combinations for the phone's volume keys |
+| **Chord timing** | Mapped combinations can be sent simultaneously (default), frame by frame, or with a custom 1–100 ms press interval, making shortcuts such as Ctrl+C more reliable |
 | **Motion control** | Uses the gyroscope and accelerometer of the phone or an external gamepad, mappable to mouse/stick/gamepad input, with deadzone/anti-deadzone and accelerometer steering |
 | **Sensitivity curves** | The gyro/accelerometer-to-stick and gyro-to-mouse curves share the same sensitivity curve, with multi-point and full-screen magnified editing |
 | **External gamepad forwarding** | Connect physical gamepads via OTG or Bluetooth (based on SDL3 + HIDAPI), with multiple gamepads supported at once; every button can be remapped and forwarded together with touch input |
