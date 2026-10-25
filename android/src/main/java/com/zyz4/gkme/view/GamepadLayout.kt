@@ -1318,6 +1318,7 @@ class GamepadLayout @JvmOverloads constructor(
             // DpadPadView-specific properties
             if (child is DpadPadView) {
                 child.centerShape = pos.centerShape
+                child.centerSizePercent = ButtonPosition.centerSizeOf(pos)
                 child.arrowMaxSizePx = AppearanceApplier.contentCapPx(child, appearanceSettings)?.toFloat()
             }
 
@@ -1326,6 +1327,7 @@ class GamepadLayout @JvmOverloads constructor(
                 child.keypadTexts = ButtonPosition.keypadTextsOf(pos)
                 child.eightWay = pos.keypadEightWay
                 child.centerShape = pos.centerShape
+                child.centerSizePercent = ButtonPosition.centerSizeOf(pos)
                 child.textMaxSizePx = AppearanceApplier.contentCapPx(child, appearanceSettings)?.toFloat()
             }
         }

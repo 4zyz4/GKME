@@ -145,6 +145,8 @@ data class LayoutPreset(
                     }
                     if (!btnObj.has("keypadEightWay")) btnObj.addProperty("keypadEightWay", false)
                     if (!btnObj.has("centerShape")) btnObj.addProperty("centerShape", "SQUARE")
+                    // 旧版布局没有 centerSize：补 -1（自动），与显式 0（关闭中心）区分。
+                    if (!btnObj.has("centerSize")) btnObj.addProperty("centerSize", -1)
                     if (!btnObj.has("customBits")) {
                         btnObj.add("customBits", com.google.gson.JsonArray())
                     }
@@ -198,6 +200,14 @@ data class LayoutPreset(
                     buttons.add(bp.copy(
                         lockAspect = lockAspect,
                         isKeyboard = isKeyboard(baseId),
+                        centerSize = if (bp.centerSize >= 0) {
+                            bp.centerSize.coerceIn(
+                                com.zyz4.gkme.model.ButtonPosition.CENTER_SIZE_MIN,
+                                com.zyz4.gkme.model.ButtonPosition.CENTER_SIZE_MAX,
+                            )
+                        } else {
+                            -1
+                        },
                     ))
                 }
             }
@@ -352,6 +362,9 @@ data class LayoutPreset(
                 if (b.keypadEightWay) m["keypadEightWay"] = true
             }
             if (b.centerShape != CenterShape.SQUARE) m["centerShape"] = b.centerShape.name
+            if (b.centerSize >= 0) m["centerSize"] = b.centerSize.coerceIn(
+                ButtonPosition.CENTER_SIZE_MIN, ButtonPosition.CENTER_SIZE_MAX,
+            )
             if (b.gyroActivate) m["gyroActivate"] = b.gyroActivate
             if (b.autoHold) m["autoHold"] = b.autoHold
             list.add(m)
