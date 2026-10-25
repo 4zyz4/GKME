@@ -13,6 +13,7 @@ import {
   controlDisplayName, isButtonId, isSettingsId, DOUBLE_CLICK_IDS, JOYSTICK_IDS,
 } from "./controls.js";
 import { t, keypadDefaultTexts } from "./i18n.js";
+import { centerSizeOf } from "./layout.js";
 
 function padTexts(b) {
   const defaults = keypadDefaultTexts();
@@ -564,6 +565,19 @@ export class LayoutEditor {
       if (button.followAreaEnabled) this.params.append(this._btnRow([[t("editor.enterAdjust"), () => this.setAdjusting(true)]]));
     }
 
+    // ── Integrated D-pad centre size ──
+    if (base === "dpadPad") {
+      this.params.append(
+        this._seek({
+          label: t("editor.centerSize"),
+          value: centerSizeOf(button),
+          min: 0,
+          max: 70,
+          onChange: (v) => this._update(id, { centerSize: v }),
+        }).el
+      );
+    }
+
     // ── Joystick tuning ──
     if (JOYSTICK_IDS.has(base)) {
       this.params.append(
@@ -685,6 +699,15 @@ export class LayoutEditor {
         this._update(id, { centerShape: v });
         this.showParams(this._current);
       })
+    );
+    this.params.append(
+      this._seek({
+        label: t("editor.centerSize"),
+        value: centerSizeOf(button),
+        min: 0,
+        max: 70,
+        onChange: (v) => this._update(id, { centerSize: v }),
+      }).el
     );
 
     const dirs = [

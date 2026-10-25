@@ -69,6 +69,7 @@
     <string name="i18n_cancel" formatted="false">"Cancel"</string>
     <string name="i18n_center" formatted="false">"Center"</string>
     <string name="i18n_center_shape" formatted="false">"Center shape"</string>
+    <string name="i18n_center_size" formatted="false">"Center area size (%)"</string>
     <string name="i18n_circle" formatted="false">"Circle"</string>
     <string name="i18n_clear" formatted="false">"Clear"</string>
     <string name="i18n_clockwise" formatted="false">"Clockwise"</string>

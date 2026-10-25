@@ -35,6 +35,7 @@ const DEFAULTS = {
   isKeyboard: false,
   keypadEightWay: false,
   centerShape: "SQUARE",
+  centerSize: -1,
   joystickSensitivity: 100,
   touchpadMode: false,
   prediction: false,
@@ -187,6 +188,32 @@ const KEYPAD_SECTORS = {
     5: [202.5, 45], 6: [292.5, 45], 7: [112.5, 45], 8: [22.5, 45],
   },
 };
+
+// ── 中心区域大小（%） ──
+// 圆形中心半径 = 控件半径 × 百分比；方形中心边长 = 控件直径 × 百分比。
+// -1 / 缺省 = 自动：一体十字键 33%，自定义按键盘 4 方向 40% / 8 方向 33%。
+// 0 = 完全不显示中心（方向区域改为径向扇区）。
+const CENTER_SIZE_AUTO = -1;
+const CENTER_SIZE_MIN = 0;
+const CENTER_SIZE_MAX = 70;
+export function centerSizeOf(b) {
+  const v = Math.round(b.centerSize == null ? CENTER_SIZE_AUTO : b.centerSize);
+  if (v >= 0) return Math.max(CENTER_SIZE_MIN, Math.min(CENTER_SIZE_MAX, v));
+  if (baseId(b.id) === "customKeypad") return b.keypadEightWay ? 33 : 40;
+  return 33;
+}
+
+// 一体十字键圆形中心：扇区序号（0=右，顺时针）→ D-pad 位。
+const DPAD_SECTOR_BITS = [
+  DPAD.RIGHT,
+  DPAD.DOWN | DPAD.RIGHT,
+  DPAD.DOWN,
+  DPAD.DOWN | DPAD.LEFT,
+  DPAD.LEFT,
+  DPAD.UP | DPAD.LEFT,
+  DPAD.UP,
+  DPAD.UP | DPAD.RIGHT,
+];
 
 // AppearanceApplier.highlightColor — move `factor` of the way toward white.
 export function highlightColor(color, factor) {
@@ -405,6 +432,7 @@ export class GamepadLayout {
           if (b.keypadEightWay) o.keypadEightWay = true;
         }
         if (b.centerShape && b.centerShape !== "SQUARE") o.centerShape = b.centerShape;
+        if (b.centerSize >= 0) o.centerSize = Math.max(CENTER_SIZE_MIN, Math.min(CENTER_SIZE_MAX, Math.round(b.centerSize)));
         if (b.gyroActivate) o.gyroActivate = true;
         if (b.autoHold) o.autoHold = true;
         return o;
@@ -940,16 +968,20 @@ export class GamepadLayout {
     if (fdx || fdy) ctx.restore();
   }
 
-  // ── integrated D-pad (DpadPadView.onDraw, centerShape = SQUARE) ──
+  // ── integrated D-pad (DpadPadView.onDraw) ──
   _drawDpadPad(b, r, active) {
     const ctx = this.ctx;
     const app = this.appearance;
     const side = Math.min(r.w, r.h);
     const radius = side / 2;
-    const third = side / 3;
+    const centerHalf = (radius * centerSizeOf(b)) / 100;
+    const edge = radius - centerHalf;
     const ox = -side / 2;
     const oy = -side / 2;
     const hat = b._hat || 0;
+    const circleCenter = (b.centerShape || "SQUARE") === "CIRCLE";
+    // 中心为 0 时仍保持用户选择的形状：圆形→径向扇区，方形→网格。
+    const radial = circleCenter;
 
     // Follow-area mode shifts the whole graphic with the finger, mirroring
     // DpadPadView.onDraw's translate(effectiveCenter). The layout does not clip
@@ -967,33 +999,55 @@ export class GamepadLayout {
     ctx.fillStyle = app.dpadPadColor;
     ctx.fill();
 
-    // Highlight the active 3×3 cell, clipped to the circle.
+    // Highlight the active region, clipped to the circle.
     if (hat) {
       ctx.save();
       ctx.beginPath();
       ctx.arc(0, 0, radius, 0, Math.PI * 2);
       ctx.clip();
-      const c = this._dpadCellRect(hat, ox, oy, third);
-      if (c) {
-        ctx.fillStyle = highlightColor(app.dpadPadColor, 0.3);
-        ctx.fillRect(c.x, c.y, c.w, c.h);
+      ctx.fillStyle = highlightColor(app.dpadPadColor, 0.3);
+      if (radial) {
+        const k = this._dpadSectorIndex(hat);
+        if (k >= 0) {
+          this._keypadSector(ctx, radius, centerHalf, -22.5 + k * 45, 45);
+          ctx.fill();
+        }
+      } else {
+        const c = this._dpadCellRect(hat, ox, oy, centerHalf);
+        if (c) ctx.fillRect(c.x, c.y, c.w, c.h);
       }
       ctx.restore();
     }
 
-    // Direction arrows in the grid cells.
+    // Direction arrows in the direction cells / sector ring.
     const cap = contentCapPx(app);
-    const a = third;
-    const arrowSize = Math.min(a * 0.55, a * 0.55, cap);
-    if (arrowSize > 0) {
-      const c = app.dpadPadIconColor;
-      drawIcon(ctx, "arrow_up", ox + 1.5 * a, oy + 0.5 * a, arrowSize, arrowSize, arrowSize, c);
-      drawIcon(ctx, "arrow_down", ox + 1.5 * a, oy + 2.5 * a, arrowSize, arrowSize, arrowSize, c);
-      drawIcon(ctx, "arrow_left", ox + 0.5 * a, oy + 1.5 * a, arrowSize, arrowSize, arrowSize, c);
-      drawIcon(ctx, "arrow_right", ox + 2.5 * a, oy + 1.5 * a, arrowSize, arrowSize, arrowSize, c);
+    const color = app.dpadPadIconColor;
+    if (radial) {
+      const ringR = centerHalf + edge * 0.55;
+      const cell = Math.max(0, edge);
+      const size = Math.min(cell * 0.55, cap);
+      if (size > 0) {
+        const arrow = (name, deg) => {
+          const rad = (deg * Math.PI) / 180;
+          drawIcon(ctx, name, ringR * Math.cos(rad), ringR * Math.sin(rad), size, cell, cell, color);
+        };
+        arrow("arrow_up", 270); arrow("arrow_down", 90);
+        arrow("arrow_left", 180); arrow("arrow_right", 0);
+      }
+    } else {
+      const centerW = centerHalf * 2;
+      const arrow = (name, cx, cy, boxW, boxH) => {
+        const size = Math.min(boxW, boxH) * 0.55;
+        if (size <= 0) return;
+        drawIcon(ctx, name, cx, cy, Math.min(size, cap), boxW, boxH, color);
+      };
+      arrow("arrow_up", 0, oy + edge / 2, centerW, edge);
+      arrow("arrow_down", 0, oy + side - edge / 2, centerW, edge);
+      arrow("arrow_left", ox + edge / 2, 0, edge, centerW);
+      arrow("arrow_right", ox + side - edge / 2, 0, edge, centerW);
     }
 
-    // Border + separators (same co/w).
+    // Border + separators (same color & width).
     if (app.dpadPadOutlineWidth > 0) {
       ctx.strokeStyle = app.dpadPadOutlineColor;
       ctx.lineWidth = this._outlineW(app.dpadPadOutlineWidth);
@@ -1005,10 +1059,20 @@ export class GamepadLayout {
       ctx.arc(0, 0, radius, 0, Math.PI * 2);
       ctx.clip();
       ctx.beginPath();
-      ctx.moveTo(ox + a, oy); ctx.lineTo(ox + a, oy + side);
-      ctx.moveTo(ox + 2 * a, oy); ctx.lineTo(ox + 2 * a, oy + side);
-      ctx.moveTo(ox, oy + a); ctx.lineTo(ox + side, oy + a);
-      ctx.moveTo(ox, oy + 2 * a); ctx.lineTo(ox + side, oy + 2 * a);
+      if (radial) {
+        ctx.arc(0, 0, centerHalf, 0, Math.PI * 2);
+        for (let i = 0; i < 8; i++) {
+          const deg = 22.5 + i * 45;
+          const rad = (deg * Math.PI) / 180;
+          ctx.moveTo(centerHalf * Math.cos(rad), centerHalf * Math.sin(rad));
+          ctx.lineTo(radius * Math.cos(rad), radius * Math.sin(rad));
+        }
+      } else {
+        ctx.moveTo(-centerHalf, oy); ctx.lineTo(-centerHalf, oy + side);
+        ctx.moveTo(centerHalf, oy); ctx.lineTo(centerHalf, oy + side);
+        ctx.moveTo(ox, -centerHalf); ctx.lineTo(ox + side, -centerHalf);
+        ctx.moveTo(ox, centerHalf); ctx.lineTo(ox + side, centerHalf);
+      }
       ctx.stroke();
       ctx.restore();
     }
@@ -1016,7 +1080,23 @@ export class GamepadLayout {
     if (fdx || fdy) ctx.restore();
   }
 
-  _dpadCellRect(bits, ox, oy, a) {
+  /** D-pad bit combination → circular-centre sector index (0=right, clockwise). */
+  _dpadSectorIndex(bits) {
+    const U = DPAD.UP, D = DPAD.DOWN, L = DPAD.LEFT, R = DPAD.RIGHT;
+    switch (bits) {
+      case R: return 0;
+      case D | R: return 1;
+      case D: return 2;
+      case D | L: return 3;
+      case L: return 4;
+      case U | L: return 5;
+      case U: return 6;
+      case U | R: return 7;
+      default: return -1;
+    }
+  }
+
+  _dpadCellRect(bits, ox, oy, centerHalf) {
     const U = DPAD.UP, D = DPAD.DOWN, L = DPAD.LEFT, R = DPAD.RIGHT;
     let col = -1, row = -1;
     switch (bits) {
@@ -1030,7 +1110,9 @@ export class GamepadLayout {
       case D | R: row = 2; col = 2; break;
       default: return null;
     }
-    return { x: ox + col * a, y: oy + row * a, w: a, h: a };
+    const xs = [ox, -centerHalf, centerHalf, -ox];
+    const ys = [oy, -centerHalf, centerHalf, -oy];
+    return { x: xs[col], y: ys[row], w: xs[col + 1] - xs[col], h: ys[row + 1] - ys[row] };
   }
 
   // ── custom keypad (CustomKeypadView.onDraw) ──
@@ -1043,8 +1125,6 @@ export class GamepadLayout {
     const app = this.appearance;
     const side = Math.min(r.w, r.h);
     const radius = side / 2;
-    const half = side * 0.20;
-    const third = side / 3;
     const d = radius * 0.70710678;
     const eightWay = !!b.keypadEightWay;
     const circleCenter = (b.centerShape || "SQUARE") === "CIRCLE";
@@ -1052,7 +1132,11 @@ export class GamepadLayout {
     const base = app.dpadPadColor;
     const highlight = highlightColor(base, 0.3);
     const centerHighlight = highlightColor(base, 0.45);
-    const centerR = eightWay ? third / 2 : half;
+    const centerHalf = (radius * centerSizeOf(b)) / 100;
+    const edge = radius - centerHalf;
+    const centerR = centerHalf;
+    // 中心为 0 时仍保持用户选择的形状：圆形→径向扇区，方形→网格。
+    const radial = circleCenter;
 
     // Follow-area mode shifts the whole graphic with the finger, mirroring
     // CustomKeypadView.onDraw's translate(effectiveCenter). The layout does not
@@ -1075,14 +1159,14 @@ export class GamepadLayout {
     ctx.arc(0, 0, radius, 0, Math.PI * 2);
     ctx.fill();
 
-    if (circleCenter) {
+    if (radial) {
       const sectors = KEYPAD_SECTORS[eightWay ? "8" : "4"];
       if (region != null && sectors[region]) {
         ctx.fillStyle = highlight;
         this._keypadSector(ctx, radius, centerR, sectors[region][0], sectors[region][1]);
         ctx.fill();
       }
-      if (b._keypadCenter) {
+      if (b._keypadCenter && centerR > 0) {
         ctx.fillStyle = centerHighlight;
         ctx.beginPath();
         ctx.arc(0, 0, centerR, 0, Math.PI * 2);
@@ -1091,21 +1175,21 @@ export class GamepadLayout {
     } else if (eightWay) {
       if (region != null && region >= 0 && region <= 8 && region !== 4) {
         ctx.fillStyle = highlight;
-        this._keypadCell(ctx, radius, third, region);
+        this._keypadCell(ctx, radius, centerHalf, region);
         ctx.fill();
       }
       ctx.fillStyle = b._keypadCenter ? centerHighlight : base;
-      this._keypadCell(ctx, radius, third, 4);
+      this._keypadCell(ctx, radius, centerHalf, 4);
       ctx.fill();
     } else {
       if (region != null && region >= 0 && region <= 3) {
         ctx.fillStyle = highlight;
-        this._keypadWedge(ctx, region, half, d, radius);
+        this._keypadWedge(ctx, region, centerHalf, d, radius);
         ctx.fill();
       }
       ctx.fillStyle = b._keypadCenter ? centerHighlight : base;
       ctx.beginPath();
-      ctx.rect(-half, -half, half * 2, half * 2);
+      ctx.rect(-centerHalf, -centerHalf, centerHalf * 2, centerHalf * 2);
       ctx.fill();
     }
     ctx.restore(); // circle clip
@@ -1118,7 +1202,7 @@ export class GamepadLayout {
       ctx.arc(0, 0, radius, 0, Math.PI * 2);
       ctx.stroke();
 
-      if (circleCenter) {
+      if (radial) {
         ctx.beginPath();
         ctx.arc(0, 0, centerR, 0, Math.PI * 2);
         ctx.stroke();
@@ -1131,26 +1215,25 @@ export class GamepadLayout {
           ctx.stroke();
         }
       } else if (eightWay) {
-        const a = third;
         ctx.save();
         ctx.beginPath();
         ctx.arc(0, 0, radius, 0, Math.PI * 2);
         ctx.clip();
         ctx.beginPath();
-        ctx.moveTo(-radius + a, -radius); ctx.lineTo(-radius + a, radius);
-        ctx.moveTo(-radius + 2 * a, -radius); ctx.lineTo(-radius + 2 * a, radius);
-        ctx.moveTo(-radius, -radius + a); ctx.lineTo(radius, -radius + a);
-        ctx.moveTo(-radius, -radius + 2 * a); ctx.lineTo(radius, -radius + 2 * a);
+        ctx.moveTo(-centerHalf, -radius); ctx.lineTo(-centerHalf, radius);
+        ctx.moveTo(centerHalf, -radius); ctx.lineTo(centerHalf, radius);
+        ctx.moveTo(-radius, -centerHalf); ctx.lineTo(radius, -centerHalf);
+        ctx.moveTo(-radius, centerHalf); ctx.lineTo(radius, centerHalf);
         ctx.stroke();
         ctx.restore();
       } else {
         ctx.beginPath();
-        ctx.moveTo(-half, -half); ctx.lineTo(-d, -d);
-        ctx.moveTo(half, -half); ctx.lineTo(d, -d);
-        ctx.moveTo(-half, half); ctx.lineTo(-d, d);
-        ctx.moveTo(half, half); ctx.lineTo(d, d);
+        ctx.moveTo(-centerHalf, -centerHalf); ctx.lineTo(-d, -d);
+        ctx.moveTo(centerHalf, -centerHalf); ctx.lineTo(d, -d);
+        ctx.moveTo(-centerHalf, centerHalf); ctx.lineTo(-d, d);
+        ctx.moveTo(centerHalf, centerHalf); ctx.lineTo(d, d);
         ctx.stroke();
-        ctx.strokeRect(-half, -half, half * 2, half * 2);
+        ctx.strokeRect(-centerHalf, -centerHalf, centerHalf * 2, centerHalf * 2);
       }
     }
 
@@ -1159,7 +1242,7 @@ export class GamepadLayout {
     const textAt = (i) => (texts[i] != null ? texts[i] : "");
     const cap = contentCapPx(app);
     const color = app.dpadPadIconColor;
-    if (circleCenter) {
+    if (radial) {
       const midR = centerR + (radius - centerR) * 0.62;
       const box = (radius - centerR) * 0.9;
       const place = (reg, deg) => {
@@ -1168,41 +1251,47 @@ export class GamepadLayout {
       };
       place(0, 270); place(1, 90); place(2, 180); place(3, 0);
       if (eightWay) { place(5, 225); place(6, 315); place(7, 135); place(8, 45); }
-      this._keypadText(textAt(4), 0, 0, centerR * 2, cap, color);
+      if (centerR > 0) this._keypadText(textAt(4), 0, 0, centerR * 2, cap, color);
     } else if (eightWay) {
-      const a = third;
-      this._keypadText(textAt(0), 0, -radius + a / 2, a, cap, color);
-      this._keypadText(textAt(1), 0, -radius + 2.5 * a, a, cap, color);
-      this._keypadText(textAt(2), -radius + a / 2, 0, a, cap, color);
-      this._keypadText(textAt(3), -radius + 2.5 * a, 0, a, cap, color);
-      this._keypadText(textAt(4), 0, 0, a, cap, color);
-      // Corner cells are clipped by the circle, so use a smaller box.
-      const cornerBox = radius * 0.5;
-      const cOff = radius * 0.57;
-      this._keypadText(textAt(5), -cOff, -cOff, cornerBox, cap, color);
-      this._keypadText(textAt(6), cOff, -cOff, cornerBox, cap, color);
-      this._keypadText(textAt(7), -cOff, cOff, cornerBox, cap, color);
-      this._keypadText(textAt(8), cOff, cOff, cornerBox, cap, color);
+      const edgeW = Math.max(1, edge);
+      const centerW = Math.max(1, centerHalf * 2);
+      const cardinalBox = Math.max(1, Math.min(centerW, edgeW));
+      this._keypadText(textAt(0), 0, -radius + edge / 2, cardinalBox, cap, color);
+      this._keypadText(textAt(1), 0, radius - edge / 2, cardinalBox, cap, color);
+      this._keypadText(textAt(2), -radius + edge / 2, 0, cardinalBox, cap, color);
+      this._keypadText(textAt(3), radius - edge / 2, 0, cardinalBox, cap, color);
+      if (centerHalf > 0) this._keypadText(textAt(4), 0, 0, centerW, cap, color);
+      // 四角格被圆裁剪成不规则形状：用可见区域形心定位，并按内切圆缩放文本。
+      const corner = this._keypadCornerGeometry(radius, centerHalf);
+      if (corner.d > 0) {
+        const cd = corner.d * 0.95;
+        this._keypadTextInCircle(textAt(5), -corner.c, -corner.c, cd, cap, color);
+        this._keypadTextInCircle(textAt(6), corner.c, -corner.c, cd, cap, color);
+        this._keypadTextInCircle(textAt(7), -corner.c, corner.c, cd, cap, color);
+        this._keypadTextInCircle(textAt(8), corner.c, corner.c, cd, cap, color);
+      }
     } else {
       const box = radius * 0.667;
-      const off = radius * 0.58;
+      const off = centerHalf + edge * 0.475;
       this._keypadText(textAt(0), 0, -off, box, cap, color);
       this._keypadText(textAt(1), 0, off, box, cap, color);
       this._keypadText(textAt(2), -off, 0, box, cap, color);
       this._keypadText(textAt(3), off, 0, box, cap, color);
-      this._keypadText(textAt(4), 0, 0, half * 2, cap, color);
+      if (centerHalf > 0) this._keypadText(textAt(4), 0, 0, Math.max(1, centerHalf * 2), cap, color);
     }
 
     if (fdx || fdy) ctx.restore();
   }
 
   // 8-way square-centre mode: 3×3 grid cell for a region index.
-  _keypadCell(ctx, radius, a, region) {
+  _keypadCell(ctx, radius, centerHalf, region) {
     const cell = KEYPAD_REGION_CELL[region];
     const col = cell % 3;
     const row = (cell - col) / 3;
+    const xs = [-radius, -centerHalf, centerHalf, radius];
+    const ys = [-radius, -centerHalf, centerHalf, radius];
     ctx.beginPath();
-    ctx.rect(-radius + col * a, -radius + row * a, a, a);
+    ctx.rect(xs[col], ys[row], xs[col + 1] - xs[col], ys[row + 1] - ys[row]);
   }
 
   // Circular-centre mode: sector ring between the centre circle and the outer circle.
@@ -1252,6 +1341,44 @@ export class GamepadLayout {
     if (cap !== Infinity) fs = Math.min(fs, cap);
     ctx.font = `500 ${Math.max(1, fs)}px ${UI_FONT}`;
     ctx.fillText(text, cx, cy);
+  }
+
+  /** 在半径为 radius 的圆内居中绘制文本，字号按文本外接框对角线计算。 */
+  _keypadTextInCircle(text, cx, cy, radius, cap, color) {
+    if (!text || radius <= 0) return;
+    const ctx = this.ctx;
+    ctx.fillStyle = color;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const ref = 100;
+    ctx.font = `500 ${ref}px ${UI_FONT}`;
+    const m = ctx.measureText(text);
+    const tw = Math.max(0.01, m.width);
+    const th = Math.max(0.01, (m.actualBoundingBoxAscent || ref * 0.72) + (m.actualBoundingBoxDescent || ref * 0.2));
+    let fs = (ref * radius * 2) / Math.max(0.01, Math.hypot(tw, th));
+    if (cap !== Infinity) fs = Math.min(fs, cap);
+    ctx.font = `500 ${Math.max(1, fs)}px ${UI_FONT}`;
+    ctx.fillText(text, cx, cy);
+  }
+
+  /**
+   * 8-way + square centre: the corner cell is clipped by the outer circle.
+   * Returns the centroid (c, c) and inradius d of the visible region in the
+   * first quadrant {u >= a, v >= a, u² + v² <= r²}, relative to the centre.
+   */
+  _keypadCornerGeometry(radius, centerHalf) {
+    const r = radius;
+    const a = Math.max(0, Math.min(centerHalf, r));
+    if (r <= 0) return { c: 0, d: 0 };
+    const s = Math.sqrt(Math.max(0, r * r - a * a));
+    if (s <= a) return { c: 0, d: 0 };
+    const theta = Math.asin(Math.max(-1, Math.min(1, a / r)));
+    const area = r * r * 0.5 * (Math.PI / 2 - 2 * theta) - a * (s - a);
+    if (area <= 0.0001) return { c: 0, d: 0 };
+    const moment = (s * s * s - a * a * a) / 3 - (a * (s * s - a * a)) / 2;
+    const c = moment / area;
+    const d = Math.max(0, Math.min(c - a, r - c * Math.SQRT2));
+    return { c, d };
   }
 
   // ── touchpad (AppearanceApplier.applyToTouchpad) ──
@@ -1896,15 +2023,23 @@ export class GamepadLayout {
     const ccy = r.y + r.h / 2;
     const cx = info.follow ? info.cx : ccx;
     const cy = info.follow ? info.cy : ccy;
-    const nx = (px - cx) / (r.w / 2);
-    const ny = (py - cy) / (r.h / 2);
+    const radius = Math.min(r.w, r.h) / 2;
+    const nx = (px - cx) / radius;
+    const ny = (py - cy) / radius;
+    const p = centerSizeOf(info.b) / 100;
     let hat = 0;
-    const t = 0.32;
-    if (Math.hypot(nx, ny) > t) {
-      if (nx > t) hat |= DPAD.RIGHT;
-      if (nx < -t) hat |= DPAD.LEFT;
-      if (ny > t) hat |= DPAD.DOWN;
-      if (ny < -t) hat |= DPAD.UP;
+    if ((info.b.centerShape || "SQUARE") === "CIRCLE") {
+      if (Math.hypot(nx, ny) > p) {
+        let deg = (Math.atan2(ny, nx) * 180) / Math.PI;
+        if (deg < 0) deg += 360;
+        const k = Math.floor((((deg + 22.5) % 360) / 45)) % 8;
+        hat = DPAD_SECTOR_BITS[k];
+      }
+    } else if (Math.abs(nx) > p || Math.abs(ny) > p) {
+      if (nx > p) hat |= DPAD.RIGHT;
+      if (nx < -p) hat |= DPAD.LEFT;
+      if (ny > p) hat |= DPAD.DOWN;
+      if (ny < -p) hat |= DPAD.UP;
     }
     info.b._hat = hat;
     info.b._followDx = info.follow ? info.cx - ccx : 0;
@@ -1919,9 +2054,9 @@ export class GamepadLayout {
   _keypadRegionAt(b, dx, dy, r) {
     const side = Math.min(r.w, r.h);
     const radius = side / 2;
+    const centerHalf = (radius * centerSizeOf(b)) / 100;
     if ((b.centerShape || "SQUARE") === "CIRCLE") {
-      const centerR = b.keypadEightWay ? side / 6 : side * 0.20;
-      if (dx * dx + dy * dy <= centerR * centerR) return 4;
+      if (dx * dx + dy * dy <= centerHalf * centerHalf) return 4;
       let deg = (Math.atan2(dy, dx) * 180) / Math.PI;
       if (deg < 0) deg += 360;
       if (b.keypadEightWay) {
@@ -1932,16 +2067,12 @@ export class GamepadLayout {
       return KEYPAD_CIRCLE_SECTOR_4[k];
     }
     if (b.keypadEightWay) {
-      const a = side / 3;
-      const lx = dx + radius;
-      const ly = dy + radius;
-      const col = lx < a ? 0 : lx < 2 * a ? 1 : 2;
-      const row = ly < a ? 0 : ly < 2 * a ? 1 : 2;
+      const col = dx < -centerHalf ? 0 : dx > centerHalf ? 2 : 1;
+      const row = dy < -centerHalf ? 0 : dy > centerHalf ? 2 : 1;
       const region = KEYPAD_GRID_REGION[row][col];
       return region < 0 ? 4 : region;
     }
-    const half = side * 0.20;
-    if (Math.abs(dx) <= half && Math.abs(dy) <= half) return 4;
+    if (Math.abs(dx) <= centerHalf && Math.abs(dy) <= centerHalf) return 4;
     if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? 3 : 2;
     return dy < 0 ? 0 : 1;
   }

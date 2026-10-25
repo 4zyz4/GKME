@@ -69,6 +69,7 @@
     <string name="i18n_cancel" formatted="false">"Annuler"</string>
     <string name="i18n_center" formatted="false">"Centre"</string>
     <string name="i18n_center_shape" formatted="false">"Forme du centre"</string>
+    <string name="i18n_center_size" formatted="false">"Taille de la zone centrale (%)"</string>
     <string name="i18n_circle" formatted="false">"Cercle"</string>
     <string name="i18n_clear" formatted="false">"Effacer"</string>
     <string name="i18n_clockwise" formatted="false">"Sens horaire"</string>

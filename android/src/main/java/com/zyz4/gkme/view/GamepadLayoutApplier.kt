@@ -235,11 +235,13 @@ class GamepadLayoutApplier {
         } else if (child is DpadPadView) {
             child.forceFollowFinger = false
             child.centerShape = pos.centerShape
+            child.centerSizePercent = ButtonPosition.centerSizeOf(pos)
             child.idleOpacity = pos.idleOpacity.coerceIn(0, 100)
             child.activeOpacity = pos.activeOpacity.coerceIn(0, 100)
         } else if (child is CustomKeypadView) {
             child.forceFollowFinger = false
             child.centerShape = pos.centerShape
+            child.centerSizePercent = ButtonPosition.centerSizeOf(pos)
             child.idleOpacity = pos.idleOpacity.coerceIn(0, 100)
             child.activeOpacity = pos.activeOpacity.coerceIn(0, 100)
             child.eightWay = pos.keypadEightWay

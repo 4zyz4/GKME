@@ -1173,6 +1173,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
         if (buttonId == "dpadPad") {
             buildCenterShapeParam(density)
+            buildCenterSizeParam()
             // ── Rectangular area follow ──
             val cbFollowArea = CheckBox(context).apply {
                 text = context.getString(R.string.i18n_follow_inside_rectangle)
@@ -1583,6 +1584,22 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         buttonParamsInner.addView(spinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
     }
 
+    /** 中心区域大小（%）：同时改变中心区域的绘制尺寸与触摸判定范围。 */
+    private fun buildCenterSizeParam() {
+        val button = currentButton ?: return
+        addSeekbar(
+            buttonParamsInner,
+            context.getString(R.string.i18n_center_size),
+            ButtonPosition.centerSizeOf(button),
+            ButtonPosition.CENTER_SIZE_MIN,
+            ButtonPosition.CENTER_SIZE_MAX,
+            onChange = { value ->
+                currentButton = currentButton?.copy(centerSize = value)
+                currentButton?.let { editorListener?.onButtonUpdated(button.id, it) }
+            },
+        )
+    }
+
     private fun buildKeypadParams(density: Float) {
         val id = currentButton?.id ?: return
         val cb = currentButton ?: return
@@ -1619,6 +1636,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         buttonParamsInner.addView(modeSpinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
 
         buildCenterShapeParam(density)
+        buildCenterSizeParam()
 
         val dirs = mutableListOf(context.getString(R.string.i18n_up_3f99c7) to 0, context.getString(R.string.i18n_down_c761f5) to 1, context.getString(R.string.i18n_left_3e0a82) to 2, context.getString(R.string.i18n_right_b45922) to 3)
         if (cb.keypadEightWay) {

@@ -690,7 +690,10 @@ internal fun MainActivity.createDpadPadView(id: String): DpadPadView {
 internal fun MainActivity.setupDpadPadTouch(view: DpadPadView) {
     val a = this
     val id = view.tag as String
-    view.centerShape = a.gamepadLayout.currentButtons.find { it.id == id }?.centerShape ?: CenterShape.SQUARE
+    val pos = a.gamepadLayout.currentButtons.find { it.id == id }
+    view.centerShape = pos?.centerShape ?: CenterShape.SQUARE
+    view.centerSizePercent = pos?.let { ButtonPosition.centerSizeOf(it) }
+        ?: ButtonPosition.DPAD_PAD_CENTER_SIZE_DEFAULT
     view.onDpadChange = { released, pressed ->
         a.viewModel.updateDpad(pressed, released)
     }
@@ -748,9 +751,12 @@ internal fun MainActivity.setupCustomKeypadTouch(view: CustomKeypadView, initial
             )
         }
     }
-    view.eightWay = findKeypadPos()?.keypadEightWay == true
-    view.centerShape = findKeypadPos()?.centerShape ?: CenterShape.SQUARE
-    val kpBits = findKeypadPos()?.let { ButtonPosition.keypadBitsOf(it) } ?: listOf()
+    val posForView = findKeypadPos() ?: initialPos
+    view.eightWay = posForView?.keypadEightWay == true
+    view.centerShape = posForView?.centerShape ?: CenterShape.SQUARE
+    view.centerSizePercent = posForView?.let { ButtonPosition.centerSizeOf(it) }
+        ?: ButtonPosition.KEYPAD_CENTER_SIZE_DEFAULT_FOUR
+    val kpBits = posForView?.let { ButtonPosition.keypadBitsOf(it) } ?: listOf()
     view.validDirs = ButtonPosition.keypadDirectionIndices(view.eightWay)
         .filter { kpBits.getOrNull(it)?.isNotEmpty() == true }
         .toSet()

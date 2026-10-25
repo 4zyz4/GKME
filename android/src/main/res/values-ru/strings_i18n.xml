@@ -69,6 +69,7 @@
     <string name="i18n_cancel" formatted="false">"Отмена"</string>
     <string name="i18n_center" formatted="false">"Центр"</string>
     <string name="i18n_center_shape" formatted="false">"Форма центра"</string>
+    <string name="i18n_center_size" formatted="false">"Размер центральной зоны (%)"</string>
     <string name="i18n_circle" formatted="false">"Круг"</string>
     <string name="i18n_clear" formatted="false">"Очистить"</string>
     <string name="i18n_clockwise" formatted="false">"По часовой стрелке"</string>

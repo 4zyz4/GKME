@@ -92,6 +92,18 @@ class CustomKeypadView @JvmOverloads constructor(
             }
         }
 
+    /** 中心区域大小（%）：圆形中心半径 = 控件半径 × 百分比；方形中心边长 = 控件直径 × 百分比。 */
+    var centerSizePercent: Int = ButtonPosition.KEYPAD_CENTER_SIZE_DEFAULT_EIGHT
+        set(value) {
+            val v = value.coerceIn(ButtonPosition.CENTER_SIZE_MIN, ButtonPosition.CENTER_SIZE_MAX)
+            if (field != v) {
+                field = v
+                activeDir = -1
+                updateCenterGeometry()
+                invalidate()
+            }
+        }
+
     /** 全局“最大图标大小”限制（px）；null = 不限制。字号不会超过该值。 */
     var textMaxSizePx: Float? = null
         set(value) {
@@ -153,8 +165,12 @@ class CustomKeypadView @JvmOverloads constructor(
     private var centerX = 0f
     private var centerY = 0f
     private var radius = 0f
-    private var half = 0f
-    private var third = 0f // 8 方向网格每格边长 (side / 3)
+    /** 中心区域半边长（px）：方形中心边长的一半 / 圆形中心半径。 */
+    private var centerHalf = 0f
+
+    /** 圆形中心使用径向扇区；方形中心始终使用网格（中心为 0 时由用户自行选择布局）。 */
+    private val useRadialRegions: Boolean
+        get() = centerShape == CenterShape.CIRCLE
     private var d = 0f // r / √2, where diagonals meet the circle
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -165,12 +181,42 @@ class CustomKeypadView @JvmOverloads constructor(
         centerX = originX + side / 2f
         centerY = originY + side / 2f
         radius = side / 2f
-        half = side * 0.20f
-        third = side / 3f
         d = radius * 0.70710678f
         effectiveCenterX = centerX
         effectiveCenterY = centerY
+        updateCenterGeometry()
+    }
+
+    /** 根据 [centerSizePercent] 重算中心区域尺寸与全部路径。 */
+    private fun updateCenterGeometry() {
+        centerHalf = radius * centerSizePercent / 100f
+        centerRadius = centerHalf
         rebuildPaths()
+    }
+
+    /** 8 方向模式下某一列的左/右边界（网格坐标，相对 view）。 */
+    private fun cellLeft(col: Int): Float = when (col) {
+        0 -> originX
+        1 -> centerX - centerHalf
+        else -> centerX + centerHalf
+    }
+
+    private fun cellRight(col: Int): Float = when (col) {
+        0 -> centerX - centerHalf
+        1 -> centerX + centerHalf
+        else -> originX + side
+    }
+
+    private fun cellTop(row: Int): Float = when (row) {
+        0 -> originY
+        1 -> centerY - centerHalf
+        else -> centerY + centerHalf
+    }
+
+    private fun cellBottom(row: Int): Float = when (row) {
+        0 -> centerY - centerHalf
+        1 -> centerY + centerHalf
+        else -> originY + side
     }
 
     /** Each wedge path:
@@ -179,7 +225,7 @@ class CustomKeypadView @JvmOverloads constructor(
     private fun rebuildPaths() {
         val cx = centerX
         val cy = centerY
-        val c = half
+        val c = centerHalf
         val r = radius
         val rect = RectF(cx - r, cy - r, cx + r, cy + r)
 
@@ -244,23 +290,22 @@ class CustomKeypadView @JvmOverloads constructor(
         wedgePaths[3].lineTo(cx + c, cy + c)
         wedgePaths[3].close()
 
-        // 8 方向：按一体十字键的 3×3 网格划分，每个方向对应一个 1/3 格。
-        val a = third
+        // 8 方向：按一体十字键的 3×3 网格划分，中心格大小由中心区域百分比决定。
         for (row in 0..2) {
             for (col in 0..2) {
                 val path = eightCellPaths[row * 3 + col]
                 path.reset()
                 path.addRect(
-                    originX + col * a, originY + row * a,
-                    originX + (col + 1) * a, originY + (row + 1) * a,
+                    cellLeft(col), cellTop(row),
+                    cellRight(col), cellBottom(row),
                     Path.Direction.CW,
                 )
             }
         }
 
         // ── 圆形模式：中心圆 + 径向扇环 ──
-        // 中心圆半径取现有方形中心的内切圆：8 方向 = 中心格内切（third/2），4 方向 = 中心方块内切（half）。
-        val cr = if (eightWay) third / 2f else half
+        // 中心圆半径直接取中心区域半边长（默认值与旧版方形中心内切圆一致）。
+        val cr = centerHalf
         centerRadius = cr
 
         centerCirclePath.reset()
@@ -338,8 +383,8 @@ class CustomKeypadView @JvmOverloads constructor(
         canvas.save()
         canvas.clipPath(circlePath)
 
-        if (centerShape == CenterShape.CIRCLE) {
-            // 圆形中心：整圆填充 + 方向扇环高亮 + 中心圆高亮。
+        if (useRadialRegions) {
+            // 圆形中心（或中心为 0）：整圆填充 + 方向扇环高亮 + 中心圆高亮。
             fillPaint.shader = null
             fillPaint.color = padColor
             canvas.drawPath(circlePath, fillPaint)
@@ -347,7 +392,7 @@ class CustomKeypadView @JvmOverloads constructor(
                 fillPaint.color = highlightColor(padColor, 0.3f)
                 canvas.drawPath(sectorPaths[activeDir], fillPaint)
             }
-            if (centerPressed) {
+            if (centerPressed && centerHalf > 0f) {
                 fillPaint.color = highlightColor(padColor, 0.45f)
                 canvas.drawPath(centerCirclePath, fillPaint)
             }
@@ -394,7 +439,7 @@ class CustomKeypadView @JvmOverloads constructor(
             sepPaint.pathEffect = null
             sepPaint.shader = null
             canvas.drawPath(circlePath, sepPaint)
-            if (centerShape == CenterShape.CIRCLE) {
+            if (useRadialRegions) {
                 // 中心圆 + 扇区分隔线（中心圆边缘 → 外圆）。
                 canvas.drawCircle(centerX, centerY, centerRadius, sepPaint)
                 val step = if (eightWay) 45f else 90f
@@ -412,23 +457,26 @@ class CustomKeypadView @JvmOverloads constructor(
                 }
             } else if (eightWay) {
                 // 3×3 网格分隔线，裁剪到圆内，形成一体十字键的十字图案。
-                val a = third
+                val left = centerX - centerHalf
+                val right = centerX + centerHalf
+                val top = centerY - centerHalf
+                val bottom = centerY + centerHalf
                 canvas.save()
                 canvas.clipPath(circlePath)
-                canvas.drawLine(originX + a, originY, originX + a, originY + side, sepPaint)
-                canvas.drawLine(originX + 2f * a, originY, originX + 2f * a, originY + side, sepPaint)
-                canvas.drawLine(originX, originY + a, originX + side, originY + a, sepPaint)
-                canvas.drawLine(originX, originY + 2f * a, originX + side, originY + 2f * a, sepPaint)
+                canvas.drawLine(left, originY, left, originY + side, sepPaint)
+                canvas.drawLine(right, originY, right, originY + side, sepPaint)
+                canvas.drawLine(originX, top, originX + side, top, sepPaint)
+                canvas.drawLine(originX, bottom, originX + side, bottom, sepPaint)
                 canvas.restore()
             } else {
                 canvas.drawPath(separatorPath, sepPaint)
-                canvas.drawRect(centerX - half, centerY - half, centerX + half, centerY + half, sepPaint)
+                canvas.drawRect(centerX - centerHalf, centerY - centerHalf, centerX + centerHalf, centerY + centerHalf, sepPaint)
             }
         }
 
         val textAt: (Int) -> String = { localizeKeypadText(keypadTexts.getOrElse(it) { "" }) }
-        if (centerShape == CenterShape.CIRCLE) {
-            // 圆形模式：每个方向文本放在对应扇环的中间半径处。
+        if (useRadialRegions) {
+            // 径向模式：每个方向文本放在对应扇环的中间半径处。
             val midR = centerRadius + (radius - centerRadius) * 0.62f
             val box = (radius - centerRadius) * 0.9f
             fun place(region: Int, deg: Float) {
@@ -444,34 +492,46 @@ class CustomKeypadView @JvmOverloads constructor(
             if (eightWay) {
                 place(5, 225f); place(6, 315f); place(7, 135f); place(8, 45f)
             }
-            val centerBox = centerRadius * 2f
-            drawRegionText(canvas, textAt(ButtonPosition.KEYPAD_CENTER_INDEX), centerX, centerY, centerBox, centerBox)
+            if (centerHalf > 0f) {
+                val centerBox = centerRadius * 2f
+                drawRegionText(canvas, textAt(ButtonPosition.KEYPAD_CENTER_INDEX), centerX, centerY, centerBox, centerBox)
+            }
         } else if (eightWay) {
-            val a = third
             val x1 = centerX
             val y1 = centerY
-            // 边缘/中心格：接近完整的 1/3 格。
-            drawRegionText(canvas, textAt(0), x1, originY + a / 2f, a, a)
-            drawRegionText(canvas, textAt(1), x1, originY + 2.5f * a, a, a)
-            drawRegionText(canvas, textAt(2), originX + a / 2f, y1, a, a)
-            drawRegionText(canvas, textAt(3), originX + 2.5f * a, y1, a, a)
-            drawRegionText(canvas, textAt(ButtonPosition.KEYPAD_CENTER_INDEX), x1, y1, a, a)
-            // 四角格被圆裁剪，可用框更小；文本中心取可见区域形心。
-            val cornerBox = radius * 0.50f
-            val cOff = radius * 0.57f
-            drawRegionText(canvas, textAt(5), x1 - cOff, y1 - cOff, cornerBox, cornerBox)
-            drawRegionText(canvas, textAt(6), x1 + cOff, y1 - cOff, cornerBox, cornerBox)
-            drawRegionText(canvas, textAt(7), x1 - cOff, y1 + cOff, cornerBox, cornerBox)
-            drawRegionText(canvas, textAt(8), x1 + cOff, y1 + cOff, cornerBox, cornerBox)
+            val edge = radius - centerHalf
+            val edgeW = edge.coerceAtLeast(1f)
+            val centerW = (centerHalf * 2f).coerceAtLeast(1f)
+            // 边缘/中心格：按中心区域大小动态分配剩余空间。
+            drawRegionText(canvas, textAt(0), x1, originY + edge / 2f, centerW, edgeW)
+            drawRegionText(canvas, textAt(1), x1, originY + side - edge / 2f, centerW, edgeW)
+            drawRegionText(canvas, textAt(2), originX + edge / 2f, y1, edgeW, centerW)
+            drawRegionText(canvas, textAt(3), originX + side - edge / 2f, y1, edgeW, centerW)
+            if (centerHalf > 0f) {
+                drawRegionText(canvas, textAt(ButtonPosition.KEYPAD_CENTER_INDEX), x1, y1, centerW, centerW)
+            }
+            // 四角格被圆裁剪成不规则形状：用可见区域的形心定位，并按该点的内切圆缩放文本，
+            // 避免中心区域变大/变小时文本跑出圆弧外。
+            val corner = cornerRegionGeometry()
+            val cornerC = corner[0]
+            val cornerD = corner[2] * 0.95f
+            drawRegionTextInCircle(canvas, textAt(5), x1 - cornerC, y1 - cornerC, cornerD)
+            drawRegionTextInCircle(canvas, textAt(6), x1 + cornerC, y1 - cornerC, cornerD)
+            drawRegionTextInCircle(canvas, textAt(7), x1 - cornerC, y1 + cornerC, cornerD)
+            drawRegionTextInCircle(canvas, textAt(8), x1 + cornerC, y1 + cornerC, cornerD)
         } else {
             // 四方向为 90° 扇形，可用框取接近正方形的 2/3 半径；中心为内部方块。
             val box = radius * 0.667f
-            drawRegionText(canvas, textAt(0), centerX, centerY - radius * 0.58f, box, box)
-            drawRegionText(canvas, textAt(1), centerX, centerY + radius * 0.58f, box, box)
-            drawRegionText(canvas, textAt(2), centerX - radius * 0.58f, centerY, box, box)
-            drawRegionText(canvas, textAt(3), centerX + radius * 0.58f, centerY, box, box)
-            val centerBox = half * 2f
-            drawRegionText(canvas, textAt(ButtonPosition.KEYPAD_CENTER_INDEX), centerX, centerY, centerBox, centerBox)
+            val edge = radius - centerHalf
+            val off = centerHalf + edge * 0.475f
+            drawRegionText(canvas, textAt(0), centerX, centerY - off, box, box)
+            drawRegionText(canvas, textAt(1), centerX, centerY + off, box, box)
+            drawRegionText(canvas, textAt(2), centerX - off, centerY, box, box)
+            drawRegionText(canvas, textAt(3), centerX + off, centerY, box, box)
+            val centerBox = (centerHalf * 2f).coerceAtLeast(1f)
+            if (centerHalf > 0f) {
+                drawRegionText(canvas, textAt(ButtonPosition.KEYPAD_CENTER_INDEX), centerX, centerY, centerBox, centerBox)
+            }
         }
 
         canvas.restore()
@@ -501,16 +561,50 @@ class CustomKeypadView @JvmOverloads constructor(
         drawCenteredText(canvas, textPaint, text, cx, cy)
     }
 
+    /** 在半径为 [radius] 的圆内居中绘制文本，字号按文本外接框的对角线计算，保证不越界。 */
+    private fun drawRegionTextInCircle(canvas: Canvas, text: String, cx: Float, cy: Float, radius: Float) {
+        if (text.isEmpty() || radius <= 0f) return
+        val ref = 100f
+        textPaint.textSize = ref
+        val w = textPaint.measureText(text).coerceAtLeast(0.01f)
+        val h = (textPaint.descent() - textPaint.ascent()).coerceAtLeast(0.01f)
+        val diagonal = Math.sqrt((w * w + h * h).toDouble()).toFloat().coerceAtLeast(0.01f)
+        textPaint.textSize = capTextSize(ref * (radius * 2f) / diagonal)
+        drawCenteredText(canvas, textPaint, text, cx, cy)
+    }
+
+    /**
+     * 8 方向 + 方形中心时，四角格被外圆裁剪成不规则形状。
+     * 返回可见区域的形心坐标与形心到边界的最小距离（内切圆半径），相对控件中心。
+     *
+     * 角格在第一象限表示为 {u >= a, v >= a, u² + v² <= r²}（a = 中心半边长），
+     * 返回 [c, c, d]，其中 (c, c) 为形心，d 为内切圆半径。
+     */
+    private fun cornerRegionGeometry(): FloatArray {
+        val r = radius
+        val a = centerHalf.coerceIn(0f, r)
+        if (r <= 0f) return floatArrayOf(0f, 0f, 0f)
+        val s = Math.sqrt((r * r - a * a).coerceAtLeast(0f).toDouble()).toFloat()
+        if (s <= a) return floatArrayOf(0f, 0f, 0f)
+        val theta = Math.asin((a / r).coerceIn(-1f, 1f).toDouble())
+        val area = r * r * 0.5f * (Math.PI / 2.0 - 2.0 * theta).toFloat() - a * (s - a)
+        if (area <= 0.0001f) return floatArrayOf(0f, 0f, 0f)
+        val moment = (s * s * s - a * a * a) / 3f - a * (s * s - a * a) / 2f
+        val c = (moment / area).coerceIn(a, r * 0.70710678f)
+        val d = minOf(c - a, r - c * 1.41421356f).coerceAtLeast(0f)
+        return floatArrayOf(c, c, d)
+    }
+
     /** 应用全局“最大图标大小”上限。 */
     private fun capTextSize(size: Float): Float =
         textMaxSizePx?.let { Math.min(size, it) } ?: size
 
     private fun directionAt(x: Float, y: Float): Int {
-        if (centerShape == CenterShape.CIRCLE) return regionAtCircle(x, y)
+        if (useRadialRegions) return regionAtCircle(x, y)
         if (eightWay) return regionAtEight(x, y)
         val dx = x - effectiveCenterX
         val dy = y - effectiveCenterY
-        if (Math.abs(dx) <= half && Math.abs(dy) <= half) return -1
+        if (Math.abs(dx) <= centerHalf && Math.abs(dy) <= centerHalf) return -1
         return classify(dx, dy)
     }
 
@@ -539,21 +633,17 @@ class CustomKeypadView @JvmOverloads constructor(
 
     /** 8 方向：按一体十字键的 3×3 网格判定落点，返回区域索引；中心格返回 -1。 */
     private fun regionAtEight(x: Float, y: Float): Int {
-        val a = third
-        val r = radius
-        val eOffX = effectiveCenterX - originX
-        val eOffY = effectiveCenterY - originY
-        val lx = x - originX
-        val ly = y - originY
+        val dx = x - effectiveCenterX
+        val dy = y - effectiveCenterY
         val col = when {
-            lx < eOffX - r + a -> 0
-            lx < eOffX - r + 2f * a -> 1
-            else -> 2
+            dx < -centerHalf -> 0
+            dx > centerHalf -> 2
+            else -> 1
         }
         val row = when {
-            ly < eOffY - r + a -> 0
-            ly < eOffY - r + 2f * a -> 1
-            else -> 2
+            dy < -centerHalf -> 0
+            dy > centerHalf -> 2
+            else -> 1
         }
         return gridRegionTable[row][col]
     }

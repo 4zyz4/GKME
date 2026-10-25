@@ -28,6 +28,10 @@ data class ButtonPosition(
     val keypadEightWay: Boolean = false,
     // 中心形状：SQUARE = 方形中心，CIRCLE = 圆形中心（周围区域变径向扇环）
     val centerShape: CenterShape = CenterShape.SQUARE,
+    // 中心区域大小百分比 (CENTER_SIZE_MIN..CENTER_SIZE_MAX)，0 = 不显示中心，
+    // CENTER_SIZE_AUTO = 自动（沿用各控件的传统默认值）。
+    // 圆形中心：半径 = 控件半径 × 百分比；方形中心：边长 = 控件直径 × 百分比。
+    val centerSize: Int = -1,
     val sensitivityCurve: List<Float>? = null,
     // 摇杆灵敏度百分比 (10-300)，100 = 手指位移与输出距离 1:1；在死区之前应用
     val joystickSensitivity: Int = 100,
@@ -82,6 +86,28 @@ data class ButtonPosition(
         const val KEYPAD_CENTER_INDEX = 4
         // 8 方向区域：5=左上, 6=右上, 7=左下, 8=右下
         const val KEYPAD_EIGHT_WAY_COUNT = 9
+
+        // ── 中心区域大小（%）──
+        // CENTER_SIZE_AUTO 表示自动：一体十字键 33%，自定义按键盘 4 方向 40% / 8 方向 33%。
+        // 0 表示显式关闭中心区域。
+        const val CENTER_SIZE_AUTO = -1
+        const val CENTER_SIZE_MIN = 0
+        const val CENTER_SIZE_MAX = 70
+        const val DPAD_PAD_CENTER_SIZE_DEFAULT = 33
+        const val KEYPAD_CENTER_SIZE_DEFAULT_FOUR = 40
+        const val KEYPAD_CENTER_SIZE_DEFAULT_EIGHT = 33
+
+        /** 控件实际使用的中心区域大小百分比，把 [CENTER_SIZE_AUTO] 解析为各控件的传统默认值。 */
+        fun centerSizeOf(p: ButtonPosition): Int {
+            if (p.centerSize >= CENTER_SIZE_MIN) return p.centerSize.coerceIn(CENTER_SIZE_MIN, CENTER_SIZE_MAX)
+            val base = p.id.substringBefore("_")
+            return when (base) {
+                KEYPAD_BASE_ID ->
+                    if (p.keypadEightWay) KEYPAD_CENTER_SIZE_DEFAULT_EIGHT else KEYPAD_CENTER_SIZE_DEFAULT_FOUR
+                "dpadPad" -> DPAD_PAD_CENTER_SIZE_DEFAULT
+                else -> DPAD_PAD_CENTER_SIZE_DEFAULT
+            }
+        }
 
         val KEYPAD_DEFAULT_TEXTS: List<String> =
             listOf("上", "下", "左", "右", "中", "左上", "右上", "左下", "右下")

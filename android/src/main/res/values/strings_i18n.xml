@@ -69,6 +69,7 @@
     <string name="i18n_cancel" formatted="false">"取消"</string>
     <string name="i18n_center" formatted="false">"中"</string>
     <string name="i18n_center_shape" formatted="false">"中心形状"</string>
+    <string name="i18n_center_size" formatted="false">"中心区域大小（%）"</string>
     <string name="i18n_circle" formatted="false">"圆形"</string>
     <string name="i18n_clear" formatted="false">"清空"</string>
     <string name="i18n_clockwise" formatted="false">"顺时针"</string>
