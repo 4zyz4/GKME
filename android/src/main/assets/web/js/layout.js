@@ -152,11 +152,16 @@ const PREDICTION_FRAME_MS = 16;
 // ── 摇杆触摸板（速度）模式常量，镜像 JoystickView.kt ──
 // 摇杆偏移 = 手指速度 × 该时间常数（再按最大行程归一化、乘灵敏度）。
 // 100% 灵敏度下，手指以当前速度再移动 0.1s 的距离恰好对应满量程。
-const VELOCITY_TIME_CONSTANT = 0.1;
-// 尚未识别到采样率时，归零看门狗使用的兜底采样间隔（ms）。
+const VELOCITY_TIME_CONSTANT_MS = 100;
+// 尚未识别到采样率时，归零看门狗使用的兜底采样间隔（ms，约一帧）。
+const FALLBACK_SAMPLE_INTERVAL_MS = 16;
+// 采样间隔识别的夹取下限（ms）。
 const MIN_SAMPLE_INTERVAL_MS = 2;
 // 手指停下后等待多少个采样间隔归零回中（至少 1 个间隔）。
 const VELOCITY_RESET_INTERVALS = 2;
+// 速度 EMA 平滑系数与停顿后重新播种的间隔（镜像 EmaVelocityTracker）。
+const EMA_ALPHA = 0.4;
+const EMA_RESEED_GAP_MS = 50;
 
 // Circle-shaped buttons (AppearanceApplier.isCircleButton).
 const ROUND_IDS = new Set([
@@ -1652,7 +1657,11 @@ export class GamepadLayout {
       }
       this._pointers.set(e.pointerId, {
         id: b.id, kind: "trigger", b, startX: px, startY: py, baseOffset,
-        lastOffset: Math.abs(baseOffset), lastTime: 0, sampleReady: false,
+        ema: {
+          lx: baseOffset,
+          lt: Number.isFinite(e.timeStamp) ? e.timeStamp : performance.now(),
+          v: 0, interval: 0, seeded: false,
+        },
       });
       this.controlActive.set(b.id, true);
       this.render();
@@ -1686,7 +1695,7 @@ export class GamepadLayout {
     }
     else if (info.kind === "dpad") this._updateDpad(e.pointerId, px, py);
     else if (info.kind === "keypad") this._updateKeypad(e.pointerId, px, py);
-    else if (info.kind === "trigger") this._updateTrigger(e.pointerId, px, py);
+    else if (info.kind === "trigger") this._updateTrigger(e.pointerId, px, py, e);
     else if (info.kind === "touchpad") { info.px = px; info.py = py; this._updateTouchpad(info.b); }
   }
 
@@ -1853,7 +1862,7 @@ export class GamepadLayout {
     this._pointers.set(e.pointerId, info);
     if (b.touchpadMode) {
       // 触摸板模式：DOWN 只记录起点，摇杆保持回中，等 MOVE 产生速度后再偏移。
-      info.vel = { lx: px, ly: py, lt: 0, vx: 0, vy: 0, interval: 0, timer: 0 };
+      info.vel = { lx: px, ly: py, lt: 0, vx: 0, vy: 0, interval: 0, timer: 0, seeded: false, moved: false };
       const r = this.gridRect(b);
       info.b._followDx = follow ? px - (r.x + r.w / 2) : 0;
       info.b._followDy = follow ? py - (r.y + r.h / 2) : 0;
@@ -1911,30 +1920,63 @@ export class GamepadLayout {
     this.render();
   }
 
-  // 触摸板（速度）模式：把相邻触摸样本算出的瞬时速度映射为摇杆偏移，
-  // 速度归零（看门狗触发）时摇杆回中。镜像 JoystickView.sampleTouchVelocity。
+  // 触摸板（速度）模式：把批处理历史样本（getCoalescedEvents）算出的瞬时速度做
+  // EMA 平滑后映射为摇杆偏移，速度归零（看门狗触发）时摇杆回中。
+  // 镜像 EmaVelocityTracker / JoystickView.sampleTouchVelocity。
   _updateStickVelocity(info, px, py, e) {
     const vel = info.vel;
     if (!vel) return;
-    const now = e && Number.isFinite(e.timeStamp) ? e.timeStamp : performance.now();
-    if (vel.lt <= 0) {
-      // 首个 MOVE 只做种子：DOWN→首次 MOVE 的间隔不代表触控采样间隔。
-      vel.lx = px;
-      vel.ly = py;
-      vel.lt = now;
-      return;
+    vel.moved = false;
+    for (const s of this._coalescedSamples(e, px, py)) {
+      if (vel.lt <= 0) {
+        // 首个样本只做种子：DOWN→首次 MOVE 的间隔不代表触控采样间隔。
+        vel.lx = s.x;
+        vel.ly = s.y;
+        vel.lt = s.t;
+        continue;
+      }
+      const dt = s.t - vel.lt;
+      if (dt <= 0) continue;
+      const instVx = (s.x - vel.lx) / dt;
+      const instVy = (s.y - vel.ly) / dt;
+      if (!vel.seeded) {
+        // 首个间隔用于播种：不做平滑，避免丢掉起始位移。
+        vel.vx = instVx;
+        vel.vy = instVy;
+        vel.seeded = true;
+        if (dt <= EMA_RESEED_GAP_MS) vel.interval = Math.max(MIN_SAMPLE_INTERVAL_MS, Math.min(50, dt));
+      } else if (dt > EMA_RESEED_GAP_MS) {
+        // 停顿过久：平滑值已无参考意义，直接用当前间隔重新播种。
+        vel.vx = instVx;
+        vel.vy = instVy;
+      } else {
+        vel.vx += (instVx - vel.vx) * EMA_ALPHA;
+        vel.vy += (instVy - vel.vy) * EMA_ALPHA;
+        const clamped = Math.max(MIN_SAMPLE_INTERVAL_MS, Math.min(50, dt));
+        vel.interval = vel.interval <= 0 ? clamped : vel.interval * 0.75 + clamped * 0.25;
+      }
+      vel.lx = s.x;
+      vel.ly = s.y;
+      vel.lt = s.t;
+      vel.moved = true;
     }
-    const dt = Math.max(1, now - vel.lt);
-    // 触控采样率识别：夹取后做 EMA 平滑，供归零看门狗自适应。
-    const clamped = Math.max(MIN_SAMPLE_INTERVAL_MS, Math.min(50, dt));
-    vel.interval = vel.interval <= 0 ? clamped : vel.interval * 0.75 + clamped * 0.25;
-    vel.vx = ((px - vel.lx) / dt) * 1000;
-    vel.vy = ((py - vel.ly) / dt) * 1000;
-    vel.lx = px;
-    vel.ly = py;
-    vel.lt = now;
+    if (!vel.moved) return;
     this._applyStickVelocity(info.b, vel.vx, vel.vy);
     this._scheduleVelocityReset(info);
+  }
+
+  // PointerEvent 的批处理历史样本（getCoalescedEvents）+ 当前样本；坐标统一为布局坐标。
+  _coalescedSamples(e, px, py) {
+    const out = [];
+    const coalesced = e && typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : null;
+    if (coalesced) {
+      for (const ev of coalesced) {
+        const p = this._pos(ev);
+        out.push({ x: p.px, y: p.py, t: Number.isFinite(ev.timeStamp) ? ev.timeStamp : performance.now() });
+      }
+    }
+    out.push({ x: px, y: py, t: e && Number.isFinite(e.timeStamp) ? e.timeStamp : performance.now() });
+    return out;
   }
 
   // JoystickView.applyVelocity：速度矢量 → 归一化幅度 → 死区/反死区/曲线 → 摇杆输出。
@@ -1949,7 +1991,7 @@ export class GamepadLayout {
     }
     const speed = Math.hypot(vx, vy);
     const sens = (b.joystickSensitivity || 100) / 100;
-    const rawNorm = ((speed * VELOCITY_TIME_CONSTANT) / maxD) * sens;
+    const rawNorm = ((speed * VELOCITY_TIME_CONSTANT_MS) / maxD) * sens;
     const normalized = Math.min(1, rawNorm);
     const afterCurve = this._shapeNormalized(b, normalized);
     const dirScale = speed > 0 ? afterCurve / speed : 0;
@@ -2003,7 +2045,7 @@ export class GamepadLayout {
     const vel = info.vel;
     if (!vel) return;
     if (vel.timer) clearTimeout(vel.timer);
-    const interval = vel.interval > 0 ? vel.interval : MIN_SAMPLE_INTERVAL_MS;
+    const interval = vel.interval > 0 ? vel.interval : FALLBACK_SAMPLE_INTERVAL_MS;
     const delay = Math.max(1, interval * VELOCITY_RESET_INTERVALS);
     vel.timer = setTimeout(() => {
       vel.timer = 0;
@@ -2011,6 +2053,8 @@ export class GamepadLayout {
       if (this._pointers.get(info.pointerId) !== info) return;
       vel.vx = 0;
       vel.vy = 0;
+      // 下一帧样本重新播种速度，避免从 0 缓慢爬升。
+      vel.seeded = false;
       this._applyStickVelocity(info.b, 0, 0);
     }, delay);
   }
@@ -2130,40 +2174,64 @@ export class GamepadLayout {
 
   // LinearTriggerView.onTouchEvent — value is the drag distance from the touch
   // point along the slide axis over the travel distance (travelDistance × cell).
-  _updateTrigger(pointerId, px, py) {
+  // 滑杆偏移：手指坐标 → 夹取在行程内的偏移（负值表示向上/向左）。
+  _triggerOffset(b, info, travelPx, x, y) {
+    const dx = x - info.startX;
+    const dy = y - info.startY;
+    const base = info.baseOffset || 0;
+    switch (b.slideDirection) {
+      case "UP": return Math.max(-travelPx, Math.min(0, base + dy));
+      case "LEFT": return Math.max(-travelPx, Math.min(0, base + dx));
+      case "RIGHT": return Math.max(0, Math.min(travelPx, base + dx));
+      default: return Math.max(0, Math.min(travelPx, base + dy)); // DOWN
+    }
+  }
+
+  // 一维 history + EMA 速度（镜像 EmaVelocityTracker.add，单位 px/ms）。
+  _emaAdd1D(store, x, t) {
+    if (!store.lt) {
+      store.lx = x;
+      store.lt = t;
+      return;
+    }
+    const dt = t - store.lt;
+    if (dt <= 0) return;
+    const inst = (x - store.lx) / dt;
+    if (!store.seeded) {
+      // 首个间隔只用于播种：不做平滑，避免丢掉起始位移。
+      store.v = inst;
+      store.seeded = true;
+      if (dt <= EMA_RESEED_GAP_MS) store.interval = Math.max(MIN_SAMPLE_INTERVAL_MS, Math.min(50, dt));
+    } else if (dt > EMA_RESEED_GAP_MS) {
+      store.v = inst;
+    } else {
+      store.v += (inst - store.v) * EMA_ALPHA;
+      const clamped = Math.max(MIN_SAMPLE_INTERVAL_MS, Math.min(50, dt));
+      store.interval = store.interval <= 0 ? clamped : store.interval * 0.75 + clamped * 0.25;
+    }
+    store.lx = x;
+    store.lt = t;
+  }
+
+  _updateTrigger(pointerId, px, py, e) {
     const info = this._pointers.get(pointerId);
     if (!info) return;
     const b = info.b;
     const { cell } = this._layout;
     const travelPx = Math.max(1, (b.travelDistance || 10) * cell);
-    const dx = px - info.startX;
-    const dy = py - info.startY;
 
-    let offset;
-    const base = info.baseOffset || 0;
-    switch (b.slideDirection) {
-      case "UP": offset = Math.max(-travelPx, Math.min(0, base + dy)); break;
-      case "LEFT": offset = Math.max(-travelPx, Math.min(0, base + dx)); break;
-      case "RIGHT": offset = Math.max(0, Math.min(travelPx, base + dx)); break;
-      default: offset = Math.max(0, Math.min(travelPx, base + dy)); break; // DOWN
-    }
+    const offset = this._triggerOffset(b, info, travelPx, px, py);
     b._triggerOffset = offset;
 
-    // 快速响应模式: extrapolate the next frame's travel from the drag velocity.
+    // 快速响应模式：history + EMA 速度外推下一帧行程（镜像 EmaVelocityTracker）。
     let effective = Math.abs(offset);
     if (b.prediction) {
-      const now = performance.now();
-      if (info.sampleReady && info.lastTime > 0) {
-        const dt = Math.max(1, now - info.lastTime);
-        const velocity = (offset - info.lastOffset) / dt;
-        // Extrapolate by one sampling interval (capped at the fallback frame)
-        // so high touch sample rates don't overshoot to full travel.
-        const frame = Math.min(dt, PREDICTION_FRAME_MS);
-        effective = Math.abs(offset + velocity * frame);
+      const ema = info.ema;
+      for (const s of this._coalescedSamples(e, px, py)) {
+        this._emaAdd1D(ema, this._triggerOffset(b, info, travelPx, s.x, s.y), s.t);
       }
-      info.lastOffset = offset;
-      info.lastTime = now;
-      info.sampleReady = true;
+      const frame = ema.interval > 0 ? ema.interval : PREDICTION_FRAME_MS;
+      effective = Math.abs(offset + ema.v * frame);
     }
     const normalized = Math.min(1, effective / travelPx);
     const value = normalized < 0.004 ? 0 : Math.round(normalized * 255);

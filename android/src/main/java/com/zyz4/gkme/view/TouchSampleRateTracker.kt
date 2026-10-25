@@ -21,8 +21,7 @@ class TouchSampleRateTracker(private val tag: String) {
 
     fun reset() {
         intervalMs = 0f
-        loggedRateHz = 0
-        lastLogTimeMs = 0L
+        // 保留日志节流状态：每次按下都会 reset，若一并清零会在每次手势开始时重复输出。
     }
 
     /**

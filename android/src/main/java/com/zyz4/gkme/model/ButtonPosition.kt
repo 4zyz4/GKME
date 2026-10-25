@@ -38,7 +38,7 @@ data class ButtonPosition(
     // 触摸板模式：不以手指绝对位置映射摇杆，而以手指速度映射；手指停下即回中。
     // 灵敏度/死区/反死区/曲线仍照常生效（作用于速度换算出的归一化偏移）。
     val touchpadMode: Boolean = false,
-    // 预测：用输入（手指/滑杆）速度外推下一帧位置，加快响应。适用于摇杆、触摸板、鼠标板、线性扳机。
+    // 预测：用 history + EMA 速度外推下一帧位置，加快响应。适用于摇杆、触摸板、鼠标板、线性扳机。
     val prediction: Boolean = false,
     val deadZone: Int = 0,
     val reverseDeadZone: Int = 0,
