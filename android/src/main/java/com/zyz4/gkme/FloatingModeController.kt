@@ -5,12 +5,11 @@ import android.content.Context
 import android.graphics.PixelFormat
 import android.graphics.Point
 import android.hardware.display.DisplayManager
-import android.os.Handler
-import android.os.Looper
+import android.os.Build
+import android.util.Log
 import android.view.Display
 import android.view.Gravity
 import android.view.MotionEvent
-import android.view.Surface
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
@@ -28,11 +27,13 @@ import kotlin.math.roundToInt
 /**
  * Drives "悬浮模式": the app minimizes and an overlay window shows the gamepad.
  *
- * In the hidden state a single small window containing the show/hide button is placed
- * on screen and can be dragged around. Tapping it shows the full-screen controls window
- * that hosts the real [GamepadLayout] (reparented out of the activity), rotated 90°
- * when the foreground app is portrait. Tapping the settings button inside it hides the
- * controls again.
+ * 两个悬浮窗：
+ * - 全屏窗口（[overlayRoot]）：承载 [GamepadLayout]，隐藏态也保持挂载但不可触摸、无子视图
+ *   （即完全透明）。它同时是「屏幕方向探针」——窗口 frame 由 WMS 按当前旋转实时计算，
+ *   旋转后会重新布局并回调，是悬浮态下唯一可信的屏幕尺寸来源。
+ * - 小窗口（[toggleButton]）：隐藏态的显示/隐藏按钮，可拖动。
+ *
+ * 竖屏时把 [GamepadLayout] 旋转 90°，让手柄的长边贴着屏幕长边。
  */
 internal class FloatingModeController(private val activity: MainActivity) {
 
@@ -58,23 +59,18 @@ internal class FloatingModeController(private val activity: MainActivity) {
     private var toggleWinX = 0
     private var toggleWinY = 0
 
-    // Shown-state controls window
-    private var controlsRoot: FrameLayout? = null
-    private var controlsParams: WindowManager.LayoutParams? = null
+    // Full-screen overlay window: hosts the gamepad when shown, acts as an orientation
+    // probe while hidden.
+    private var overlayRoot: FrameLayout? = null
+    private var overlayParams: WindowManager.LayoutParams? = null
+
+    /** 最近一次由 WMS 量到的窗口尺寸（当前旋转下的真实屏幕尺寸）。 */
+    private var overlaySize: ScreenGeometry? = null
 
     private var observerJob: Job? = null
 
     private var savedGamepadBackground: android.graphics.drawable.Drawable? = null
     private var gamepadBackgroundSaved = false
-
-    private val displayListener = object : DisplayManager.DisplayListener {
-        override fun onDisplayAdded(displayId: Int) {}
-        override fun onDisplayRemoved(displayId: Int) {}
-        override fun onDisplayChanged(displayId: Int) {
-            if (displayId != Display.DEFAULT_DISPLAY) return
-            onOrientationChanged()
-        }
-    }
 
     // ── Lifecycle ──────────────────────────────────────────
 
@@ -82,18 +78,9 @@ internal class FloatingModeController(private val activity: MainActivity) {
         if (isActive) return
         isActive = true
         isShown = false
-        displayManager.registerDisplayListener(displayListener, Handler(Looper.getMainLooper()))
-        val rect = settingsButtonScreenRect()
-        if (rect != null && rect.width() > 0 && rect.height() > 0) {
-            toggleSize = maxOf(rect.width(), rect.height())
-            toggleWinX = rect.left
-            toggleWinY = rect.top
-        } else {
-            toggleSize = preferredToggleSizePx()
-            val (dx, dy) = defaultTogglePosition(toggleSize)
-            toggleWinX = dx
-            toggleWinY = dy
-        }
+        // 初始位置先用系统给的屏幕信息估一次；探针窗口 layout 完成后会按真实尺寸校正。
+        placeToggleFromSettingsOrFallback(screenGeometry())
+        createOverlayWindow()
         createToggleWindow()
         startObservers()
     }
@@ -104,14 +91,12 @@ internal class FloatingModeController(private val activity: MainActivity) {
             hideControls(recreateToggle = false)
         }
         removeToggleWindow()
+        removeOverlayWindow()
         restoreGamepadBackground()
         restoreSettingsButton()
-        displayManager.unregisterDisplayListener(displayListener)
         stopObservers()
         toggleButton = null
         toggleParams = null
-        controlsRoot = null
-        controlsParams = null
         isShown = false
         isActive = false
     }
@@ -120,6 +105,8 @@ internal class FloatingModeController(private val activity: MainActivity) {
 
     private fun showControls() {
         if (!isActive || isShown) return
+        if (!ensureOverlayWindow()) return
+        val root = overlayRoot ?: return
         isShown = true
         removeToggleWindow()
 
@@ -127,15 +114,11 @@ internal class FloatingModeController(private val activity: MainActivity) {
         gl.cancelAllTouches()
         (gl.parent as? ViewGroup)?.removeView(gl)
 
-        val root = FrameLayout(activity)
-        controlsRoot = root
-
-        val (sw, sh) = realScreenSize()
-        val portrait = isPortrait()
-        val lw = if (portrait) sh else sw
-        val lh = if (portrait) sw else sh
-        root.addView(gl, FrameLayout.LayoutParams(lw, lh))
-        applyControlsTransform(gl, sw, sh, portrait)
+        // 用窗口的真实尺寸排版；窗口还没量出尺寸时先用系统信息估一次，
+        // 随后的 onOverlaySized 会按真实尺寸校正。
+        val screen = overlaySize ?: screenGeometry()
+        root.addView(gl, FrameLayout.LayoutParams(screen.localWidth, screen.localHeight))
+        applyControlsTransform(gl, screen)
         gl.alpha = floatingOpacity()
         // The app background (color or image) must not cover the underlying app.
         if (!gamepadBackgroundSaved) {
@@ -144,28 +127,10 @@ internal class FloatingModeController(private val activity: MainActivity) {
         }
         gl.background = null
 
-        val params = WindowManager.LayoutParams(
-            sw,
-            sh,
-            overlayType(),
-            overlayFlags(),
-            PixelFormat.TRANSLUCENT,
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = 0
-            y = 0
-        }
-        controlsParams = params
-        val added = runCatching { windowManager.addView(root, params) }.isSuccess
-        if (!added) {
-            (gl.parent as? ViewGroup)?.removeView(gl)
-            controlsRoot = null
-            controlsParams = null
-            isShown = false
-            attachGamepadToActivity()
-            restoreGamepadBackground()
-            createToggleWindow()
-            return
+        // 显示态需要接收触摸；隐藏态是不可触摸的透明探针。
+        overlayParams?.let { params ->
+            params.flags = overlayFlags()
+            runCatching { windowManager.updateViewLayout(root, params) }
         }
         overrideSettingsButtonForFloating()
         root.post {
@@ -173,6 +138,8 @@ internal class FloatingModeController(private val activity: MainActivity) {
                 activity.gamepadLayout.background = null
                 activity.gamepadLayout.alpha = floatingOpacity()
                 overrideSettingsButtonForFloating()
+                // 首帧之后按真实窗口尺寸再对齐一次（预估尺寸可能来自过期的 DisplayInfo）。
+                onOverlaySized(root.width, root.height)
             }
         }
     }
@@ -180,29 +147,25 @@ internal class FloatingModeController(private val activity: MainActivity) {
     private fun hideControls(recreateToggle: Boolean = true) {
         if (!isShown) return
         val gl = activity.gamepadLayout
-        val rect = settingsButtonScreenRect()
         gl.cancelAllTouches()
         gl.alpha = 1f
         (gl.parent as? ViewGroup)?.removeView(gl)
-        controlsRoot?.let { runCatching { windowManager.removeView(it) } }
-        controlsRoot = null
-        controlsParams = null
         isShown = false
+
+        // 隐藏态保留全屏窗口：移空子视图后完全透明，并关掉触摸，只作为屏幕方向探针。
+        val root = overlayRoot
+        overlayParams?.let { params ->
+            params.flags = overlayFlags() or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+            root?.let { runCatching { windowManager.updateViewLayout(it, params) } }
+        }
 
         attachGamepadToActivity()
         restoreGamepadBackground()
         restoreSettingsButton()
 
         if (!recreateToggle) return
-        toggleSize = if (rect != null) maxOf(rect.width(), rect.height()) else preferredToggleSizePx()
-        if (rect != null) {
-            toggleWinX = rect.left
-            toggleWinY = rect.top
-        } else {
-            val (dx, dy) = defaultTogglePosition(toggleSize)
-            toggleWinX = dx
-            toggleWinY = dy
-        }
+        // 用刚量到的窗口尺寸定位 toggle，比可能过期的 Display 信息可靠。
+        placeToggleFromSettingsOrFallback(knownScreen())
         createToggleWindow()
     }
 
@@ -227,21 +190,110 @@ internal class FloatingModeController(private val activity: MainActivity) {
         }
     }
 
-    private fun applyControlsTransform(
-        gl: View,
-        sw: Int,
-        sh: Int,
-        portrait: Boolean,
-    ) {
-        if (portrait) {
+    private fun applyControlsTransform(gl: View, screen: ScreenGeometry) {
+        if (screen.portrait) {
             gl.rotation = 90f
-            gl.translationX = (sw - sh) / 2f
-            gl.translationY = (sh - sw) / 2f
+            gl.translationX = (screen.width - screen.height) / 2f
+            gl.translationY = (screen.height - screen.width) / 2f
         } else {
             gl.rotation = 0f
             gl.translationX = 0f
             gl.translationY = 0f
         }
+    }
+
+    // ── Full-screen overlay window (controls + orientation probe) ──
+
+    /**
+     * 确保全屏悬浮窗可用。窗口被系统移除（例如悬浮窗权限被收回）时会重建。
+     */
+    private fun ensureOverlayWindow(): Boolean {
+        val existing = overlayRoot
+        if (existing != null) {
+            if (existing.isAttachedToWindow) return true
+            removeOverlayWindow()
+        }
+        return createOverlayWindow()
+    }
+
+    /**
+     * 创建全屏悬浮窗。宽高用 `MATCH_PARENT` 交给 WMS 定量，避免把（可能过期的）屏幕尺寸
+     * 写死；`fitInsetsTypes=0` 让它铺满整屏（含状态栏/导航栏），坐标系与屏幕一致。
+     */
+    private fun createOverlayWindow(): Boolean {
+        if (overlayRoot != null) return true
+        val root = FrameLayout(activity)
+        root.addOnLayoutChangeListener { v, l, t, r, b, _, _, _, _ ->
+            if (v === overlayRoot) onOverlaySized(r - l, b - t)
+        }
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            overlayType(),
+            // 隐藏态先按不可触摸创建，showControls() 时再把触摸打开。
+            overlayFlags() or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = 0
+            y = 0
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                // 不避让任何系统栏：否则 MATCH_PARENT 只会拿到「应用区」（例如竖屏下
+                // 状态栏 + 导航栏占掉的 194px），悬浮层坐标系就和屏幕对不上。
+                fitInsetsTypes = 0
+            }
+        }
+        return try {
+            windowManager.addView(root, params)
+            overlayRoot = root
+            overlayParams = params
+            true
+        } catch (t: Throwable) {
+            Log.w(TAG, "failed to add floating overlay window", t)
+            false
+        }
+    }
+
+    private fun removeOverlayWindow() {
+        overlayRoot?.let { runCatching { windowManager.removeView(it) } }
+        overlayRoot = null
+        overlayParams = null
+        overlaySize = null
+    }
+
+    /**
+     * 窗口尺寸变化（含屏幕旋转）。这是悬浮态下唯一可信的屏幕尺寸来源：
+     * 应用退到后台后 `Display#getRealSize` / `DisplayListener` / `WindowMetrics` 都可能
+     * 长期停在进入后台前的值（MIUI 会延迟给不可见进程下发显示信息）。
+     */
+    private fun onOverlaySized(width: Int, height: Int) {
+        if (width <= 0 || height <= 0) return
+        val screen = ScreenGeometry(width, height)
+        if (screen.sameSizeAs(overlaySize)) return
+        overlaySize = screen
+        if (isShown) {
+            applyControlsGeometry(screen)
+        } else {
+            // 隐藏态把「小眼睛」重新贴到设置按钮的位置，避免旋转后跑到屏幕外。
+            repositionToggleFromSettings(screen)
+        }
+    }
+
+    private fun applyControlsGeometry(screen: ScreenGeometry) {
+        val gl = activity.gamepadLayout
+        if (gl.parent !== overlayRoot) return
+        (gl.layoutParams as? FrameLayout.LayoutParams)?.let { lp ->
+            if (lp.width != screen.localWidth || lp.height != screen.localHeight) {
+                lp.width = screen.localWidth
+                lp.height = screen.localHeight
+                gl.layoutParams = lp
+            }
+        }
+        applyControlsTransform(gl, screen)
     }
 
     // ── Hidden-state toggle window ─────────────────────────
@@ -300,9 +352,9 @@ internal class FloatingModeController(private val activity: MainActivity) {
                     val dy = e.rawY - downRawY
                     if (!moved && hypot(dx.toDouble(), dy.toDouble()) > slop) moved = true
                     if (moved) {
-                        val (sw, sh) = realScreenSize()
-                        val maxX = maxOf(0, sw - toggleSize)
-                        val maxY = maxOf(0, sh - toggleSize)
+                        val screen = knownScreen()
+                        val maxX = maxOf(0, screen.width - toggleSize)
+                        val maxY = maxOf(0, screen.height - toggleSize)
                         params.x = (startX + dx).toInt().coerceIn(0, maxX)
                         params.y = (startY + dy).toInt().coerceIn(0, maxY)
                         toggleWinX = params.x
@@ -335,11 +387,26 @@ internal class FloatingModeController(private val activity: MainActivity) {
         toggleParams = null
     }
 
+    /** 按屏幕尺寸把 toggle 的尺寸/位置重置为设置按钮所在的格子（拿不到时回退到默认位置）。 */
+    private fun placeToggleFromSettingsOrFallback(screen: ScreenGeometry) {
+        val rect = settingsButtonScreenRect(screen)
+        if (rect != null && rect.width() > 0 && rect.height() > 0) {
+            toggleSize = maxOf(rect.width(), rect.height())
+            toggleWinX = rect.left
+            toggleWinY = rect.top
+        } else {
+            toggleSize = preferredToggleSizePx(screen)
+            val (dx, dy) = defaultTogglePosition(toggleSize, screen)
+            toggleWinX = dx
+            toggleWinY = dy
+        }
+    }
+
     private fun clampTogglePosition() {
         val params = toggleParams ?: return
-        val (sw, sh) = realScreenSize()
-        val maxX = maxOf(0, sw - toggleSize)
-        val maxY = maxOf(0, sh - toggleSize)
+        val screen = knownScreen()
+        val maxX = maxOf(0, screen.width - toggleSize)
+        val maxY = maxOf(0, screen.height - toggleSize)
         params.x = params.x.coerceIn(0, maxX)
         params.y = params.y.coerceIn(0, maxY)
         toggleWinX = params.x
@@ -348,8 +415,8 @@ internal class FloatingModeController(private val activity: MainActivity) {
     }
 
     /** Reads the settings-button grid position and moves the (hidden) toggle window there. */
-    private fun repositionToggleFromSettings() {
-        val rect = settingsButtonScreenRect() ?: run {
+    private fun repositionToggleFromSettings(screen: ScreenGeometry = knownScreen()) {
+        val rect = settingsButtonScreenRect(screen) ?: run {
             clampTogglePosition()
             return
         }
@@ -370,23 +437,20 @@ internal class FloatingModeController(private val activity: MainActivity) {
         val params = toggleParams ?: return
         val pos = activity.gamepadLayout.currentButtons
             .find { it.id == GamepadLayout.SETTINGS_BUTTON_ID } ?: return
-        val (sw, sh) = realScreenSize()
-        val portrait = isPortrait()
-        val lw = if (portrait) sh else sw
-        val lh = if (portrait) sw else sh
-        val cell = lw.toFloat() / GamepadLayout.GRID_COLS
+        val screen = knownScreen()
+        val cell = screen.localWidth.toFloat() / GamepadLayout.GRID_COLS
         if (cell <= 0f) return
         val lx: Int
         val ly: Int
-        if (portrait) {
+        if (screen.portrait) {
             lx = params.y
-            ly = sw - params.x
+            ly = screen.width - params.x
         } else {
             lx = params.x
             ly = params.y
         }
         val maxCol = (GamepadLayout.GRID_COLS - pos.width).coerceAtLeast(0)
-        val maxRow = ((lh / cell).toInt() - pos.height).coerceAtLeast(0)
+        val maxRow = ((screen.localHeight / cell).toInt() - pos.height).coerceAtLeast(0)
         val gx = (lx / cell).roundToInt().coerceIn(0, maxCol)
         // In portrait `ly` is the rotated rect's screen-left edge, i.e. the local *bottom*;
         // subtract the button height to get the top row back (otherwise the button lands a
@@ -462,14 +526,11 @@ internal class FloatingModeController(private val activity: MainActivity) {
     }
 
     /** Screen-space rect of the settings button, computed from its grid position for the
-     *  current display orientation. Works whether or not the controls window is shown. */
-    private fun settingsButtonScreenRect(): android.graphics.Rect? {
+     *  given screen. Works whether or not the controls window is shown. */
+    private fun settingsButtonScreenRect(screen: ScreenGeometry): android.graphics.Rect? {
         val pos = activity.gamepadLayout.currentButtons
             .find { it.id == GamepadLayout.SETTINGS_BUTTON_ID } ?: return null
-        val (sw, sh) = realScreenSize()
-        val portrait = isPortrait()
-        val lw = if (portrait) sh else sw
-        val cell = lw.toFloat() / GamepadLayout.GRID_COLS
+        val cell = screen.localWidth.toFloat() / GamepadLayout.GRID_COLS
         if (cell <= 0f) return null
         // Mirror GamepadLayout's child layout math (truncation, width relative to left) so the
         // toggle window lands exactly on the settings button instead of a rounded-off spot.
@@ -477,41 +538,11 @@ internal class FloatingModeController(private val activity: MainActivity) {
         val t = (pos.y * cell).toInt()
         val r = l + (pos.width * cell).toInt()
         val b = t + (pos.height * cell).toInt()
-        return if (portrait) {
-            android.graphics.Rect(sw - b, l, sw - t, r)
+        return if (screen.portrait) {
+            android.graphics.Rect(screen.width - b, l, screen.width - t, r)
         } else {
             android.graphics.Rect(l, t, r, b)
         }
-    }
-
-    // ── Orientation ────────────────────────────────────────
-
-    private fun onOrientationChanged() {
-        if (!isActive) return
-        if (isShown) {
-            rebuildControlsForOrientation()
-        } else {
-            repositionToggleFromSettings()
-        }
-    }
-
-    private fun rebuildControlsForOrientation() {
-        val root = controlsRoot ?: return
-        val params = controlsParams ?: return
-        val gl = activity.gamepadLayout
-        val (sw, sh) = realScreenSize()
-        val portrait = isPortrait()
-        val lw = if (portrait) sh else sw
-        val lh = if (portrait) sw else sh
-        (gl.layoutParams as? FrameLayout.LayoutParams)?.let {
-            it.width = lw
-            it.height = lh
-            gl.layoutParams = it
-        }
-        applyControlsTransform(gl, sw, sh, portrait)
-        params.width = sw
-        params.height = sh
-        runCatching { windowManager.updateViewLayout(root, params) }
     }
 
     // ── Observers (run while the activity is stopped) ──────
@@ -558,26 +589,42 @@ internal class FloatingModeController(private val activity: MainActivity) {
     private fun currentDisplay(): Display =
         displayManager.getDisplay(Display.DEFAULT_DISPLAY) ?: activity.windowManager.defaultDisplay
 
-    private fun realScreenSize(): Pair<Int, Int> {
+    /** 当前屏幕尺寸：优先用探针窗口量到的真实值，退回系统信息（后台时可能已过期）。 */
+    private fun knownScreen(): ScreenGeometry = overlaySize ?: screenGeometry()
+
+    /**
+     * 系统视角的屏幕尺寸快照（宽高已按旋转方向换算）。
+     *
+     * 只用于「探针窗口还没量出尺寸」的初始估算：应用退到后台/悬浮后 [Display.getRealSize]
+     * 和 [WindowManager.getCurrentWindowMetrics] 都可能长期返回进入后台前的旧尺寸。
+     *
+     * 方向一律由尺寸本身推导（`portrait = height > width`），不混用 `getRotation()`：
+     * 旋转瞬间两者可能不一致，混用会让「屏幕已横屏、悬浮层却按竖屏排版」。
+     * 悬浮层的逻辑坐标系始终是横屏形状（长边 = [ScreenGeometry.localWidth]），
+     * 竖屏时再把整层旋转 90°。
+     */
+    private fun screenGeometry(): ScreenGeometry {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            runCatching {
+                val bounds = windowManager.currentWindowMetrics.bounds
+                if (bounds.width() > 0 && bounds.height() > 0) {
+                    return ScreenGeometry(bounds.width(), bounds.height())
+                }
+            }
+        }
         val point = Point()
         @Suppress("DEPRECATION")
         currentDisplay().getRealSize(point)
-        return point.x to point.y
-    }
-
-    private fun isPortrait(): Boolean {
-        val rotation = currentDisplay().rotation
-        return rotation == Surface.ROTATION_0 || rotation == Surface.ROTATION_180
+        return ScreenGeometry(point.x, point.y)
     }
 
     private fun floatingOpacity(): Float =
         activity.viewModel.settings.value.floatingOpacity.coerceIn(0, 100) / 100f
 
-    private fun preferredToggleSizePx(): Int {
+    private fun preferredToggleSizePx(screen: ScreenGeometry): Int {
         val pos = activity.gamepadLayout.currentButtons
             .find { it.id == GamepadLayout.SETTINGS_BUTTON_ID }
-        val (sw, sh) = realScreenSize()
-        val longSide = maxOf(sw, sh)
+        val longSide = screen.localWidth
         val size = if (pos != null) {
             (maxOf(pos.width, pos.height).toFloat() / GamepadLayout.GRID_COLS * longSide).toInt()
         } else {
@@ -586,9 +633,26 @@ internal class FloatingModeController(private val activity: MainActivity) {
         return if (size > 0) size else (48f * density).toInt()
     }
 
-    private fun defaultTogglePosition(size: Int): Pair<Int, Int> {
-        val (sw, sh) = realScreenSize()
+    private fun defaultTogglePosition(size: Int, screen: ScreenGeometry): Pair<Int, Int> {
         val margin = (16f * density).toInt()
-        return (sw - size - margin) to (sh / 2 - size / 2)
+        return (screen.width - size - margin) to (screen.height / 2 - size / 2)
+    }
+
+    private class ScreenGeometry(val width: Int, val height: Int) {
+
+        val portrait: Boolean get() = height > width
+
+        /** 悬浮层逻辑坐标系的宽度（横屏形状，长边）。 */
+        val localWidth: Int get() = maxOf(width, height)
+
+        /** 悬浮层逻辑坐标系的高度（横屏形状，短边）。 */
+        val localHeight: Int get() = minOf(width, height)
+
+        fun sameSizeAs(other: ScreenGeometry?): Boolean =
+            other != null && other.width == width && other.height == height
+    }
+
+    private companion object {
+        const val TAG = "GkmeFloating"
     }
 }
