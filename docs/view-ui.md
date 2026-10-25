@@ -336,13 +336,24 @@ Activity **不直接改 ViewModel 内部状态**：
 
 `FloatingModeController.kt`。把 `GamepadLayout` 从 Activity 重新 parent 到 `WindowManager` overlay。
 
-- `enter()`：注册 DisplayListener，创建隐藏态 toggle 窗口（眼睛图标，可拖动），启动 observers。
-- `showControls()`：把 `gamepadLayout` 移入 overlay `FrameLayout`；竖屏旋转 90°；`alpha=floatingOpacity`；
-  临时把 gamepad 背景置 null；`TYPE_APPLICATION_OVERLAY` +
-  `FLAG_NOT_FOCUSABLE | FLAG_LAYOUT_IN_SCREEN | FLAG_LAYOUT_NO_LIMITS`；添加失败会回滚。
-- `hideControls()`：恢复 alpha、移除 overlay、`attachGamepadToActivity` 还原、恢复背景与设置按钮。
-- `exit()`：移除 toggle、恢复、注销监听。
-- 方向变化 `onOrientationChanged`：显示中重建尺寸/变换，隐藏中重定位 toggle。
+- `enter()`：创建**全屏悬浮窗**（隐藏态也常驻，不可触摸、无子视图=全透明，作为屏幕方向探针）
+  与隐藏态 toggle 窗口（眼睛图标，可拖动），启动 observers。
+- `showControls()`：把 `gamepadLayout` 移入全屏悬浮窗 `FrameLayout`；竖屏旋转 90°；`alpha=floatingOpacity`；
+  临时把 gamepad 背景置 null；打开窗口触摸；`TYPE_APPLICATION_OVERLAY` +
+  `FLAG_NOT_FOCUSABLE | FLAG_LAYOUT_IN_SCREEN | FLAG_LAYOUT_NO_LIMITS`；窗口宽高用 `MATCH_PARENT`
+  并设 `fitInsetsTypes=0`（铺满整屏，含系统栏）；添加失败会记日志并回滚。
+- `hideControls()`：恢复 alpha、把 gamepad 移回 Activity、窗口改回「不可触摸 + 空」、恢复背景与设置按钮，
+  并用刚量到的窗口尺寸把 toggle 贴回设置按钮位置。
+- `exit()`：移除 toggle 与全屏窗口、恢复、注销 observers。
+- **屏幕方向来源（关键）**：应用退到后台/悬浮后 `Display#getRealSize()`、`DisplayListener`、
+  `WindowManager#getCurrentWindowMetrics()` 都可能长期返回进入后台前的旧尺寸（MIUI 会延迟给不可见
+  进程下发显示信息），这会造成「手机已横屏、悬浮层仍按竖屏排版」和「小眼睛跑到屏幕外」。因此
+  方向/尺寸一律以 **WMS 给出的窗口 frame** 为准：
+  - 全屏窗口用 `MATCH_PARENT`，旋转后 WMS 会重新 layout → `addOnLayoutChangeListener` →
+    `onOverlaySized(w, h)`；显示中重排 gamepad，隐藏中重排小眼睛按钮。
+  - `getRealSize()` / `WindowMetrics` 只在窗口还没量出尺寸时作为初始估算。
+- 方向一律由尺寸本身推导（`ScreenGeometry.portrait = height > width`），不混用 `getRotation()`；
+  尺寸与上次应用的快照相同则不重复重建。
 - observers 在 Activity 停止后继续订阅 `_gamepadState`、`settings`、`displayMode`、`keyboardShiftActive`。
 - 与 Activity 交互：`FloatingOverlayService` 前台服务 + `enter()` + `moveTaskToBack`；
   `FLOATING_RESUME_GUARD_MS=2000` 防止刚进入就退出。
@@ -381,6 +392,8 @@ Activity **不直接改 ViewModel 内部状态**：
 | 鼠标键位需取并集，避免“按住屏幕按钮再点鼠标板把它松开” | `GkViewModel.kt:1005-1006,1272-1275` |
 | 悬浮/本机模式特殊处理：本机 rumble=false、mouse=false | `MainActivitySettings.kt:1666-1668` |
 | Shizuku 授权只自动尝试一次，拒绝后停止轮询 | `MainActivitySettings.kt:1670-1676` |
+| [已修复] 悬浮模式在后台拿不到屏幕方向更新（`getRealSize`/`DisplayListener`/`WindowMetrics` 都可能停在进后台前的值），导致「手机已横屏、悬浮层仍按竖屏排版」 | `FloatingModeController.kt`；改为以窗口 frame 为准 |
+| [已修复] 隐藏态旋转后小眼睛按钮留在旧坐标（竖屏下跑到屏幕外）：隐藏态已无全屏窗口可量尺寸 | 全屏窗口在隐藏态常驻（不可触摸、空内容）作为方向探针 |
 | 全 UI 层无 `TODO/FIXME`，注意事项以散文注释形式存在 | — |
 
 ---
