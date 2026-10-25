@@ -5,6 +5,11 @@
 
 > **Virtual Gamepad for Android** — Play Call of Duty: Mobile (CODM) with any controller (GameSir X5 Lite, generic Bluetooth, USB/OTG) by emulating an official Xbox/PS controller via [Shizuku](https://shizuku.rikka.app/).
 
+> [!IMPORTANT]
+> **This is a modified fork of [4zyz4/GKME](https://github.com/4zyz4/GKME)** (GKME — Gamepad Keyboard Mouse Emulator), originally created by [@4zyz4](https://github.com/4zyz4) and licensed under the GNU GPL v3.0.
+>
+> Modifications made in this fork (2026): reduced scope focused on CODM, custom CI/CD workflows, and a rewritten README. See [NOTICE.md](NOTICE.md) for details.
+
 ---
 
 ## Why Virtual Gamepad?
@@ -130,3 +135,7 @@ Pre-built APKs are automatically generated for every commit and tag via GitHub A
 ## License
 
 This project is licensed under the GNU General Public License v3.0. See the [LICENSE](LICENSE) file for details.
+
+It is a modified fork of [4zyz4/GKME](https://github.com/4zyz4/GKME), Copyright (C) 4zyz4,
+distributed under the same license. See [NOTICE.md](NOTICE.md) for the required
+statement of modification.
