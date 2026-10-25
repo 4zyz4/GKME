@@ -24,11 +24,15 @@ import com.zyz4.gkme.model.MouseGestureAction
 import com.zyz4.gkme.model.TouchPoint
 import com.zyz4.gkme.view.CustomKeypadView
 import com.zyz4.gkme.view.DpadPadView
+import com.zyz4.gkme.view.EmaVelocityTracker
 import com.zyz4.gkme.view.GamepadLayout
 import com.zyz4.gkme.view.ButtonEventHandler
 import com.zyz4.gkme.view.ButtonTracker
 
 private val _mainHandler = Handler(Looper.getMainLooper())
+
+// 鼠标板速度估计的日志标签（触控采样率识别）。
+private const val MOUSEPAD_TAG = "Mousepad"
 
 // ── HID keyboard scan codes ──
 internal object Kb {
@@ -1034,9 +1038,8 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
 
     // per-pointer down times for right-click detection
     val pointerDownTimes = mutableMapOf<Int, Long>()
-    // per-pointer last-known position for delta calculation
-    val prevX = mutableMapOf<Int, Float>()
-    val prevY = mutableMapOf<Int, Float>()
+    // per-pointer 速度估计：批处理历史样本 + EMA 速度，位移按平滑速度积分。
+    val cursorTrackers = mutableMapOf<Int, EmaVelocityTracker>()
 
     val DOUBLE_TAP_WINDOW = 200L   // 第一击按下后一定时间的再次轻点 -> 潜在双击/按住拖动
 
@@ -1059,6 +1062,11 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
         oneFingerSwipeAction = pos.oneFingerSwipeAction
         twoFingerSwipeAction = pos.twoFingerSwipeAction
         threeFingerSwipeAction = pos.threeFingerSwipeAction
+    }
+
+    /** 每根手指独立估计速度：批处理历史样本 + EMA，位移按平滑速度积分。 */
+    fun trackPointer(pid: Int, x: Float, y: Float, time: Long) {
+        cursorTrackers[pid] = EmaVelocityTracker(MOUSEPAD_TAG).also { it.start(x, y, time) }
     }
 
     // 鼠标板手势只写 ViewModel 的“手势键位”，与屏幕 LMB/RMB/MMB 按钮分开保存，
@@ -1240,8 +1248,7 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                 val idx = event.actionIndex
                 val pid = event.getPointerId(idx)
                 pointerDownTimes[pid] = event.eventTime
-                prevX[pid] = event.getX(idx)
-                prevY[pid] = event.getY(idx)
+                trackPointer(pid, event.getX(idx), event.getY(idx), event.eventTime)
                 gestureMoved = false
                 gestureMaxPointers = 1
                 gestureTravel = 0f
@@ -1285,8 +1292,7 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                 val idx = event.actionIndex
                 val pid = event.getPointerId(idx)
                 pointerDownTimes[pid] = event.eventTime
-                prevX[pid] = event.getX(idx)
-                prevY[pid] = event.getY(idx)
+                trackPointer(pid, event.getX(idx), event.getY(idx), event.eventTime)
                 if (pointerCount > gestureMaxPointers) gestureMaxPointers = pointerCount
                 wheelAccumX = 0f
                 wheelAccumY = 0f
@@ -1302,8 +1308,7 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                 val idx = event.actionIndex
                 val liftedPid = event.getPointerId(idx)
                 pointerDownTimes.remove(liftedPid)
-                prevX.remove(liftedPid)
-                prevY.remove(liftedPid)
+                cursorTrackers.remove(liftedPid)
             }
             MotionEvent.ACTION_MOVE -> {
                 var totalDx = 0f
@@ -1311,14 +1316,16 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                 val count = pointerCount
                 for (i in 0 until count) {
                     val pid = event.getPointerId(i)
-                    val ex = event.getX(i)
-                    val ey = event.getY(i)
-                    val prevPx = prevX[pid] ?: ex
-                    val prevPy = prevY[pid] ?: ey
-                    totalDx += (ex - prevPx)
-                    totalDy += (ey - prevPy)
-                    prevX[pid] = ex
-                    prevY[pid] = ey
+                    val tracker = cursorTrackers[pid]
+                        ?: EmaVelocityTracker(MOUSEPAD_TAG).also {
+                            it.start(event.getX(i), event.getY(i), event.eventTime)
+                            cursorTrackers[pid] = it
+                        }
+                    // 历史样本 + EMA 速度：一个事件内的所有原始样本都参与，位移按平滑速度积分。
+                    tracker.add(event, i)
+                    tracker.consumeDelta()
+                    totalDx += tracker.deltaX
+                    totalDy += tracker.deltaY
                 }
                 if (count > 0) {
                     totalDx /= count
@@ -1340,8 +1347,7 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                 val downTime = pointerDownTimes[pid] ?: event.downTime
                 val dur = event.eventTime - downTime
                 pointerDownTimes.remove(pid)
-                prevX.remove(pid)
-                prevY.remove(pid)
+                cursorTrackers.remove(pid)
 
                 val wasTap = !gestureMoved && dur < tapThreshold
 
@@ -1385,6 +1391,7 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                 wheelAccumY = 0f
                 cursorAccumX = 0f
                 cursorAccumY = 0f
+                cursorTrackers.clear()
             }
             MotionEvent.ACTION_CANCEL -> {
                 if (doubleTapArmed) {
@@ -1400,8 +1407,7 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                 gestureMoved = false
                 gestureMaxPointers = 0
                 pointerDownTimes.clear()
-                prevX.clear()
-                prevY.clear()
+                cursorTrackers.clear()
                 wheelAccumX = 0f
                 wheelAccumY = 0f
                 cursorAccumX = 0f

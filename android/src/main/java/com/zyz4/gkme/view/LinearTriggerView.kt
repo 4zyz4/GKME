@@ -59,14 +59,8 @@ class LinearTriggerView @JvmOverloads constructor(
     // ── 自动保持：松手后锁定当前行程，下一次拖动从锁定位置继续 ──
     private var latched = false
     private var baseOffset = 0f
-    // ── 预测：上一次位移样本 ──
-    private var lastOffset = 0f
-    private var lastOffsetTime = 0L
-    private var hasOffsetSample = false
-    // 触控采样率识别：快速响应模式的外推时长与之同步。
-    private val sampleRate = TouchSampleRateTracker(TAG)
-    // 是否已获得有效移动样本（跳过 DOWN→首次 MOVE）。
-    private var hasMoveSample = false
+    // ── 预测：history + EMA 速度（与摇杆/鼠标板共用同一套估计）──
+    private val velocity = EmaVelocityTracker(TAG)
 
     fun getCellSize(): Float {
         var p = parent
@@ -130,6 +124,30 @@ class LinearTriggerView @JvmOverloads constructor(
         return false
     }
 
+    /** 手指坐标 → 夹取在行程内的滑杆偏移（负值表示向上/向左）。 */
+    private fun offsetFor(x: Float, y: Float): Float {
+        val dx = x - initialTouchX
+        val dy = y - initialTouchY
+        return when (slideDirection) {
+            SlideDirection.DOWN -> (baseOffset + dy).coerceIn(0f, travelPx)
+            SlideDirection.UP -> (baseOffset + dy).coerceIn(-travelPx, 0f)
+            SlideDirection.LEFT -> (baseOffset + dx).coerceIn(-travelPx, 0f)
+            SlideDirection.RIGHT -> (baseOffset + dx).coerceIn(0f, travelPx)
+        }
+    }
+
+    /** 把事件中的历史样本与当前样本（按夹取后的行程）送入速度估计。 */
+    private fun addPredictionSamples(event: MotionEvent) {
+        for (h in 0 until event.historySize) {
+            velocity.add(
+                offsetFor(event.getHistoricalX(0, h), event.getHistoricalY(0, h)),
+                0f,
+                event.getHistoricalEventTime(h),
+            )
+        }
+        velocity.add(offsetFor(event.x, event.y), 0f, event.eventTime)
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (isGamepadEditMode()) {
             return super.onTouchEvent(event)
@@ -151,11 +169,7 @@ class LinearTriggerView @JvmOverloads constructor(
                     SlideDirection.LEFT, SlideDirection.RIGHT -> translationX
                 }
                 wasAtMax = currentValue >= 255
-                lastOffset = abs(baseOffset)
-                lastOffsetTime = event.eventTime
-                hasOffsetSample = true
-                hasMoveSample = false
-                if (prediction) sampleRate.reset()
+                velocity.start(baseOffset, 0f, event.eventTime)
                 isPressed = true
                 invalidate()
                 onValueChange?.invoke(currentValue)
@@ -163,54 +177,23 @@ class LinearTriggerView @JvmOverloads constructor(
             }
             MotionEvent.ACTION_MOVE -> {
                 if (!isDragging) return super.onTouchEvent(event)
-                val dx = event.x - initialTouchX
-                val dy = event.y - initialTouchY
+                val offset = offsetFor(event.x, event.y)
 
                 when (slideDirection) {
-                    SlideDirection.DOWN -> {
-                        // 手指向下（dy>0）→ 按钮向下移动（translationY>0）
-                        // 不允许手指向上（dy<0）移动
-                        setTranslationY((baseOffset + dy).coerceIn(0f, travelPx))
-                    }
-                    SlideDirection.UP -> {
-                        // 手指向上（dy<0）→ 按钮向上移动（translationY<0）
-                        // 不允许手指向下（dy>0）移动
-                        setTranslationY((baseOffset + dy).coerceIn(-travelPx, 0f))
-                    }
-                    SlideDirection.LEFT -> {
-                        // 手指向左（dx<0）→ 按钮向左移动（translationX<0）
-                        // 不允许手指向右（dx>0）移动
-                        setTranslationX((baseOffset + dx).coerceIn(-travelPx, 0f))
-                    }
-                    SlideDirection.RIGHT -> {
-                        // 手指向右（dx>0）→ 按钮向右移动（translationX>0）
-                        // 不允许手指向左（dx<0）移动
-                        setTranslationX((baseOffset + dx).coerceIn(0f, travelPx))
-                    }
+                    SlideDirection.DOWN, SlideDirection.UP ->
+                        // 向下：手指向下（dy>0）→ 按钮向下（translationY>0）；
+                        // 向上方向相反，两侧都夹取在行程范围内。
+                        setTranslationY(offset)
+                    SlideDirection.LEFT, SlideDirection.RIGHT ->
+                        setTranslationX(offset)
                 }
 
-                val absOffset = when (slideDirection) {
-                    SlideDirection.DOWN, SlideDirection.UP -> translationY
-                    SlideDirection.LEFT, SlideDirection.RIGHT -> translationX
-                }
                 val effectiveOffset = if (prediction) {
-                    val dtMs = (event.eventTime - lastOffsetTime).coerceAtLeast(1L)
-                    val velocity = if (hasOffsetSample) (absOffset - lastOffset) / dtMs else 0f
-                    // 采样间隔优先取批处理中的历史样本；首个移动样本（DOWN→首次 MOVE）不可靠，跳过。
-                    val history = event.historySize
-                    if (history > 0) {
-                        sampleRate.update((event.eventTime - event.getHistoricalEventTime(history - 1)).coerceAtLeast(1L).toFloat())
-                    } else if (hasMoveSample) {
-                        sampleRate.update(dtMs.toFloat())
-                    }
-                    hasMoveSample = true
-                    lastOffset = absOffset
-                    lastOffsetTime = event.eventTime
-                    // 外推时长与识别到的触控采样间隔同步；未识别时退回固定帧长。
-                    val frame = sampleRate.intervalOr(com.zyz4.gkme.model.ButtonPosition.PREDICTION_FRAME_MS)
-                    absOffset + velocity * frame
+                    // history + EMA 速度：遍历批处理历史样本估计速度，外推下一帧行程。
+                    addPredictionSamples(event)
+                    offset + velocity.vx * velocity.frameMs()
                 } else {
-                    absOffset
+                    offset
                 }
                 val normalized = (abs(effectiveOffset) / travelPx).coerceAtMost(1f)
                 val newValue = if (normalized < 0.004f) 0 else (normalized * 255).toInt().coerceIn(0, 255)
@@ -239,9 +222,7 @@ class LinearTriggerView @JvmOverloads constructor(
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 if (isDragging) {
                     isDragging = false
-                    hasOffsetSample = false
-                    hasMoveSample = false
-                    sampleRate.reset()
+                    velocity.reset()
                     if (event.actionMasked == MotionEvent.ACTION_UP &&
                         currentValue > 0 && isAutoHoldEnabled()
                     ) {

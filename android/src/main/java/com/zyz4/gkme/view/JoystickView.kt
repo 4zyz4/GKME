@@ -94,28 +94,16 @@ class JoystickView @JvmOverloads constructor(
     private val handler = Handler(Looper.getMainLooper())
     private val doubleTapTimeout = Runnable { firstTapTime = 0 }
 
-    // ── 触摸板（速度）模式状态 ──
-    // 直接以触摸事件为时钟：每个触摸样本计算一次瞬时速度，获取频率天然等于屏幕触控采样率。
-    private var velocityX = 0f
-    private var velocityY = 0f
-    private var lastSampleX = 0f
-    private var lastSampleY = 0f
-    private var lastSampleTime = 0L
-    // 触控采样率识别：触摸板模式与「快速响应模式」共用，估计值随屏幕触控采样率自适应。
-    private val sampleRate = TouchSampleRateTracker(TAG)
+    // ── 速度估计（触摸板模式与「快速响应模式」共用）──
+    // 以触摸事件为时钟：遍历批处理中的历史样本算瞬时速度并做 EMA 平滑，
+    // 获取频率天然等于屏幕触控采样率。
+    private val velocity = EmaVelocityTracker(TAG)
     // 看门狗：手指停下（不再产生 MOVE）后，按估计的采样间隔把速度归零并回中。
     private val velocityResetRunnable = Runnable {
         if (!isTouching || !touchpadMode) return@Runnable
-        velocityX = 0f
-        velocityY = 0f
+        velocity.clearVelocity()
         applyVelocity(0f, 0f)
     }
-    // ── 绝对模式预测：记录上一次触摸样本，用速度外推下一帧位置 ──
-    private var lastTouchX = 0f
-    private var lastTouchY = 0f
-    private var lastTouchTime = 0L
-    // 预测路径是否已获得有效移动样本（跳过 DOWN→首次 MOVE）。
-    private var predictionSampled = false
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
@@ -222,14 +210,8 @@ class JoystickView @JvmOverloads constructor(
                     effectiveCenterX = event.x
                     effectiveCenterY = event.y
                 }
-                if (touchpadMode) {
-                    startVelocityTracking(event.x, event.y)
-                } else {
-                    lastTouchX = event.x
-                    lastTouchY = event.y
-                    lastTouchTime = event.eventTime
-                    predictionSampled = false
-                    if (prediction) sampleRate.reset()
+                velocity.start(event.x, event.y, event.eventTime)
+                if (!touchpadMode) {
                     moveKnob(event.x, event.y)
                 }
                 onGyroActivateDown?.invoke()
@@ -311,30 +293,15 @@ class JoystickView @JvmOverloads constructor(
         if (maxD > 0f) emitStick(dx, dy, dist, afterCurve) else onStickMoved?.invoke(0, 0)
     }
 
-    /** 绝对模式预测：用相邻样本的速度外推下一帧手指位置，再送入 [moveKnob]。 */
+    /** 绝对模式预测：用 history + EMA 速度外推下一帧手指位置，再送入 [moveKnob]。 */
     private fun moveKnobPredicted(event: MotionEvent) {
-        val tx = event.x
-        val ty = event.y
-        val dtMs = (event.eventTime - lastTouchTime).coerceAtLeast(1L)
-        val vx = (tx - lastTouchX) / dtMs
-        val vy = (ty - lastTouchY) / dtMs
-        // 采样间隔优先取批处理中的历史样本；首个样本（DOWN→首次 MOVE）不可靠，跳过。
-        val history = event.historySize
-        if (history > 0) {
-            sampleRate.update((event.eventTime - event.getHistoricalEventTime(history - 1)).coerceAtLeast(1L).toFloat())
-        } else if (predictionSampled) {
-            sampleRate.update(dtMs.toFloat())
-        }
-        predictionSampled = true
-        lastTouchX = tx
-        lastTouchY = ty
-        lastTouchTime = event.eventTime
-        // 外推时长与识别到的触控采样间隔同步；未识别时退回固定帧长。
-        val frame = sampleRate.intervalOr(com.zyz4.gkme.model.ButtonPosition.PREDICTION_FRAME_MS)
-        moveKnob(tx + vx * frame, ty + vy * frame)
+        velocity.add(event)
+        velocity.consumeDelta()
+        val frame = velocity.frameMs()
+        moveKnob(event.x + velocity.vx * frame, event.y + velocity.vy * frame)
     }
 
-    /** 触摸板模式：把手指速度矢量映射为摇杆偏移；速度归零时摇杆回到中心。 */
+    /** 触摸板模式：把手指速度矢量（px/ms）映射为摇杆偏移；速度归零时摇杆回到中心。 */
     private fun applyVelocity(vx: Float, vy: Float) {
         val maxD = baseRadius - knobRadius
         if (maxD <= 0f) return
@@ -343,7 +310,7 @@ class JoystickView @JvmOverloads constructor(
         // 与绝对模式同一条管线：先按最大行程 + 时间常数归一化，再乘灵敏度，
         // 然后依次经过死区 / 反死区 / 曲线。
         val sens = (joystickSensitivity / 100f).coerceIn(0.01f, 10f)
-        val rawNorm = speed * VELOCITY_TIME_CONSTANT / maxD * sens
+        val rawNorm = speed * VELOCITY_TIME_CONSTANT_MS / maxD * sens
         val normalized = rawNorm.coerceAtMost(1f)
         val afterCurve = shapeNormalized(normalized)
         val finalDist = afterCurve * maxD
@@ -389,67 +356,23 @@ class JoystickView @JvmOverloads constructor(
         onStickMoved?.invoke(sx, sy)
     }
 
-    private fun startVelocityTracking(x: Float, y: Float) {
-        lastSampleX = x
-        lastSampleY = y
-        // 0 表示尚无有效触摸样本：下一个 MOVE 只做种子，不据此计算速度/采样间隔，
-        // 避免把 DOWN→首次 MOVE 的间隔误当成触控采样间隔。
-        lastSampleTime = 0L
-        sampleRate.reset()
-        velocityX = 0f
-        velocityY = 0f
-        handler.removeCallbacks(velocityResetRunnable)
-    }
-
     private fun stopVelocityTracking() {
         handler.removeCallbacks(velocityResetRunnable)
-        velocityX = 0f
-        velocityY = 0f
-        sampleRate.reset()
+        velocity.reset()
     }
 
-    /**
-     * 按触摸事件计算瞬时速度。触摸事件（含批处理中的历史样本）即触控采样率的时钟，
-     * 因此速度获取频率随屏幕触控采样率自适应，不再依赖固定定时器。
-     */
+    /** 按触摸事件（含批处理中的历史样本）更新 EMA 速度，并映射为摇杆偏移。 */
     private fun sampleTouchVelocity(event: MotionEvent) {
-        val history = event.historySize
-        val prevX: Float
-        val prevY: Float
-        val prevTime: Long
-        if (history > 0) {
-            // 批处理事件内优先取最近两个原始样本，得到真实采样间隔下的速度。
-            val idx = history - 1
-            prevX = event.getHistoricalX(idx)
-            prevY = event.getHistoricalY(idx)
-            prevTime = event.getHistoricalEventTime(idx)
-        } else if (lastSampleTime > 0L) {
-            prevX = lastSampleX
-            prevY = lastSampleY
-            prevTime = lastSampleTime
-        } else {
-            lastSampleX = event.x
-            lastSampleY = event.y
-            lastSampleTime = event.eventTime
-            return
-        }
-
-        val dtMs = (event.eventTime - prevTime).coerceAtLeast(1L)
-        sampleRate.update(dtMs.toFloat())
-        lastSampleX = event.x
-        lastSampleY = event.y
-        lastSampleTime = event.eventTime
-
-        velocityX = (event.x - prevX) / dtMs * 1000f
-        velocityY = (event.y - prevY) / dtMs * 1000f
-        applyVelocity(velocityX, velocityY)
+        velocity.add(event)
+        velocity.consumeDelta()
+        applyVelocity(velocity.vx, velocity.vy)
         scheduleVelocityReset()
     }
 
     /** 手指停下后不再有 MOVE，按估计的采样间隔触发一次归零，让摇杆回中。 */
     private fun scheduleVelocityReset() {
         handler.removeCallbacks(velocityResetRunnable)
-        val interval = sampleRate.intervalOr(MIN_SAMPLE_INTERVAL_MS)
+        val interval = velocity.sampleRate.intervalOr(FALLBACK_SAMPLE_INTERVAL_MS)
         val delay = (interval * VELOCITY_RESET_INTERVALS).toLong().coerceAtLeast(1L)
         handler.postDelayed(velocityResetRunnable, delay)
     }
@@ -473,9 +396,9 @@ class JoystickView @JvmOverloads constructor(
     companion object {
         // 触摸板模式增益：摇杆偏移 = 手指速度 × 该时间常数（再按最大行程归一化、乘灵敏度）。
         // 100% 灵敏度下，手指以当前速度再移动 0.1s 的距离恰好对应满量程。
-        private const val VELOCITY_TIME_CONSTANT = 0.1f
-        // 尚未识别到采样率时，归零看门狗使用的兜底采样间隔（ms）。
-        private const val MIN_SAMPLE_INTERVAL_MS = 2f
+        private const val VELOCITY_TIME_CONSTANT_MS = 100f
+        // 尚未识别到采样率时，归零看门狗使用的兜底采样间隔（ms，约一帧）。
+        private const val FALLBACK_SAMPLE_INTERVAL_MS = 16f
         // 手指停下后等待多少个采样间隔归零回中（至少 1 个间隔）。
         private const val VELOCITY_RESET_INTERVALS = 2f
         private const val TAG = "JoystickView"

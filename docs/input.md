@@ -123,16 +123,20 @@ protobuf `GamepadInput`。要点：
 - 屏幕摇杆的**触摸板模式**（`JoystickView.touchpadMode`）：不以手指绝对位置映射，而是把手指
   速度矢量映射为摇杆偏移（`归一化 = 速度 × 0.1s ÷ 最大行程 × 灵敏度`），手指停下即回中。
   仍复用同一条死区/反死区/曲线管线，只是输入量由位移模长换成速度模长；手指停下速度立即归零，摇杆瞬间回中。
-  速度按触摸事件逐样本计算（优先取批处理中的历史样本），获取频率随屏幕触控采样率自适应，
-  不再使用固定定时器（原为 16ms）；手指停下后按估计的采样间隔触发一次归零回中。
-  识别到的触控采样率会以 `JoystickView` 标签输出日志（变化时输出，1s 节流）。
+  速度由 `view/EmaVelocityTracker` 估计：遍历 `MotionEvent` 批处理中的全部历史样本，逐样本算瞬时速度
+  并做 EMA 平滑，获取频率随屏幕触控采样率自适应，不使用固定定时器；
+  手指停下后按估计的采样间隔触发一次归零回中。识别到的采样率会以控件标签输出日志（变化时输出，1s 节流）。
 - **预测**（`ButtonPosition.prediction` = “快速响应模式”，默认关）：摇杆（绝对模式）与模拟线性扳机在输入移动时，
-  用相邻样本的速度外推下一帧位置（`预测位置 = 当前位置 + 速度 × 外推时长`），以更快响应；手指/滑杆停下后速度归零、不再外推。
-  外推时长不再固定为 16ms，而是与识别到的触控采样间隔同步（未识别时退回 `ButtonPosition.PREDICTION_FRAME_MS`）。
-  摇杆的触摸板模式本就以速度驱动，不再叠加预测；手柄触摸板与鼠标板不适用。
-- **触控采样率识别**：`view/TouchSampleRateTracker`（`JoystickView` 的触摸板模式、`JoystickView`/`LinearTriggerView` 的快速响应模式共用）。
-  从相邻触摸样本间隔做 EMA 估计并夹取（2–50ms），识别值变化时以控件标签（`JoystickView`/`LinearTriggerView`）输出日志，1s 节流；
-  跳过 `DOWN→首次 MOVE` 的不可靠间隔。
+  用 history + EMA 速度外推下一帧位置（`预测位置 = 当前位置 + 平滑速度 × 外推时长`），以更快响应；
+  手指/滑杆停下后速度归零、不再外推。外推时长与识别到的触控采样间隔同步
+  （未识别时退回 `ButtonPosition.PREDICTION_FRAME_MS`），首个 `DOWN→首次 MOVE` 间隔只用于速度播种。
+  摇杆的触摸板模式本就以速度驱动，不再叠加预测。
+- **鼠标板光标位移**：同样使用 `EmaVelocityTracker`（批处理历史样本 + EMA 速度），
+  位移按平滑速度积分，不再取逐事件的原始坐标差；滚动与拖拽复用同一位移量。手柄触摸板不适用。
+- **触控采样率识别**：`view/TouchSampleRateTracker`（由 `EmaVelocityTracker` 统一驱动，
+  `JoystickView` 的触摸板/快速响应模式、`LinearTriggerView` 的快速响应模式、鼠标板共用）。
+  从相邻触摸样本间隔做 EMA 估计并夹取（2–50ms），识别值变化时以控件标签（`JoystickView`/`LinearTriggerView`/`Mousepad`）输出日志，1s 节流；
+  `DOWN→首次 MOVE` 的间隔只用于速度播种，过长的停顿间隔不计入采样率。
 
 ### 3.3 AccelSteeringMapper
 
