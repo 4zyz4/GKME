@@ -44,6 +44,7 @@ import com.zyz4.gkme.model.AudioDevice
 import com.zyz4.gkme.model.AdaptiveTriggerDevice
 import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.model.AppSettings
+import com.zyz4.gkme.model.ComboTiming
 import com.zyz4.gkme.model.ConnectionMode
 import com.zyz4.gkme.model.HapticEffect
 import com.zyz4.gkme.model.VibrationType
@@ -52,6 +53,7 @@ import com.zyz4.gkme.service.FloatingOverlayService
 import com.zyz4.gkme.view.FloatingEditorPanel
 import com.zyz4.gkme.view.GamepadLayout
 import com.zyz4.gkme.view.LayoutGlobalSettingsPanel
+import com.zyz4.gkme.view.addComboTimingControls
 import com.zyz4.gkme.input.AdaptiveTriggerHandler
 import com.zyz4.gkme.input.PhysicalControllerHandler
 import com.zyz4.gkme.input.SdlAudio
@@ -586,13 +588,23 @@ class MainActivity : ComponentActivity() {
         when (keyCode) {
             KeyEvent.KEYCODE_VOLUME_UP -> {
                 if (preset.volumeUpBits.isNotEmpty()) {
-                    viewModel.onVolumeKeyDown(preset.volumeUpBits)
+                    viewModel.onVolumeKeyDown(
+                        "volume_up",
+                        preset.volumeUpBits,
+                        preset.volumeUpComboTiming,
+                        preset.volumeUpComboIntervalMs,
+                    )
                     return true
                 }
             }
             KeyEvent.KEYCODE_VOLUME_DOWN -> {
                 if (preset.volumeDownBits.isNotEmpty()) {
-                    viewModel.onVolumeKeyDown(preset.volumeDownBits)
+                    viewModel.onVolumeKeyDown(
+                        "volume_down",
+                        preset.volumeDownBits,
+                        preset.volumeDownComboTiming,
+                        preset.volumeDownComboIntervalMs,
+                    )
                     return true
                 }
             }
@@ -609,13 +621,23 @@ class MainActivity : ComponentActivity() {
         when (keyCode) {
             KeyEvent.KEYCODE_VOLUME_UP -> {
                 if (preset.volumeUpBits.isNotEmpty()) {
-                    viewModel.onVolumeKeyUp(preset.volumeUpBits)
+                    viewModel.onVolumeKeyUp(
+                        "volume_up",
+                        preset.volumeUpBits,
+                        preset.volumeUpComboTiming,
+                        preset.volumeUpComboIntervalMs,
+                    )
                     return true
                 }
             }
             KeyEvent.KEYCODE_VOLUME_DOWN -> {
                 if (preset.volumeDownBits.isNotEmpty()) {
-                    viewModel.onVolumeKeyUp(preset.volumeDownBits)
+                    viewModel.onVolumeKeyUp(
+                        "volume_down",
+                        preset.volumeDownBits,
+                        preset.volumeDownComboTiming,
+                        preset.volumeDownComboIntervalMs,
+                    )
                     return true
                 }
             }
@@ -871,6 +893,17 @@ internal fun performHaptic(isPress: Boolean) {
         viewModel.updatePresetButtons(gamepadLayout.getPreset())
     }
 
+    /** Persists the volume-key chord timing into the layout being edited. */
+    internal fun updateVolumeComboTiming(
+        upTiming: ComboTiming,
+        upIntervalMs: Int,
+        downTiming: ComboTiming,
+        downIntervalMs: Int,
+    ) {
+        gamepadLayout.setVolumeComboTiming(upTiming, upIntervalMs, downTiming, downIntervalMs)
+        viewModel.updatePresetButtons(gamepadLayout.getPreset())
+    }
+
     internal fun populateVolumeMapping(container: LinearLayout) {
         val density = resources.displayMetrics.density
         fun dp(v: Int) = (v * density).toInt()
@@ -887,12 +920,40 @@ internal fun performHaptic(isPress: Boolean) {
 
         fun currentUp() = gamepadLayout.currentVolumeUpBits
         fun currentDown() = gamepadLayout.currentVolumeDownBits
+        fun buildCard(
+            label: String,
+            bits: List<Int>,
+            timing: ComboTiming,
+            intervalMs: Int,
+            onAdd: () -> Unit,
+            onClear: () -> Unit,
+            onRemove: (Int) -> Unit,
+            onTimingChanged: (ComboTiming, Int) -> Unit,
+        ): View {
+            val card = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            card.addView(
+                buildVolumeMappingRow(
+                    label = label,
+                    bits = bits,
+                    density = density,
+                    onAdd = onAdd,
+                    onClear = onClear,
+                    onRemove = onRemove,
+                ),
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                ),
+            )
+            card.addComboTimingControls(timing, intervalMs, onTimingChanged)
+            return card
+        }
 
         container.addView(
-            buildVolumeMappingRow(
+            buildCard(
                 label = getString(R.string.i18n_volume),
                 bits = currentUp(),
-                density = density,
+                timing = gamepadLayout.currentVolumeUpComboTiming,
+                intervalMs = gamepadLayout.currentVolumeUpComboIntervalMs,
                 onAdd = {
                     showOutputValuePicker(currentUp()) { newBits ->
                         updateVolumeBits(newBits, currentDown())
@@ -907,6 +968,14 @@ internal fun performHaptic(isPress: Boolean) {
                     updateVolumeBits(currentUp() - bit, currentDown())
                     populateVolumeMapping(container)
                 },
+                onTimingChanged = { newTiming, newInterval ->
+                    updateVolumeComboTiming(
+                        newTiming,
+                        newInterval,
+                        gamepadLayout.currentVolumeDownComboTiming,
+                        gamepadLayout.currentVolumeDownComboIntervalMs,
+                    )
+                },
             ),
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 bottomMargin = dp(12)
@@ -914,10 +983,11 @@ internal fun performHaptic(isPress: Boolean) {
         )
 
         container.addView(
-            buildVolumeMappingRow(
+            buildCard(
                 label = getString(R.string.i18n_volume_80d5c3),
                 bits = currentDown(),
-                density = density,
+                timing = gamepadLayout.currentVolumeDownComboTiming,
+                intervalMs = gamepadLayout.currentVolumeDownComboIntervalMs,
                 onAdd = {
                     showOutputValuePicker(currentDown()) { newBits ->
                         updateVolumeBits(currentUp(), newBits)
@@ -931,6 +1001,14 @@ internal fun performHaptic(isPress: Boolean) {
                 onRemove = { bit ->
                     updateVolumeBits(currentUp(), currentDown() - bit)
                     populateVolumeMapping(container)
+                },
+                onTimingChanged = { newTiming, newInterval ->
+                    updateVolumeComboTiming(
+                        gamepadLayout.currentVolumeUpComboTiming,
+                        gamepadLayout.currentVolumeUpComboIntervalMs,
+                        newTiming,
+                        newInterval,
+                    )
                 },
             ),
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),

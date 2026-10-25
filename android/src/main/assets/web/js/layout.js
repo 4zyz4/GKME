@@ -27,6 +27,8 @@ const DEFAULTS = {
   isCustom: false,
   customText: null,
   customBits: null,
+  comboTiming: "SIMULTANEOUS",
+  comboIntervalMs: 16,
   roundShape: false,
   doubleClickEnable: true,
   isKeypad: false,
@@ -56,6 +58,8 @@ const DEFAULTS = {
   sensitivityCurve: null,
   keypadTexts: null,
   keypadBits: null,
+  keypadComboTimings: null,
+  keypadComboIntervals: null,
 };
 
 export function normalizeButton(raw) {
@@ -358,6 +362,8 @@ export class GamepadLayout {
           o.customText = b.customText || t("common.custom");
           o.customBits = b.customBits || [];
         }
+        if (b.comboTiming && b.comboTiming !== "SIMULTANEOUS") o.comboTiming = b.comboTiming;
+        if (b.comboIntervalMs !== 16) o.comboIntervalMs = b.comboIntervalMs;
         if (b.roundShape) o.roundShape = true;
         if (b.idleOpacity !== 100) o.idleOpacity = b.idleOpacity;
         if (b.activeOpacity !== 100) o.activeOpacity = b.activeOpacity;
@@ -388,6 +394,14 @@ export class GamepadLayout {
         if (b.isKeypad) {
           o.keypadTexts = b.keypadTexts;
           o.keypadBits = b.keypadBits;
+          const timings = b.keypadComboTimings || [];
+          if (timings.some((v) => v && v !== "SIMULTANEOUS")) {
+            o.keypadComboTimings = timings;
+          }
+          const intervals = b.keypadComboIntervals || [];
+          if (intervals.some((v) => v != null && v !== 16)) {
+            o.keypadComboIntervals = intervals;
+          }
           if (b.keypadEightWay) o.keypadEightWay = true;
         }
         if (b.centerShape && b.centerShape !== "SQUARE") o.centerShape = b.centerShape;
@@ -1628,7 +1642,11 @@ export class GamepadLayout {
       this.cb.onButtonDown && this.cb.onButtonDown(b.id, c.bit);
     } else if (b.isCustom) {
       this.controlActive.set(b.id, true);
-      this.cb.onCustomBits && this.cb.onCustomBits(b.customBits || [], true);
+      this.cb.onCustomBits && this.cb.onCustomBits(b.customBits || [], true, {
+        source: "custom:" + b.id,
+        timing: b.comboTiming,
+        intervalMs: b.comboIntervalMs,
+      });
     }
     this.render();
   }
@@ -1643,7 +1661,11 @@ export class GamepadLayout {
       this.cb.onButtonUp && this.cb.onButtonUp(b.id, c.bit);
     } else if (b.isCustom) {
       this.controlActive.set(b.id, false);
-      this.cb.onCustomBits && this.cb.onCustomBits(b.customBits || [], false);
+      this.cb.onCustomBits && this.cb.onCustomBits(b.customBits || [], false, {
+        source: "custom:" + b.id,
+        timing: b.comboTiming,
+        intervalMs: b.comboIntervalMs,
+      });
     }
     this.render();
   }
@@ -1950,7 +1972,11 @@ export class GamepadLayout {
   // Emit the bits bound to a keypad region (region 4 = the double-tap centre).
   _emitKeypadRegion(b, region, down) {
     const bits = (b.keypadBits && b.keypadBits[region]) || [];
-    this.cb.onCustomBits && this.cb.onCustomBits(bits, down);
+    this.cb.onCustomBits && this.cb.onCustomBits(bits, down, {
+      source: "keypad:" + b.id + "#" + region,
+      timing: (b.keypadComboTimings && b.keypadComboTimings[region]) || "SIMULTANEOUS",
+      intervalMs: (b.keypadComboIntervals && b.keypadComboIntervals[region]) || 16,
+    });
   }
 
   // CustomKeypadView.handleDown — the centre fires only on a double-tap; a

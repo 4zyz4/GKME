@@ -13,11 +13,17 @@ data class ButtonPosition(
     val isCustom: Boolean = false,
     val customText: String? = null,
     val customBits: List<Int>? = null,
+    // 组合键时序：同时按下 / 分帧按下 / 自定义间隔（customBits 使用）
+    val comboTiming: ComboTiming = ComboTiming.SIMULTANEOUS,
+    val comboIntervalMs: Int = ComboTiming.DEFAULT_INTERVAL_MS,
     val roundShape: Boolean = true,
     val doubleClickEnable: Boolean = true,
     val isKeypad: Boolean = false,
     val keypadTexts: List<String>? = null,
     val keypadBits: List<List<Int>>? = null,
+    // 每个方向区域的组合键时序（按 KEYPAD_EIGHT_WAY_COUNT 个区域索引存放）
+    val keypadComboTimings: List<ComboTiming>? = null,
+    val keypadComboIntervals: List<Int>? = null,
     // true = 8 方向模式（含 4 个斜向），false = 4 方向模式
     val keypadEightWay: Boolean = false,
     // 中心形状：SQUARE = 方形中心，CIRCLE = 圆形中心（周围区域变径向扇环）
@@ -80,6 +86,10 @@ data class ButtonPosition(
         val KEYPAD_DEFAULT_TEXTS: List<String> =
             listOf("上", "下", "左", "右", "中", "左上", "右上", "左下", "右下")
         val KEYPAD_DEFAULT_BITS: List<List<Int>> = List(KEYPAD_EIGHT_WAY_COUNT) { emptyList() }
+        val KEYPAD_DEFAULT_COMBO_TIMINGS: List<ComboTiming> =
+            List(KEYPAD_EIGHT_WAY_COUNT) { ComboTiming.SIMULTANEOUS }
+        val KEYPAD_DEFAULT_COMBO_INTERVALS: List<Int> =
+            List(KEYPAD_EIGHT_WAY_COUNT) { ComboTiming.DEFAULT_INTERVAL_MS }
 
         fun isKeypad(id: String): Boolean =
             id.substringBefore("_") == KEYPAD_BASE_ID
@@ -102,6 +112,26 @@ data class ButtonPosition(
             if (b.size >= KEYPAD_EIGHT_WAY_COUNT) return b
             return b + KEYPAD_DEFAULT_BITS.subList(b.size, KEYPAD_EIGHT_WAY_COUNT)
         }
+
+        fun keypadComboTimingsOf(p: ButtonPosition): List<ComboTiming> {
+            val t = p.keypadComboTimings ?: return KEYPAD_DEFAULT_COMBO_TIMINGS
+            if (t.size < KEYPAD_COUNT) return KEYPAD_DEFAULT_COMBO_TIMINGS
+            if (t.size >= KEYPAD_EIGHT_WAY_COUNT) return t
+            return t + KEYPAD_DEFAULT_COMBO_TIMINGS.subList(t.size, KEYPAD_EIGHT_WAY_COUNT)
+        }
+
+        fun keypadComboIntervalsOf(p: ButtonPosition): List<Int> {
+            val v = p.keypadComboIntervals ?: return KEYPAD_DEFAULT_COMBO_INTERVALS
+            if (v.size < KEYPAD_COUNT) return KEYPAD_DEFAULT_COMBO_INTERVALS
+            if (v.size >= KEYPAD_EIGHT_WAY_COUNT) return v
+            return v + KEYPAD_DEFAULT_COMBO_INTERVALS.subList(v.size, KEYPAD_EIGHT_WAY_COUNT)
+        }
+
+        fun keypadComboTimingOf(p: ButtonPosition, region: Int): ComboTiming =
+            keypadComboTimingsOf(p).getOrElse(region) { ComboTiming.SIMULTANEOUS }
+
+        fun keypadComboIntervalOf(p: ButtonPosition, region: Int): Int =
+            keypadComboIntervalsOf(p).getOrElse(region) { ComboTiming.DEFAULT_INTERVAL_MS }
     }
 
 }

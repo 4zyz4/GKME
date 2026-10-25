@@ -31,6 +31,7 @@ import com.zyz4.gkme.easeOutQuint
 import com.zyz4.gkme.input.SensitivityCurve
 import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.model.CenterShape
+import com.zyz4.gkme.model.ComboTiming
 import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.model.MouseGestureAction
 import com.zyz4.gkme.model.SlideDirection
@@ -1528,6 +1529,14 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             btnOutputRow.addView(btnAddOutput, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = (4f * density).toInt() })
             btnOutputRow.addView(btnClearOutput, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             buttonParamsInner.addView(btnOutputRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12f * density).toInt() })
+
+            buttonParamsInner.addComboTimingControls(button.comboTiming, button.comboIntervalMs) { newTiming, newInterval ->
+                currentButton = currentButton?.copy(
+                    comboTiming = newTiming,
+                    comboIntervalMs = newInterval,
+                )
+                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+            }
         }
 
         if (!isSettingsButton(buttonId)) {
@@ -1623,13 +1632,41 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         }
 
         // Center region output editor (center double-click is always enabled)
-        buildKeypadBitsEditor(density, bits[4]) { newBits ->
-            val cb2 = currentButton ?: return@buildKeypadBitsEditor
-            val b = ButtonPosition.keypadBitsOf(cb2).toMutableList()
-            b[4] = newBits
-            currentButton = cb2.copy(keypadBits = b)
-            currentButton?.let { editorListener?.onButtonUpdated(id, it) }
-        }
+        buildKeypadBitsEditor(
+            density,
+            bits[4],
+            ButtonPosition.keypadComboTimingOf(cb, 4),
+            ButtonPosition.keypadComboIntervalOf(cb, 4),
+            onBitsChanged = { newBits ->
+                val cb2 = currentButton ?: return@buildKeypadBitsEditor
+                val b = ButtonPosition.keypadBitsOf(cb2).toMutableList()
+                b[4] = newBits
+                currentButton = cb2.copy(keypadBits = b)
+                currentButton?.let { editorListener?.onButtonUpdated(id, it) }
+            },
+            onTimingChanged = { newTiming, newInterval ->
+                updateKeypadComboTiming(id, 4, newTiming, newInterval)
+            },
+        )
+    }
+
+    /** Stores the combo timing of one keypad region in the current button. */
+    private fun updateKeypadComboTiming(
+        buttonId: String,
+        region: Int,
+        timing: ComboTiming,
+        intervalMs: Int,
+    ) {
+        val cb = currentButton ?: return
+        val timings = ButtonPosition.keypadComboTimingsOf(cb).toMutableList()
+        timings[region] = timing
+        val intervals = ButtonPosition.keypadComboIntervalsOf(cb).toMutableList()
+        intervals[region] = intervalMs
+        currentButton = cb.copy(
+            keypadComboTimings = timings,
+            keypadComboIntervals = intervals,
+        )
+        currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
     }
 
     @Suppress("SameParameterValue")
@@ -1677,17 +1714,33 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         buttonParamsInner.addView(et, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (2f * density).toInt() })
 
         if (regionIdx != 4) {
-            buildKeypadBitsEditor(density, currentBits) { newBits ->
-                val cb2 = currentButton ?: return@buildKeypadBitsEditor
-                val b = ButtonPosition.keypadBitsOf(cb2).toMutableList()
-                b[regionIdx] = newBits
-                currentButton = cb2.copy(keypadBits = b)
-                currentButton?.let { editorListener?.onButtonUpdated(id, it) }
-            }
+            buildKeypadBitsEditor(
+                density,
+                currentBits,
+                ButtonPosition.keypadComboTimingOf(cb, regionIdx),
+                ButtonPosition.keypadComboIntervalOf(cb, regionIdx),
+                onBitsChanged = { newBits ->
+                    val cb2 = currentButton ?: return@buildKeypadBitsEditor
+                    val b = ButtonPosition.keypadBitsOf(cb2).toMutableList()
+                    b[regionIdx] = newBits
+                    currentButton = cb2.copy(keypadBits = b)
+                    currentButton?.let { editorListener?.onButtonUpdated(id, it) }
+                },
+                onTimingChanged = { newTiming, newInterval ->
+                    updateKeypadComboTiming(id, regionIdx, newTiming, newInterval)
+                },
+            )
         }
     }
 
-    private fun buildKeypadBitsEditor(density: Float, initialBits: List<Int>, onBitsChanged: (List<Int>) -> Unit) {
+    private fun buildKeypadBitsEditor(
+        density: Float,
+        initialBits: List<Int>,
+        initialTiming: ComboTiming,
+        initialIntervalMs: Int,
+        onBitsChanged: (List<Int>) -> Unit,
+        onTimingChanged: (ComboTiming, Int) -> Unit,
+    ) {
         val bitsContainer = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
         val currentBitsRef = object { var bits: List<Int> = initialBits.toList() }
 
@@ -1752,6 +1805,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         row2.addView(btnAdd, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = (4f * density).toInt() })
         row2.addView(btnClear, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         buttonParamsInner.addView(row2, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
+
+        buttonParamsInner.addComboTimingControls(initialTiming, initialIntervalMs, onTimingChanged)
     }
 
     private fun addRotationButtons(container: LinearLayout, buttonId: String, density: Float, hide: Boolean = false) {

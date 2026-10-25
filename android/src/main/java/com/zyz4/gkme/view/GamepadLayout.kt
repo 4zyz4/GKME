@@ -15,6 +15,7 @@ import android.widget.ImageButton
 import androidx.annotation.RequiresApi
 import com.zyz4.gkme.model.AppSettings
 import com.zyz4.gkme.model.ButtonPosition
+import com.zyz4.gkme.model.ComboTiming
 import com.zyz4.gkme.model.GyroOrientation
 import com.zyz4.gkme.model.LayoutPreset
 import com.zyz4.gkme.model.PhysicalInputMapping
@@ -136,8 +137,16 @@ class GamepadLayout @JvmOverloads constructor(
         private set
     var currentVolumeDownBits: List<Int> = emptyList()
         private set
+    var currentVolumeUpComboTiming: ComboTiming = ComboTiming.SIMULTANEOUS
+        private set
+    var currentVolumeUpComboIntervalMs: Int = ComboTiming.DEFAULT_INTERVAL_MS
+        private set
+    var currentVolumeDownComboTiming: ComboTiming = ComboTiming.SIMULTANEOUS
+        private set
+    var currentVolumeDownComboIntervalMs: Int = ComboTiming.DEFAULT_INTERVAL_MS
+        private set
     val currentGyroPreset: com.zyz4.gkme.model.LayoutPreset
-        get() = LayoutPreset(version = 1, buttons = currentButtons, gyroOrientation = currentGyroOrientation, gyroActivateMode = currentGyroActivateMode, gyroMode = currentGyroMode, gyroModeSensitivity = currentGyroModeSensitivity, gyroDeadZone = currentGyroDeadZone, gyroReverseDeadZone = currentGyroReverseDeadZone, gyroStickCurve = currentGyroStickCurve, physicalInputMappings = currentPhysicalInputMappings, leftStickSettings = currentLeftStickSettings, rightStickSettings = currentRightStickSettings, volumeUpBits = currentVolumeUpBits, volumeDownBits = currentVolumeDownBits)
+        get() = LayoutPreset(version = 1, buttons = currentButtons, gyroOrientation = currentGyroOrientation, gyroActivateMode = currentGyroActivateMode, gyroMode = currentGyroMode, gyroModeSensitivity = currentGyroModeSensitivity, gyroDeadZone = currentGyroDeadZone, gyroReverseDeadZone = currentGyroReverseDeadZone, gyroStickCurve = currentGyroStickCurve, physicalInputMappings = currentPhysicalInputMappings, leftStickSettings = currentLeftStickSettings, rightStickSettings = currentRightStickSettings, volumeUpBits = currentVolumeUpBits, volumeDownBits = currentVolumeDownBits, volumeUpComboTiming = currentVolumeUpComboTiming, volumeUpComboIntervalMs = currentVolumeUpComboIntervalMs, volumeDownComboTiming = currentVolumeDownComboTiming, volumeDownComboIntervalMs = currentVolumeDownComboIntervalMs)
     private var isEditMode = false
     var selectedButtonId: String? = null
         private set
@@ -847,6 +856,10 @@ class GamepadLayout @JvmOverloads constructor(
         currentRightStickSettings = preset.rightStickSettings
         currentVolumeUpBits = preset.volumeUpBits
         currentVolumeDownBits = preset.volumeDownBits
+        currentVolumeUpComboTiming = preset.volumeUpComboTiming
+        currentVolumeUpComboIntervalMs = preset.volumeUpComboIntervalMs
+        currentVolumeDownComboTiming = preset.volumeDownComboTiming
+        currentVolumeDownComboIntervalMs = preset.volumeDownComboIntervalMs
         hasChanges = false
         refreshSwipeTriggers()
         bringSettingsToFront()
@@ -929,7 +942,7 @@ class GamepadLayout @JvmOverloads constructor(
     }
 
     fun getPreset(): LayoutPreset {
-        return LayoutPreset(version = 1, buttons = currentButtons.toList(), gyroOrientation = currentGyroOrientation, gyroActivateMode = currentGyroActivateMode, gyroMode = currentGyroMode, gyroModeSensitivity = currentGyroModeSensitivity, gyroDeadZone = currentGyroDeadZone, gyroReverseDeadZone = currentGyroReverseDeadZone, gyroStickCurve = currentGyroStickCurve, physicalInputMappings = currentPhysicalInputMappings, leftStickSettings = currentLeftStickSettings, rightStickSettings = currentRightStickSettings, volumeUpBits = currentVolumeUpBits, volumeDownBits = currentVolumeDownBits)
+        return LayoutPreset(version = 1, buttons = currentButtons.toList(), gyroOrientation = currentGyroOrientation, gyroActivateMode = currentGyroActivateMode, gyroMode = currentGyroMode, gyroModeSensitivity = currentGyroModeSensitivity, gyroDeadZone = currentGyroDeadZone, gyroReverseDeadZone = currentGyroReverseDeadZone, gyroStickCurve = currentGyroStickCurve, physicalInputMappings = currentPhysicalInputMappings, leftStickSettings = currentLeftStickSettings, rightStickSettings = currentRightStickSettings, volumeUpBits = currentVolumeUpBits, volumeDownBits = currentVolumeDownBits, volumeUpComboTiming = currentVolumeUpComboTiming, volumeUpComboIntervalMs = currentVolumeUpComboIntervalMs, volumeDownComboTiming = currentVolumeDownComboTiming, volumeDownComboIntervalMs = currentVolumeDownComboIntervalMs)
     }
 
     /** Replaces the physical-controller remapping of the layout being edited. */
@@ -949,6 +962,24 @@ class GamepadLayout @JvmOverloads constructor(
     fun setVolumeBits(volumeUp: List<Int>, volumeDown: List<Int>) {
         currentVolumeUpBits = volumeUp
         currentVolumeDownBits = volumeDown
+        hasChanges = true
+    }
+
+    /** Replaces the volume-key chord timing of the layout being edited. */
+    fun setVolumeComboTiming(
+        upTiming: ComboTiming,
+        upIntervalMs: Int,
+        downTiming: ComboTiming,
+        downIntervalMs: Int,
+    ) {
+        currentVolumeUpComboTiming = upTiming
+        currentVolumeUpComboIntervalMs = upIntervalMs.coerceIn(
+            ComboTiming.MIN_INTERVAL_MS, ComboTiming.MAX_INTERVAL_MS
+        )
+        currentVolumeDownComboTiming = downTiming
+        currentVolumeDownComboIntervalMs = downIntervalMs.coerceIn(
+            ComboTiming.MIN_INTERVAL_MS, ComboTiming.MAX_INTERVAL_MS
+        )
         hasChanges = true
     }
 

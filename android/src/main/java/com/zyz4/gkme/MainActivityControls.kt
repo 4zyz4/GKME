@@ -16,6 +16,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.model.CenterShape
+import com.zyz4.gkme.model.ComboTiming
 import com.zyz4.gkme.model.ConnectionMode
 import com.zyz4.gkme.model.DisplayMode
 import com.zyz4.gkme.model.GamepadState
@@ -727,14 +728,24 @@ internal fun MainActivity.setupCustomKeypadTouch(view: CustomKeypadView, initial
         val pos = findKeypadPos()
         if (pos != null) {
             val bits = ButtonPosition.keypadBitsOf(pos).getOrNull(region).orEmpty()
-            a.viewModel.onCustomButtonDown(bits)
+            a.viewModel.onCustomButtonDown(
+                "keypad:${pos.id}#$region",
+                bits,
+                ButtonPosition.keypadComboTimingOf(pos, region),
+                ButtonPosition.keypadComboIntervalOf(pos, region),
+            )
         }
     }
     view.onRegionRelease = { region ->
         val pos = findKeypadPos()
         if (pos != null) {
             val bits = ButtonPosition.keypadBitsOf(pos).getOrNull(region).orEmpty()
-            a.viewModel.onCustomButtonUp(bits)
+            a.viewModel.onCustomButtonUp(
+                "keypad:${pos.id}#$region",
+                bits,
+                ButtonPosition.keypadComboTimingOf(pos, region),
+                ButtonPosition.keypadComboIntervalOf(pos, region),
+            )
         }
     }
     view.eightWay = findKeypadPos()?.keypadEightWay == true
@@ -1434,12 +1445,22 @@ internal fun MainActivity.setupCustomTouchHandler(view: View) {
     val customBits = curPos?.customBits.orEmpty()
     val handler = object : ButtonEventHandler {
         override fun onPress(viewId: String, bit: Int) {
-            val bits = a.gamepadLayout.currentButtons.find { it.id == viewId }?.customBits.orEmpty()
-            a.viewModel.onCustomButtonDown(bits)
+            val pos = a.gamepadLayout.currentButtons.find { it.id == viewId }
+            a.viewModel.onCustomButtonDown(
+                "custom:$viewId",
+                pos?.customBits.orEmpty(),
+                pos?.comboTiming ?: ComboTiming.SIMULTANEOUS,
+                pos?.comboIntervalMs ?: ComboTiming.DEFAULT_INTERVAL_MS,
+            )
         }
         override fun onRelease(viewId: String, bit: Int) {
-            val bits = a.gamepadLayout.currentButtons.find { it.id == viewId }?.customBits.orEmpty()
-            a.viewModel.onCustomButtonUp(bits)
+            val pos = a.gamepadLayout.currentButtons.find { it.id == viewId }
+            a.viewModel.onCustomButtonUp(
+                "custom:$viewId",
+                pos?.customBits.orEmpty(),
+                pos?.comboTiming ?: ComboTiming.SIMULTANEOUS,
+                pos?.comboIntervalMs ?: ComboTiming.DEFAULT_INTERVAL_MS,
+            )
         }
         override fun onGyroActivateDown(viewId: String) {
             if (gyroActivate) a.viewModel.onGyroActivateButtonDown()

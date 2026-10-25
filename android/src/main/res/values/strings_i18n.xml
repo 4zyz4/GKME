@@ -75,6 +75,11 @@
     <string name="i18n_close" formatted="false">"关闭"</string>
     <string name="i18n_codeword_count_does_not_match_the_versio" formatted="false">"码字数量与版本不符"</string>
     <string name="i18n_collapse_expand_panel" formatted="false">"收起/展开面板"</string>
+    <string name="i18n_combo_interval" formatted="false">"按下间隔"</string>
+    <string name="i18n_combo_timing" formatted="false">"组合键时序"</string>
+    <string name="i18n_combo_timing_custom" formatted="false">"自定义间隔"</string>
+    <string name="i18n_combo_timing_framed" formatted="false">"分帧按下"</string>
+    <string name="i18n_combo_timing_simultaneous" formatted="false">"同时按下"</string>
     <string name="i18n_confirm" formatted="false">"确认"</string>
     <string name="i18n_confirm_and_go_back" formatted="false">"确认返回"</string>
     <string name="i18n_connect" formatted="false">"连接"</string>

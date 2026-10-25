@@ -8,11 +8,13 @@ import android.widget.Button
 import android.widget.CheckBox
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.zyz4.gkme.model.ComboTiming
 import com.zyz4.gkme.model.PhysicalInput
 import com.zyz4.gkme.model.PhysicalInputKind
 import com.zyz4.gkme.model.PhysicalInputMapping
 import com.zyz4.gkme.model.PhysicalInputs
 import com.zyz4.gkme.view.FlowLayout
+import com.zyz4.gkme.view.addComboTimingControls
 
 private const val COLOR_TEXT_PRIMARY = 0xFFFFFFFF.toInt()
 private const val COLOR_TEXT_SECONDARY = 0xFF888888.toInt()
@@ -29,24 +31,63 @@ internal fun MainActivity.currentSupportedPhysicalButtons(): Int {
 }
 
 /** Persists the physical-controller remapping into the layout being edited. */
-internal fun MainActivity.writePhysicalMapping(key: String, outputs: List<Int>, gyroActivate: Boolean) {
+internal fun MainActivity.writePhysicalMapping(
+    key: String,
+    outputs: List<Int>,
+    gyroActivate: Boolean,
+    timing: ComboTiming = ComboTiming.SIMULTANEOUS,
+    intervalMs: Int = ComboTiming.DEFAULT_INTERVAL_MS,
+) {
     val updated = gamepadLayout.currentPhysicalInputMappings.toMutableMap()
-    val isDefault = outputs == PhysicalInputs.defaultOutputsFor(key) && !gyroActivate
+    val isDefault = outputs == PhysicalInputs.defaultOutputsFor(key) && !gyroActivate &&
+        timing == ComboTiming.SIMULTANEOUS && intervalMs == ComboTiming.DEFAULT_INTERVAL_MS
     if (isDefault) updated.remove(key)
-    else updated[key] = PhysicalInputMapping(outputs = outputs, gyroActivate = gyroActivate)
+    else updated[key] = PhysicalInputMapping(
+        outputs = outputs,
+        gyroActivate = gyroActivate,
+        comboTiming = timing,
+        comboIntervalMs = intervalMs,
+    )
     gamepadLayout.setPhysicalInputMappings(updated)
     viewModel.updatePresetButtons(gamepadLayout.getPreset())
 }
 
 internal fun MainActivity.updatePhysicalMappingOutputs(key: String, outputs: List<Int>) {
-    val gyro = gamepadLayout.currentPhysicalInputMappings[key]?.gyroActivate ?: false
-    writePhysicalMapping(key, outputs, gyro)
+    val mapping = gamepadLayout.currentPhysicalInputMappings[key]
+    writePhysicalMapping(
+        key,
+        outputs,
+        mapping?.gyroActivate ?: false,
+        mapping?.comboTiming ?: ComboTiming.SIMULTANEOUS,
+        mapping?.comboIntervalMs ?: ComboTiming.DEFAULT_INTERVAL_MS,
+    )
 }
 
 internal fun MainActivity.updatePhysicalMappingGyro(key: String, enabled: Boolean) {
-    val outputs = gamepadLayout.currentPhysicalInputMappings[key]?.outputs
-        ?: PhysicalInputs.defaultOutputsFor(key)
-    writePhysicalMapping(key, outputs, enabled)
+    val mapping = gamepadLayout.currentPhysicalInputMappings[key]
+    val outputs = mapping?.outputs ?: PhysicalInputs.defaultOutputsFor(key)
+    writePhysicalMapping(
+        key,
+        outputs,
+        enabled,
+        mapping?.comboTiming ?: ComboTiming.SIMULTANEOUS,
+        mapping?.comboIntervalMs ?: ComboTiming.DEFAULT_INTERVAL_MS,
+    )
+}
+
+internal fun MainActivity.updatePhysicalMappingTiming(
+    key: String,
+    timing: ComboTiming,
+    intervalMs: Int,
+) {
+    val mapping = gamepadLayout.currentPhysicalInputMappings[key]
+    writePhysicalMapping(
+        key,
+        mapping?.outputs ?: PhysicalInputs.defaultOutputsFor(key),
+        mapping?.gyroActivate ?: false,
+        timing,
+        intervalMs,
+    )
 }
 
 internal fun MainActivity.resetPhysicalMapping(key: String) {
@@ -85,11 +126,18 @@ internal fun MainActivity.populatePhysicalMapping(container: LinearLayout) {
         val gyroChecked = mappings[input.key]?.gyroActivate == true
 
         if (isButton) {
-            val outputs = mappings[input.key]?.outputs ?: input.defaultOutputs
+            val mapping = mappings[input.key]
+            val outputs = mapping?.outputs ?: input.defaultOutputs
             card.addView(
                 a.buildPhysicalMappingRow(input, outputs, density, ::refresh),
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
             )
+            card.addComboTimingControls(
+                mapping?.comboTiming ?: ComboTiming.SIMULTANEOUS,
+                mapping?.comboIntervalMs ?: ComboTiming.DEFAULT_INTERVAL_MS,
+            ) { timing, intervalMs ->
+                a.updatePhysicalMappingTiming(input.key, timing, intervalMs)
+            }
             card.addView(
                 a.buildPhysicalGyroCheckbox(input, gyroChecked, density, ::refresh),
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)

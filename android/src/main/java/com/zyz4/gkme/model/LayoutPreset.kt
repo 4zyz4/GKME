@@ -54,6 +54,11 @@ data class LayoutPreset(
     val volumeUpBits: List<Int> = emptyList(),
     /** Per-layout output bits emitted by the volume-down key. */
     val volumeDownBits: List<Int> = emptyList(),
+    /** Timing used when [volumeUpBits] / [volumeDownBits] contains a chord. */
+    val volumeUpComboTiming: ComboTiming = ComboTiming.SIMULTANEOUS,
+    val volumeUpComboIntervalMs: Int = ComboTiming.DEFAULT_INTERVAL_MS,
+    val volumeDownComboTiming: ComboTiming = ComboTiming.SIMULTANEOUS,
+    val volumeDownComboIntervalMs: Int = ComboTiming.DEFAULT_INTERVAL_MS,
 ) {
     companion object {
         private val gsonInstance = Gson()
@@ -143,6 +148,26 @@ data class LayoutPreset(
                     if (!btnObj.has("customBits")) {
                         btnObj.add("customBits", com.google.gson.JsonArray())
                     }
+                    if (!btnObj.has("comboTiming")) {
+                        btnObj.addProperty("comboTiming", ComboTiming.SIMULTANEOUS.name)
+                    }
+                    if (!btnObj.has("comboIntervalMs")) {
+                        btnObj.addProperty("comboIntervalMs", ComboTiming.DEFAULT_INTERVAL_MS)
+                    }
+                    if (!btnObj.has("keypadComboTimings")) {
+                        val timings = com.google.gson.JsonArray()
+                        repeat(com.zyz4.gkme.model.ButtonPosition.KEYPAD_EIGHT_WAY_COUNT) {
+                            timings.add(ComboTiming.SIMULTANEOUS.name)
+                        }
+                        btnObj.add("keypadComboTimings", timings)
+                    }
+                    if (!btnObj.has("keypadComboIntervals")) {
+                        val intervals = com.google.gson.JsonArray()
+                        repeat(com.zyz4.gkme.model.ButtonPosition.KEYPAD_EIGHT_WAY_COUNT) {
+                            intervals.add(ComboTiming.DEFAULT_INTERVAL_MS)
+                        }
+                        btnObj.add("keypadComboIntervals", intervals)
+                    }
                     if (!btnObj.has("gyroActivate")) btnObj.addProperty("gyroActivate", false)
                     if (!btnObj.has("autoHold")) btnObj.addProperty("autoHold", false)
                     // Fix slideDirection: Gson uses enum name, not jsonValue
@@ -199,6 +224,20 @@ data class LayoutPreset(
             }
             val volumeUpBits = root.getAsJsonArray("volumeUpBits")?.map { it.asInt } ?: emptyList()
             val volumeDownBits = root.getAsJsonArray("volumeDownBits")?.map { it.asInt } ?: emptyList()
+            val volumeUpComboTiming = ComboTiming.fromNameOrSimultaneous(
+                root.get("volumeUpComboTiming")?.asString
+            )
+            val volumeDownComboTiming = ComboTiming.fromNameOrSimultaneous(
+                root.get("volumeDownComboTiming")?.asString
+            )
+            val volumeUpComboIntervalMs = (root.get("volumeUpComboIntervalMs")?.asInt
+                ?: ComboTiming.DEFAULT_INTERVAL_MS).coerceIn(
+                ComboTiming.MIN_INTERVAL_MS, ComboTiming.MAX_INTERVAL_MS
+            )
+            val volumeDownComboIntervalMs = (root.get("volumeDownComboIntervalMs")?.asInt
+                ?: ComboTiming.DEFAULT_INTERVAL_MS).coerceIn(
+                ComboTiming.MIN_INTERVAL_MS, ComboTiming.MAX_INTERVAL_MS
+            )
             return LayoutPreset(
                 version = root.get("version")?.asInt ?: 1,
                 buttons = buttons,
@@ -214,6 +253,10 @@ data class LayoutPreset(
                 rightStickSettings = rightStickSettings,
                 volumeUpBits = volumeUpBits,
                 volumeDownBits = volumeDownBits,
+                volumeUpComboTiming = volumeUpComboTiming,
+                volumeUpComboIntervalMs = volumeUpComboIntervalMs,
+                volumeDownComboTiming = volumeDownComboTiming,
+                volumeDownComboIntervalMs = volumeDownComboIntervalMs,
             )
         }
 
@@ -239,6 +282,10 @@ data class LayoutPreset(
                 m["isCustom"] = b.isCustom
                 m["customText"] = (b.customText ?: "自定义")
                 m["customBits"] = (b.customBits ?: listOf<Int>())
+            }
+            if (b.comboTiming != ComboTiming.SIMULTANEOUS) m["comboTiming"] = b.comboTiming.name
+            if (b.comboIntervalMs != ComboTiming.DEFAULT_INTERVAL_MS) {
+                m["comboIntervalMs"] = b.comboIntervalMs
             }
             if (b.roundShape != true) m["roundShape"] = b.roundShape
             if (b.idleOpacity != 100) m["idleOpacity"] = b.idleOpacity
@@ -294,6 +341,14 @@ data class LayoutPreset(
             if (ButtonPosition.isKeypad(b.id)) {
                 m["keypadTexts"] = ButtonPosition.keypadTextsOf(b)
                 m["keypadBits"] = ButtonPosition.keypadBitsOf(b)
+                val keypadTimings = ButtonPosition.keypadComboTimingsOf(b)
+                if (keypadTimings.any { it != ComboTiming.SIMULTANEOUS }) {
+                    m["keypadComboTimings"] = keypadTimings.map { it.name }
+                }
+                val keypadIntervals = ButtonPosition.keypadComboIntervalsOf(b)
+                if (keypadIntervals.any { it != ComboTiming.DEFAULT_INTERVAL_MS }) {
+                    m["keypadComboIntervals"] = keypadIntervals
+                }
                 if (b.keypadEightWay) m["keypadEightWay"] = true
             }
             if (b.centerShape != CenterShape.SQUARE) m["centerShape"] = b.centerShape.name
@@ -316,6 +371,18 @@ data class LayoutPreset(
         if (rightStickSettings != null && !rightStickSettings.isDefault()) obj["rightStickSettings"] = rightStickSettings
         if (volumeUpBits.isNotEmpty()) obj["volumeUpBits"] = volumeUpBits
         if (volumeDownBits.isNotEmpty()) obj["volumeDownBits"] = volumeDownBits
+        if (volumeUpComboTiming != ComboTiming.SIMULTANEOUS) {
+            obj["volumeUpComboTiming"] = volumeUpComboTiming.name
+        }
+        if (volumeUpComboIntervalMs != ComboTiming.DEFAULT_INTERVAL_MS) {
+            obj["volumeUpComboIntervalMs"] = volumeUpComboIntervalMs
+        }
+        if (volumeDownComboTiming != ComboTiming.SIMULTANEOUS) {
+            obj["volumeDownComboTiming"] = volumeDownComboTiming.name
+        }
+        if (volumeDownComboIntervalMs != ComboTiming.DEFAULT_INTERVAL_MS) {
+            obj["volumeDownComboIntervalMs"] = volumeDownComboIntervalMs
+        }
         return gson.toJson(obj)
     }
 

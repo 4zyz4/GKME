@@ -49,6 +49,9 @@ class App {
     this.physicalButtons = 0;
     this.physicalEnabled = false;
 
+    // Per-source chord state for mapped custom bits / keypad regions.
+    this._comboStates = new Map();
+
     this._raf = null;
     this._sendTimer = null;
     this._wakeLock = null;
@@ -210,7 +213,7 @@ class App {
       onTouchpad: (touches) => {
         this.state.touches = touches;
       },
-      onCustomBits: (bits, down) => this._applyCustomBits(bits, down),
+      onCustomBits: (bits, down, meta) => this._applyCustomBits(bits, down, meta),
       onKey: (code, down) => this._onKey(code, down),
       onEditChanged: () => this.editor && this.editor.onEditChanged(),
       onEditEnd: () => this.editor && this.editor.onEditEnd(),
@@ -239,20 +242,61 @@ class App {
     this._toast(t("presets.saved", this.presetDisplayName(this.activePreset)));
   }
 
-  _applyCustomBits(bits, down) {
-    const hasBits = !!(bits && bits.length);
-    for (const bit of bits || []) {
-      if (down) {
-        this.state._customBits = (this.state._customBits | bit) >>> 0;
-      } else {
-        this.state._customBits = (this.state._customBits & ~bit) >>> 0;
-      }
+  _applyCustomBits(bits, down, meta) {
+    const source = (meta && meta.source) || "custom";
+    const timing = (meta && meta.timing) || "SIMULTANEOUS";
+    let interval = 0;
+    if (timing === "FRAME_BY_FRAME") interval = 16;
+    else if (timing === "CUSTOM_INTERVAL") {
+      interval = Math.max(1, Math.min(100, Number(meta && meta.intervalMs) || 16));
     }
-    this._sendFrame();
+
+    const target = down ? Array.from(new Set(bits || [])) : [];
+    let st = this._comboStates.get(source);
+    if (!st) {
+      st = { target: [], applied: new Set(), timers: [] };
+      this._comboStates.set(source, st);
+    }
+    if (st.target.length === target.length && st.target.every((v, i) => v === target[i])) return;
+    st.target = target;
+    for (const timer of st.timers) clearTimeout(timer);
+    st.timers = [];
+
+    const up = Array.from(st.applied).filter((bit) => !target.includes(bit)).reverse();
+    const press = target.filter((bit) => !st.applied.has(bit));
+    const apply = (list, isDown) => {
+      for (const bit of list) {
+        if (isDown) {
+          this.state._customBits = (this.state._customBits | bit) >>> 0;
+          st.applied.add(bit);
+        } else {
+          this.state._customBits = (this.state._customBits & ~bit) >>> 0;
+          st.applied.delete(bit);
+        }
+      }
+      this._sendFrame();
+    };
+
+    if (interval <= 0) {
+      if (up.length) apply(up, false);
+      if (press.length) apply(press, true);
+    } else {
+      let delay = 0;
+      const schedule = (list, isDown) => {
+        for (const bit of list) {
+          if (delay === 0) apply([bit], isDown);
+          else st.timers.push(setTimeout(() => apply([bit], isDown), delay));
+          delay += interval;
+        }
+      };
+      schedule(up, false);
+      schedule(press, true);
+    }
+
     // Custom buttons / custom keypad emit through this path instead of
     // onButtonDown/Up, so fire the button pulse here too (skip empty mappings
     // to avoid double pulses when sliding across an unconfigured keypad).
-    if (hasBits) this.haptics.buttonPulse(down);
+    if (bits && bits.length) this.haptics.buttonPulse(down);
   }
 
   _onKey(code, down) {

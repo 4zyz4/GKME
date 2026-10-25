@@ -34,6 +34,9 @@ data class PhysicalInput(
 data class PhysicalInputMapping(
     val outputs: List<Int> = emptyList(),
     val gyroActivate: Boolean = false,
+    /** Timing used when [outputs] contains a mapped chord. */
+    val comboTiming: ComboTiming = ComboTiming.SIMULTANEOUS,
+    val comboIntervalMs: Int = ComboTiming.DEFAULT_INTERVAL_MS,
 )
 
 /**

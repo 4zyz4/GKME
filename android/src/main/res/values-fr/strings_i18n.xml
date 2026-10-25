@@ -75,6 +75,11 @@
     <string name="i18n_close" formatted="false">"Fermer"</string>
     <string name="i18n_codeword_count_does_not_match_the_versio" formatted="false">"Le nombre de mots de code ne correspond pas à la version"</string>
     <string name="i18n_collapse_expand_panel" formatted="false">"Réduire/développer le panneau"</string>
+    <string name="i18n_combo_interval" formatted="false">"Intervalle d'appui"</string>
+    <string name="i18n_combo_timing" formatted="false">"Timing des touches"</string>
+    <string name="i18n_combo_timing_custom" formatted="false">"Intervalle personnalisé"</string>
+    <string name="i18n_combo_timing_framed" formatted="false">"Image par image"</string>
+    <string name="i18n_combo_timing_simultaneous" formatted="false">"Simultané"</string>
     <string name="i18n_confirm" formatted="false">"Confirmer"</string>
     <string name="i18n_confirm_and_go_back" formatted="false">"Confirmer et revenir"</string>
     <string name="i18n_connect" formatted="false">"Connecter"</string>

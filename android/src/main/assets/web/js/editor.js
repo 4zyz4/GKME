@@ -27,6 +27,18 @@ function padBits(b) {
   return arr;
 }
 
+function padTimings(b) {
+  const arr = b.keypadComboTimings && b.keypadComboTimings.length >= 5 ? b.keypadComboTimings.slice() : [];
+  while (arr.length < 9) arr.push("SIMULTANEOUS");
+  return arr;
+}
+
+function padIntervals(b) {
+  const arr = b.keypadComboIntervals && b.keypadComboIntervals.length >= 5 ? b.keypadComboIntervals.slice() : [];
+  while (arr.length < 9) arr.push(16);
+  return arr;
+}
+
 const ARROW_UP = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="#CCCCCC" d="M12 8l6 6H6z"/></svg>';
 const ARROW_DOWN = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="#CCCCCC" d="M12 16l-6-6h12z"/></svg>';
 
@@ -330,6 +342,40 @@ export class LayoutEditor {
     const wrap = el("div", {});
     wrap.append(box, row);
     return wrap;
+  }
+
+  /** Chord timing selector; the interval slider is only shown for CUSTOM_INTERVAL. */
+  _comboTimingEditor(timing, intervalMs, onChange) {
+    const currentTiming = timing || "SIMULTANEOUS";
+    const currentInterval = Math.max(1, Math.min(100, Number(intervalMs) || 16));
+    const seekWrap = el("div", {
+      style: { display: currentTiming === "CUSTOM_INTERVAL" ? "block" : "none" },
+    });
+    const spinner = this._spinner(
+      t("editor.comboTiming"),
+      [
+        ["SIMULTANEOUS", t("editor.comboSimultaneous")],
+        ["FRAME_BY_FRAME", t("editor.comboFramed")],
+        ["CUSTOM_INTERVAL", t("editor.comboCustom")],
+      ],
+      currentTiming,
+      (value) => {
+        seekWrap.style.display = value === "CUSTOM_INTERVAL" ? "block" : "none";
+        onChange({ comboTiming: value });
+      }
+    );
+    seekWrap.append(
+      this._seek({
+        label: t("editor.comboInterval"),
+        value: currentInterval,
+        min: 1,
+        max: 100,
+        onChange: (value) => onChange({ comboIntervalMs: value }),
+      }).el
+    );
+    const box = el("div", {});
+    box.append(spinner, seekWrap);
+    return box;
   }
 
   _showOutputPicker(currentBits, onResult) {
@@ -666,6 +712,7 @@ export class LayoutEditor {
             this.showParams(this._current);
           })
         );
+        this.params.append(this._keypadTimingEditor(button, idx));
       }
     }
     this.params.append(
@@ -676,6 +723,24 @@ export class LayoutEditor {
         this.showParams(this._current);
       })
     );
+    this.params.append(this._keypadTimingEditor(button, 4));
+  }
+
+  /** Combo timing for one keypad region; timing arrays are stored per region. */
+  _keypadTimingEditor(button, region) {
+    const id = button.id;
+    const timings = padTimings(button);
+    const intervals = padIntervals(button);
+    return this._comboTimingEditor(timings[region], intervals[region], (props) => {
+      const nextTimings = padTimings(this._current);
+      const nextIntervals = padIntervals(this._current);
+      if (props.comboTiming !== undefined) nextTimings[region] = props.comboTiming;
+      if (props.comboIntervalMs !== undefined) nextIntervals[region] = props.comboIntervalMs;
+      this._update(id, {
+        keypadComboTimings: nextTimings,
+        keypadComboIntervals: nextIntervals,
+      });
+    });
   }
 
   _buildTriggerParams(button) {
@@ -730,6 +795,9 @@ export class LayoutEditor {
         this._update(id, { customBits: newBits });
         this.showParams(this._current);
       })
+    );
+    this.params.append(
+      this._comboTimingEditor(button.comboTiming, button.comboIntervalMs, (props) => this._update(id, props))
     );
   }
 }
