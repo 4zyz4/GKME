@@ -132,7 +132,7 @@ flowchart TB
 - `MAX_DT_MS=40` 必须小于 `EVENT_MS`，否则一帧迟到会跳过事件。
 - `submit(left,right,pitchHz)`：前置检查 `PhoneHdHaptics.enabled` 与 `HapticInjector.isHapticReady()`；
   被更高优先级占用时 `resetBuffer()` 静默返回。
-- 静音判定 `amp < AUDIO_ACTIVE_AMP=4`：不刷新租约；瞬态进行中则继续喂 0 样本，否则 `flush()` 投递。
+- 静音判定 `amp < AUDIO_ACTIVE_AMP=4`：不刷新租约，`flush()` 投递已累积的分块。
 - 有效输出：刷新 `lastActiveNs`、`acquire(AUDIO)`、`shiftIntoRange` → `hzToHe`、`addSample`，
   满块后 `startEffect(json, AUDIO)`。
 - **看门狗**（`GkmeAudioHdWatchdog`，50ms）：距上次有效输出 ≥`AUDIO_RELEASE_MS=120ms` 且 owner 是 AUDIO 时，
@@ -140,7 +140,7 @@ flowchart TB
 - **分块换块不再 `stop()`**：`RemoteHapticService.startTencentEffect` 直接 `start()` 新效果接管当前
   track。真机实测 `stop()` 是**全局取消**（start 新效果后 stop 旧效果会连新的一起停），故只在整条流
   真正结束时停一次。见 [richtap-hd-vibration.md §13](richtap-hd-vibration.md)。
-- 常量：`ONSET_ACCENT_MS=5`、`BURST_MS=8`。
+- 常量：`ONSET_ACCENT_MS=5`。
 
 ### 2.2 PcmHeEncoder
 
@@ -160,12 +160,9 @@ flowchart TB
 - 每个控制点先按实际驱动 HE 做补偿，再 `amplitudeToCurve`（`edgePoint`）。
 - **额外脉冲**（统一为 `Pulse` 列表，经 `appendPulses` 追加，受 `MAX_EVENTS=16` 约束）：
   - 音量突增强调 `detectAccent`：`ONSET_DELTA=0.22`、`ONSET_MIN=0.25`、抑制窗 80ms。
-  - 短促瞬态 `detectBurst` + 状态机：静音阈值 0.04、最小峰 0.06、上限 60ms、凹陷容限 40ms、
-    抑制窗 40ms；持续音会解除武装。
 - `flush()` 裁掉尾部全空事件；`reset()` 保留 `prevAmp/clockMs`。
-- `isBurstActive` 供 HdPcmStreamer 判断静音时是否继续喂静音样本。
 
-> 设计细节与真机复核见 [richtap-hd-vibration.md §9、§12](richtap-hd-vibration.md)。
+> 设计细节与真机复核见 [richtap-hd-vibration.md §9](richtap-hd-vibration.md)。
 
 ---
 
@@ -311,7 +308,7 @@ native 模式下空闲补 10ms 静音帧（见 [usb-drivers.md §4](usb-drivers.
 | 分块 | `EVENT_MS=100 × EVENTS_PER_CHUNK=2 = 200ms` |
 | AUDIO 活跃/释放 | 4 / 120ms |
 | 低频脉冲 | ratio 0.35、min 3ms、min period 4ms |
-| 控制点内缩 / accent / burst | `EDGE_POINT_MS=2` / 5ms / 8ms |
+| 控制点内缩 / accent | `EDGE_POINT_MS=2` / 5ms |
 | 重投递 | 500ms 最小 / 700ms 刷新 / 100ms tick |
 | 连续效果时长 | 1000ms |
 | 量化 | amp 16 级 / HE 4 级 |
@@ -328,7 +325,6 @@ native 模式下空闲补 10ms 静音帧（见 [usb-drivers.md §4](usb-drivers.
 
 - 强度律/频率表/幅度-频率补偿（§11）→ `RichTapEngine`、`PcmHeEncoder`、`RichTapLowFreq`。
 - 低频脉冲串（§10）→ `RichTapLowFreq`。
-- 短促瞬态（§12）→ `PcmHeEncoder` 的 burst/静音桥接、`HdPcmStreamer.BURST_MS=8`。
 - 多事件分块流式（§9）→ `PcmHeEncoder`、`RichTapHe.pattern`、`shiftIntoRange`、`startEffect`。
 - 设备只认 HE1.0 / 4 点曲线 / 16 事件 / ≤5000ms（§3.3、§9.2）。
 - type1 与 `mPackageName` 坑（§3.2、§4）；Shizuku user service 方案（§5.1、§8，现已废弃，改为 app 进程内）。
@@ -364,7 +360,7 @@ native 模式下空闲补 10ms 静音帧（见 [usb-drivers.md §4](usb-drivers.
 | [已修复] 被高优先级占用时 `HdPcmStreamer.resetBuffer()` 直接丢缓冲，解禁后损失约 0.2s（改为限时保留） | `HdPcmStreamer.kt:119-124` |
 | [已修复] 主线程卡顿 >40ms 时真实流逝时间被 `MAX_DT_MS` 截断，时间轴压缩/滞后（文档原表述为"跳桶"，已更正） | `HdPcmStreamer.kt:60-64,137,162` |
 | [已修复] `EVENT_MS=50` 时 LRA 未起振、主频被拉向共振（真机加速度计：HE56 实测 ~179Hz）；改为 100ms 后 170Hz | `HdPcmStreamer.kt:38-52` |
-| `Q`、`MAX_FREQ_COMPENSATION`、`EDGE_POINT_MS`、`ONSET_*`、`BURST_*` 建议按真机手感标定 | 各文件 |
+| `Q`、`MAX_FREQ_COMPENSATION`、`EDGE_POINT_MS`、`ONSET_*` 建议按真机手感标定 | 各文件 |
 | `HdPcmStreamer`/`PhoneHdHaptics`/`RemoteHapticService`/`haptic_native.c` 无 JVM 测试 | 依赖设备/USB |
 
 ### 9.1 HyperOS 后台震动策略与 app 进程内 RichTap（已修复）
