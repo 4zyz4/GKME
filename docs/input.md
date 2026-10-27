@@ -133,6 +133,10 @@ protobuf `GamepadInput`。要点：
   摇杆的触摸板模式本就以速度驱动，不再叠加预测。
 - **鼠标板光标位移**：同样使用 `EmaVelocityTracker`（批处理历史样本 + EMA 速度），
   位移按平滑速度积分，不再取逐事件的原始坐标差；滚动与拖拽复用同一位移量。手柄触摸板不适用。
+- **指针加速度**（`input/PointerAcceleration.kt`）：倍率由 EMA 速度（px/ms）决定，
+  再换算到固定 120Hz 的“参考帧位移”后套用 `1 + accel × 位移`。因此同一物理手势在
+  120/240Hz 触控、任意 WiFi/USB 轮询率下倍率一致；旧实现按单次事件位移计算，
+  会随触控采样率与网络发送间隔漂移。滑块手感以 120Hz 为基准，与旧行为对齐。
 - **触控采样率识别**：`view/TouchSampleRateTracker`（由 `EmaVelocityTracker` 统一驱动，
   `JoystickView` 的触摸板/快速响应模式、`LinearTriggerView` 的快速响应模式、鼠标板共用）。
   从相邻触摸样本间隔做 EMA 估计并夹取（2–50ms），识别值变化时以控件标签（`JoystickView`/`LinearTriggerView`/`Mousepad`）输出日志，1s 节流；

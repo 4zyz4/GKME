@@ -14,6 +14,7 @@ import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
+import com.zyz4.gkme.input.PointerAcceleration
 import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.model.CenterShape
 import com.zyz4.gkme.model.ComboTiming
@@ -1104,17 +1105,19 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
         }
         _mainHandler.postDelayed(r, holdMs)
     }
-    fun moveRaw(rawDx: Float, rawDy: Float) {
+    /**
+     * 应用鼠标灵敏度与指针加速度后上报位移。
+     *
+     * [speedPxPerMs] 是手指的 EMA 速度（px/ms），来自 [EmaVelocityTracker]。
+     * 加速度倍率只由速度决定，与本次位移块多大、网络多久发一帧无关。
+     */
+    fun moveRaw(rawDx: Float, rawDy: Float, speedPxPerMs: Float) {
         var dx = rawDx
         var dy = rawDy
-        var accel = 0f
         if (useConfig) {
             val id = mp.tag as? String ?: return
             val pos = a.gamepadLayout.currentButtons.find { it.id == id }
             if (pos != null) {
-                accel = pos.mouseAcceleration?.let {
-                    if (it.isEmpty() || it.size < 2) 0f else it[1]
-                } ?: 0f
                 val rot = pos.rotation % 360
                 if (rot == 90) {
                     val tmp = dy
@@ -1130,8 +1133,7 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                 }
             }
         }
-        val rawSpeed = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
-        val finalSpeedMultiplier = if (rawSpeed > 0) 1f + accel * rawSpeed else 1f
+        val finalSpeedMultiplier = PointerAcceleration.multiplier(mouseAccel, speedPxPerMs)
         dx *= finalSpeedMultiplier
         dy *= finalSpeedMultiplier
         cursorAccumX += dx * mouseSens
@@ -1194,22 +1196,22 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
         }
     }
 
-    /** 连续滑动手势：移动光标 / 拖拽 / 滚动。 */
-    fun applySwipe(action: MouseGestureAction, dx: Float, dy: Float) {
+    /** 连续滑动手势：移动光标 / 拖拽 / 滚动。[speedPxPerMs] 为手指 EMA 速度。 */
+    fun applySwipe(action: MouseGestureAction, dx: Float, dy: Float, speedPxPerMs: Float) {
         when (action) {
-            MouseGestureAction.MOVE_CURSOR -> moveRaw(dx, dy)
+            MouseGestureAction.MOVE_CURSOR -> moveRaw(dx, dy, speedPxPerMs)
             MouseGestureAction.SCROLL -> doScroll(dx, dy)
             MouseGestureAction.LEFT_DRAG -> {
                 if (activeDragBit == 0) { activeDragBit = 1; press(1) }
-                moveRaw(dx, dy)
+                moveRaw(dx, dy, speedPxPerMs)
             }
             MouseGestureAction.RIGHT_DRAG -> {
                 if (activeDragBit == 0) { activeDragBit = 2; press(2) }
-                moveRaw(dx, dy)
+                moveRaw(dx, dy, speedPxPerMs)
             }
             MouseGestureAction.MIDDLE_DRAG -> {
                 if (activeDragBit == 0) { activeDragBit = 4; press(4) }
-                moveRaw(dx, dy)
+                moveRaw(dx, dy, speedPxPerMs)
             }
             else -> {}
         }
@@ -1313,6 +1315,8 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
             MotionEvent.ACTION_MOVE -> {
                 var totalDx = 0f
                 var totalDy = 0f
+                var totalVx = 0f
+                var totalVy = 0f
                 val count = pointerCount
                 for (i in 0 until count) {
                     val pid = event.getPointerId(i)
@@ -1326,10 +1330,14 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                     tracker.consumeDelta()
                     totalDx += tracker.deltaX
                     totalDy += tracker.deltaY
+                    totalVx += tracker.vx
+                    totalVy += tracker.vy
                 }
                 if (count > 0) {
                     totalDx /= count
                     totalDy /= count
+                    totalVx /= count
+                    totalVy /= count
                 }
                 if (count > gestureMaxPointers) gestureMaxPointers = count
 
@@ -1339,7 +1347,10 @@ internal fun MainActivity.attachMousepadGestures(mp: FrameLayout, useConfig: Boo
                     gestureMoved = true
                 }
                 if (gestureMoved) {
-                    applySwipe(swipeActionFor(count), totalDx, totalDy)
+                    // 速度用时间维度的 EMA 估计（px/ms），不用本帧位移：同一手势无论
+                    // 触控采样率或网络发送间隔如何变化，加速度倍率都保持一致。
+                    val speedPxPerMs = Math.sqrt((totalVx * totalVx + totalVy * totalVy).toDouble()).toFloat()
+                    applySwipe(swipeActionFor(count), totalDx, totalDy, speedPxPerMs)
                 }
             }
             MotionEvent.ACTION_UP -> {
