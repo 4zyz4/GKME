@@ -27,8 +27,10 @@ class PcmHeEncoder(
     private val eventsPerChunk: Int = 16,
     private val eventMs: Int = 200,
     /**
-     * 音量突增强调：检测到**突然增大**时，在对应时刻额外插入一条 [accentMs] 时长的
-     * **满强度** `continuous` 事件（引擎内部调度，与常规事件可重叠），让 LRA 强震一下。
+     * 音频起点过冲：每次从静音进入有声时，在起点额外插入一条 [accentMs] 时长的
+     * `continuous` 事件（引擎内部调度，与常规事件可重叠），让 LRA 更快起振、起步音量
+     * 与后续段对齐。事件强度 = `min(1, 起始音量 × [START_OVERSHOOT])`，即按起始音量缩放
+     * 后再过冲，而不是固定满强度。
      * 0 = 关闭。
      */
     private val accentMs: Int = 0,
@@ -49,14 +51,11 @@ class PcmHeEncoder(
         /** 真机单条效果的事件数上限。 */
         const val MAX_EVENTS = 16
 
-        /** 触发强调需要的最小幅度（0..1）。 */
-        const val ONSET_MIN = 0.25f
-
-        /** 触发强调所需的“突然增大”幅度差（0..1）。 */
-        const val ONSET_DELTA = 0.22f
-
-        /** 两次强调之间的最小间隔（ms），避免连续触发。 */
-        const val ACCENT_REFRACTORY_MS = 80
+        /**
+         * 音频起点过冲系数：起点短事件的目标幅度 = 起始音量 × 本值（上限 1.0）。
+         * 用于补偿 LRA 从静止起振时前几十毫秒的幅度不足，让起步音量与后续段对齐。
+         */
+        const val START_OVERSHOOT = 5.0
 
         /**
          * 桶内幅度的**峰值保持**混合系数（0..1）。
@@ -74,20 +73,18 @@ class PcmHeEncoder(
     private val count = Array(eventsPerChunk) { IntArray(POINTS) }
     private var tMs = 0
 
-    // 音量突增检测状态（跨分块保留 prevAmp，避免分块重置被误判为突增）。
-    private var prevAmp = 0f
-    private var clockMs = 0L
-    private var lastAccentClock = -1_000_000L
+    // 音频起点检测：静音（[noteSilence]/[flush]/[resetStream]）后置位，首个有声帧消费。
+    private var startPending = true
 
     // 分块边界跨接状态：上一分块收尾的（幅度, HE）。跨 [reset] 保留，供下一分块的首事件
     // 从该电平淡入，消除 stop()+start() 边界的跳变。仅在整条流真正停止/复位时清除。
     private var seamAmp = 0.0
     private var seamHe = RichTapFrequency.HE_AT_RESONANCE.toDouble()
 
-    // 额外插入的满强度短事件（音量突增强调）。
+    // 额外插入的短事件（音频起点过冲）。
     private val pulses = ArrayList<Pulse>()
 
-    /** 一条额外插入的满强度短事件。[timeMs] 为分块内起点，[durationMs] 为时长。 */
+    /** 一条额外插入的短事件。[timeMs] 为分块内起点，[durationMs] 为时长，[intensity] 为曲线强度。 */
     private class Pulse(val timeMs: Int, val durationMs: Int, val intensity: Double)
 
     /** 一个完整分块的时长（毫秒）。 */
@@ -105,8 +102,7 @@ class PcmHeEncoder(
         }
         tMs = 0
         pulses.clear()
-        // 注意：prevAmp / clockMs / seamAmp / seamHe 故意保留，避免分块切换被误判为
-        // “音量突增”，并让跨接淡入在分块边界连续。
+        // 注意：seamAmp / seamHe 故意保留，让跨接淡入在分块边界连续。
     }
 
     /**
@@ -118,6 +114,15 @@ class PcmHeEncoder(
         reset()
         seamAmp = 0.0
         seamHe = RichTapFrequency.HE_AT_RESONANCE.toDouble()
+        startPending = true
+    }
+
+    /**
+     * 通知编码器“音频已回到静音”。下一次有声帧会被当作音频起点，触发过冲短事件。
+     * 静音帧不会进入 [addSample]，因此需要由 [HdPcmStreamer] 显式调用。
+     */
+    fun noteSilence() {
+        startPending = true
     }
 
     /**
@@ -131,9 +136,7 @@ class PcmHeEncoder(
     fun addSample(dtMs: Int, amp01: Float, he: Int): String? {
         val amp = amp01.coerceIn(0f, 1f)
         val e = tMs / eventMs
-        if (accentMs > 0 && e < eventsPerChunk) detectAccent(amp, tMs)
-        prevAmp = amp
-        clockMs += dtMs.coerceAtLeast(1)
+        if (accentMs > 0 && e < eventsPerChunk) detectStart(amp, tMs)
 
         if (e >= eventsPerChunk) {
             val json = build()
@@ -150,19 +153,21 @@ class PcmHeEncoder(
         return null
     }
 
-    /** 音量突增检测：幅度较上一帧跳升超过 [ONSET_DELTA] 且过 [ACCENT_REFRACTORY_MS] 抑制窗。 */
-    private fun detectAccent(amp: Float, timeInChunkMs: Int) {
-        val rising = amp - prevAmp
-        if (rising >= ONSET_DELTA && amp >= ONSET_MIN &&
-            (clockMs - lastAccentClock) >= ACCENT_REFRACTORY_MS
-        ) {
-            pulses.add(Pulse(timeInChunkMs, accentMs, 1.0))
-            lastAccentClock = clockMs
-        }
+    /**
+     * 音频起点过冲：每个静音→有声的起点登记一条短事件，强度按起始音量缩放后再乘
+     * [START_OVERSHOOT]（上限 1.0）。仅消费一次，后续帧不再重复触发。
+     */
+    private fun detectStart(amp: Float, timeInChunkMs: Int) {
+        if (!startPending || amp <= 0f) return
+        startPending = false
+        val target = (amp * START_OVERSHOOT).coerceIn(0.0, 1.0)
+        pulses.add(Pulse(timeInChunkMs, accentMs, RichTapEngine.amplitudeToCurve(target)))
     }
 
     /** 立即取出当前（可能不完整）的分块；尾部全空的事件会被裁掉，无任何采样返回 null 并复位。 */
     fun flush(): String? {
+        // 冲刷通常发生在静音/停流：下一次有声帧重新算作音频起点。
+        startPending = true
         var lastNonEmpty = -1
         for (e in 0 until eventsPerChunk) {
             for (p in 0 until POINTS) {
@@ -242,8 +247,8 @@ class PcmHeEncoder(
     }
 
     /**
-     * 把额外插入的满强度短事件（音量突增强调）追加进效果（受真机事件数上限约束）。
-     * 曲线 4 点全为 [Pulse.intensity]（1.0 经 `amplitudeToCurve` 逆变换后仍为 1.0），即“最强震动”。
+     * 把额外插入的起点过冲短事件追加进效果（受真机事件数上限约束）。
+     * 曲线 4 点全为 [Pulse.intensity]（已按 `amplitudeToCurve` 变换）。
      */
     private fun appendPulses(events: ArrayList<RichTapHe.Event>, eventCount: Int) {
         if (pulses.isEmpty()) return

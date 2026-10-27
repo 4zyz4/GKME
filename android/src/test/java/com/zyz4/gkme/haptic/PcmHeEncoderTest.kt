@@ -132,24 +132,60 @@ class PcmHeEncoderTest {
         )
     }
 
+    /** 取出所有 5ms 起点脉冲事件的曲线强度（跳过 Parameters.Intensity）。 */
+    private fun pulseIntensities(json: String): List<Double> =
+        json.split("\"Event\":")
+            .drop(1)
+            .filter { it.contains("\"Duration\":5,") }
+            .map { event ->
+                Regex("\"Intensity\":([0-9.]+)").findAll(event)
+                    .map { it.groupValues[1].toDouble() }
+                    .toList()[1]
+            }
+
     @Test
-    fun onsetAccentAddsShortMaxEvent() {
+    fun audioStartAddsScaledOvershootPulse() {
         val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50, accentMs = 5)
-        enc.addSample(10, 0.05f, 56)
-        enc.addSample(10, 0.9f, 56) // 突然增大
-        enc.addSample(10, 0.9f, 56)
-        val json = enc.flush()!!
-        assertTrue("应插入 5ms 强调事件", json.contains("\"Duration\":5,"))
-        assertTrue("强调应为满强度曲线", json.contains("\"Intensity\":1.0"))
+        enc.addSample(10, 0.1f, 56)
+        enc.addSample(10, 0.1f, 56)
+        val pulses = pulseIntensities(enc.flush()!!)
+        assertEquals("音频起点应插入一条 5ms 脉冲", 1, pulses.size)
+        // 强度 = amplitudeToCurve(min(1, 0.1 × 5.0))，随起始音量缩放后再过冲。
+        assertEquals(RichTapEngine.amplitudeToCurve(0.5), pulses[0], 1e-6)
+        assertTrue(
+            "起点脉冲应高于原音量",
+            pulses[0] > RichTapEngine.amplitudeToCurve(0.1),
+        )
     }
 
     @Test
-    fun noAccentOnGradualIncrease() {
+    fun overshootPulseCapsAtFullIntensity() {
         val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50, accentMs = 5)
-        var a = 0f
-        while (a < 1f) { enc.addSample(10, a, 56); a += 0.1f }
-        val json = enc.flush()!!
-        assertFalse("平滑上升不应触发强调", json.contains("\"Duration\":5,"))
+        enc.addSample(10, 0.9f, 56)
+        val pulses = pulseIntensities(enc.flush()!!)
+        assertEquals("高音量起点仍只插一条", 1, pulses.size)
+        assertEquals("过冲后应封顶到满强度", 1.0, pulses[0], 1e-6)
+    }
+
+    @Test
+    fun midStreamRiseDoesNotAddPulse() {
+        val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50, accentMs = 5)
+        enc.addSample(10, 0.2f, 56) // 起点：一条脉冲
+        enc.addSample(10, 0.9f, 56) // 中途突增：不应再插脉冲
+        enc.addSample(10, 0.9f, 56)
+        val pulses = pulseIntensities(enc.flush()!!)
+        assertEquals("只有音频起点插入脉冲", 1, pulses.size)
+    }
+
+    @Test
+    fun audioRestartAfterSilenceAddsPulseAgain() {
+        val enc = PcmHeEncoder(eventsPerChunk = 4, eventMs = 50, accentMs = 5)
+        enc.addSample(10, 0.3f, 56)
+        enc.flush()
+        enc.noteSilence()
+        enc.addSample(10, 0.3f, 56)
+        val pulses = pulseIntensities(enc.flush()!!)
+        assertEquals("静音后重新开始应再次插入起点脉冲", 1, pulses.size)
     }
 
     @Test
@@ -158,7 +194,7 @@ class PcmHeEncoderTest {
         enc.addSample(10, 0.05f, 56)
         enc.addSample(10, 0.9f, 56)
         val json = enc.flush()!!
-        assertFalse("默认不插入强调", json.contains("\"Duration\":5,"))
+        assertFalse("默认不插入起点脉冲", json.contains("\"Duration\":5,"))
     }
 
     @Test

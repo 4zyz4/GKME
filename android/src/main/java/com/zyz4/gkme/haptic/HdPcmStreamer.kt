@@ -23,6 +23,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  *
  * 关键点：
  * - **静音时冲刷**（而不是直接丢弃）已累积的分块，短促音效也能出声；
+ * - **音频起点过冲**：每次静音→有声都在起点并入一条 [ONSET_ACCENT_MS] 的短事件，
+ *   强度 = `min(1, 起始音量 × 5.0)`，补偿 LRA 从静止起振时的幅度不足，让起步音量与后续段对齐；
  * - 以 [HapticSource.AUDIO] 参与 `HapticInjector` 的优先级仲裁：被更高优先级的自适应扳机
  *   占用时静默并清空缓冲，避免与 `PhoneHdHaptics`（游戏 rumble）抢占同一个 HapticPlayer；
  * - 只有幅度达到 [AUDIO_ACTIVE_AMP] 才算“正在输出触觉”，并据此刷新优先级租约；静音流/
@@ -84,8 +86,8 @@ object HdPcmStreamer {
     private const val WATCHDOG_INTERVAL_MS = 50L
 
     /**
-     * 音量突增时额外插入的**满强度**短事件时长（ms）。让 LRA 在声音骤响时强震一下。
-     * 0 = 关闭；越小越“脆”，但过短可能不被 HAL 接受（需真机验证）。
+     * 音频起点过冲短事件的时长（ms）：每次静音→有声都会插入一条，强度随起始音量过冲。
+     * 越小越“脆”，但过短可能不被 HAL 接受（需真机验证）。
      */
     private const val ONSET_ACCENT_MS = 5
 
@@ -149,6 +151,8 @@ object HdPcmStreamer {
                     val json = encoder.flush()
                     if (json != null) HapticInjector.startEffect(json, HapticSource.AUDIO)
                 }
+                // 即使没有待投递分块（恰好在分块边界静音），也要标记下一次有声帧为音频起点。
+                encoder.noteSilence()
                 lastNs = 0L
             }
             return true
@@ -225,6 +229,8 @@ object HdPcmStreamer {
                 return
             }
             lastActiveNs = 0L
+            // 音频已停发：下一次有声帧重新算作起点，补一条过冲短事件。
+            synchronized(lock) { encoder.noteSilence() }
             HapticInjector.stopOwnedBy(HapticSource.AUDIO)
         }
     }
