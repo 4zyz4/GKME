@@ -92,7 +92,7 @@ flowchart TB
   `createDpadPadView/setupDpadPadTouch`、`createCustomKeypadView/setupCustomKeypadTouch`、
   `setupTouchpadView`（10 槽多点跟踪、单击/双击、旋转与扩展区域）、`setupMousepadView` /
   `attachMousepadGestures`（完整鼠标手势）。
-- 鼠标报文：`moveRaw`（加速度 + 旋转补偿 + 累积小数 + 16 位有符号）、`doScroll`
+- 鼠标报文：`moveRaw`（时间归一化加速度 `PointerAcceleration` + 旋转补偿 + 累积小数 + 16 位有符号）、`doScroll`
   （WIFI/USB 用 33f 高精度，蓝牙用 1f）、`sendMouseReportDirect`。
 - 标签刷新：`updateButtonLabels`（XBOX/PS/SWITCH）、`updateKeyboardLabels`（Shift 上档）。
 
