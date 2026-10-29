@@ -6,6 +6,18 @@ data class ButtonPosition(
     val y: Int = 0,
     val width: Int = 10,
     val height: Int = 10,
+    // ── 自由/高精度持久化几何 ──
+    // x / y 为屏幕宽 / 高的百分比；width / height / travelDistance 为屏幕长边的百分比（float）。
+    // 关闭网格时作为权威几何；开启网格时也写入，用于保留密度 > 120 时的坐标精度。
+    val freeX: Float? = null,
+    val freeY: Float? = null,
+    val freeWidth: Float? = null,
+    val freeHeight: Float? = null,
+    val freeFollowAreaX: Float? = null,
+    val freeFollowAreaY: Float? = null,
+    val freeFollowAreaW: Float? = null,
+    val freeFollowAreaH: Float? = null,
+    val freeTravelDistance: Float? = null,
     val visible: Boolean = true,
     val lockAspect: Boolean = false,
     val swipeTrigger: Boolean = false,

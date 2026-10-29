@@ -438,7 +438,7 @@ internal class FloatingModeController(private val activity: MainActivity) {
         val pos = activity.gamepadLayout.currentButtons
             .find { it.id == GamepadLayout.SETTINGS_BUTTON_ID } ?: return
         val screen = knownScreen()
-        val cell = screen.localWidth.toFloat() / GamepadLayout.GRID_COLS
+        val cell = screen.localWidth.toFloat() / activity.gamepadLayout.getGridCols()
         if (cell <= 0f) return
         val lx: Int
         val ly: Int
@@ -449,7 +449,7 @@ internal class FloatingModeController(private val activity: MainActivity) {
             lx = params.x
             ly = params.y
         }
-        val maxCol = (GamepadLayout.GRID_COLS - pos.width).coerceAtLeast(0)
+        val maxCol = (activity.gamepadLayout.getGridCols() - pos.width).coerceAtLeast(0)
         val maxRow = ((screen.localHeight / cell).toInt() - pos.height).coerceAtLeast(0)
         val gx = (lx / cell).roundToInt().coerceIn(0, maxCol)
         // In portrait `ly` is the rotated rect's screen-left edge, i.e. the local *bottom*;
@@ -530,7 +530,7 @@ internal class FloatingModeController(private val activity: MainActivity) {
     private fun settingsButtonScreenRect(screen: ScreenGeometry): android.graphics.Rect? {
         val pos = activity.gamepadLayout.currentButtons
             .find { it.id == GamepadLayout.SETTINGS_BUTTON_ID } ?: return null
-        val cell = screen.localWidth.toFloat() / GamepadLayout.GRID_COLS
+        val cell = screen.localWidth.toFloat() / activity.gamepadLayout.getGridCols()
         if (cell <= 0f) return null
         // Mirror GamepadLayout's child layout math (truncation, width relative to left) so the
         // toggle window lands exactly on the settings button instead of a rounded-off spot.
@@ -626,7 +626,7 @@ internal class FloatingModeController(private val activity: MainActivity) {
             .find { it.id == GamepadLayout.SETTINGS_BUTTON_ID }
         val longSide = screen.localWidth
         val size = if (pos != null) {
-            (maxOf(pos.width, pos.height).toFloat() / GamepadLayout.GRID_COLS * longSide).toInt()
+            (maxOf(pos.width, pos.height).toFloat() / activity.gamepadLayout.getGridCols() * longSide).toInt()
         } else {
             0
         }

@@ -41,6 +41,10 @@ class GamepadInputDispatcher(
     private val clickDetector: TouchpadClickDetector,
 ) : InputDispatcher {
 
+    /** 当前布局的内部网格列数/行数；由 GamepadLayout 在布局时更新。 */
+    var gridCols: Int = LayoutEngine.GRID_COLS
+    var gridRows: Int = LayoutEngine.GRID_COLS
+
     // ──────────────────────── Run mode ────────────────────────
 
     override fun dispatchInteraction(
@@ -319,8 +323,8 @@ override fun dispatchEdit(
             var newY = (ds.startY + (y / cellH).toInt() - ds.dragStartGridY)
             val pos = buttons.find { it.id == ds.buttonId } ?: return EditDispatchResult(commands, state)
             if (isTouchpadId(pos.id) && pos.followAreaEnabled) {
-                newX = newX.coerceIn(0, (LayoutEngine.GRID_COLS - pos.followAreaW).coerceAtLeast(0))
-                newY = newY.coerceIn(0, if (cellW > 0f) (120 - pos.followAreaH).coerceAtLeast(0) else Int.MAX_VALUE)
+                newX = newX.coerceIn(0, (gridCols - pos.followAreaW).coerceAtLeast(0))
+                newY = newY.coerceIn(0, if (cellW > 0f) (gridRows - pos.followAreaH).coerceAtLeast(0) else Int.MAX_VALUE)
             }
             commands += MoveFollowArea(ds.buttonId, newX, newY)
             return EditDispatchResult(commands, state)
@@ -346,8 +350,8 @@ override fun dispatchEdit(
                 val side = maxOf(nw, nh); nw = side; nh = side
             }
             if (rs.buttonId == SETTINGS_BUTTON_ID) {
-                nw = nw.coerceAtMost((LayoutEngine.GRID_COLS - oldPos.x).toFloat())
-                nh = nh.coerceAtMost((120 - oldPos.y).toFloat())
+                nw = nw.coerceAtMost((gridCols - oldPos.x).toFloat())
+                nh = nh.coerceAtMost((gridRows - oldPos.y).toFloat())
                 if (oldPos.lockAspect) { val s = minOf(nw, nh); nw = s; nh = s }
             }
             commands += ResizeButton(rs.buttonId, nw.toInt(), nh.toInt())
@@ -356,7 +360,7 @@ override fun dispatchEdit(
 
         if (state.childDragStart != null) {
             val ds = state.childDragStart
-            var gridX = ((x - ds.offsetX) / cellW).toInt().coerceIn(0, LayoutEngine.GRID_COLS - 1)
+            var gridX = ((x - ds.offsetX) / cellW).toInt().coerceIn(0, gridCols - 1)
             var gridY = ((y - ds.offsetY) / cellH).toInt().coerceAtLeast(0)
             val pos = buttons.find { it.id == ds.buttonId } ?: return EditDispatchResult(commands, state)
             if (state.unselectedDragDownGrid != null) {

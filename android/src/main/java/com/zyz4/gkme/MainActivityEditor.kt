@@ -31,6 +31,7 @@ import com.zyz4.gkme.view.GamepadLayout
 import com.zyz4.gkme.view.JoystickView
 import com.zyz4.gkme.view.RotatableButton
 import com.zyz4.gkme.view.CustomKeypadView
+import kotlin.math.roundToInt
 
 private fun lastIndexOfUnderscore(s: String): Int = s.lastIndexOf('_')
 
@@ -42,6 +43,7 @@ internal fun MainActivity.createFloatingEditor(): FloatingEditorPanel {
     val a = this
     return FloatingEditorPanel(a).apply {
         visibility = View.GONE
+        gridColsProvider = { a.gamepadLayout.getGridCols() }
         editorListener = object : FloatingEditorPanel.EditorListener {
             override fun onSave() {
                 a.viewModel.saveCurrentPreset(a.gamepadLayout.getPreset())
@@ -238,6 +240,19 @@ internal fun MainActivity.createGlobalSettingsPanel(): LayoutGlobalSettingsPanel
             override fun onPhysicalStickSettingsChanged(left: PhysicalStickSettings, right: PhysicalStickSettings) {
                 a.gamepadLayout.setPhysicalStickSettings(left, right)
                 a.viewModel.updatePresetButtons(a.gamepadLayout.getPreset())
+            }
+
+            override fun onGridSettingsChanged(useGrid: Boolean, density: Int) {
+                a.gamepadLayout.setGridSettings(useGrid, density)
+                a.viewModel.updatePresetButtons(a.gamepadLayout.getPreset())
+            }
+
+            override fun onGridDensityDragStart() {
+                a.gamepadLayout.beginGridSettingsDrag()
+            }
+
+            override fun onGridDensityDragEnd() {
+                a.gamepadLayout.endGridSettingsDrag()
             }
         }
     }.also { panel ->
@@ -717,10 +732,16 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
         "btnMouseBack" to "BACK",
         "btnMouseForward" to "FWD",
     )
+    val cols = a.gamepadLayout.getGridCols()
+    val gridScale = cols.toFloat() / GamepadLayout.GRID_COLS
+    val entryW = (entry.w * gridScale).roundToInt().coerceAtLeast(1)
+    val entryH = (entry.h * gridScale).roundToInt().coerceAtLeast(1)
+    val defaultX = (50 * gridScale).roundToInt()
+    val defaultY = (20 * gridScale).roundToInt()
     val pos = if (entry.isKeypad) {
         ButtonPosition(
-            id = id, x = 50, y = 20,
-            width = entry.w, height = entry.h,
+            id = id, x = defaultX, y = defaultY,
+            width = entryW, height = entryH,
             lockAspect = entry.lockAspect,
             isCustom = entry.isCustom,
             isKeypad = entry.isKeypad,
@@ -730,20 +751,20 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
         )
     } else if (entry.isKeyboard) {
         val existingKeyboardPositions = a.gamepadLayout.currentButtons.filter { it.isKeyboard }
-        var newX = 50
-        var newY = 20
+        var newX = defaultX
+        var newY = defaultY
         for (kp in existingKeyboardPositions) {
-            if (kp.x + kp.width > newX && kp.x < newX + entry.w && kp.y + kp.height > newY && kp.y < newY + entry.h) {
-                newX += entry.w + 1
-                if (newX + entry.w > 120) {
-                    newX = 50
-                    newY += entry.h + 1
+            if (kp.x + kp.width > newX && kp.x < newX + entryW && kp.y + kp.height > newY && kp.y < newY + entryH) {
+                newX += entryW + 1
+                if (newX + entryW > cols) {
+                    newX = defaultX
+                    newY += entryH + 1
                 }
             }
         }
         ButtonPosition(
-            id = id, x = newX, y = newY.coerceIn(0, 120 - entry.h),
-            width = entry.w, height = entry.h,
+            id = id, x = newX, y = newY.coerceIn(0, (cols - entryH).coerceAtLeast(0)),
+            width = entryW, height = entryH,
             lockAspect = entry.lockAspect,
             isCustom = entry.isCustom,
             isKeyboard = entry.isKeyboard,
@@ -753,20 +774,20 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
         )
     } else {
         val existingSameBase = a.gamepadLayout.currentButtons.filter { it.id.substringBefore("_") == entry.baseId }
-        var newX = 50
-        var newY = 20
+        var newX = defaultX
+        var newY = defaultY
         for (bp in existingSameBase) {
-            if (bp.x + bp.width > newX && bp.x < newX + entry.w && bp.y + bp.height > newY && bp.y < newY + entry.h) {
-                newX += entry.w + 1
-                if (newX + entry.w > 120) {
-                    newX = 50
-                    newY += entry.h + 1
+            if (bp.x + bp.width > newX && bp.x < newX + entryW && bp.y + bp.height > newY && bp.y < newY + entryH) {
+                newX += entryW + 1
+                if (newX + entryW > cols) {
+                    newX = defaultX
+                    newY += entryH + 1
                 }
             }
         }
         ButtonPosition(
-            id = id, x = newX, y = newY.coerceIn(0, 120 - entry.h),
-            width = entry.w, height = entry.h,
+            id = id, x = newX, y = newY.coerceIn(0, (cols - entryH).coerceAtLeast(0)),
+            width = entryW, height = entryH,
             lockAspect = entry.lockAspect,
             isCustom = entry.isCustom,
             customText = mouseTexts[entry.baseId] ?: getString(R.string.i18n_custom),

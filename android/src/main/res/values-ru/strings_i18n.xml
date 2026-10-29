@@ -256,6 +256,12 @@
     <string name="i18n_global_settings" formatted="false">"Общие настройки"</string>
     <string name="i18n_going_back_will_stop_the_service_go_back" formatted="false">"Возврат остановит сервис. Вернуться?"</string>
     <string name="i18n_gyro" formatted="false">"Гироскоп"</string>
+    <string name="i18n_grid" formatted="false">"Сетка"</string>
+    <string name="i18n_use_grid" formatted="false">"Использовать сетку"</string>
+    <string name="i18n_grid_density" formatted="false">"Плотность сетки"</string>
+    <string name="i18n_grid_preview_on">"Плотность сетки %1$d (чем выше плотность, тем точнее привязка)"</string>
+    <string name="i18n_grid_preview_off" formatted="false">"Свободная раскладка (без привязки)"</string>
+    <string name="i18n_grid_description" formatted="false">"Чем выше плотность, тем точнее привязка. Существующие элементы автоматически масштабируются, чтобы сохранить раскладку; без сетки элементы размещаются свободно, а размеры сохраняются в процентах от длинной стороны экрана."</string>
     <string name="i18n_gyro_activation" formatted="false">"Активация гироскопа"</string>
     <string name="i18n_gyro_anti_dead_zone" formatted="false">"Анти-мёртвая зона гироскопа (%)"</string>
     <string name="i18n_gyro_behavior" formatted="false">"Поведение гироскопа"</string>

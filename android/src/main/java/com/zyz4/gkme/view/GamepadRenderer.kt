@@ -20,7 +20,7 @@ import com.zyz4.gkme.view.inputdispatcher.isTouchpadId
  * Implementation owns all Paint objects and canvas drawing logic.
  */
 class GamepadRenderer(
-    private val gridCols: Int = 120,
+    var gridCols: Int = 120,
     private val handleSizeDp: Float = 8f,
     private val gridBaseAlpha: Int = 170,
     private val markerDistDp: Float = 4f,

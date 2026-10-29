@@ -36,6 +36,10 @@ private val IS_KEYBOARD_IDS = setOf(
 data class LayoutPreset(
     val version: Int = 1,
     val buttons: List<ButtonPosition> = emptyList(),
+    /** 是否使用网格吸附。关闭后控件自由摆放，尺寸按屏幕长边百分比存储。 */
+    val useGrid: Boolean = true,
+    /** 网格密度（横向列数），默认 120，最大 240。 */
+    val gridDensity: Int = 120,
     val gyroOrientation: GyroOrientation? = null,
     val gyroActivateMode: GyroActivateMode? = null,
     val gyroMode: GyroMode? = null,
@@ -61,6 +65,14 @@ data class LayoutPreset(
     val volumeDownComboIntervalMs: Int = ComboTiming.DEFAULT_INTERVAL_MS,
 ) {
     companion object {
+        /** 旧版固定网格列数，也是 `x/y/width/height` 的持久化坐标系。 */
+        const val BASE_GRID_COLS = 120
+        const val MIN_GRID_DENSITY = 120
+        const val DEFAULT_GRID_DENSITY = 120
+        const val MAX_GRID_DENSITY = 240
+        /** 关闭网格后的内部高精度列数；不绘制网格，仅用于自由摆放。 */
+        const val FREE_GRID_COLS = 240
+
         private val gsonInstance = Gson()
         private val DOUBLE_CLICK_IDS = setOf("leftJoystick", "rightJoystick", "touchpad")
         private val JOYSTICK_IDS = setOf("leftJoystick", "rightJoystick")
@@ -86,6 +98,10 @@ data class LayoutPreset(
 
         fun fromJson(json: String): LayoutPreset {
             val root = gsonInstance.fromJson(json, JsonObject::class.java)
+            // 网格开关与密度：旧版布局没有这两个字段，默认使用网格 120。
+            val useGrid = root.get("useGrid")?.asBoolean ?: true
+            val gridDensity = (root.get("gridDensity")?.asInt ?: DEFAULT_GRID_DENSITY)
+                .coerceIn(MIN_GRID_DENSITY, MAX_GRID_DENSITY)
             val rawArray = root.getAsJsonArray("buttons")
             val buttons = mutableListOf<com.zyz4.gkme.model.ButtonPosition>()
             if (rawArray != null) {
@@ -251,6 +267,8 @@ data class LayoutPreset(
             return LayoutPreset(
                 version = root.get("version")?.asInt ?: 1,
                 buttons = buttons,
+                useGrid = useGrid,
+                gridDensity = gridDensity,
                 gyroOrientation = gyro,
                 gyroActivateMode = gyroActivateMode,
                 gyroMode = gyroMode,
@@ -284,6 +302,17 @@ data class LayoutPreset(
             m["y"] = b.y
             m["width"] = b.width
             m["height"] = b.height
+            // 自由/高精度几何：x/y 为屏幕宽/高百分比，尺寸为长边百分比。
+            // 网格模式下也写入，用于保留密度 > 120 时的坐标精度。
+            b.freeX?.let { m["freeX"] = it }
+            b.freeY?.let { m["freeY"] = it }
+            b.freeWidth?.let { m["freeWidth"] = it }
+            b.freeHeight?.let { m["freeHeight"] = it }
+            b.freeFollowAreaX?.let { m["freeFollowAreaX"] = it }
+            b.freeFollowAreaY?.let { m["freeFollowAreaY"] = it }
+            b.freeFollowAreaW?.let { m["freeFollowAreaW"] = it }
+            b.freeFollowAreaH?.let { m["freeFollowAreaH"] = it }
+            b.freeTravelDistance?.let { m["freeTravelDistance"] = it }
             // conditional write (only when not default)
             if (b.visible) m["visible"] = b.visible
             if (b.swipeTrigger) m["swipeTrigger"] = b.swipeTrigger
@@ -372,6 +401,9 @@ data class LayoutPreset(
         val obj = LinkedHashMap<String, Any?>()
         obj["version"] = version
         obj["buttons"] = list
+        // 网格配置属于布局级设置，始终写出，便于网页编辑器与旧版本保留。
+        obj["useGrid"] = useGrid
+        obj["gridDensity"] = gridDensity.coerceIn(MIN_GRID_DENSITY, MAX_GRID_DENSITY)
         gyroOrientation?.let { obj["gyroOrientation"] = it.name }
         gyroActivateMode?.let { obj["gyroActivateMode"] = it.name }
         gyroMode?.let { obj["gyroMode"] = it.name }

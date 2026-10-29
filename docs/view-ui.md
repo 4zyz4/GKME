@@ -202,7 +202,13 @@ Activity **不直接改 ViewModel 内部状态**：
 
 ### 4.1 网格与布局
 
-- 固定 **120 列网格**（`GRID_COLS=120`）；`onLayout` 中 `cellW = width / 120f`、`cellH = cellW`。
+- **布局级可调网格**：`LayoutPreset.useGrid`（默认开启）与 `LayoutPreset.gridDensity`（120..240，默认 120）。
+  - 开启时 `gridCols = gridDensity`，`onLayout` 中 `cellW = width / gridCols`、`cellH = cellW`；
+    调整密度会按 `newCols / oldCols` 缩放所有控件的网格坐标，屏幕位置与尺寸保持不变。
+  - 关闭时 `gridCols = FREE_GRID_COLS (240)` 作为高精度内部坐标，不绘制网格，控件自由摆放。
+  - 持久化的 `x/y/width/height` 仍换算回旧版 **120 列**坐标系（`BASE_GRID_COLS`），保证网页编辑器与旧版兼容；
+    同时写入 `freeX/freeY/freeWidth/freeHeight` 等百分比字段（x/y 为屏幕宽/高百分比，尺寸为长边百分比），
+    载入时优先用这些字段还原，避免高密度网格丢精度。
 - `ButtonPosition` 以网格坐标 `x/y/width/height` 存储；旋转 90/270 且 `!lockAspect` 时交换屏幕宽高。
 - `loadPreset`：旧 `centerArea` 迁移为 `touchpad`；缺设置按钮自动补顶部中间 6×6 的 `btnSettings`；
   `sanitizeSettingsButton`（禁止旋转/滑动触发、强制重叠触发、钳制屏幕内）；`normalizeTouchpadArea`。
@@ -368,7 +374,7 @@ Activity **不直接改 ViewModel 内部状态**：
 
 | 常量 | 值 | 位置 |
 |------|----|------|
-| 网格列数 | 120 | `GamepadLayout.kt`、`LayoutEngine.kt`、`FloatingModeController.kt` |
+| 网格列数 | 旧版基准 120；当前为 `gridDensity`（120..240）或自由模式 240 | `GamepadLayout.kt`、`LayoutPreset.kt` |
 | settings 按钮 id | `"btnSettings"` | `GamepadLayout.kt`；`EditCommands.kt` |
 | 编辑手柄 | `HANDLE_SIZE_DP=8`、`HANDLE_HIT_DP=16` | `GamepadLayout.kt` |
 | 触摸板归一化坐标 | x 0..1919、y 0..942 | `MainActivityControls.kt`；`SlotMatcher.kt`（1920/942） |

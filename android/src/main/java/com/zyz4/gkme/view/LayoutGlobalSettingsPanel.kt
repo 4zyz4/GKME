@@ -16,6 +16,7 @@ import android.view.inputmethod.EditorInfo
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -62,6 +63,14 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         fun onPopulatePhysicalMapping(container: LinearLayout)
         fun onPopulateVolumeMapping(container: LinearLayout)
         fun onPhysicalStickSettingsChanged(left: PhysicalStickSettings, right: PhysicalStickSettings)
+        /** 布局级网格设置变化：开关 + 密度（120..240）。 */
+        fun onGridSettingsChanged(useGrid: Boolean, density: Int)
+
+        /** 网格密度滑块开始拖动（用于记录缩放基准）。 */
+        fun onGridDensityDragStart()
+
+        /** 网格密度滑块结束拖动。 */
+        fun onGridDensityDragEnd()
     }
 
     var listener: Listener? = null
@@ -87,6 +96,13 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
     private var gyroScroll: ScrollView? = null
     private var physicalScroll: ScrollView? = null
     private var volumeScroll: ScrollView? = null
+    private var gridScroll: ScrollView? = null
+    private var gridContainer: LinearLayout? = null
+    private var gridPreview: GridDensityPreviewView? = null
+    private var gridDensityContainer: LinearLayout? = null
+    private var gridUseGrid = true
+    private var gridDensity = LayoutPreset.DEFAULT_GRID_DENSITY
+    private var gridDirty = true
     private var tabButtons: List<Button> = emptyList()
     private val tabButtonDrawables = mutableMapOf<Button, SidebarItemDrawable>()
     private val tabButtonAnimators = mutableMapOf<Button, AnimatorSet>()
@@ -196,16 +212,27 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         gyroActivateMode = preset.gyroActivateMode ?: GyroActivateMode.ALWAYS
         physicalLeftStick = preset.leftStickSettings ?: PhysicalStickSettings()
         physicalRightStick = preset.rightStickSettings ?: PhysicalStickSettings()
+        gridUseGrid = preset.useGrid
+        gridDensity = preset.gridDensity.coerceIn(
+            LayoutPreset.MIN_GRID_DENSITY, LayoutPreset.MAX_GRID_DENSITY,
+        )
+        gridDirty = true
         hideCurveOverlay()
         physicalContainer?.removeAllViews()
         volumeContainer?.removeAllViews()
+        gridContainer?.removeAllViews()
         physicalDirty = true
         volumeDirty = true
         rebuildContent()
         selectTab(0)
     }
 
-    /** Repopulates whichever tab is currently visible (used after external state changes). */
+    /**
+     * Repopulates whichever tab is currently visible (used after external state changes).
+     *
+     * 只有“物理映射”依赖外部状态（手柄连接列表），因此仅重建该页；
+     * 网格页的数据只由 [bindFromPreset] 和本页控件写入，重建它反而可能用旧字段覆盖新状态。
+     */
     fun refreshCurrentTab() {
         physicalDirty = true
         volumeDirty = true
@@ -213,7 +240,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
     }
 
     private fun selectTab(index: Int, animate: Boolean = false) {
-        val pages = listOfNotNull(gyroScroll, physicalScroll, volumeScroll)
+        val pages = listOfNotNull(gyroScroll, physicalScroll, volumeScroll, gridScroll)
         val oldPage = pages.getOrNull(currentTab)
         val newPage = pages.getOrNull(index)
         currentTab = index
@@ -246,6 +273,12 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
                 if (volumeDirty || it.childCount == 0) {
                     volumeDirty = false
                     listener?.onPopulateVolumeMapping(it)
+                }
+            }
+            3 -> gridContainer?.let {
+                if (gridDirty || it.childCount == 0) {
+                    gridDirty = false
+                    rebuildGridContent()
                 }
             }
         }
@@ -384,13 +417,15 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         val btnGyro = tabButton(context.getString(R.string.i18n_gyro))
         val btnPhysical = tabButton(context.getString(R.string.i18n_physical_gamepad))
         val btnVolume = tabButton(context.getString(R.string.i18n_volume_keys))
-        tabButtons = listOf(btnGyro, btnPhysical, btnVolume)
+        val btnGrid = tabButton(context.getString(R.string.i18n_grid))
+        tabButtons = listOf(btnGyro, btnPhysical, btnVolume, btnGrid)
         tabButtons.forEach { btn ->
             sidebar.addView(btn, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (48f * density).toInt()))
         }
         btnGyro.setOnClickListener { selectTab(0, animate = true) }
         btnPhysical.setOnClickListener { selectTab(1, animate = true) }
         btnVolume.setOnClickListener { selectTab(2, animate = true) }
+        btnGrid.setOnClickListener { selectTab(3, animate = true) }
 
         // ── Right content ──
         val contentHost = FrameLayout(context).apply {
@@ -408,14 +443,18 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         contentContainer = page()
         physicalContainer = page()
         volumeContainer = page()
+        gridContainer = page()
         gyroScroll = scroll(contentContainer!!)
         physicalScroll = scroll(physicalContainer!!)
         volumeScroll = scroll(volumeContainer!!)
+        gridScroll = scroll(gridContainer!!)
         contentHost.addView(gyroScroll)
         contentHost.addView(physicalScroll)
         contentHost.addView(volumeScroll)
+        contentHost.addView(gridScroll)
         physicalScroll?.visibility = View.GONE
         volumeScroll?.visibility = View.GONE
+        gridScroll?.visibility = View.GONE
 
         addView(root)
     }
@@ -582,6 +621,75 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
 
         container.addView(advanced)
         updateGyroModeVisibility()
+    }
+
+    /** 构建“网格”标签页：开关、密度滑块与可视化预览。 */
+    private fun rebuildGridContent() {
+        val container = gridContainer ?: return
+        container.removeAllViews()
+        val density = resources.displayMetrics.density
+
+        container.addView(sectionLabel(context.getString(R.string.i18n_grid), density))
+
+        val toggle = CheckBox(context).apply {
+            text = context.getString(R.string.i18n_use_grid)
+            setTextColor(-0x444445)
+            textSize = 14f
+            isChecked = gridUseGrid
+            setPadding(0, (8f * density).toInt(), 0, (4f * density).toInt())
+            setOnCheckedChangeListener { _, checked ->
+                if (checked == gridUseGrid) return@setOnCheckedChangeListener
+                gridUseGrid = checked
+                gridDensityContainer?.visibility = if (checked) View.VISIBLE else View.GONE
+                gridPreview?.setState(gridUseGrid, gridDensity)
+                listener?.onGridSettingsChanged(gridUseGrid, gridDensity)
+            }
+        }
+        container.addView(toggle, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        ))
+
+        gridPreview = GridDensityPreviewView(context).apply {
+            setState(gridUseGrid, gridDensity)
+        }
+        container.addView(gridPreview, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            (150f * density).toInt(),
+        ).apply {
+            topMargin = (8f * density).toInt()
+            bottomMargin = (4f * density).toInt()
+        })
+
+        gridDensityContainer = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        addSeekbar(
+            gridDensityContainer!!,
+            context.getString(R.string.i18n_grid_density),
+            gridDensity,
+            LayoutPreset.MIN_GRID_DENSITY,
+            LayoutPreset.MAX_GRID_DENSITY,
+            onStartTracking = { listener?.onGridDensityDragStart() },
+            onStopTracking = { listener?.onGridDensityDragEnd() },
+            onChange = { value ->
+                gridDensity = value
+                gridPreview?.setState(gridUseGrid, value)
+                listener?.onGridSettingsChanged(gridUseGrid, value)
+            },
+        )
+        gridDensityContainer?.visibility = if (gridUseGrid) View.VISIBLE else View.GONE
+        container.addView(gridDensityContainer)
+
+        container.addView(TextView(context).apply {
+            text = context.getString(R.string.i18n_grid_description)
+            setTextColor(-0x444445)
+            textSize = 12f
+            setLineSpacing(0f, 1.2f)
+        }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply {
+            topMargin = (8f * density).toInt()
+        })
     }
 
     private val gyroModeItems = listOf(
@@ -792,7 +900,16 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         curveZoom?.hide()
     }
 
-    private fun addSeekbar(container: LinearLayout, label: String, value: Int, min: Int, max: Int, onChange: (Int) -> Unit) {
+    private fun addSeekbar(
+        container: LinearLayout,
+        label: String,
+        value: Int,
+        min: Int,
+        max: Int,
+        onStartTracking: (() -> Unit)? = null,
+        onStopTracking: (() -> Unit)? = null,
+        onChange: (Int) -> Unit,
+    ) {
         val density = resources.displayMetrics.density
         val btnSize = (32f * density).toInt()
         var currentValue = value.coerceIn(min, max)
@@ -910,8 +1027,13 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
                     }
                 }
 
-                override fun onStartTrackingTouch(sb: SeekBar) {}
-                override fun onStopTrackingTouch(sb: SeekBar) {}
+                override fun onStartTrackingTouch(sb: SeekBar) {
+                    onStartTracking?.invoke()
+                }
+
+                override fun onStopTrackingTouch(sb: SeekBar) {
+                    onStopTracking?.invoke()
+                }
             })
         }
 
