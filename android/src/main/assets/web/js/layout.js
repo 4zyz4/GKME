@@ -408,8 +408,12 @@ export class GamepadLayout {
     const DOUBLE = new Set(["leftJoystick", "rightJoystick", "touchpad"]);
     const JOY = new Set(["leftJoystick", "rightJoystick"]);
     const AREA = new Set(["leftJoystick", "rightJoystick", "touchpad", "dpadPad", "customKeypad"]);
+    const useGrid = this.preset.useGrid !== false;
+    const gridDensity = Math.max(120, Math.min(240, Math.round(this.preset.gridDensity || 120)));
     return {
       version: this.preset.version || 1,
+      useGrid,
+      gridDensity,
       buttons: this.buttons.map((b) => {
         const base = baseId(b.id);
         const o = { id: b.id, x: b.x, y: b.y, width: b.w, height: b.h, rotation: b.rotation || 0 };

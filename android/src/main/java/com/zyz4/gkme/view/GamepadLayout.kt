@@ -33,6 +33,7 @@ import com.zyz4.gkme.view.inputdispatcher.InteractionResult
 import com.zyz4.gkme.view.inputdispatcher.TouchpadClickDetector
 import com.zyz4.gkme.view.inputdispatcher.MouseInputDispatcher
 import com.zyz4.gkme.view.inputdispatcher.isTouchpadId
+import kotlin.math.roundToInt
 
 class GamepadLayout @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
@@ -89,7 +90,12 @@ class GamepadLayout @JvmOverloads constructor(
     }
 
     companion object {
-        const val GRID_COLS = 120
+        /** 旧版固定网格列数；持久化的 x/y/width/height 始终使用该坐标系。 */
+        const val GRID_COLS = LayoutPreset.BASE_GRID_COLS
+        const val FREE_GRID_COLS = LayoutPreset.FREE_GRID_COLS
+        const val MIN_GRID_DENSITY = LayoutPreset.MIN_GRID_DENSITY
+        const val DEFAULT_GRID_DENSITY = LayoutPreset.DEFAULT_GRID_DENSITY
+        const val MAX_GRID_DENSITY = LayoutPreset.MAX_GRID_DENSITY
         const val SETTINGS_BUTTON_ID = "btnSettings"
         private const val HANDLE_SIZE_DP = 8f
         private const val HANDLE_HIT_DP = 16f
@@ -110,6 +116,22 @@ class GamepadLayout @JvmOverloads constructor(
     private var cellW = 0f
     private var cellH = 0f
     private var appearanceSettings: AppSettings? = null
+
+    // ── 布局级网格配置 ──────────────────────────────────────
+    /** 是否启用网格吸附（关闭后不绘制网格，控件自由摆放）。 */
+    private var currentUseGrid = true
+    /** 网格密度（列数），120..240。 */
+    private var currentGridDensity = DEFAULT_GRID_DENSITY
+    /** 当前内部坐标系的列数：启用网格时为 [currentGridDensity]，关闭时为 [FREE_GRID_COLS]。 */
+    private var gridCols = GRID_COLS
+    /** 当前内部坐标系的可见行数，用于拖拽/缩放的边界限制。 */
+    private var gridRows = GRID_COLS
+    /** 载入自由布局后，等待首次 onLayout 获取真实尺寸再换算自由百分比。 */
+    private var pendingFreeGeometry = false
+    /** 拖动网格密度滑块时的基准几何，避免逐步取整产生累积偏移；为 null 表示未在拖动。 */
+    private var gridScaleBaseline: List<ButtonPosition>? = null
+    /** [gridScaleBaseline] 对应的列数。 */
+    private var gridScaleBaselineCols = GRID_COLS
 
     var currentButtons: List<ButtonPosition> = emptyList()
         private set
@@ -146,7 +168,7 @@ class GamepadLayout @JvmOverloads constructor(
     var currentVolumeDownComboIntervalMs: Int = ComboTiming.DEFAULT_INTERVAL_MS
         private set
     val currentGyroPreset: com.zyz4.gkme.model.LayoutPreset
-        get() = LayoutPreset(version = 1, buttons = currentButtons, gyroOrientation = currentGyroOrientation, gyroActivateMode = currentGyroActivateMode, gyroMode = currentGyroMode, gyroModeSensitivity = currentGyroModeSensitivity, gyroDeadZone = currentGyroDeadZone, gyroReverseDeadZone = currentGyroReverseDeadZone, gyroStickCurve = currentGyroStickCurve, physicalInputMappings = currentPhysicalInputMappings, leftStickSettings = currentLeftStickSettings, rightStickSettings = currentRightStickSettings, volumeUpBits = currentVolumeUpBits, volumeDownBits = currentVolumeDownBits, volumeUpComboTiming = currentVolumeUpComboTiming, volumeUpComboIntervalMs = currentVolumeUpComboIntervalMs, volumeDownComboTiming = currentVolumeDownComboTiming, volumeDownComboIntervalMs = currentVolumeDownComboIntervalMs)
+        get() = getPreset()
     private var isEditMode = false
     var selectedButtonId: String? = null
         private set
@@ -209,6 +231,11 @@ class GamepadLayout @JvmOverloads constructor(
             }
             start()
         }
+    }
+
+    /** 关闭网格时不显示网格叠加层。 */
+    private fun showGridOverlayIfEnabled() {
+        if (currentUseGrid) animateGridTo(1f)
     }
 
     fun setOpacityPreview(buttonId: String, isIdle: Boolean, previewing: Boolean) {
@@ -826,23 +853,35 @@ class GamepadLayout @JvmOverloads constructor(
         touches: List<FloatArray>, touchpadTouch: Boolean, touchpadClick: Boolean) -> Unit)? = null
 
     fun loadPreset(preset: LayoutPreset) {
+        currentUseGrid = preset.useGrid
+        currentGridDensity = preset.gridDensity.coerceIn(MIN_GRID_DENSITY, MAX_GRID_DENSITY)
+        gridCols = if (currentUseGrid) currentGridDensity else FREE_GRID_COLS
+        gamepadRenderer.gridCols = gridCols
+        gridScaleBaseline = null
+
+        // 持久化的 x/y/width/height 使用旧版 120 列坐标系；载入时换算到当前内部网格。
+        val scale = gridCols.toFloat() / GRID_COLS
+        pendingFreeGeometry = preset.buttons.any { it.hasFreeGeometry() }
+
         currentButtons = preset.buttons.map {
             if (it.id == "centerArea") it.copy(id = "touchpad", linearTriggerEnabled = false, slideDirection = com.zyz4.gkme.model.SlideDirection.DOWN) else it
         }.let { list ->
-            if (list.none { it.id == SETTINGS_BUTTON_ID }) {
-                list + ButtonPosition(
+            val scaled = list.map { scaleGeometry(it, scale) }
+            if (scaled.none { it.id == SETTINGS_BUTTON_ID }) {
+                val side = (6 * scale).roundToInt().coerceAtLeast(1)
+                scaled + ButtonPosition(
                     id = SETTINGS_BUTTON_ID,
-                    x = (GRID_COLS - 6) / 2,
+                    x = ((GRID_COLS - 6) / 2 * scale).roundToInt(),
                     y = 0,
-                    width = 6,
-                    height = 6,
+                    width = side,
+                    height = side,
                     lockAspect = true,
                 )
             } else {
-                list
+                scaled
             }
         }.map {
-            if (it.id == SETTINGS_BUTTON_ID) sanitizeSettingsButton(it) else it
+            if (it.id == SETTINGS_BUTTON_ID) sanitizeSettingsButton(it, clampVertical = false) else it
         }.map { normalizeTouchpadArea(it) }
         currentGyroOrientation = preset.gyroOrientation
         currentGyroActivateMode = preset.gyroActivateMode
@@ -866,13 +905,122 @@ class GamepadLayout @JvmOverloads constructor(
         requestLayout()
     }
 
+    /** 将旧版 120 列坐标换算到当前内部网格。 */
+    private fun scaleGeometry(pos: ButtonPosition, scale: Float): ButtonPosition {
+        if (scale == 1f) return pos
+        fun s(value: Int, min: Int = 0): Int =
+            (value * scale).roundToInt().coerceAtLeast(min)
+        return pos.copy(
+            x = s(pos.x),
+            y = s(pos.y),
+            width = s(pos.width, 1),
+            height = s(pos.height, 1),
+            followAreaX = s(pos.followAreaX),
+            followAreaY = s(pos.followAreaY),
+            followAreaW = s(pos.followAreaW),
+            followAreaH = s(pos.followAreaH),
+            travelDistance = s(pos.travelDistance, 1),
+        )
+    }
+
+    /** 用当前屏幕尺寸把内部网格坐标换算成持久化的百分比几何。 */
+    private fun withFreeGeometry(pos: ButtonPosition): ButtonPosition {
+        val wPx = width.toFloat()
+        val hPx = height.toFloat()
+        val cell = if (gridCols > 0) wPx / gridCols else 0f
+        if (wPx <= 0f || hPx <= 0f || cell <= 0f) {
+            // 尚未布局：退化为按网格比例保存，保证不丢数据。
+            val pct = 100f / gridCols
+            return pos.copy(
+                freeX = pos.x * pct,
+                freeY = pos.y * pct,
+                freeWidth = pos.width * pct,
+                freeHeight = pos.height * pct,
+                freeFollowAreaX = pos.followAreaX * pct,
+                freeFollowAreaY = pos.followAreaY * pct,
+                freeFollowAreaW = pos.followAreaW * pct,
+                freeFollowAreaH = pos.followAreaH * pct,
+                freeTravelDistance = pos.travelDistance * pct,
+            )
+        }
+        val longSide = maxOf(wPx, hPx)
+        return pos.copy(
+            freeX = pos.x * cell / wPx * 100f,
+            freeY = pos.y * cell / hPx * 100f,
+            freeWidth = pos.width * cell / longSide * 100f,
+            freeHeight = pos.height * cell / longSide * 100f,
+            freeFollowAreaX = pos.followAreaX * cell / wPx * 100f,
+            freeFollowAreaY = pos.followAreaY * cell / hPx * 100f,
+            freeFollowAreaW = pos.followAreaW * cell / longSide * 100f,
+            freeFollowAreaH = pos.followAreaH * cell / longSide * 100f,
+            freeTravelDistance = pos.travelDistance * cell / longSide * 100f,
+        )
+    }
+
+    /** 首次布局后用真实尺寸把百分比几何还原成内部网格坐标。 */
+    private fun restoreFreeGeometry() {
+        val wPx = width.toFloat()
+        val hPx = height.toFloat()
+        if (wPx <= 0f || hPx <= 0f || gridCols <= 0) return
+        val cell = wPx / gridCols
+        if (cell <= 0f) return
+        val longSide = maxOf(wPx, hPx)
+        fun toGrid(percent: Float, base: Float): Int =
+            (percent / 100f * base / cell).roundToInt()
+        currentButtons = currentButtons.map { b ->
+            if (!b.hasFreeGeometry()) return@map b
+            b.copy(
+                x = b.freeX?.let { toGrid(it, wPx) } ?: b.x,
+                y = b.freeY?.let { toGrid(it, hPx) } ?: b.y,
+                width = b.freeWidth?.let { toGrid(it, longSide).coerceAtLeast(1) } ?: b.width,
+                height = b.freeHeight?.let { toGrid(it, longSide).coerceAtLeast(1) } ?: b.height,
+                followAreaX = b.freeFollowAreaX?.let { toGrid(it, wPx) } ?: b.followAreaX,
+                followAreaY = b.freeFollowAreaY?.let { toGrid(it, hPx) } ?: b.followAreaY,
+                followAreaW = b.freeFollowAreaW?.let { toGrid(it, longSide).coerceAtLeast(0) } ?: b.followAreaW,
+                followAreaH = b.freeFollowAreaH?.let { toGrid(it, longSide).coerceAtLeast(0) } ?: b.followAreaH,
+                travelDistance = b.freeTravelDistance?.let { toGrid(it, longSide).coerceAtLeast(1) } ?: b.travelDistance,
+                // 百分比字段已还原为内部网格坐标，清空避免后续保存时误用旧值。
+                freeX = null,
+                freeY = null,
+                freeWidth = null,
+                freeHeight = null,
+                freeFollowAreaX = null,
+                freeFollowAreaY = null,
+                freeFollowAreaW = null,
+                freeFollowAreaH = null,
+                freeTravelDistance = null,
+            )
+        }.map { if (it.id == SETTINGS_BUTTON_ID) sanitizeSettingsButton(it) else it }
+            .map { normalizeTouchpadArea(it) }
+    }
+
+    private fun ButtonPosition.hasFreeGeometry(): Boolean =
+        freeX != null || freeY != null || freeWidth != null || freeHeight != null ||
+            freeFollowAreaX != null || freeFollowAreaY != null ||
+            freeFollowAreaW != null || freeFollowAreaH != null || freeTravelDistance != null
+
+    /** 清空百分比字段，只保留内部网格坐标（拖动基准快照使用）。 */
+    private fun ButtonPosition.withoutFreeGeometry(): ButtonPosition =
+        if (!hasFreeGeometry()) this else copy(
+            freeX = null,
+            freeY = null,
+            freeWidth = null,
+            freeHeight = null,
+            freeFollowAreaX = null,
+            freeFollowAreaY = null,
+            freeFollowAreaW = null,
+            freeFollowAreaH = null,
+            freeTravelDistance = null,
+        )
+
     /** Settings button: no rotation, swipe trigger always off, overlap trigger always on, fully visible on screen. */
-    private fun sanitizeSettingsButton(pos: ButtonPosition): ButtonPosition {
+    private fun sanitizeSettingsButton(pos: ButtonPosition, clampVertical: Boolean = true): ButtonPosition {
         var p = pos.copy(rotation = 0, swipeTrigger = false, overlapTrigger = true, lockAspect = true,
             idleOpacity = 100, activeOpacity = 100,
             linearTriggerEnabled = false, slideDirection = com.zyz4.gkme.model.SlideDirection.DOWN)
-        val maxCol = (GRID_COLS - p.width).coerceAtLeast(0)
-        val maxRow = if (cellH > 0f) ((height / cellH).toInt() - p.height).coerceAtLeast(0) else Int.MAX_VALUE
+        val maxCol = (gridCols - p.width).coerceAtLeast(0)
+        // 行数依赖实际像素高度，首次 onLayout 之前尚不可信，此时只钳制横向。
+        val maxRow = if (clampVertical) (gridRows - p.height).coerceAtLeast(0) else Int.MAX_VALUE
         p = p.copy(
             x = p.x.coerceIn(0, maxCol),
             y = p.y.coerceIn(0, maxRow)
@@ -942,7 +1090,96 @@ class GamepadLayout @JvmOverloads constructor(
     }
 
     fun getPreset(): LayoutPreset {
-        return LayoutPreset(version = 1, buttons = currentButtons.toList(), gyroOrientation = currentGyroOrientation, gyroActivateMode = currentGyroActivateMode, gyroMode = currentGyroMode, gyroModeSensitivity = currentGyroModeSensitivity, gyroDeadZone = currentGyroDeadZone, gyroReverseDeadZone = currentGyroReverseDeadZone, gyroStickCurve = currentGyroStickCurve, physicalInputMappings = currentPhysicalInputMappings, leftStickSettings = currentLeftStickSettings, rightStickSettings = currentRightStickSettings, volumeUpBits = currentVolumeUpBits, volumeDownBits = currentVolumeDownBits, volumeUpComboTiming = currentVolumeUpComboTiming, volumeUpComboIntervalMs = currentVolumeUpComboIntervalMs, volumeDownComboTiming = currentVolumeDownComboTiming, volumeDownComboIntervalMs = currentVolumeDownComboIntervalMs)
+        // 对外持久化时把内部网格换算回旧版 120 列坐标，并附加百分比几何以保留高密度精度。
+        val scale = GRID_COLS.toFloat() / gridCols
+        val persistedButtons = currentButtons.map { b ->
+            val free = withFreeGeometry(b)
+            fun s(value: Int, min: Int = 0): Int = (value * scale).roundToInt().coerceAtLeast(min)
+            free.copy(
+                x = s(free.x),
+                y = s(free.y),
+                width = s(free.width, 1),
+                height = s(free.height, 1),
+                followAreaX = s(free.followAreaX),
+                followAreaY = s(free.followAreaY),
+                followAreaW = s(free.followAreaW),
+                followAreaH = s(free.followAreaH),
+                travelDistance = s(free.travelDistance, 1),
+            )
+        }
+        return LayoutPreset(
+            version = 1,
+            buttons = persistedButtons,
+            useGrid = currentUseGrid,
+            gridDensity = currentGridDensity,
+            gyroOrientation = currentGyroOrientation,
+            gyroActivateMode = currentGyroActivateMode,
+            gyroMode = currentGyroMode,
+            gyroModeSensitivity = currentGyroModeSensitivity,
+            gyroDeadZone = currentGyroDeadZone,
+            gyroReverseDeadZone = currentGyroReverseDeadZone,
+            gyroStickCurve = currentGyroStickCurve,
+            physicalInputMappings = currentPhysicalInputMappings,
+            leftStickSettings = currentLeftStickSettings,
+            rightStickSettings = currentRightStickSettings,
+            volumeUpBits = currentVolumeUpBits,
+            volumeDownBits = currentVolumeDownBits,
+            volumeUpComboTiming = currentVolumeUpComboTiming,
+            volumeUpComboIntervalMs = currentVolumeUpComboIntervalMs,
+            volumeDownComboTiming = currentVolumeDownComboTiming,
+            volumeDownComboIntervalMs = currentVolumeDownComboIntervalMs,
+        )
+    }
+
+    // ── 布局级网格设置 ──────────────────────────────────────
+
+    fun getGridCols(): Int = gridCols
+
+    fun getGridRows(): Int = gridRows
+
+    fun isUsingGrid(): Boolean = currentUseGrid
+
+    fun getGridDensity(): Int = currentGridDensity
+
+    /**
+     * 切换网格开关 / 调整密度。内部坐标会按新旧列数比例缩放，
+     * 因此控件的屏幕位置和大小保持不变，只是吸附精度改变。
+     */
+    fun setGridSettings(useGrid: Boolean, density: Int) {
+        val newDensity = density.coerceIn(MIN_GRID_DENSITY, MAX_GRID_DENSITY)
+        val newCols = if (useGrid) newDensity else FREE_GRID_COLS
+        if (useGrid == currentUseGrid && newDensity == currentGridDensity && newCols == gridCols) return
+
+        // 拖动密度滑块时始终以拖动起点为基准换算，避免“缩放→取整”逐步累积偏移。
+        val sameMode = useGrid == currentUseGrid
+        val baseline = if (sameMode) gridScaleBaseline else null
+        val baseCols = if (baseline != null) gridScaleBaselineCols else gridCols
+        val scale = newCols.toFloat() / baseCols
+        currentButtons = (baseline ?: currentButtons).map { scaleGeometry(it, scale) }
+        // 开关切换不是拖动的延续，丢弃基准。
+        if (!sameMode) gridScaleBaseline = null
+        currentUseGrid = useGrid
+        currentGridDensity = newDensity
+        gridCols = newCols
+        gamepadRenderer.gridCols = newCols
+        // 关闭网格时立即隐藏可能正在显示的网格叠加层。
+        if (!useGrid) animateGridTo(0f)
+        pendingFreeGeometry = false
+        hasChanges = true
+        refreshSwipeTriggers()
+        requestLayout()
+        invalidate()
+    }
+
+    /** 网格密度拖动开始：记录基准几何，拖动过程中所有密度都以它为缩放基准。 */
+    fun beginGridSettingsDrag() {
+        gridScaleBaselineCols = gridCols
+        gridScaleBaseline = currentButtons.map { it.withoutFreeGeometry() }
+    }
+
+    /** 网格密度拖动结束：丢弃基准，之后的调整重新以当前几何为准。 */
+    fun endGridSettingsDrag() {
+        gridScaleBaseline = null
     }
 
     /** Replaces the physical-controller remapping of the layout being edited. */
@@ -1256,8 +1493,27 @@ class GamepadLayout @JvmOverloads constructor(
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
         val w = r - l
         val h = b - t
-        cellW = w.toFloat() / GRID_COLS
+        cellW = if (gridCols > 0) w.toFloat() / gridCols else 0f
         cellH = cellW
+        gridRows = if (cellH > 0f) (h / cellH).toInt() + 1 else gridCols
+        dispatcher.gridCols = gridCols
+        dispatcher.gridRows = gridRows
+
+        if (pendingFreeGeometry && w > 0 && h > 0) {
+            pendingFreeGeometry = false
+            restoreFreeGeometry()
+        }
+
+        // 行数在首次布局后才确定，重新钳制设置按钮，避免它落到屏幕外。
+        val settingsButton = currentButtons.find { it.id == SETTINGS_BUTTON_ID }
+        if (settingsButton != null) {
+            val sanitized = sanitizeSettingsButton(settingsButton)
+            if (sanitized != settingsButton) {
+                currentButtons = currentButtons.map {
+                    if (it.id == SETTINGS_BUTTON_ID) sanitized else it
+                }
+            }
+        }
 
         val buttonMap = currentButtons.associateBy { it.id }.toMap()
 
@@ -1447,7 +1703,7 @@ class GamepadLayout @JvmOverloads constructor(
                 if (draggingChild != null) {
                     dragOffsetX = event.x - draggingChild!!.left
                     dragOffsetY = event.y - draggingChild!!.top
-                    animateGridTo(1f)
+                    showGridOverlayIfEnabled()
                 }
             }
             if (output.selectResizingChild != null) {
@@ -1457,7 +1713,7 @@ class GamepadLayout @JvmOverloads constructor(
                     if (pos != null) {
                         resizeStartW = pos.width
                         resizeStartH = pos.height
-                        animateGridTo(1f)
+                        showGridOverlayIfEnabled()
                     }
                 }
             }

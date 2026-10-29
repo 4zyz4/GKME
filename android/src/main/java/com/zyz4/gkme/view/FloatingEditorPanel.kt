@@ -58,6 +58,9 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
     var editorListener: EditorListener? = null
 
+    /** 当前布局的内部网格列数，用于尺寸滑块的最大值。 */
+    var gridColsProvider: () -> Int = { GamepadLayout.GRID_COLS }
+
     /** Invoked when the panel is collapsed/expanded via the header toggle button. */
     var onToggleCollapsed: ((collapsed: Boolean) -> Unit)? = null
 
@@ -758,7 +761,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             val isSwapped = button.rotation == 90 || button.rotation == 270
             // When the extended range is enabled, growing the touchpad grows the rectangle.
             val areaEnabled = button.followAreaEnabled && isTouchpadId(buttonId)
-            val sizeMax = maxOf(40, GamepadLayout.GRID_COLS)
+            val sizeMax = maxOf(40, gridColsProvider())
             addSeekbar(buttonParamsInner, context.getString(R.string.i18n_width), if (isSwapped) button.height else button.width, 1, sizeMax, onChange = { value ->
                 var updated = currentButton?.let { if (isSwapped) it.copy(height = value) else it.copy(width = value) } ?: return@addSeekbar
                 if (areaEnabled) updated = growAreaToContain(updated)
