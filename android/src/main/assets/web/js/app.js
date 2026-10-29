@@ -4,7 +4,7 @@
 // settings UI together, mirroring the Android GkViewModel + MainActivity roles.
 
 import { Connection, getDeviceName, setDeviceName } from "./protocol.js";
-import { GamepadLayout, DEFAULT_APPEARANCE, normalizeButton } from "./layout.js";
+import { GamepadLayout, DEFAULT_APPEARANCE, normalizeButton, onScreenGridSize } from "./layout.js";
 import {
   BIT, DPAD, Kb, KB_MODIFIER_CODES, MODIFIER_BITS, CONTROLS, getControl,
   DISPLAY_MODES, defaultSizeFor, controlDisplayName,
@@ -15,7 +15,7 @@ import {
 } from "./state.js";
 import { Haptics } from "./haptics.js";
 import { PAGES } from "./settings-pages.js";
-import { FULL_CON } from "./presets.js";
+import { BUILTIN_PRESETS, BUILTIN_PRESET_ORDER } from "./presets.js";
 import { LayoutEditor } from "./editor.js";
 import { showConfirm, showInput, showIosFullscreenHint } from "./dialog.js";
 import { setForceLandscape } from "./orientation.js";
@@ -28,6 +28,8 @@ const CATEGORY_SWITCH_DURATION = 150;
 const PAGE_SWITCH_OFFSET = 24; // dp (1 CSS px ≈ 1 dp)
 // Android easeOutQuint(): PathInterpolator(0.22f, 1f, 0.36f, 1f).
 const EASE_OUT_QUINT = "cubic-bezier(0.22, 1, 0.36, 1)";
+// PointerAcceleration.REFERENCE_HZ — mouse acceleration is calibrated at 120 Hz.
+const MOUSE_ACCEL_REFERENCE_HZ = 120;
 
 class App {
   constructor() {
@@ -45,6 +47,12 @@ class App {
     this.kbKeys = new Set();
     this.kbModifiers = 0;
     this.shiftActive = false;
+
+    // Fractional mousepad accumulators (the wire format carries integers).
+    this.mouseAccumX = 0;
+    this.mouseAccumY = 0;
+    this.wheelAccumX = 0;
+    this.wheelAccumY = 0;
 
     this.physicalButtons = 0;
     this.physicalEnabled = false;
@@ -213,6 +221,23 @@ class App {
       onTouchpad: (touches) => {
         this.state.touches = touches;
       },
+      onMouseMove: (dx, dy, speed, b) => this._onMouseMove(dx, dy, speed, b),
+      onMouseScroll: (dx, dy, b) => this._onMouseScroll(dx, dy, b),
+      onMouseButton: (bit, down) => this._onMouseButton(bit, down),
+      // Mirrors ACTION_DOWN: a new mousepad gesture drops the fractional
+      // cursor/scroll accumulators left over from the previous one.
+      onMouseGestureStart: () => {
+        this.mouseAccumX = 0;
+        this.mouseAccumY = 0;
+        this.wheelAccumX = 0;
+        this.wheelAccumY = 0;
+      },
+      // Mirrors ACTION_POINTER_DOWN: only the scroll accumulators are cleared.
+      onMouseExtraPointer: () => {
+        this.wheelAccumX = 0;
+        this.wheelAccumY = 0;
+      },
+      onHaptic: (down) => this.haptics.buttonPulse(down),
       onCustomBits: (bits, down, meta) => this._applyCustomBits(bits, down, meta),
       onKey: (code, down) => this._onKey(code, down),
       onEditChanged: () => this.editor && this.editor.onEditChanged(),
@@ -322,6 +347,54 @@ class App {
     this.haptics.buttonPulse(down);
   }
 
+  // ── Mousepad input (mirrors MainActivityControls.moveRaw / doScroll) ──
+  _onMouseMove(dx, dy, speed, b) {
+    const accel = Array.isArray(b.mouseAcceleration) ? Number(b.mouseAcceleration[1]) || 0 : 0;
+    // PointerAcceleration.multiplier(): normalise px/ms to the 120 Hz reference.
+    const accelScale = accel > 0 && speed > 0 ? 1 + accel * (speed * 1000) / MOUSE_ACCEL_REFERENCE_HZ : 1;
+    const sens = Number.isFinite(b.mouseSensitivity) ? b.mouseSensitivity : 1;
+    this.mouseAccumX += dx * accelScale * sens;
+    this.mouseAccumY += dy * accelScale * sens;
+    let ix = Math.trunc(this.mouseAccumX);
+    let iy = Math.trunc(this.mouseAccumY);
+    this.mouseAccumX -= ix;
+    this.mouseAccumY -= iy;
+    if (!ix && !iy) return;
+    // The host writes these into a 16-bit HID field.
+    ix = Math.max(-32767, Math.min(32767, ix));
+    iy = Math.max(-32767, Math.min(32767, iy));
+    this.state.mouseDx += ix;
+    this.state.mouseDy += iy;
+    this._sendFrame();
+  }
+
+  _onMouseScroll(dx, dy, b) {
+    // Android: vertical keeps the sign, horizontal is negated unless inverted.
+    const sDx = b.invertScrollH ? dx : -dx;
+    const sDy = b.invertScrollV ? -dy : dy;
+    const sens = Number.isFinite(b.scrollSensitivity) ? b.scrollSensitivity : 0.1;
+    // WebSocket is equivalent to Android's Wi-Fi/USB path: 120-count units.
+    const factor = 33;
+    this.wheelAccumY += sDy * sens * factor;
+    this.wheelAccumX += sDx * sens * factor;
+    let wy = Math.trunc(this.wheelAccumY);
+    let wx = Math.trunc(this.wheelAccumX);
+    this.wheelAccumY -= wy;
+    this.wheelAccumX -= wx;
+    if (!wx && !wy) return;
+    wy = Math.max(-32767, Math.min(32767, wy));
+    wx = Math.max(-32767, Math.min(32767, wx));
+    this.state.mouseWheel += wy;
+    this.state.mousePan += wx;
+    this._sendFrame();
+  }
+
+  _onMouseButton(bit, down) {
+    if (down) this.state.mouseGestureButtons = (this.state.mouseGestureButtons | bit) >>> 0;
+    else this.state.mouseGestureButtons = (this.state.mouseGestureButtons & ~bit) >>> 0;
+    this._sendFrame();
+  }
+
   _modifierBitFor(code) {
     switch (code) {
       case Kb.LCtrl: return MODIFIER_BITS.LCtrl;
@@ -367,9 +440,9 @@ class App {
    *  device actually is on screen (and out of the settings overlay). */
   _positionStatus() {
     if (!this.layout || !this.topbar) return;
-    const tp = this.layout.buttons.find((b) => b.isTouchpad);
+    const tp = this.layout.buttons.find((b) => b.isTouchpad || b.isMousepad);
     // Mirrors Android: the status label is a child of the touchpad view, so it
-    // is only shown when such a control exists in the layout.
+    // is only shown when such a control (or a mousepad) exists in the layout.
     this.topbar.classList.toggle("no-touchpad", !tp);
     let left;
     let top;
@@ -411,13 +484,18 @@ class App {
   }
 
   _sendFrame() {
-    if (!this.conn.connected) return;
     const st = this.state;
+    if (!this.conn.connected) {
+      st.clearMouseDeltas();
+      return;
+    }
     // Fold keyboard state into the snapshot.
     st.kbKeys = this.kbKeys;
     st.kbModifiers = this.kbModifiers;
     const input = st.toInput();
     this.conn.sendGamepadInput(input);
+    // Mouse deltas are one-shot; periodic frames must not repeat them.
+    st.clearMouseDeltas();
   }
 
   // ── Physical controller forwarding (Gamepad API) ──
@@ -688,15 +766,20 @@ class App {
 
   // ── Preset management (used by the 布局预设 settings page) ──
   isBuiltInPreset(name) {
-    return name === "full_con";
+    return BUILTIN_PRESET_ORDER.includes(name);
   }
 
   presetNames() {
-    return Object.keys(this.presets);
+    const builtins = BUILTIN_PRESET_ORDER.filter((name) => this.presets[name]);
+    const custom = Object.keys(this.presets).filter((name) => !BUILTIN_PRESET_ORDER.includes(name));
+    return builtins.concat(custom);
   }
 
   presetDisplayName(name) {
-    return name === "full_con" ? t("presets.fullController") : name;
+    if (name === "full_con") return t("presets.fullController");
+    if (name === "keyboard") return t("presets.keyboard");
+    if (name === "mouse") return t("presets.mouse");
+    return name;
   }
 
   createDefaultPreset() {
@@ -754,7 +837,7 @@ class App {
     const src = this.activePreset;
     if (!this.isBuiltInPreset(src)) return false;
     if (!(await showConfirm(t("presets.restoreDefaults"), t("presets.restoreConfirm", this.presetDisplayName(src)), { positiveText: t("presets.restoreDefaults") }))) return false;
-    this.presets[src] = JSON.parse(JSON.stringify(FULL_CON));
+    this.presets[src] = JSON.parse(JSON.stringify(BUILTIN_PRESETS[src]));
     savePresets(this.presets);
     this._loadPreset(src);
     this._toast(t("presets.restored", this.presetDisplayName(src)));
@@ -796,20 +879,44 @@ class App {
     const box = document.createElement("div");
     box.className = "modalbox";
     box.appendChild(Object.assign(document.createElement("div"), { className: "modaltitle", textContent: t("app.addControlTitle") }));
+
+    // Mirrors MainActivityEditor.showAddButtonDialog(): gamepad / mouse /
+    // keyboard / custom tabs, each with its own grid.
+    const groups = [[t("app.addGamepad"), []], [t("app.addMouse"), []], [t("app.addKeyboard"), []], [t("app.addCustom"), []]];
+    for (const id of Object.keys(CONTROLS)) {
+      if (id === "btnSettings") continue;
+      if (getControl(id)?.isKeyboard) groups[2][1].push(id);
+      else if (id === "mousepad" || id.startsWith("btnMouse")) groups[1][1].push(id);
+      else if (id === "btnCustomCircle" || id === "btnCustomRect" || id === "customKeypad") groups[3][1].push(id);
+      else groups[0][1].push(id);
+    }
+
+    const tabs = document.createElement("div");
+    tabs.className = "modaltabs";
     const grid = document.createElement("div");
     grid.className = "modalgrid";
-    for (const [id, meta] of Object.entries(CONTROLS)) {
-      if (id === "btnSettings") continue;
-      // Keyboard controls are not part of the web build.
-      if (meta.isKeyboard) continue;
-      const b = document.createElement("button");
-      b.textContent = controlDisplayName(id);
-      b.addEventListener("click", () => {
-        this._addControl(id);
-        overlay.remove();
-      });
-      grid.appendChild(b);
-    }
+    let selected = 0;
+    const fill = () => {
+      grid.innerHTML = "";
+      for (const id of groups[selected][1]) {
+        const b = document.createElement("button");
+        b.textContent = controlDisplayName(id);
+        b.addEventListener("click", () => {
+          this._addControl(id);
+          overlay.remove();
+        });
+        grid.appendChild(b);
+      }
+      Array.from(tabs.children).forEach((el, i) => el.classList.toggle("on", i === selected));
+    };
+    groups.forEach(([label], i) => {
+      const tab = document.createElement("button");
+      tab.textContent = label;
+      tab.addEventListener("click", () => { selected = i; fill(); });
+      tabs.appendChild(tab);
+    });
+    box.appendChild(tabs);
+    fill();
     box.appendChild(grid);
     const close = document.createElement("button");
     close.className = "modalclose";
@@ -847,10 +954,16 @@ class App {
   }
 
   _findFreeSpot(w, h) {
+    // Rotated (90/270°) controls occupy swapped on-screen cells, so compare
+    // against their visual size rather than the raw w/h.
     const occupied = (x, y) =>
-      this.layout.buttons.some((b) => x < b.x + b.w && x + w > b.x && y < b.y + b.h && y + h > b.y);
-    for (let y = 2; y < 50; y += 2) {
-      for (let x = 2; x < 120 - w; x += 2) {
+      this.layout.buttons.some((b) => {
+        const [bw, bh] = onScreenGridSize(b);
+        return x < b.x + bw && x + w > b.x && y < b.y + bh && y + h > b.y;
+      });
+    const rows = this.layout._layout.rows || 53;
+    for (let y = 1; y + h <= rows; y += 1) {
+      for (let x = 1; x + w <= 120; x += 1) {
         if (!occupied(x, y)) return { x, y };
       }
     }

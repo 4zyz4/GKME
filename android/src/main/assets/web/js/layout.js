@@ -56,12 +56,32 @@ const DEFAULTS = {
   travelDistance: 10,
   autoHold: false,
   gyroActivate: false,
+  // Mousepad (mirrors ButtonPosition + MouseGestureAction defaults).
+  mouseSensitivity: 1,
+  mouseAcceleration: null,
+  scrollSensitivity: 0.1,
+  mouseMoveSlop: 4,
+  invertScrollV: false,
+  invertScrollH: false,
+  singleTapAction: "LEFT_CLICK",
+  twoFingerTapAction: "RIGHT_CLICK",
+  threeFingerTapAction: "MIDDLE_CLICK",
+  doubleTapDragAction: "LEFT_DRAG",
+  oneFingerSwipeAction: "MOVE_CURSOR",
+  twoFingerSwipeAction: "SCROLL",
+  threeFingerSwipeAction: "SCROLL",
   sensitivityCurve: null,
   keypadTexts: null,
   keypadBits: null,
   keypadComboTimings: null,
   keypadComboIntervals: null,
 };
+
+/** On-screen grid size, accounting for the 90/270° non-locked aspect swap. */
+export function onScreenGridSize(b) {
+  const swapped = !b.lockAspect && (b.rotation === 90 || b.rotation === 270);
+  return swapped ? [b.h, b.w] : [b.w, b.h];
+}
 
 export function normalizeButton(raw) {
   const b = Object.assign({}, DEFAULTS, raw);
@@ -71,12 +91,13 @@ export function normalizeButton(raw) {
   if (b.h === undefined) b.h = 10;
   b.lockAspect = raw.lockAspect !== undefined ? raw.lockAspect : lockAspectFor(b.id);
   const c = getControl(b.id);
-  if (c && c.isKeyboard) b.isKeyboard = true;
+  if (c && c.isKeyboard) { b.isKeyboard = true; b.keyCode = c.keyCode; }
   if (c && c.isKeypad) b.isKeypad = true;
   if (c && c.isCustom) b.isCustom = true;
   if (c && c.isTrigger) b.isTrigger = true;
   if (c && c.isJoystick) { b.isJoystick = true; b.axis = c.axis; }
   if (c && c.isTouchpad) b.isTouchpad = true;
+  if (c && c.isMousepad) b.isMousepad = true;
   if (c && c.isDpadPad) b.isDpadPad = true;
   if (c && c.isDpad) b.isDpad = true;
   if (c && c.isSettings) b.isSettings = true;
@@ -148,6 +169,14 @@ export const MARKER_DIST_DP = 4;
 
 // Fallback extrapolation frame for 快速响应模式 (ButtonPosition.PREDICTION_FRAME_MS).
 const PREDICTION_FRAME_MS = 16;
+
+// ── Mousepad gesture timing (mirrors MainActivityControls.attachMousepadGestures) ──
+const MOUSEPAD_DOUBLE_TAP_WINDOW_MS = 200;
+const MOUSEPAD_HOLD_FOR_DOUBLE_MS = 200;
+const MOUSEPAD_CLICK_HOLD_MS = 40;
+const MOUSEPAD_TAP_THRESHOLD_MS = 200;
+const MOUSEPAD_EMA_ALPHA = 0.4;
+const MOUSEPAD_RESEED_GAP_MS = 50;
 
 // ── 摇杆触摸板（速度）模式常量，镜像 JoystickView.kt ──
 // 摇杆偏移 = 手指速度 × 该时间常数（再按最大行程归一化、乘灵敏度）。
@@ -329,11 +358,12 @@ export class GamepadLayout {
 
   gridRect(b) {
     const { cell, originX, originY } = this._layout;
+    const [w, h] = onScreenGridSize(b);
     return {
       x: originX + b.x * cell,
       y: originY + b.y * cell,
-      w: b.w * cell,
-      h: b.h * cell,
+      w: w * cell,
+      h: h * cell,
     };
   }
 
@@ -341,11 +371,7 @@ export class GamepadLayout {
     this.preset = preset || { buttons: [] };
     // Mirrors GamepadLayout.loadPreset: every layout always carries a settings
     // button, appended when the preset (e.g. a freshly created one) lacks it.
-    // Drop legacy mouse controls (mousepad / 鼠标 buttons) left over from
-    // presets saved before mouse mapping was removed.
-    const raw = (this.preset.buttons || [])
-      .filter((b) => baseId(b.id) !== "mousepad" && !baseId(b.id).startsWith("btnMouse"))
-      .slice();
+    const raw = (this.preset.buttons || []).slice();
     if (!raw.some((b) => baseId(b.id) === "btnSettings")) {
       raw.push({ id: "btnSettings", x: (GRID_COLS - 6) / 2, y: 0, w: 6, h: 6, lockAspect: true });
     }
@@ -411,6 +437,23 @@ export class GamepadLayout {
           if (b.sensitivityCurve && b.sensitivityCurve.length) o.sensitivityCurve = b.sensitivityCurve;
         }
         if (b.prediction) o.prediction = true;
+        if (base === "mousepad") {
+          if (b.mouseSensitivity !== 1) o.mouseSensitivity = b.mouseSensitivity;
+          if (Array.isArray(b.mouseAcceleration) && b.mouseAcceleration.length) {
+            o.mouseAcceleration = b.mouseAcceleration.slice();
+          }
+          if (b.scrollSensitivity !== 0.1) o.scrollSensitivity = b.scrollSensitivity;
+          if (b.mouseMoveSlop !== 4) o.mouseMoveSlop = b.mouseMoveSlop;
+          if (b.invertScrollV) o.invertScrollV = true;
+          if (b.invertScrollH) o.invertScrollH = true;
+          if (b.singleTapAction !== "LEFT_CLICK") o.singleTapAction = b.singleTapAction;
+          if (b.twoFingerTapAction !== "RIGHT_CLICK") o.twoFingerTapAction = b.twoFingerTapAction;
+          if (b.threeFingerTapAction !== "MIDDLE_CLICK") o.threeFingerTapAction = b.threeFingerTapAction;
+          if (b.doubleTapDragAction !== "LEFT_DRAG") o.doubleTapDragAction = b.doubleTapDragAction;
+          if (b.oneFingerSwipeAction !== "MOVE_CURSOR") o.oneFingerSwipeAction = b.oneFingerSwipeAction;
+          if (b.twoFingerSwipeAction !== "SCROLL") o.twoFingerSwipeAction = b.twoFingerSwipeAction;
+          if (b.threeFingerSwipeAction !== "SCROLL") o.threeFingerSwipeAction = b.threeFingerSwipeAction;
+        }
         if (AREA.has(base) && b.followAreaEnabled) {
           o.followAreaEnabled = true;
           o.followAreaX = b.followAreaX | 0;
@@ -690,16 +733,22 @@ export class GamepadLayout {
   }
 
   _drawControl(b) {
-    const r = this.gridRect(b);
-    if (r.w <= 0 || r.h <= 0) return;
+    const box = this.gridRect(b);
+    if (box.w <= 0 || box.h <= 0) return;
     const ctx = this.ctx;
     const active = this._active(b);
     const opacity = (active ? b.activeOpacity : b.idleOpacity) / 100;
     if (opacity <= 0) return;
 
+    // Android lays the child out in its visual (swapped) box, then rotates the
+    // original width/height around the box centre. Mirror that by passing the
+    // unswapped dimensions to the per-control painters.
+    const cell = this._layout.cell;
+    const r = { x: 0, y: 0, w: b.w * cell, h: b.h * cell };
+
     ctx.save();
     ctx.globalAlpha *= opacity;
-    ctx.translate(r.x + r.w / 2, r.y + r.h / 2);
+    ctx.translate(box.x + box.w / 2, box.y + box.h / 2);
     // Linear trigger: slide the button along its axis by the drag travel
     // (LinearTriggerView setTranslationX/Y).
     if (b.isTrigger && b.linearTriggerEnabled && b._triggerOffset) {
@@ -714,7 +763,7 @@ export class GamepadLayout {
     if (b.isJoystick) this._drawJoystick(b, r);
     else if (b.isDpadPad) this._drawDpadPad(b, r, active);
     else if (b.isKeypad) this._drawKeypad(b, r);
-    else if (b.isTouchpad) this._drawPad(b, r, active);
+    else if (b.isTouchpad || b.isMousepad) this._drawPad(b, r, active);
     else this._drawButton(b, r, active);
 
     ctx.restore();
@@ -1627,6 +1676,10 @@ export class GamepadLayout {
       this._updateDpad(e.pointerId, px, py);
       return;
     }
+    if (b.isMousepad) {
+      this._mpDown(b, e, px, py);
+      return;
+    }
     if (b.isTouchpad) {
       // 双击按下: a second tap within 300ms / 32px emits TOUCHPAD_CLICK while held.
       const otherTouchpadPointers = [...this._pointers.values()].filter(
@@ -1696,6 +1749,7 @@ export class GamepadLayout {
     else if (info.kind === "dpad") this._updateDpad(e.pointerId, px, py);
     else if (info.kind === "keypad") this._updateKeypad(e.pointerId, px, py);
     else if (info.kind === "trigger") this._updateTrigger(e.pointerId, px, py, e);
+    else if (info.kind === "mousepad") this._mpMove(info.b, info, e);
     else if (info.kind === "touchpad") { info.px = px; info.py = py; this._updateTouchpad(info.b); }
   }
 
@@ -1707,6 +1761,16 @@ export class GamepadLayout {
     const info = this._pointers.get(e.pointerId);
     if (!info) return;
     this._pointers.delete(e.pointerId);
+
+    if (info.kind === "mousepad") {
+      const cancel = e.type === "pointercancel";
+      if (cancel) {
+        this._mpUp(info.b, info, e, true);
+      } else if (this._mpPointerCount(info.b) === 0) {
+        this._mpUp(info.b, info, e, false);
+      }
+      return;
+    }
 
     if (info.kind === "stick") {
       if (info.vel && info.vel.timer) clearTimeout(info.vel.timer);
@@ -2292,6 +2356,302 @@ export class GamepadLayout {
     this.render();
   }
 
+  // ── Mousepad gestures (mirrors MainActivityControls.attachMousepadGestures) ──
+  _mpBitForAction(action) {
+    switch (action) {
+      case "LEFT_CLICK": return 1;
+      case "RIGHT_CLICK": return 2;
+      case "MIDDLE_CLICK": return 4;
+      default: return 0;
+    }
+  }
+
+  _mpDragBitForAction(action) {
+    switch (action) {
+      case "LEFT_DRAG": return 1;
+      case "RIGHT_DRAG": return 2;
+      case "MIDDLE_DRAG": return 4;
+      default: return 0;
+    }
+  }
+
+  _mpPress(bit) {
+    if (bit) this.cb.onMouseButton && this.cb.onMouseButton(bit, true);
+  }
+
+  _mpRelease(bit) {
+    if (bit) this.cb.onMouseButton && this.cb.onMouseButton(bit, false);
+  }
+
+  _mpReleaseAll(b) {
+    if (b._mpActiveDragBit) {
+      this._mpRelease(b._mpActiveDragBit);
+      b._mpActiveDragBit = 0;
+    }
+  }
+
+  _mpClearPending(b, release = false) {
+    const pending = b._mpPending;
+    if (!pending) return;
+    if (pending.timer) clearTimeout(pending.timer);
+    if (release) this._mpRelease(pending.bit);
+    b._mpPending = null;
+  }
+
+  /** A short simulated click. When track is true the release can be cancelled
+   *  by the second tap so a drag starts without an intervening button-up. */
+  _mpClick(b, bit, holdMs, track) {
+    if (!bit) return;
+    this._mpPress(bit);
+    const pending = { bit, timer: 0 };
+    pending.timer = setTimeout(() => {
+      this._mpRelease(bit);
+      if (b._mpPending === pending) b._mpPending = null;
+    }, holdMs);
+    if (track) b._mpPending = pending;
+  }
+
+  _mpApplyTap(b, action, holdMs = MOUSEPAD_CLICK_HOLD_MS, track = false) {
+    this._mpClick(b, this._mpBitForAction(action), holdMs, track);
+  }
+
+  _mpRotateDelta(b, dx, dy) {
+    const rot = ((b.rotation || 0) % 360 + 360) % 360;
+    if (rot === 90) return { dx: dy, dy: -dx };
+    if (rot === 180) return { dx: -dx, dy: -dy };
+    if (rot === 270) return { dx: -dy, dy: dx };
+    return { dx, dy };
+  }
+
+  _mpApplySwipe(b, action, dx, dy, speed) {
+    if (action === "NONE" || !action) return;
+    const v = this._mpRotateDelta(b, dx, dy);
+    if (action === "MOVE_CURSOR") {
+      this.cb.onMouseMove && this.cb.onMouseMove(v.dx, v.dy, speed, b);
+    } else if (action === "SCROLL") {
+      this.cb.onMouseScroll && this.cb.onMouseScroll(v.dx, v.dy, b);
+    } else {
+      const bit = this._mpDragBitForAction(action);
+      if (bit) {
+        if (!b._mpActiveDragBit) {
+          b._mpActiveDragBit = bit;
+          this._mpPress(bit);
+        }
+        this.cb.onMouseMove && this.cb.onMouseMove(v.dx, v.dy, speed, b);
+      }
+    }
+  }
+
+  _mpSwipeActionFor(b, count) {
+    const g = b._mpGesture;
+    if (count === 1) return g && g.doubleTapArmed ? b.doubleTapDragAction : b.oneFingerSwipeAction;
+    if (count === 2) return b.twoFingerSwipeAction;
+    if (count === 3) return b.threeFingerSwipeAction;
+    return "NONE";
+  }
+
+  _mpTapActionFor(b, count) {
+    if (count === 1) return b.singleTapAction;
+    if (count === 2) return b.twoFingerTapAction;
+    if (count === 3) return b.threeFingerTapAction;
+    return "NONE";
+  }
+
+  _mpPointerCount(b) {
+    let n = 0;
+    for (const info of this._pointers.values()) {
+      if (info.kind === "mousepad" && info.b === b) n++;
+    }
+    return n;
+  }
+
+  /** Advance one pointer's EMA velocity tracker over coalesced samples. */
+  _mpTrackPointer(info, e) {
+    const samples = typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : [];
+    const list = samples && samples.length ? samples : [e];
+    const tr = info.tracker;
+    let dx = 0;
+    let dy = 0;
+    let vx = 0;
+    let vy = 0;
+    for (const sample of list) {
+      const p = this._pos(sample);
+      const time = Number.isFinite(sample.timeStamp) ? sample.timeStamp : performance.now();
+      if (!tr.hasSample) {
+        tr.lastX = p.px;
+        tr.lastY = p.py;
+        tr.lastTime = time;
+        tr.hasSample = true;
+        continue;
+      }
+      const dt = time - tr.lastTime;
+      if (dt <= 0) continue;
+      const sdx = p.px - tr.lastX;
+      const sdy = p.py - tr.lastY;
+      const ivx = sdx / dt;
+      const ivy = sdy / dt;
+      if (!tr.seeded) {
+        tr.vx = ivx;
+        tr.vy = ivy;
+        tr.seeded = true;
+      } else if (dt > MOUSEPAD_RESEED_GAP_MS) {
+        tr.vx = ivx;
+        tr.vy = ivy;
+      } else {
+        tr.vx += (ivx - tr.vx) * MOUSEPAD_EMA_ALPHA;
+        tr.vy += (ivy - tr.vy) * MOUSEPAD_EMA_ALPHA;
+      }
+      tr.pendingDx += tr.vx * dt;
+      tr.pendingDy += tr.vy * dt;
+      tr.lastX = p.px;
+      tr.lastY = p.py;
+      tr.lastTime = time;
+      dx += tr.pendingDx;
+      dy += tr.pendingDy;
+      tr.pendingDx = 0;
+      tr.pendingDy = 0;
+      vx = tr.vx;
+      vy = tr.vy;
+    }
+    info.px = tr.lastX;
+    info.py = tr.lastY;
+    return { dx, dy, vx, vy };
+  }
+
+  _mpDown(b, e, px, py) {
+    const now = Number.isFinite(e.timeStamp) ? e.timeStamp : performance.now();
+    const count = this._mpPointerCount(b) + 1;
+    if (!b._mpGesture) {
+      b._mpGesture = { maxPointers: 1, moved: false, travel: 0, doubleTapArmed: false };
+      // The first pointer starts a fresh gesture, matching ACTION_DOWN: drop the
+      // fractional cursor/scroll accumulators that the previous gesture left.
+      this.cb.onMouseGestureStart && this.cb.onMouseGestureStart(b);
+      const lastTap = b._mpLastTapUpTime || 0;
+      b._mpGesture.doubleTapArmed =
+        b.doubleTapDragAction !== "NONE" && lastTap > 0 && now - lastTap < MOUSEPAD_DOUBLE_TAP_WINDOW_MS;
+      b._mpLastTapUpTime = 0;
+      if (b._mpGesture.doubleTapArmed) {
+        // Cancel the previous tap's delayed release so the drag key stays down.
+        const pending = b._mpPending;
+        this._mpClearPending(b);
+        const dragBit = this._mpDragBitForAction(b.doubleTapDragAction);
+        if (pending && pending.bit !== dragBit) this._mpRelease(pending.bit);
+        if (dragBit) {
+          b._mpActiveDragBit = dragBit;
+          this._mpPress(dragBit);
+        }
+        this.controlActive.set(b.id, true);
+        this.cb.onHaptic && this.cb.onHaptic(true);
+      }
+    } else {
+      const g = b._mpGesture;
+      if (count > g.maxPointers) g.maxPointers = count;
+      // Mirrors ACTION_POINTER_DOWN: drop the fractional scroll leftovers so
+      // the two-finger gesture starts from a clean unit boundary.
+      this.cb.onMouseExtraPointer && this.cb.onMouseExtraPointer(b);
+      // A second finger cancels the double-tap-drag hold.
+      if (g.doubleTapArmed) {
+        this._mpReleaseAll(b);
+        g.doubleTapArmed = false;
+        this.controlActive.set(b.id, false);
+        this.cb.onHaptic && this.cb.onHaptic(false);
+      }
+    }
+
+    this._pointers.set(e.pointerId, {
+      id: b.id,
+      kind: "mousepad",
+      b,
+      px,
+      py,
+      downTime: now,
+      // Seed at the down point like EmaVelocityTracker.start(), so the first
+      // move already yields velocity + displacement instead of being dropped.
+      tracker: {
+        lastX: px, lastY: py, lastTime: now, hasSample: true,
+        vx: 0, vy: 0, pendingDx: 0, pendingDy: 0, seeded: false,
+      },
+    });
+    this.render();
+  }
+
+  _mpMove(b, info, e) {
+    const g = b._mpGesture;
+    if (!g) return;
+    const count = this._mpPointerCount(b);
+    if (!count) return;
+    const d = this._mpTrackPointer(info, e);
+    // MotionEvent reports every pointer in one event; a browser pointermove
+    // carries one pointer, so average over the simultaneous pointer count.
+    const dx = d.dx / count;
+    const dy = d.dy / count;
+    // Velocity is averaged the same way: Android sums every pointer's EMA
+    // velocity in the move event, then divides by the pointer count.
+    let sumVx = 0;
+    let sumVy = 0;
+    for (const p of this._pointers.values()) {
+      if (p.kind !== "mousepad" || p.b !== b) continue;
+      sumVx += p.tracker.vx;
+      sumVy += p.tracker.vy;
+    }
+    const vx = sumVx / count;
+    const vy = sumVy / count;
+    g.travel += Math.abs(dx) + Math.abs(dy);
+    if (!g.moved && g.travel > b.mouseMoveSlop) g.moved = true;
+    if (g.moved) {
+      const speed = Math.hypot(vx, vy);
+      const action = this._mpSwipeActionFor(b, count);
+      this._mpApplySwipe(b, action, dx, dy, speed);
+    }
+    this.render();
+  }
+
+  _mpUp(b, info, e, cancel = false) {
+    const g = b._mpGesture;
+    const now = Number.isFinite(e.timeStamp) ? e.timeStamp : performance.now();
+    if (!cancel) {
+      const dur = now - info.downTime;
+      const wasTap = g && !g.moved && dur < MOUSEPAD_TAP_THRESHOLD_MS;
+      this._mpReleaseAll(b);
+      if (g && g.doubleTapArmed) {
+        this.controlActive.set(b.id, false);
+        this.cb.onHaptic && this.cb.onHaptic(false);
+      }
+      if (wasTap && g) {
+        if (g.maxPointers === 1) {
+          if (g.doubleTapArmed) {
+            // Second tap: emit an immediate click, no further drag handoff.
+            this._mpApplyTap(b, b.singleTapAction);
+          } else {
+            b._mpLastTapUpTime = now;
+            const track = b.doubleTapDragAction !== "NONE";
+            this._mpApplyTap(
+              b,
+              b.singleTapAction,
+              track ? MOUSEPAD_HOLD_FOR_DOUBLE_MS : MOUSEPAD_CLICK_HOLD_MS,
+              track
+            );
+          }
+        } else {
+          this._mpApplyTap(b, this._mpTapActionFor(b, g.maxPointers));
+        }
+      }
+    } else {
+      // ACTION_CANCEL: drop any latched drag / pending click without a tap.
+      this._mpClearPending(b, true);
+      this._mpReleaseAll(b);
+      if (g && g.doubleTapArmed) {
+        this.controlActive.set(b.id, false);
+        this.cb.onHaptic && this.cb.onHaptic(false);
+      }
+      for (const [pid, p] of [...this._pointers]) {
+        if (p.kind === "mousepad" && p.b === b) this._pointers.delete(pid);
+      }
+    }
+    b._mpGesture = null;
+    this.render();
+  }
+
   // ── edit mode ──
   _editDown(e, px, py) {
     try { this.canvas.setPointerCapture(e.pointerId); } catch {}
@@ -2341,9 +2701,10 @@ export class GamepadLayout {
     const dgy = Math.round((py - this._edit.gy) / cell);
     const b = this._edit.b;
     if (this._edit.mode === "move") {
-      let nx = this._edit.start.x + dgx;
-      let ny = this._edit.start.y + dgy;
-      b.x = Math.max(0, Math.min(GRID_COLS - b.w, nx));
+      const nx = this._edit.start.x + dgx;
+      const ny = this._edit.start.y + dgy;
+      const [vw] = onScreenGridSize(b);
+      b.x = Math.max(0, Math.min(GRID_COLS - vw, nx));
       b.y = Math.max(0, ny);
     } else if (this._edit.mode === "fareamove") {
       b.followAreaX = Math.max(0, this._edit.start.x + dgx);
@@ -2352,11 +2713,20 @@ export class GamepadLayout {
       b.followAreaW = Math.max(3, this._edit.start.w + dgx);
       b.followAreaH = Math.max(3, this._edit.start.h + dgy);
     } else {
-      let nw = this._edit.start.w + dgx;
-      let nh = this._edit.start.h + dgy;
-      if (b.lockAspect) nh = nw;
-      b.w = Math.max(3, nw);
-      b.h = Math.max(3, nh);
+      // Resize handles track the visual box, which is swapped for 90/270°.
+      const swapped = !b.lockAspect && (b.rotation === 90 || b.rotation === 270);
+      if (b.lockAspect) {
+        const size = Math.max(3, this._edit.start.w + dgx);
+        b.w = size;
+        b.h = size;
+      } else if (swapped) {
+        // Visual W comes from h, visual H from w.
+        b.h = Math.max(3, this._edit.start.h + dgx);
+        b.w = Math.max(3, this._edit.start.w + dgy);
+      } else {
+        b.w = Math.max(3, this._edit.start.w + dgx);
+        b.h = Math.max(3, this._edit.start.h + dgy);
+      }
     }
     this.cb.onEditChanged && this.cb.onEditChanged();
     this.render();

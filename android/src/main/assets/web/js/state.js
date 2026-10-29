@@ -1,7 +1,7 @@
 // GKME-Web — persisted settings, presets and the live input state model.
 
-import { BUILTIN_PRESETS, FULL_CON } from "./presets.js";
-import { normalizeButton } from "./layout.js";
+import { BUILTIN_PRESETS } from "./presets.js";
+import { mouseButtonsFromBits } from "./controls.js";
 const SETTINGS_KEY = "gkme.settings.v1";
 const PRESETS_KEY = "gkme.presets.v1";
 const ACTIVE_PRESET_KEY = "gkme.activePreset.v1";
@@ -101,19 +101,18 @@ export function savePresets(presets) {
 }
 
 export function ensurePresets() {
-  // The web build ships only the touch gamepad preset; keyboard/mouse layouts
-  // are intentionally not part of GKME-Web.
-  let presets = loadPresets() || {};
-  delete presets.keyboard;
-  delete presets.mouse;
-  if (!presets.full_con) presets.full_con = JSON.parse(JSON.stringify(FULL_CON));
+  // The web build ships the same built-in layouts as Android. Only inject a
+  // missing built-in; user edits to an existing copy are preserved.
+  const presets = loadPresets() || {};
+  for (const [name, preset] of Object.entries(BUILTIN_PRESETS)) {
+    if (!presets[name]) presets[name] = JSON.parse(JSON.stringify(preset));
+  }
   savePresets(presets);
   return presets;
 }
 
 export function getActivePresetName() {
-  const name = localStorage.getItem(ACTIVE_PRESET_KEY) || "full_con";
-  return name === "keyboard" || name === "mouse" ? "full_con" : name;
+  return localStorage.getItem(ACTIVE_PRESET_KEY) || "full_con";
 }
 
 export function setActivePresetName(name) {
@@ -137,6 +136,14 @@ export class InputState {
     // keyboard
     this.kbModifiers = 0;
     this.kbKeys = new Set(); // usages
+    // mouse pad (deltas are accumulated between frames)
+    this.mouseDx = 0;
+    this.mouseDy = 0;
+    this.mouseWheel = 0;
+    this.mousePan = 0;
+    // Mousepad gesture buttons (HID bitfield), kept separate from on-screen
+    // mouse-key controls so holding one does not release the other.
+    this.mouseGestureButtons = 0;
     // sources keep button/dpad contributions independent
     this._touchButtons = 0;
     this._physicalButtons = 0;
@@ -165,6 +172,18 @@ export class InputState {
       touches: this.touches,
       scanCodes,
       modifiers: this.kbModifiers >>> 0,
+      mouseDx: this.mouseDx | 0,
+      mouseDy: this.mouseDy | 0,
+      mouseWheel: this.mouseWheel | 0,
+      mousePan: this.mousePan | 0,
+      mouseButtons: (mouseButtonsFromBits(this.buttons) | this.mouseGestureButtons) >>> 0,
     };
+  }
+
+  clearMouseDeltas() {
+    this.mouseDx = 0;
+    this.mouseDy = 0;
+    this.mouseWheel = 0;
+    this.mousePan = 0;
   }
 }

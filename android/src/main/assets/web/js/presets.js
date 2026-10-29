@@ -1,4 +1,4 @@
-﻿// GKME-Web 鈥?built-in layout presets (mirrors android/src/main/res/raw).
+// GKME-Web — built-in layout presets (mirrors android/src/main/res/raw).
 // Each button only lists the fields it overrides; normalizeButton() fills the
 // rest with ButtonPosition defaults.
 
@@ -24,7 +24,109 @@ export const FULL_CON = {
   ],
 };
 
-export const BUILTIN_PRESETS = {
-  full_con: FULL_CON,
+export const KEYBOARD = {
+  version: 1,
+  buttons: [
+    { id: "btnSettings", x: 112, y: 0, w: 7, h: 7 },
+    { id: "kb1_1", x: 6, y: 7, w: 9, h: 9 },
+    { id: "kb2_2", x: 15, y: 7, w: 9, h: 9 },
+    { id: "kb3_3", x: 24, y: 7, w: 9, h: 9 },
+    { id: "kb4_4", x: 33, y: 7, w: 9, h: 9 },
+    { id: "kb5_5", x: 42, y: 7, w: 9, h: 9 },
+    { id: "kb6_6", x: 51, y: 7, w: 9, h: 9 },
+    { id: "kb7_7", x: 60, y: 7, w: 9, h: 9 },
+    { id: "kb8_8", x: 69, y: 7, w: 9, h: 9 },
+    { id: "kb9_9", x: 78, y: 7, w: 9, h: 9 },
+    { id: "kb0_10", x: 87, y: 7, w: 9, h: 9 },
+    { id: "kbTab_11", x: 0, y: 16, w: 14, h: 9 },
+    { id: "kbQ_12", x: 14, y: 16, w: 9, h: 9 },
+    { id: "kbW_13", x: 23, y: 16, w: 9, h: 9 },
+    { id: "kbE_14", x: 32, y: 16, w: 9, h: 9 },
+    { id: "kbR_15", x: 41, y: 16, w: 9, h: 9 },
+    { id: "kbT_17", x: 50, y: 16, w: 9, h: 9 },
+    { id: "kbY_19", x: 59, y: 16, w: 9, h: 9 },
+    { id: "kbU_20", x: 68, y: 16, w: 9, h: 9 },
+    { id: "kbI_21", x: 77, y: 16, w: 9, h: 9 },
+    { id: "kbO_22", x: 86, y: 16, w: 9, h: 9 },
+    { id: "kbP_23", x: 95, y: 16, w: 9, h: 9 },
+    { id: "kbA_26", x: 16, y: 25, w: 9, h: 9 },
+    { id: "kbS_27", x: 25, y: 25, w: 9, h: 9 },
+    { id: "kbD_28", x: 34, y: 25, w: 9, h: 9 },
+    { id: "kbF_29", x: 43, y: 25, w: 9, h: 9 },
+    { id: "kbG_30", x: 52, y: 25, w: 9, h: 9 },
+    { id: "kbH_31", x: 61, y: 25, w: 9, h: 9 },
+    { id: "kbJ_32", x: 70, y: 25, w: 9, h: 9 },
+    { id: "kbK_33", x: 79, y: 25, w: 9, h: 9 },
+    { id: "kbL_34", x: 88, y: 25, w: 9, h: 9 },
+    { id: "kbZ_35", x: 20, y: 34, w: 9, h: 9 },
+    { id: "kbCaps_1", x: 0, y: 25, w: 16, h: 9 },
+    { id: "kbLShift_2", x: 0, y: 34, w: 20, h: 9, autoHold: true },
+    { id: "kbX_3", x: 29, y: 34, w: 9, h: 9 },
+    { id: "kbC_5", x: 38, y: 34, w: 9, h: 9 },
+    { id: "kbV_6", x: 47, y: 34, w: 9, h: 9 },
+    { id: "kbB_7", x: 56, y: 34, w: 9, h: 9 },
+    { id: "kbN_8", x: 65, y: 34, w: 9, h: 9 },
+    { id: "kbM_9", x: 74, y: 34, w: 9, h: 9 },
+    { id: "kbRShift_10", x: 107, y: 34, w: 13, h: 9, autoHold: true },
+    { id: "kbLBracket_11", x: 104, y: 16, w: 8, h: 9 },
+    { id: "kbRBracket_12", x: 112, y: 16, w: 8, h: 9 },
+    { id: "kbComma_13", x: 83, y: 34, w: 8, h: 9 },
+    { id: "kbDot_14", x: 91, y: 34, w: 8, h: 9 },
+    { id: "kbSlash_15", x: 99, y: 34, w: 8, h: 9 },
+    { id: "kbBackslash_16", x: 112, y: 7, w: 8, h: 9 },
+    { id: "kbBackspace_1", x: 96, y: 7, w: 16, h: 9 },
+    { id: "kbGrave_2", x: 0, y: 7, w: 6, h: 9 },
+    { id: "kbEsc_3", x: 0, y: 0, w: 8, h: 7 },
+    { id: "kbSemicolon_1", x: 97, y: 25, w: 7, h: 9 },
+    { id: "kbApostrophe_2", x: 104, y: 25, w: 7, h: 9 },
+    { id: "kbEnter_3", x: 111, y: 25, w: 9, h: 9 },
+    { id: "kbMinus_1", x: 92, y: 0, w: 6, h: 7 },
+    { id: "kbEqual_2", x: 98, y: 0, w: 6, h: 7 },
+    { id: "kbDelete_3", x: 104, y: 0, w: 8, h: 7 },
+    { id: "kbF1_4", x: 8, y: 0, w: 7, h: 7 },
+    { id: "kbF2_5", x: 15, y: 0, w: 7, h: 7 },
+    { id: "kbF3_6", x: 22, y: 0, w: 7, h: 7 },
+    { id: "kbF4_7", x: 29, y: 0, w: 7, h: 7 },
+    { id: "kbF5_8", x: 36, y: 0, w: 7, h: 7 },
+    { id: "kbF6_9", x: 43, y: 0, w: 7, h: 7 },
+    { id: "kbF8_10", x: 57, y: 0, w: 7, h: 7 },
+    { id: "kbF9_11", x: 64, y: 0, w: 7, h: 7 },
+    { id: "kbF10_12", x: 71, y: 0, w: 7, h: 7 },
+    { id: "kbF11_13", x: 78, y: 0, w: 7, h: 7 },
+    { id: "kbF12_14", x: 85, y: 0, w: 7, h: 7 },
+    { id: "kbLCtrl_1", x: 0, y: 43, w: 10, h: 10, autoHold: true },
+    { id: "kbLWin_2", x: 10, y: 43, w: 10, h: 10, autoHold: true },
+    { id: "kbLAlt_3", x: 20, y: 43, w: 10, h: 10, autoHold: true },
+    { id: "kbSpace_4", x: 30, y: 43, w: 36, h: 10 },
+    { id: "kbRAlt_1", x: 66, y: 43, w: 8, h: 10, autoHold: true },
+    { id: "kbRCtrl_2", x: 74, y: 43, w: 8, h: 10, autoHold: true },
+    { id: "kbRGui_3", x: 82, y: 43, w: 8, h: 10, autoHold: true },
+    { id: "kbMenu_4", x: 90, y: 43, w: 8, h: 10 },
+    { id: "kbArrowUp_1", x: 105, y: 43, w: 9, h: 5 },
+    { id: "kbArrowDown_1", x: 105, y: 48, w: 9, h: 5 },
+    { id: "kbArrowLeft_2", x: 98, y: 43, w: 7, h: 10 },
+    { id: "kbArrowRight_3", x: 114, y: 43, w: 6, h: 10 },
+    { id: "kbF7_1", x: 50, y: 0, w: 7, h: 7 },
+  ],
 };
 
+export const MOUSE = {
+  version: 1,
+  buttons: [
+    { id: "btnSettings", x: 0, y: 23, w: 8, h: 8 },
+    { id: "mousepad_2", x: 9, y: 4, w: 45, h: 75, rotation: 270 },
+    { id: "btnMouseLMB_3", x: 84, y: 31, w: 18, h: 23, rotation: 270, gyroActivate: true },
+    { id: "btnMouseRMB_1", x: 84, y: 4, w: 18, h: 23, rotation: 270 },
+    { id: "btnMouseMMB_2", x: 84, y: 22, w: 9, h: 23, rotation: 270 },
+    { id: "btnCustomRect_1", x: 107, y: 4, w: 45, h: 8, rotation: 270, isCustom: true, customText: "Gyro", customBits: [], autoHold: true, gyroActivate: true },
+  ],
+};
+
+export const BUILTIN_PRESETS = {
+  full_con: FULL_CON,
+  keyboard: KEYBOARD,
+  mouse: MOUSE,
+};
+
+/** Display order used by the 布局预设 page. */
+export const BUILTIN_PRESET_ORDER = ["full_con", "keyboard", "mouse"];
