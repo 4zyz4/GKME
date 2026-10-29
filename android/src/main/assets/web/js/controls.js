@@ -23,7 +23,32 @@ export const BIT = {
   HOME: 0x10000,
   TOUCHPAD_CLICK: 0x20000,
   MIC_MUTE: 0x40000,
+  // Mouse buttons (mirrors GamepadState.MOUSE_*). The protocol also carries
+  // them as a compact 0..4 bitfield in GamepadInput.mouse_buttons.
+  MOUSE_LMB: 0x80000,
+  MOUSE_RMB: 0x100000,
+  MOUSE_MMB: 0x200000,
+  // Side buttons use bit 26/27 to leave the paddle bits 22-25 free.
+  MOUSE_BACK: 0x4000000,
+  MOUSE_FORWARD: 0x8000000,
 };
+
+// HID mouse button bitfield (GamepadInput.mouse_buttons): bit0 LMB … bit4 forward.
+export const MOUSE_BUTTON_BITS = [
+  [BIT.MOUSE_LMB, 1],
+  [BIT.MOUSE_RMB, 2],
+  [BIT.MOUSE_MMB, 4],
+  [BIT.MOUSE_BACK, 8],
+  [BIT.MOUSE_FORWARD, 16],
+];
+/** GKME mouse bitmask → HID mouse button bitfield. */
+export function mouseButtonsFromBits(bits) {
+  let out = 0;
+  for (const [bit, value] of MOUSE_BUTTON_BITS) {
+    if ((bits & bit) !== 0) out |= value;
+  }
+  return out >>> 0;
+}
 
 export const DPAD = { UP: 1, DOWN: 2, LEFT: 4, RIGHT: 8 };
 
@@ -118,7 +143,55 @@ export const CONTROLS = {
   btnCustomCircle: { name: "自定义(圆)", isCustom: true, lockAspect: true },
   btnCustomRect: { name: "自定义(方)", isCustom: true, lockAspect: false },
   btnSettings: { name: "设置", isSettings: true, lockAspect: true },
+  // ── Mouse (mirrors MainActivityControls.CTRL_ENTRIES) ──
+  mousepad: { name: "触摸板（鼠标）", isMousepad: true, lockAspect: false },
+  btnMouseLMB: { name: "鼠标：左键", bit: BIT.MOUSE_LMB, lockAspect: false },
+  btnMouseRMB: { name: "鼠标：右键", bit: BIT.MOUSE_RMB, lockAspect: false },
+  btnMouseMMB: { name: "鼠标：中键", bit: BIT.MOUSE_MMB, lockAspect: false },
+  btnMouseBack: { name: "鼠标：后退", bit: BIT.MOUSE_BACK, lockAspect: false },
+  btnMouseForward: { name: "鼠标：前进", bit: BIT.MOUSE_FORWARD, lockAspect: false },
 };
+
+// Mousepad gesture actions (mirrors model/MouseGestureAction.kt).
+export const MOUSE_ACTION = {
+  NONE: "NONE",
+  MOVE_CURSOR: "MOVE_CURSOR",
+  LEFT_CLICK: "LEFT_CLICK",
+  RIGHT_CLICK: "RIGHT_CLICK",
+  MIDDLE_CLICK: "MIDDLE_CLICK",
+  LEFT_DRAG: "LEFT_DRAG",
+  RIGHT_DRAG: "RIGHT_DRAG",
+  MIDDLE_DRAG: "MIDDLE_DRAG",
+  SCROLL: "SCROLL",
+};
+
+// Click gestures accept NONE + the three clicks.
+export const MOUSE_TAP_ACTIONS = [
+  MOUSE_ACTION.NONE, MOUSE_ACTION.LEFT_CLICK, MOUSE_ACTION.RIGHT_CLICK, MOUSE_ACTION.MIDDLE_CLICK,
+];
+// Swipe gestures additionally accept cursor movement, drags and scrolling.
+export const MOUSE_SWIPE_ACTIONS = [
+  MOUSE_ACTION.NONE, MOUSE_ACTION.MOVE_CURSOR,
+  MOUSE_ACTION.LEFT_DRAG, MOUSE_ACTION.RIGHT_DRAG, MOUSE_ACTION.MIDDLE_DRAG,
+  MOUSE_ACTION.SCROLL,
+];
+
+// Gesture action → i18n key.
+const MOUSE_ACTION_KEYS = {
+  [MOUSE_ACTION.NONE]: "common.none",
+  [MOUSE_ACTION.MOVE_CURSOR]: "mouse.moveCursor",
+  [MOUSE_ACTION.LEFT_CLICK]: "mouse.leftClick",
+  [MOUSE_ACTION.RIGHT_CLICK]: "mouse.rightClick",
+  [MOUSE_ACTION.MIDDLE_CLICK]: "mouse.middleClick",
+  [MOUSE_ACTION.LEFT_DRAG]: "mouse.leftDrag",
+  [MOUSE_ACTION.RIGHT_DRAG]: "mouse.rightDrag",
+  [MOUSE_ACTION.MIDDLE_DRAG]: "mouse.middleDrag",
+  [MOUSE_ACTION.SCROLL]: "mouse.scroll",
+};
+
+export function mouseActionLabel(action) {
+  return t(MOUSE_ACTION_KEYS[action] || "common.none");
+}
 
 const KB_KEY_CODES = {
   kbLCtrl: Kb.LCtrl, kbLShift: Kb.LShift, kbLAlt: Kb.LAlt, kbLWin: Kb.LGui,
@@ -157,6 +230,7 @@ export function baseId(id) {
 // Default grid sizes for newly added controls (w, h).
 export const DEFAULT_SIZE = {
   touchpad: [34, 22],
+  mousepad: [34, 22],
   leftJoystick: [17, 17],
   rightJoystick: [17, 17],
   dpadPad: [17, 17],
@@ -166,7 +240,12 @@ export const DEFAULT_SIZE = {
   btnLT: [14, 8],
   btnRT: [14, 8],
   btnCustomRect: [14, 8],
-  btnSpace: [14, 8],
+  btnMouseLMB: [9, 9],
+  btnMouseRMB: [9, 9],
+  btnMouseMMB: [9, 9],
+  btnMouseBack: [9, 9],
+  btnMouseForward: [9, 9],
+  kbSpace: [14, 8],
   kbEnter: [9, 8],
   kbBackspace: [9, 8],
   kbTab: [8, 8],
@@ -226,6 +305,11 @@ export const BIT_NAME_KEYS = {
   [BIT.DPAD_BIT_DOWN]: "control.dpadDown",
   [BIT.DPAD_BIT_LEFT]: "control.dpadLeft",
   [BIT.DPAD_BIT_RIGHT]: "control.dpadRight",
+  [BIT.MOUSE_LMB]: "control.mouseLMB",
+  [BIT.MOUSE_RMB]: "control.mouseRMB",
+  [BIT.MOUSE_MMB]: "control.mouseMMB",
+  [BIT.MOUSE_BACK]: "control.mouseBack",
+  [BIT.MOUSE_FORWARD]: "control.mouseForward",
 };
 
 export function bitName(bit) {
@@ -244,6 +328,10 @@ export const OUTPUT_PICKER_GROUPS = [
       BIT.DPAD_BIT_UP, BIT.DPAD_BIT_DOWN, BIT.DPAD_BIT_LEFT, BIT.DPAD_BIT_RIGHT,
     ],
   },
+  {
+    titleKey: "control.mouse",
+    bits: [BIT.MOUSE_LMB, BIT.MOUSE_RMB, BIT.MOUSE_MMB, BIT.MOUSE_BACK, BIT.MOUSE_FORWARD],
+  },
 ];
 
 // Control ids treated as "buttons" by the editor panel (see FloatingEditorPanel.BUTTON_IDS).
@@ -251,6 +339,7 @@ const BUTTON_IDS = new Set([
   "btnDpadUp", "btnDpadDown", "btnDpadLeft", "btnDpadRight",
   "btnY", "btnA", "btnX", "btnB", "btnLT", "btnLB", "btnRT", "btnRB",
   "btnSelect", "btnHome", "btnMenu", "btnShare", "btnLS", "btnRS", "btnMic",
+  "btnMouseLMB", "btnMouseRMB", "btnMouseMMB", "btnMouseBack", "btnMouseForward",
 ]);
 
 export function isButtonId(id) {
@@ -291,12 +380,26 @@ const CONTROL_NAME_KEYS = {
   btnCustomCircle: "control.customCircle",
   btnCustomRect: "control.customRect",
   btnSettings: "control.settings",
+  mousepad: "control.mousepad",
+  btnMouseLMB: "control.mouseLeftButton",
+  btnMouseRMB: "control.mouseRightButton",
+  btnMouseMMB: "control.mouseMiddleButton",
+  btnMouseBack: "control.mouseBack",
+  btnMouseForward: "control.mouseForward",
+};
+
+// Modifier keys need explicit names: the key cap alone can't tell left from right.
+const KB_DISPLAY_NAMES = {
+  kbLCtrl: "Left Ctrl", kbLShift: "Left Shift", kbLAlt: "Left Alt", kbLWin: "Left Win",
+  kbRCtrl: "Right Ctrl", kbRShift: "Right Shift", kbRAlt: "AltGr", kbRGui: "Right Win",
 };
 
 export function controlDisplayName(id) {
   const b = baseId(id);
   if (CONTROL_NAME_KEYS[b]) return t(CONTROL_NAME_KEYS[b]);
   if (isKeypadId(id)) return t("control.customKeypad");
+  const c = CONTROLS[b];
+  if (c?.isKeyboard) return KB_DISPLAY_NAMES[b] || keyboardCaption(c.keyCode);
   return b;
 }
 
@@ -321,6 +424,16 @@ export function controlLabel(id, displayMode) {
   if (b === "btnHome" || b === "btnShare" || b === "btnLS" || b === "btnRS" || b === "btnMic") return "";
   // Direction buttons draw arrow icons.
   if (b.startsWith("btnDpad")) return "";
+
+  // Mouse keys use the same abbreviations as MainActivityControls.
+  const mouseLabels = {
+    btnMouseLMB: "LMB",
+    btnMouseRMB: "RMB",
+    btnMouseMMB: "MMB",
+    btnMouseBack: "BACK",
+    btnMouseForward: "FWD",
+  };
+  if (mouseLabels[b]) return mouseLabels[b];
 
   return "";
 }

@@ -11,6 +11,7 @@ import { showConfirm } from "./dialog.js";
 import {
   baseId, getControl, isKeypadId, bitName, OUTPUT_PICKER_GROUPS,
   controlDisplayName, isButtonId, isSettingsId, DOUBLE_CLICK_IDS, JOYSTICK_IDS,
+  MOUSE_TAP_ACTIONS, MOUSE_SWIPE_ACTIONS, mouseActionLabel,
 } from "./controls.js";
 import { t, keypadDefaultTexts } from "./i18n.js";
 import { centerSizeOf } from "./layout.js";
@@ -563,6 +564,75 @@ export class LayoutEditor {
         })
       );
       if (button.followAreaEnabled) this.params.append(this._btnRow([[t("editor.enterAdjust"), () => this.setAdjusting(true)]]));
+    }
+
+    // ── Mousepad gestures & tuning ──
+    if (base === "mousepad") {
+      const picker = (key, labelKey, actions) => {
+        this.params.append(
+          this._spinner(
+            t(labelKey),
+            actions.map((a) => [a, mouseActionLabel(a)]),
+            button[key] || "NONE",
+            (v) => this._update(id, { [key]: v })
+          )
+        );
+      };
+      picker("singleTapAction", "editor.singleTap", MOUSE_TAP_ACTIONS);
+      picker("twoFingerTapAction", "editor.twoFingerTap", MOUSE_TAP_ACTIONS);
+      picker("threeFingerTapAction", "editor.threeFingerTap", MOUSE_TAP_ACTIONS);
+      picker("doubleTapDragAction", "editor.doubleTapDrag", MOUSE_SWIPE_ACTIONS);
+      picker("oneFingerSwipeAction", "editor.oneFingerSwipe", MOUSE_SWIPE_ACTIONS);
+      picker("twoFingerSwipeAction", "editor.twoFingerSwipe", MOUSE_SWIPE_ACTIONS);
+      picker("threeFingerSwipeAction", "editor.threeFingerSwipe", MOUSE_SWIPE_ACTIONS);
+      this.params.append(
+        this._seek({
+          label: t("editor.mouseSensitivity"),
+          value: button.mouseSensitivity ?? 1,
+          min: 0.1,
+          max: 3,
+          step: 0.05,
+          onChange: (v) => this._update(id, { mouseSensitivity: v }),
+        }).el
+      );
+      this.params.append(
+        this._seek({
+          label: t("editor.swipeThreshold"),
+          value: button.mouseMoveSlop ?? 4,
+          min: 0,
+          max: 20,
+          onChange: (v) => this._update(id, { mouseMoveSlop: v }),
+        }).el
+      );
+      this.params.append(
+        this._seek({
+          label: t("editor.scrollSensitivity"),
+          value: button.scrollSensitivity ?? 0.1,
+          min: 0.01,
+          max: 1,
+          step: 0.01,
+          onChange: (v) => this._update(id, { scrollSensitivity: v }),
+        }).el
+      );
+      const accel = Array.isArray(button.mouseAcceleration) && button.mouseAcceleration.length > 1
+        ? Number(button.mouseAcceleration[1]) || 0
+        : 0;
+      this.params.append(
+        this._seek({
+          label: t("editor.pointerAcceleration"),
+          value: accel,
+          min: 0,
+          max: 0.5,
+          step: 0.01,
+          onChange: (v) => this._update(id, { mouseAcceleration: [1, v] }),
+        }).el
+      );
+      this.params.append(
+        this._check(t("editor.invertScrollV"), button.invertScrollV, (v) => this._update(id, { invertScrollV: v }))
+      );
+      this.params.append(
+        this._check(t("editor.invertScrollH"), button.invertScrollH, (v) => this._update(id, { invertScrollH: v }))
+      );
     }
 
     // ── Integrated D-pad centre size ──

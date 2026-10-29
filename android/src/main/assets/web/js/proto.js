@@ -126,7 +126,8 @@ function encodeTouch(w, field, pt) {
 /**
  * Encode GamepadInput. `inp` fields (all optional):
  *   buttons, leftStickX/Y, rightStickX/Y, leftTrigger, rightTrigger, dpad,
- *   batteryLevel, isCharging, touches (array), scanCodes (array), modifiers
+ *   batteryLevel, isCharging, touches (array), scanCodes (array), modifiers,
+ *   mouseDx, mouseDy, mouseWheel, mousePan, mouseButtons
  */
 export function encodeGamepadInput(inp) {
   const w = new Writer();
@@ -148,7 +149,19 @@ export function encodeGamepadInput(inp) {
   }
   w.packedUints(28, inp.scanCodes);
   w.uint(30, inp.modifiers >>> 0);
+  // Mouse fields (all sint32 except the button bitfield).
+  w.sint(23, clampI16(inp.mouseDx));
+  w.sint(24, clampI16(inp.mouseDy));
+  w.sint(25, clampI16(inp.mouseWheel));
+  w.sint(26, clampI16(inp.mousePan));
+  w.uint(27, inp.mouseButtons >>> 0);
   return w.toBytes();
+}
+
+/** The host writes mouse deltas into a 16-bit HID field, so clamp them here. */
+function clampI16(v) {
+  const n = Math.trunc(Number(v) || 0);
+  return Math.max(-32767, Math.min(32767, n));
 }
 
 /** Encode ClientToServer { Hello hello = 1 }. */

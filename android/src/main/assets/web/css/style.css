@@ -655,6 +655,19 @@ html.force-landscape body {
   padding: 20px 24px 16px;
 }
 .modaltitle { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 12px; }
+.modaltabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.modaltabs button {
+  flex: 1 1 0;
+  background: var(--chip);
+  color: var(--text-dim);
+  border: none;
+  border-radius: 0;
+  height: 32px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+}
+.modaltabs button.on { background: var(--chip-selected); color: var(--text); }
 .modalgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; }
 .modalgrid button {
   background: var(--chip);
