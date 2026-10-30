@@ -289,8 +289,7 @@ class MainActivity : ComponentActivity() {
                             message = getString(R.string.i18n_discard_changes_17a8d0),
                             positiveText = getString(R.string.i18n_discard),
                             onPositive = {
-                                gamepadLayout.discardToSnapshot()
-                                gamepadLayout.exitEditMode()
+                                discardLayoutEdits()
                             }
                         )
                     }

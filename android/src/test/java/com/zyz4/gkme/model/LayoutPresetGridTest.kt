@@ -15,7 +15,6 @@ class LayoutPresetGridTest {
         assertTrue(preset.useGrid)
         assertEquals(LayoutPreset.DEFAULT_GRID_DENSITY, preset.gridDensity)
         assertEquals(120, LayoutPreset.BASE_GRID_COLS)
-        assertEquals(240, LayoutPreset.FREE_GRID_COLS)
     }
 
     @Test
@@ -38,7 +37,7 @@ class LayoutPresetGridTest {
             LayoutPreset.fromJson("""{"buttons":[],"gridDensity":999}""").gridDensity,
         )
         assertEquals(
-            120,
+            30,
             LayoutPreset.fromJson("""{"buttons":[],"gridDensity":1}""").gridDensity,
         )
         val legacy = LayoutPreset.fromJson("""{"buttons":[]}""")

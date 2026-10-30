@@ -259,9 +259,6 @@
     <string name="i18n_grid" formatted="false">"网格"</string>
     <string name="i18n_use_grid" formatted="false">"使用网格"</string>
     <string name="i18n_grid_density" formatted="false">"网格密度"</string>
-    <string name="i18n_grid_preview_on">"网格密度 %1$d（网格越密，吸附越精细）"</string>
-    <string name="i18n_grid_preview_off" formatted="false">"自由布局（不吸附）"</string>
-    <string name="i18n_grid_description" formatted="false">"网格越密，控件吸附精度越高。调整密度时会自动缩放现有控件以保持布局；关闭网格后控件可自由摆放，尺寸按屏幕长边百分比保存。"</string>
     <string name="i18n_gyro_activation" formatted="false">"陀螺仪激活方式"</string>
     <string name="i18n_gyro_anti_dead_zone" formatted="false">"陀螺仪反死区(%)"</string>
     <string name="i18n_gyro_behavior" formatted="false">"陀螺仪行为"</string>

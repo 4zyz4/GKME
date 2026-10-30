@@ -259,9 +259,6 @@
     <string name="i18n_grid" formatted="false">"Grid"</string>
     <string name="i18n_use_grid" formatted="false">"Use grid"</string>
     <string name="i18n_grid_density" formatted="false">"Grid density"</string>
-    <string name="i18n_grid_preview_on">"Grid density %1$d (higher density snaps more precisely)"</string>
-    <string name="i18n_grid_preview_off" formatted="false">"Free layout (no snapping)"</string>
-    <string name="i18n_grid_description" formatted="false">"Higher density gives finer snapping. Existing controls are rescaled automatically to keep the layout; with the grid off, controls can be placed freely and sizes are saved as a percentage of the screen\'s long edge."</string>
     <string name="i18n_gyro_activation" formatted="false">"Gyro activation"</string>
     <string name="i18n_gyro_anti_dead_zone" formatted="false">"Gyro anti-dead zone (%)"</string>
     <string name="i18n_gyro_behavior" formatted="false">"Gyro behavior"</string>

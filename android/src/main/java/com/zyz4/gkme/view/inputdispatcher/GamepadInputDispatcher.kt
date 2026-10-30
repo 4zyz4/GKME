@@ -367,7 +367,11 @@ override fun dispatchEdit(
                 val (downGx, downGy) = state.unselectedDragDownGrid
                 val dx = kotlin.math.abs(gridX - downGx)
                 val dy = kotlin.math.abs(gridY - downGy)
-                if (dx < 3 && dy < 3) {
+                // 用约 8dp 的触摸容差换算成当前坐标单位。低密度网格（如 30 列）的
+                // 单元格可达数十像素，固定 3 单位会造成过大的拖动死区，因此向上取整并保底 1 单位。
+                val slopUnits = kotlin.math.ceil(8f * densityPx / cellW.coerceAtLeast(1f))
+                    .toInt().coerceAtLeast(1)
+                if (dx < slopUnits && dy < slopUnits) {
                     return EditDispatchResult(commands, state)
                 }
             }

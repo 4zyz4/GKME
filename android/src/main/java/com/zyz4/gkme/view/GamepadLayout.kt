@@ -92,7 +92,6 @@ class GamepadLayout @JvmOverloads constructor(
     companion object {
         /** 旧版固定网格列数；持久化的 x/y/width/height 始终使用该坐标系。 */
         const val GRID_COLS = LayoutPreset.BASE_GRID_COLS
-        const val FREE_GRID_COLS = LayoutPreset.FREE_GRID_COLS
         const val MIN_GRID_DENSITY = LayoutPreset.MIN_GRID_DENSITY
         const val DEFAULT_GRID_DENSITY = LayoutPreset.DEFAULT_GRID_DENSITY
         const val MAX_GRID_DENSITY = LayoutPreset.MAX_GRID_DENSITY
@@ -120,12 +119,14 @@ class GamepadLayout @JvmOverloads constructor(
     // ── 布局级网格配置 ──────────────────────────────────────
     /** 是否启用网格吸附（关闭后不绘制网格，控件自由摆放）。 */
     private var currentUseGrid = true
-    /** 网格密度（列数），120..240。 */
+    /** 网格密度（列数），30..240。 */
     private var currentGridDensity = DEFAULT_GRID_DENSITY
-    /** 当前内部坐标系的列数：启用网格时为 [currentGridDensity]，关闭时为 [FREE_GRID_COLS]。 */
+    /** 当前内部坐标系的列数：启用网格时为 [currentGridDensity]，关闭时为视图像素宽度（1 单位 = 1 px）。 */
     private var gridCols = GRID_COLS
     /** 当前内部坐标系的可见行数，用于拖拽/缩放的边界限制。 */
     private var gridRows = GRID_COLS
+    /** 关闭网格且尚无真实宽度时，等待首次 onLayout 把旧版 120 列坐标换算成像素坐标。 */
+    private var pendingFreeGridInit = false
     /** 载入自由布局后，等待首次 onLayout 获取真实尺寸再换算自由百分比。 */
     private var pendingFreeGeometry = false
     /** 拖动网格密度滑块时的基准几何，避免逐步取整产生累积偏移；为 null 表示未在拖动。 */
@@ -855,7 +856,11 @@ class GamepadLayout @JvmOverloads constructor(
     fun loadPreset(preset: LayoutPreset) {
         currentUseGrid = preset.useGrid
         currentGridDensity = preset.gridDensity.coerceIn(MIN_GRID_DENSITY, MAX_GRID_DENSITY)
-        gridCols = if (currentUseGrid) currentGridDensity else FREE_GRID_COLS
+        // 自由模式以视图像素宽度为列数：1 单位 = 1 px，彻底取消网格吸附。
+        // 首次载入时视图可能还没有宽度，先按 120 列暂存，等 onLayout 再换算。
+        val hasWidth = width > 0
+        gridCols = if (currentUseGrid) currentGridDensity else if (hasWidth) width else GRID_COLS
+        pendingFreeGridInit = !currentUseGrid && !hasWidth
         gamepadRenderer.gridCols = gridCols
         gridScaleBaseline = null
 
@@ -1147,7 +1152,8 @@ class GamepadLayout @JvmOverloads constructor(
      */
     fun setGridSettings(useGrid: Boolean, density: Int) {
         val newDensity = density.coerceIn(MIN_GRID_DENSITY, MAX_GRID_DENSITY)
-        val newCols = if (useGrid) newDensity else FREE_GRID_COLS
+        // 关闭网格后内部坐标 = 像素坐标，不再按 240 列取整。
+        val newCols = if (useGrid) newDensity else if (width > 0) width else GRID_COLS
         if (useGrid == currentUseGrid && newDensity == currentGridDensity && newCols == gridCols) return
 
         // 拖动密度滑块时始终以拖动起点为基准换算，避免“缩放→取整”逐步累积偏移。
@@ -1161,6 +1167,7 @@ class GamepadLayout @JvmOverloads constructor(
         currentUseGrid = useGrid
         currentGridDensity = newDensity
         gridCols = newCols
+        pendingFreeGridInit = !useGrid && width <= 0
         gamepadRenderer.gridCols = newCols
         // 关闭网格时立即隐藏可能正在显示的网格叠加层。
         if (!useGrid) animateGridTo(0f)
@@ -1291,6 +1298,10 @@ class GamepadLayout @JvmOverloads constructor(
 
     fun getEditSnapshot(): LayoutPreset? = editSnapshot
 
+    /**
+     * 只把布局还原到 [editSnapshot]，不会同步 ViewModel 的 currentPreset。
+     * 完整放弃编辑请使用 `MainActivity.discardLayoutEdits()`。
+     */
     fun discardToSnapshot() {
         editSnapshot?.let { loadPreset(it) }
         hasChanges = false
@@ -1493,6 +1504,16 @@ class GamepadLayout @JvmOverloads constructor(
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
         val w = r - l
         val h = b - t
+
+        // 自由模式：拿到真实宽度后切换为像素坐标系（1 单位 = 1 px）。
+        if (pendingFreeGridInit && w > 0) {
+            pendingFreeGridInit = false
+            val scale = w.toFloat() / gridCols
+            currentButtons = currentButtons.map { scaleGeometry(it, scale) }
+            gridCols = w
+            gamepadRenderer.gridCols = gridCols
+        }
+
         cellW = if (gridCols > 0) w.toFloat() / gridCols else 0f
         cellH = cellW
         gridRows = if (cellH > 0f) (h / cellH).toInt() + 1 else gridCols

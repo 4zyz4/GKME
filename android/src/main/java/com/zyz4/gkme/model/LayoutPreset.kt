@@ -36,9 +36,9 @@ private val IS_KEYBOARD_IDS = setOf(
 data class LayoutPreset(
     val version: Int = 1,
     val buttons: List<ButtonPosition> = emptyList(),
-    /** 是否使用网格吸附。关闭后控件自由摆放，尺寸按屏幕长边百分比存储。 */
+    /** 是否使用网格吸附。关闭后控件按像素自由摆放（内部 1 单位 = 1 px），尺寸按屏幕长边百分比存储。 */
     val useGrid: Boolean = true,
-    /** 网格密度（横向列数），默认 120，最大 240。 */
+    /** 网格密度（横向列数），默认 120，范围 30..240。 */
     val gridDensity: Int = 120,
     val gyroOrientation: GyroOrientation? = null,
     val gyroActivateMode: GyroActivateMode? = null,
@@ -67,11 +67,9 @@ data class LayoutPreset(
     companion object {
         /** 旧版固定网格列数，也是 `x/y/width/height` 的持久化坐标系。 */
         const val BASE_GRID_COLS = 120
-        const val MIN_GRID_DENSITY = 120
+        const val MIN_GRID_DENSITY = 30
         const val DEFAULT_GRID_DENSITY = 120
         const val MAX_GRID_DENSITY = 240
-        /** 关闭网格后的内部高精度列数；不绘制网格，仅用于自由摆放。 */
-        const val FREE_GRID_COLS = 240
 
         private val gsonInstance = Gson()
         private val DOUBLE_CLICK_IDS = setOf("leftJoystick", "rightJoystick", "touchpad")

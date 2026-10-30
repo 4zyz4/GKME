@@ -63,7 +63,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         fun onPopulatePhysicalMapping(container: LinearLayout)
         fun onPopulateVolumeMapping(container: LinearLayout)
         fun onPhysicalStickSettingsChanged(left: PhysicalStickSettings, right: PhysicalStickSettings)
-        /** 布局级网格设置变化：开关 + 密度（120..240）。 */
+        /** 布局级网格设置变化：开关 + 密度（30..240）。 */
         fun onGridSettingsChanged(useGrid: Boolean, density: Int)
 
         /** 网格密度滑块开始拖动（用于记录缩放基准）。 */
@@ -177,8 +177,8 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
     private fun prebuildMappingTabs() {
         if (currentTab != 0) return
         post {
-            populateTab(1)
-            post { populateTab(2) }
+            populateTab(2)
+            post { populateTab(3) }
         }
     }
 
@@ -240,7 +240,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
     }
 
     private fun selectTab(index: Int, animate: Boolean = false) {
-        val pages = listOfNotNull(gyroScroll, physicalScroll, volumeScroll, gridScroll)
+        val pages = listOfNotNull(gridScroll, gyroScroll, physicalScroll, volumeScroll)
         val oldPage = pages.getOrNull(currentTab)
         val newPage = pages.getOrNull(index)
         currentTab = index
@@ -263,22 +263,22 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
     /** (Re)builds the mapping list for [index] only when needed, so switching tabs reuses cached views. */
     private fun populateTab(index: Int) {
         when (index) {
-            1 -> physicalContainer?.let {
+            0 -> gridContainer?.let {
+                if (gridDirty || it.childCount == 0) {
+                    gridDirty = false
+                    rebuildGridContent()
+                }
+            }
+            2 -> physicalContainer?.let {
                 if (physicalDirty || it.childCount == 0) {
                     physicalDirty = false
                     listener?.onPopulatePhysicalMapping(it)
                 }
             }
-            2 -> volumeContainer?.let {
+            3 -> volumeContainer?.let {
                 if (volumeDirty || it.childCount == 0) {
                     volumeDirty = false
                     listener?.onPopulateVolumeMapping(it)
-                }
-            }
-            3 -> gridContainer?.let {
-                if (gridDirty || it.childCount == 0) {
-                    gridDirty = false
-                    rebuildGridContent()
                 }
             }
         }
@@ -414,18 +414,18 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
             stateListAnimator = null
         }
 
+        val btnGrid = tabButton(context.getString(R.string.i18n_grid))
         val btnGyro = tabButton(context.getString(R.string.i18n_gyro))
         val btnPhysical = tabButton(context.getString(R.string.i18n_physical_gamepad))
         val btnVolume = tabButton(context.getString(R.string.i18n_volume_keys))
-        val btnGrid = tabButton(context.getString(R.string.i18n_grid))
-        tabButtons = listOf(btnGyro, btnPhysical, btnVolume, btnGrid)
+        tabButtons = listOf(btnGrid, btnGyro, btnPhysical, btnVolume)
         tabButtons.forEach { btn ->
             sidebar.addView(btn, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (48f * density).toInt()))
         }
-        btnGyro.setOnClickListener { selectTab(0, animate = true) }
-        btnPhysical.setOnClickListener { selectTab(1, animate = true) }
-        btnVolume.setOnClickListener { selectTab(2, animate = true) }
-        btnGrid.setOnClickListener { selectTab(3, animate = true) }
+        btnGrid.setOnClickListener { selectTab(0, animate = true) }
+        btnGyro.setOnClickListener { selectTab(1, animate = true) }
+        btnPhysical.setOnClickListener { selectTab(2, animate = true) }
+        btnVolume.setOnClickListener { selectTab(3, animate = true) }
 
         // ── Right content ──
         val contentHost = FrameLayout(context).apply {
@@ -448,13 +448,13 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         physicalScroll = scroll(physicalContainer!!)
         volumeScroll = scroll(volumeContainer!!)
         gridScroll = scroll(gridContainer!!)
+        contentHost.addView(gridScroll)
         contentHost.addView(gyroScroll)
         contentHost.addView(physicalScroll)
         contentHost.addView(volumeScroll)
-        contentHost.addView(gridScroll)
+        gyroScroll?.visibility = View.GONE
         physicalScroll?.visibility = View.GONE
         volumeScroll?.visibility = View.GONE
-        gridScroll?.visibility = View.GONE
 
         addView(root)
     }
@@ -678,18 +678,6 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         )
         gridDensityContainer?.visibility = if (gridUseGrid) View.VISIBLE else View.GONE
         container.addView(gridDensityContainer)
-
-        container.addView(TextView(context).apply {
-            text = context.getString(R.string.i18n_grid_description)
-            setTextColor(-0x444445)
-            textSize = 12f
-            setLineSpacing(0f, 1.2f)
-        }, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-        ).apply {
-            topMargin = (8f * density).toInt()
-        })
     }
 
     private val gyroModeItems = listOf(
