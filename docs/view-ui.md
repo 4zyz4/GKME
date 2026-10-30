@@ -202,10 +202,10 @@ Activity **不直接改 ViewModel 内部状态**：
 
 ### 4.1 网格与布局
 
-- **布局级可调网格**：`LayoutPreset.useGrid`（默认开启）与 `LayoutPreset.gridDensity`（120..240，默认 120）。
+- **布局级可调网格**：`LayoutPreset.useGrid`（默认开启）与 `LayoutPreset.gridDensity`（30..240，默认 120）。
   - 开启时 `gridCols = gridDensity`，`onLayout` 中 `cellW = width / gridCols`、`cellH = cellW`；
     调整密度会按 `newCols / oldCols` 缩放所有控件的网格坐标，屏幕位置与尺寸保持不变。
-  - 关闭时 `gridCols = FREE_GRID_COLS (240)` 作为高精度内部坐标，不绘制网格，控件自由摆放。
+  - 关闭时 `gridCols = 视图宽度（px）`，即 1 单位 = 1 px，彻底取消按列取整；不绘制网格，控件像素级自由摆放。
   - 持久化的 `x/y/width/height` 仍换算回旧版 **120 列**坐标系（`BASE_GRID_COLS`），保证网页编辑器与旧版兼容；
     同时写入 `freeX/freeY/freeWidth/freeHeight` 等百分比字段（x/y 为屏幕宽/高百分比，尺寸为长边百分比），
     载入时优先用这些字段还原，避免高密度网格丢精度。
@@ -240,11 +240,13 @@ Activity **不直接改 ViewModel 内部状态**：
 
 ### 4.4 编辑机制
 
-- `enterEditMode` 保存 `editSnapshot`；`exitEditMode`；`discardToSnapshot`。
+- `enterEditMode` 保存 `editSnapshot`；退出编辑用 `exitEditMode`；放弃编辑统一走
+  `MainActivity.discardLayoutEdits()`：除还原布局外，还会把 ViewModel 的 `currentPreset`
+  恢复为快照，避免“全局设置”写回的重新吸附几何在退出编辑后被再次应用。
 - `onTouchEvent`（编辑）→ `GamepadEditGesture.dispatch` → `GamepadInputDispatcher.dispatchEdit`。
 - 命令是纯数据 `EditCommand`：`MoveButton`、`ResizeButton`、`MoveFollowArea`、`ResizeFollowArea`；
   `applyTo` 返回新列表，无副作用。
-- 未选中按钮拖动有 3 格死区，避免误触。
+- 未选中按钮拖动按约 8dp 触摸容差（换算为当前坐标单位，保底 1 格）才进入拖动，避免误触。
 - settings 按钮置顶用 `translationZ`（Material elevation 会导致 `bringChildToFront` 无效）。
 
 ---
@@ -255,7 +257,7 @@ Activity **不直接改 ViewModel 内部状态**：
 |------|------|
 | `view/FloatingEditorPanel.kt` | 参数编辑面板，可拖动/折叠，参数区切换动画 |
 | `view/ComboTimingControls.kt` | 复用的组合键时序选择器（3 模式 + 自定义间隔 seekbar） |
-| `view/LayoutGlobalSettingsPanel.kt` | 全屏布局级全局设置（陀螺仪/实体手柄/音量键 3 Tab） |
+| `view/LayoutGlobalSettingsPanel.kt` | 全屏布局级全局设置（网格/陀螺仪/实体手柄/音量键 4 Tab，网格居首） |
 | `view/CurveEditorView.kt` / `CurveZoomOverlay.kt` | 灵敏度曲线编辑与放大 |
 | `view/ColorPickerView.kt` | HSV 取色 |
 | `view/PresetPreviewView.kt` | 预设图形预览 |
@@ -374,7 +376,7 @@ Activity **不直接改 ViewModel 内部状态**：
 
 | 常量 | 值 | 位置 |
 |------|----|------|
-| 网格列数 | 旧版基准 120；当前为 `gridDensity`（120..240）或自由模式 240 | `GamepadLayout.kt`、`LayoutPreset.kt` |
+| 网格列数 | 旧版基准 120；当前为 `gridDensity`（30..240）或自由模式的视图像素宽度 | `GamepadLayout.kt`、`LayoutPreset.kt` |
 | settings 按钮 id | `"btnSettings"` | `GamepadLayout.kt`；`EditCommands.kt` |
 | 编辑手柄 | `HANDLE_SIZE_DP=8`、`HANDLE_HIT_DP=16` | `GamepadLayout.kt` |
 | 触摸板归一化坐标 | x 0..1919、y 0..942 | `MainActivityControls.kt`；`SlotMatcher.kt`（1920/942） |

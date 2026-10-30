@@ -409,7 +409,7 @@ export class GamepadLayout {
     const JOY = new Set(["leftJoystick", "rightJoystick"]);
     const AREA = new Set(["leftJoystick", "rightJoystick", "touchpad", "dpadPad", "customKeypad"]);
     const useGrid = this.preset.useGrid !== false;
-    const gridDensity = Math.max(120, Math.min(240, Math.round(this.preset.gridDensity || 120)));
+    const gridDensity = Math.max(30, Math.min(240, Math.round(this.preset.gridDensity || 120)));
     return {
       version: this.preset.version || 1,
       useGrid,

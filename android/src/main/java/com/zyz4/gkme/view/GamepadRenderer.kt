@@ -217,6 +217,9 @@ class GamepadRenderer(
     // ── Internal helpers ─────────────────────────────────────
 
     private fun drawGrid(canvas: Canvas, height: Int, cellW: Float, cellH: Float) {
+        // 关闭网格时 gridCols 等于像素宽度（可达数千列），完全透明时直接跳过，
+        // 避免每帧绘制数千条不可见的网格线。
+        if (gridAlpha <= 0f) return
         gridPaint.alpha = (gridAlpha * 255).toInt().coerceIn(0, 255)
         val rows = (height / cellH).toInt() + 1
         for (col in 0..gridCols) {

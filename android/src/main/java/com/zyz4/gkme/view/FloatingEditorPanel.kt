@@ -752,8 +752,11 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             return
         }
 
+        // 滑块上限跟随当前内部坐标系的列数：自由模式下坐标单位是像素，
+        // 仍用固定 40 会把控件尺寸钳到 40px。
+        val sizeMax = maxOf(40, gridColsProvider())
         if (button.lockAspect) {
-            addSeekbar(buttonParamsInner, context.getString(R.string.i18n_size), button.width, 1, 40, onChange = { value ->
+            addSeekbar(buttonParamsInner, context.getString(R.string.i18n_size), button.width, 1, sizeMax, onChange = { value ->
                 currentButton = currentButton?.copy(width = value, height = value)
                 currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
             })
@@ -761,7 +764,6 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             val isSwapped = button.rotation == 90 || button.rotation == 270
             // When the extended range is enabled, growing the touchpad grows the rectangle.
             val areaEnabled = button.followAreaEnabled && isTouchpadId(buttonId)
-            val sizeMax = maxOf(40, gridColsProvider())
             addSeekbar(buttonParamsInner, context.getString(R.string.i18n_width), if (isSwapped) button.height else button.width, 1, sizeMax, onChange = { value ->
                 var updated = currentButton?.let { if (isSwapped) it.copy(height = value) else it.copy(width = value) } ?: return@addSeekbar
                 if (areaEnabled) updated = growAreaToContain(updated)

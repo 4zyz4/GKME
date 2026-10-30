@@ -54,17 +54,12 @@ internal fun MainActivity.createFloatingEditor(): FloatingEditorPanel {
 
             override fun onDiscard() {
                 if (!a.gamepadLayout.hasUnsavedChanges()) {
-                    a.gamepadLayout.exitEditMode()
-                    a.viewModel.updateEditMode(false)
-                    a.applyPreset(a.viewModel.currentPreset.value)
+                    a.discardLayoutEdits()
                     return
                 }
                 CustomDialog.showConfirm(a, getString(R.string.i18n_discard_changes), getString(R.string.i18n_discard_the_current_layout_changes),
                     positiveText = getString(R.string.i18n_discard), onPositive = {
-                        a.gamepadLayout.discardToSnapshot()
-                        a.gamepadLayout.exitEditMode()
-                        a.viewModel.updateEditMode(false)
-                        a.applyPreset(a.viewModel.currentPreset.value)
+                        a.discardLayoutEdits()
                     })
             }
 
@@ -940,6 +935,24 @@ internal fun MainActivity.applyPreset(preset: com.zyz4.gkme.model.LayoutPreset) 
     ensureViewsForAllPresetButtons()
     // 首次布局构建完成后挂一次性 pre-draw 监听，随后台首帧绘制上报启动总耗时。
     AppStartupTracker.reportLayoutLoadedOnce(gamepadLayout)
+}
+
+/**
+ * 放弃本次排版编辑：布局几何与 ViewModel 中的当前预设都恢复到进入编辑时的快照。
+ *
+ * 仅调用 [GamepadLayout.discardToSnapshot] 不够：编辑期间修改“全局设置”
+ * （例如网格密度）会把当前、可能已重新吸附的几何写回 ViewModel，
+ * 退出编辑后再应用 currentPreset 会把错误位置带回来。
+ */
+internal fun MainActivity.discardLayoutEdits() {
+    val snapshot = gamepadLayout.getEditSnapshot()
+    gamepadLayout.discardToSnapshot()
+    gamepadLayout.exitEditMode()
+    viewModel.updateEditMode(false)
+    if (snapshot != null) {
+        viewModel.updatePresetButtons(snapshot)
+    }
+    applyPreset(snapshot ?: viewModel.currentPreset.value)
 }
 
 fun parseSuffix(id: String): Int? {
