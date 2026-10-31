@@ -24,6 +24,7 @@ class LayoutRepository @Inject constructor(
 
         private const val CACHE_DIR_NAME = "preset_cache"
         private const val CACHE_INDEX_FILE = "cache_index.json"
+        private const val ORDER_FILE_NAME = "layout_order.json"
 
         fun computeChecksum(content: String): String {
             val crc = CRC32()
@@ -60,10 +61,6 @@ class LayoutRepository @Inject constructor(
             return computeChecksum(content)
         }
 
-    init {
-        loadCacheIndex()
-    }
-
     private fun loadCacheIndex() {
         try {
             if (cacheIndexFile.exists()) {
@@ -73,6 +70,33 @@ class LayoutRepository @Inject constructor(
         } catch (_: Exception) {
             diskCacheIndex = emptyMap()
         }
+    }
+
+    private val orderFile: File
+        get() = File(context.filesDir, ORDER_FILE_NAME)
+
+    /** 用户通过长按拖动保存的布局顺序（名称列表）。 */
+    private var presetOrder: List<String> = emptyList()
+
+    private fun loadPresetOrder() {
+        presetOrder = try {
+            if (!orderFile.exists()) emptyList()
+            else Gson().fromJson(orderFile.readText(), Array<String>::class.java)?.toList() ?: emptyList()
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun savePresetOrder() {
+        try {
+            orderFile.writeText(Gson().toJson(presetOrder))
+        } catch (_: Exception) {
+        }
+    }
+
+    init {
+        loadCacheIndex()
+        loadPresetOrder()
     }
 
     private fun parseIndex(json: String): Map<String, String> {
@@ -157,11 +181,39 @@ class LayoutRepository @Inject constructor(
     fun listPresets(): List<String> {
         val diskFiles = layoutsDir.listFiles { f -> f.extension == "json" }?.map { it.nameWithoutExtension }?.toSet() ?: emptySet()
         val builtInOrder = BUILT_IN_PRESETS.keys.toList()
-        val allNames = builtInOrder + diskFiles.filter { name -> name !in builtInOrder }
-        return allNames.sortedBy { name ->
-            val idx = builtInOrder.indexOf(name)
-            if (idx >= 0) idx else Int.MAX_VALUE
+        // 新布局（尚未写入自定义顺序）默认按名称追加，避免文件系统返回顺序不稳定。
+        val available = builtInOrder + diskFiles.filter { name -> name !in builtInOrder }.sorted()
+        val availableSet = available.toSet()
+
+        // 先采用用户保存的顺序，再把新增/缺失的布局补到末尾。
+        val ordered = ArrayList<String>(available.size)
+        val seen = HashSet<String>(available.size)
+        for (name in presetOrder) {
+            if (name in availableSet && seen.add(name)) ordered.add(name)
         }
+        for (name in available) {
+            if (seen.add(name)) ordered.add(name)
+        }
+        return ordered
+    }
+
+    /**
+     * 保存用户拖动后的布局顺序。缺失的布局会自动补到末尾，
+     * 因此新增布局、删除布局或跨版本升级都不会让顺序失效。
+     */
+    fun reorderPresets(orderedNames: List<String>) {
+        val available = listPresets()
+        val availableSet = available.toSet()
+        val seen = HashSet<String>(available.size)
+        val reordered = ArrayList<String>(available.size)
+        for (name in orderedNames) {
+            if (name in availableSet && seen.add(name)) reordered.add(name)
+        }
+        for (name in available) {
+            if (seen.add(name)) reordered.add(name)
+        }
+        presetOrder = reordered
+        savePresetOrder()
     }
 
     fun loadPreset(name: String): LayoutPreset? {
@@ -214,6 +266,10 @@ class LayoutRepository @Inject constructor(
         if (file.exists()) file.delete()
         memoryCache.remove(name)
         invalidateCache(name)
+        if (name in presetOrder) {
+            presetOrder = presetOrder - name
+            savePresetOrder()
+        }
     }
 
     fun renamePreset(oldName: String, newName: String) {
@@ -225,6 +281,11 @@ class LayoutRepository @Inject constructor(
         memoryCache.remove(newName)
         invalidateCache(oldName)
         invalidateCache(newName)
+        // 重命名后保持原位置，而不是让布局跑到列表末尾。
+        if (oldName in presetOrder) {
+            presetOrder = presetOrder.map { if (it == oldName) newName else it }
+            savePresetOrder()
+        }
     }
 
     fun hasAnyPreset(): Boolean {

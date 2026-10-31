@@ -289,6 +289,12 @@ class GkViewModel @Inject constructor(
         }
     }
 
+    /** 保存长按拖动后的布局顺序；当前布局及其设置不受影响。 */
+    fun reorderPresets(orderedNames: List<String>) {
+        layoutRepository.reorderPresets(orderedNames)
+        refreshPresetList()
+    }
+
     fun updatePresetButtons(preset: LayoutPreset) {
         _currentPreset.value = preset
     }

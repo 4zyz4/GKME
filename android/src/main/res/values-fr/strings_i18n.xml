@@ -392,6 +392,7 @@
     <string name="i18n_layout" formatted="false">"Disposition"</string>
     <string name="i18n_layout_loaded_total_startup_time_0_ms_pr" formatted="true">"Disposition chargée, temps de démarrage total %1$s ms (démarrage du processus → première image)"</string>
     <string name="i18n_layout_presets" formatted="false">"Préréglages de disposition"</string>
+    <string name="i18n_layout_reorder_hint" formatted="false">"Appuyez longuement sur une carte et faites-la glisser pour réorganiser"</string>
     <string name="i18n_left" formatted="false">"Gauche"</string>
     <string name="i18n_left_3e0a82" formatted="false">"Gauche"</string>
     <string name="i18n_left_a090d7" formatted="false">"Gauche :"</string>

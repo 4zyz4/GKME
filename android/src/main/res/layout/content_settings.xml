@@ -325,6 +325,16 @@
                     android:horizontalSpacing="6dp"
                     android:verticalSpacing="6dp"
                     android:stretchMode="columnWidth"
+                    android:layout_marginBottom="4dp" />
+
+                <TextView
+                    android:id="@+id/tvPresetReorderHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:text="@string/i18n_layout_reorder_hint"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp"
                     android:layout_marginBottom="8dp" />
             </LinearLayout>
         </ScrollView>
