@@ -1429,7 +1429,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             }
             buttonParamsInner.addView(tvCustomLabel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (10f * density).toInt() })
 
-            val safeCustomText = button.customText ?: context.getString(R.string.i18n_custom)
+            val safeCustomText = button.customText ?: ButtonPosition.CUSTOM_BUTTON_DEFAULT_TEXT
             val etCustomText = EditText(context).apply {
                 setText(safeCustomText)
                 setTextColor(-0x444445)
@@ -1440,21 +1440,21 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                     override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                     override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                     override fun afterTextChanged(s: Editable?) {
-                        val newText = s.toString().ifEmpty { context.getString(R.string.i18n_custom) }
+                        val newText = s.toString().ifEmpty { ButtonPosition.CUSTOM_BUTTON_DEFAULT_TEXT }
                         currentButton = currentButton?.copy(customText = newText)
                         currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
                     }
                 })
                 setOnFocusChangeListener { _, hasFocus ->
                     if (!hasFocus) {
-                        val newText = text.toString().ifEmpty { context.getString(R.string.i18n_custom) }
+                        val newText = text.toString().ifEmpty { ButtonPosition.CUSTOM_BUTTON_DEFAULT_TEXT }
                         currentButton = currentButton?.copy(customText = newText)
                         currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
                     }
                 }
                 setOnEditorActionListener { _, actionId, _ ->
                     if (actionId == EditorInfo.IME_ACTION_DONE) {
-                        val newText = text.toString().ifEmpty { context.getString(R.string.i18n_custom) }
+                        val newText = text.toString().ifEmpty { ButtonPosition.CUSTOM_BUTTON_DEFAULT_TEXT }
                         currentButton = currentButton?.copy(customText = newText)
                         currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
                         clearFocus()

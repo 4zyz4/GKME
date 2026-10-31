@@ -144,6 +144,8 @@ fun AppSettings.virtualGamepadUhidProfile(): Int     // 1 DS4 / 2 DS5 / 3 Switch
 
 键位区域约定（`ButtonPosition` companion）：`KEYPAD_BASE_ID="customKeypad"`、
 `KEYPAD_COUNT=5`（上/下/左/右/中）、`KEYPAD_EIGHT_WAY_COUNT=9`（+ 左上/右上/左下/右下）。
+默认文本 `KEYPAD_DEFAULT_TEXTS` 使用语言无关的罗盘方位 `N/S/W/E/C/NW/NE/SW/SE`
+（对应上/下/左/右/中/左上/右上/左下/右下）；自定义按钮默认文字固定为英文 `Custom`。
 
 ### 2.3 AppearanceProfile
 

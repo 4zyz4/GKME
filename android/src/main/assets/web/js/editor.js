@@ -11,7 +11,7 @@ import { showConfirm } from "./dialog.js";
 import {
   baseId, getControl, isKeypadId, bitName, OUTPUT_PICKER_GROUPS,
   controlDisplayName, isButtonId, isSettingsId, DOUBLE_CLICK_IDS, JOYSTICK_IDS,
-  MOUSE_TAP_ACTIONS, MOUSE_SWIPE_ACTIONS, mouseActionLabel,
+  MOUSE_TAP_ACTIONS, MOUSE_SWIPE_ACTIONS, mouseActionLabel, CUSTOM_BUTTON_DEFAULT_TEXT,
 } from "./controls.js";
 import { t, keypadDefaultTexts } from "./i18n.js";
 import { centerSizeOf } from "./layout.js";
@@ -880,7 +880,7 @@ export class LayoutEditor {
   _buildCustomParams(button) {
     const id = button.id;
     this.params.append(
-      this._text(t("editor.displayText"), button.customText || t("common.custom"), (v) => this._update(id, { customText: v || t("common.custom") }))
+      this._text(t("editor.displayText"), button.customText || CUSTOM_BUTTON_DEFAULT_TEXT, (v) => this._update(id, { customText: v || CUSTOM_BUTTON_DEFAULT_TEXT }))
     );
     this.params.append(el("div", { class: "editseclabel", text: t("editor.mappedKeys") }));
     this.params.append(

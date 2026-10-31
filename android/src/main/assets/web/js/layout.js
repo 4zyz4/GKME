@@ -9,6 +9,7 @@
 import {
   BIT, DPAD, Kb, CONTROLS, baseId, getControl, isKeypadId, lockAspectFor,
   controlLabel, keyboardCaption, KB_MODIFIER_CODES, MODIFIER_BITS,
+  CUSTOM_BUTTON_DEFAULT_TEXT,
 } from "./controls.js";
 import { drawIcon } from "./icons.js";
 import { t, keypadDefaultTexts, localizeKeypadText } from "./i18n.js";
@@ -102,7 +103,7 @@ export function normalizeButton(raw) {
   if (c && c.isDpad) b.isDpad = true;
   if (c && c.isSettings) b.isSettings = true;
   if (b.isCustom && !b.customBits) b.customBits = [];
-  if (b.isCustom && b.customText == null) b.customText = t("common.custom");
+  if (b.isCustom && b.customText == null) b.customText = CUSTOM_BUTTON_DEFAULT_TEXT;
   return b;
 }
 
@@ -421,7 +422,7 @@ export class GamepadLayout {
         if (b.swipeTrigger) o.swipeTrigger = true;
         if (b.isCustom) {
           o.isCustom = true;
-          o.customText = b.customText || t("common.custom");
+          o.customText = b.customText || CUSTOM_BUTTON_DEFAULT_TEXT;
           o.customBits = b.customBits || [];
         }
         if (b.comboTiming && b.comboTiming !== "SIMULTANEOUS") o.comboTiming = b.comboTiming;
