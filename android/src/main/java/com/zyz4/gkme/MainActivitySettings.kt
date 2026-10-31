@@ -448,6 +448,22 @@ internal fun MainActivity.setupSettings() {
         a.loadPresetByName(info.name)
     }
     // 长按布局卡片后进入拖拽排序；松手时把新顺序写回仓库。
+    // 注意：必须使用 GridView 的 item 长按回调，不能给卡片子 View 设置长按监听，
+    // 否则子 View 会消费触摸事件，导致 GridView 的普通点击项回调失效。
+    gridView.onItemLongClickListener = AdapterView.OnItemLongClickListener { _, view, position, _ ->
+        val adapter = gridView.adapter as? PresetGridAdapter ?: return@OnItemLongClickListener false
+        val name = adapter.nameAt(position) ?: return@OnItemLongClickListener false
+        if (!adapter.beginDrag(name)) return@OnItemLongClickListener false
+        view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        val started = view.startDragAndDrop(
+            ClipData.newPlainText("preset", name),
+            View.DragShadowBuilder(view),
+            null,
+            0,
+        )
+        if (!started) adapter.cancelDragIfActive()
+        started
+    }
     gridView.setOnDragListener { _, event ->
         val adapter = gridView.adapter as? PresetGridAdapter
         if (adapter == null) return@setOnDragListener false
@@ -2088,6 +2104,8 @@ internal class PresetGridAdapter(
 
     fun hasActiveDrag(): Boolean = dragOriginal != null
 
+    fun nameAt(position: Int): String? = items.getOrNull(position)?.name
+
     /** 开始拖拽指定布局；返回 false 表示该布局已不在列表中。 */
     fun beginDrag(name: String): Boolean {
         val position = items.indexOfFirst { it.name == name }
@@ -2130,27 +2148,11 @@ internal class PresetGridAdapter(
         val view = convertView ?: LayoutInflater.from(activity)
             .inflate(R.layout.item_preset_card, parent, false)
         val info = items[position]
-        view.tag = info.name
         view.findViewById<PresetPreviewView>(R.id.presetPreview).setButtons(info.buttons)
         view.findViewById<TextView>(R.id.presetName).text = activity.localizedPresetName(info.name)
         view.findViewById<View>(R.id.cardBackground).setBackgroundResource(
             if (info.name == currentPresetName) R.drawable.bg_chip_selected else R.drawable.bg_chip
         )
-        view.setOnLongClickListener {
-            val name = view.tag as? String ?: return@setOnLongClickListener false
-            val grid = view.parent as? WrapContentGridView ?: return@setOnLongClickListener false
-            val adapter = grid.adapter as? PresetGridAdapter ?: return@setOnLongClickListener false
-            if (!adapter.beginDrag(name)) return@setOnLongClickListener false
-            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-            val started = view.startDragAndDrop(
-                ClipData.newPlainText("preset", name),
-                View.DragShadowBuilder(view),
-                null,
-                0,
-            )
-            if (!started) adapter.cancelDragIfActive()
-            started
-        }
         return view
     }
 }
