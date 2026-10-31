@@ -30,6 +30,8 @@ import com.zyz4.gkme.model.VibrationDeviceType
 import com.zyz4.gkme.model.VibrationType
 import com.zyz4.gkme.model.AdaptiveTriggerDevice
 import com.zyz4.gkme.model.AdaptiveTriggerTargetType
+import com.zyz4.gkme.model.SettingsButtonAction
+import com.zyz4.gkme.model.SettingsButtonDirection
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -92,6 +94,8 @@ class SettingsRepository @Inject constructor(
         val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val FLOATING_OPACITY = intPreferencesKey("floating_opacity")
         val FLOATING_KEEP_ALIVE = booleanPreferencesKey("floating_keep_alive")
+        val SETTINGS_BUTTON_FOUR_WAY = booleanPreferencesKey("settings_button_four_way")
+        val SETTINGS_BUTTON_ACTIONS = stringPreferencesKey("settings_button_actions")
         val GYRO_ACTIVATE_MODE = intPreferencesKey("gyro_activate_mode")
         val CONTROLLER_GYRO_ENABLED = booleanPreferencesKey("controller_gyro_enabled")
         val CONTROLLER_GYRO_ENABLED_CONNECTED = booleanPreferencesKey("controller_gyro_enabled_connected")
@@ -168,6 +172,7 @@ class SettingsRepository @Inject constructor(
     private val gson = Gson()
     private val stringSetType = object : TypeToken<Set<String>>() {}.type
     private val floatListType = object : TypeToken<List<Float>>() {}.type
+    private val stringMapType = object : TypeToken<Map<String, String>>() {}.type
 
     val settings: Flow<AppSettings> = context.settingsDataStore.data.map { prefs ->
         AppSettings(
@@ -267,6 +272,8 @@ class SettingsRepository @Inject constructor(
             keepScreenOn = prefs[Keys.KEEP_SCREEN_ON] ?: false,
             floatingOpacity = (prefs[Keys.FLOATING_OPACITY] ?: 50).coerceIn(0, 100),
             floatingKeepAlive = prefs[Keys.FLOATING_KEEP_ALIVE] ?: false,
+            settingsButtonFourWay = prefs[Keys.SETTINGS_BUTTON_FOUR_WAY] ?: true,
+            settingsButtonActions = parseSettingsButtonActions(prefs[Keys.SETTINGS_BUTTON_ACTIONS]),
             gyroActivateMode = GyroActivateMode.entries.getOrElse(
                 prefs[Keys.GYRO_ACTIVATE_MODE] ?: 0
             ) { GyroActivateMode.ALWAYS },
@@ -404,6 +411,14 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.KEEP_SCREEN_ON] = settings.keepScreenOn
             prefs[Keys.FLOATING_OPACITY] = settings.floatingOpacity
             prefs[Keys.FLOATING_KEEP_ALIVE] = settings.floatingKeepAlive
+            prefs[Keys.SETTINGS_BUTTON_FOUR_WAY] = settings.settingsButtonFourWay
+            if (settings.settingsButtonActions.isEmpty()) {
+                prefs.remove(Keys.SETTINGS_BUTTON_ACTIONS)
+            } else {
+                prefs[Keys.SETTINGS_BUTTON_ACTIONS] = gson.toJson(
+                    settings.settingsButtonActions.mapKeys { it.key.name }.mapValues { it.value.name }
+                )
+            }
             prefs[Keys.GYRO_ACTIVATE_MODE] = settings.gyroActivateMode.ordinal
             prefs[Keys.CONTROLLER_GYRO_ENABLED] = settings.controllerGyroEnabled
             prefs[Keys.CONTROLLER_GYRO_ENABLED_CONNECTED] = settings.controllerGyroEnabledConnected
@@ -524,5 +539,26 @@ class SettingsRepository @Inject constructor(
         return try {
             gson.fromJson<List<Float>>(json, floatListType)?.takeIf { it.isNotEmpty() }
         } catch (_: Exception) { null }
+    }
+
+    /** 轮盘配置按「方向名 -> 操作名」保存，避免依赖 enum ordinal。 */
+    private fun parseSettingsButtonActions(
+        json: String?,
+    ): Map<SettingsButtonDirection, SettingsButtonAction> {
+        if (json.isNullOrEmpty()) return emptyMap()
+        val raw = try {
+            gson.fromJson<Map<String, String>>(json, stringMapType)
+        } catch (_: Exception) {
+            null
+        } ?: return emptyMap()
+        return raw.mapNotNull { (directionName, actionName) ->
+            val direction = SettingsButtonDirection.entries.firstOrNull { it.name == directionName }
+            val action = SettingsButtonAction.entries.firstOrNull { it.name == actionName }
+            if (direction != null && action != null && action != SettingsButtonAction.NONE) {
+                direction to action
+            } else {
+                null
+            }
+        }.toMap()
     }
 }

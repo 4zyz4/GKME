@@ -514,6 +514,7 @@ internal class FloatingModeController(private val activity: MainActivity) {
         settingsButtonChild()?.let { child ->
             child.setOnTouchListener(null)
             child.setOnClickListener { activity.showSettings() }
+            activity.attachSettingsButtonWheel(child)
             if (child is ImageButton) child.setImageResource(R.drawable.ic_settings)
         }
     }

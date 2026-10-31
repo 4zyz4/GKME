@@ -583,6 +583,7 @@ internal fun MainActivity.createSettingsButtonView(): View {
         contentDescription = "Settings"
         setOnClickListener { a.showSettings() }
     }
+    a.attachSettingsButtonWheel(view)
     a.gamepadLayout.addView(view)
     return view
 }

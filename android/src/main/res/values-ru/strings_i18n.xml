@@ -674,4 +674,16 @@
     <string name="i18n_zoom_preview" formatted="false">"Просмотр масштаба"</string>
     <string name="i18n_sdl3" formatted="false">"SDL3"</string>
     <string name="i18n_input_manager" formatted="false">"InputManager"</string>
+    <string name="i18n_settings_button_actions" formatted="false">"Действия кнопки настроек"</string>
+    <string name="i18n_settings_button_wheel_hint" formatted="false">"Если задано хотя бы одно действие, удерживайте кнопку настроек и выведите палец за её пределы, чтобы показать колесо в центре экрана. Отпустите в направлении с действием, чтобы выполнить его; отпустите в центре или в направлении без действия, чтобы отменить. Отпустите, не выходя за пределы кнопки, чтобы открыть настройки."</string>
+    <string name="i18n_action_previous_layout" formatted="false">"Предыдущий макет"</string>
+    <string name="i18n_action_next_layout" formatted="false">"Следующий макет"</string>
+    <string name="i18n_action_open_settings" formatted="false">"Открыть настройки"</string>
+    <string name="i18n_action_toggle_service" formatted="false">"Запустить/остановить сервис"</string>
+    <string name="i18n_action_edit_layout" formatted="false">"Изменить текущий макет"</string>
+    <string name="i18n_wheel_action_previous_layout" formatted="false">"Пред."</string>
+    <string name="i18n_wheel_action_next_layout" formatted="false">"След."</string>
+    <string name="i18n_wheel_action_open_settings" formatted="false">"Настройки"</string>
+    <string name="i18n_wheel_action_toggle_service" formatted="false">"Сервис"</string>
+    <string name="i18n_wheel_action_edit_layout" formatted="false">"Правка"</string>
 </resources>

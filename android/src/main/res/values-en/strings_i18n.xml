@@ -674,4 +674,16 @@
     <string name="i18n_zoom_preview" formatted="false">"Zoom preview"</string>
     <string name="i18n_sdl3" formatted="false">"SDL3"</string>
     <string name="i18n_input_manager" formatted="false">"InputManager"</string>
+    <string name="i18n_settings_button_actions" formatted="false">"Settings button actions"</string>
+    <string name="i18n_settings_button_wheel_hint" formatted="false">"Once at least one action is set, hold the settings button and move your finger outside it to show a wheel at the screen center. Release toward a direction with an action to run it; release back at the center or toward a direction without an action to cancel. Release without leaving the button to open Settings."</string>
+    <string name="i18n_action_previous_layout" formatted="false">"Previous layout"</string>
+    <string name="i18n_action_next_layout" formatted="false">"Next layout"</string>
+    <string name="i18n_action_open_settings" formatted="false">"Open settings"</string>
+    <string name="i18n_action_toggle_service" formatted="false">"Start/stop service"</string>
+    <string name="i18n_action_edit_layout" formatted="false">"Edit current layout"</string>
+    <string name="i18n_wheel_action_previous_layout" formatted="false">"Prev"</string>
+    <string name="i18n_wheel_action_next_layout" formatted="false">"Next"</string>
+    <string name="i18n_wheel_action_open_settings" formatted="false">"Settings"</string>
+    <string name="i18n_wheel_action_toggle_service" formatted="false">"Service"</string>
+    <string name="i18n_wheel_action_edit_layout" formatted="false">"Edit"</string>
 </resources>

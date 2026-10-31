@@ -29,6 +29,7 @@ import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.Spinner
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
@@ -47,12 +48,14 @@ import com.zyz4.gkme.model.AppSettings
 import com.zyz4.gkme.model.ComboTiming
 import com.zyz4.gkme.model.ConnectionMode
 import com.zyz4.gkme.model.HapticEffect
+import com.zyz4.gkme.model.SettingsButtonDirection
 import com.zyz4.gkme.model.VibrationType
 import com.zyz4.gkme.service.ConnectionPhase
 import com.zyz4.gkme.service.FloatingOverlayService
 import com.zyz4.gkme.view.FloatingEditorPanel
 import com.zyz4.gkme.view.GamepadLayout
 import com.zyz4.gkme.view.LayoutGlobalSettingsPanel
+import com.zyz4.gkme.view.SettingsButtonWheelView
 import com.zyz4.gkme.view.addComboTimingControls
 import com.zyz4.gkme.input.AdaptiveTriggerHandler
 import com.zyz4.gkme.input.PhysicalControllerHandler
@@ -69,6 +72,14 @@ class MainActivity : ComponentActivity() {
     internal val floatingEditor: FloatingEditorPanel by lazy { createFloatingEditor() }
     internal var layoutGlobalSettingsPanel: LayoutGlobalSettingsPanel? = null
     internal var curveZoomOverlay: com.zyz4.gkme.view.CurveZoomOverlay? = null
+    /** 设置按钮轮盘（仅屏幕中心显示，不拦截触摸）。 */
+    internal var settingsButtonWheel: SettingsButtonWheelView? = null
+    /** 杂项页中每个方向的操作下拉框。 */
+    internal val settingsButtonActionSpinners = mutableMapOf<SettingsButtonDirection, Spinner>()
+    /** 杂项页中每个方向对应的整行，用于 4/8 方向模式切换时隐藏斜向行。 */
+    internal val settingsButtonActionRows = mutableMapOf<SettingsButtonDirection, View>()
+    /** 同步下拉框选中项时抑制回调，避免把同步写回设置。 */
+    internal var settingsButtonActionsSyncing = false
     internal val controlViews = mutableMapOf<String, View>()
     internal val touchpadLabels = mutableListOf<TextView>()
     internal val mousepadLabels = mutableListOf<TextView>()
@@ -370,6 +381,12 @@ class MainActivity : ComponentActivity() {
         ) {
             exitFloatingMode()
         }
+    }
+
+    override fun onPause() {
+        // 手指按住设置按钮时若窗口失焦（返回桌面、权限弹窗等），避免轮盘残留在屏幕上。
+        hideSettingsButtonWheel()
+        super.onPause()
     }
 
     /**
