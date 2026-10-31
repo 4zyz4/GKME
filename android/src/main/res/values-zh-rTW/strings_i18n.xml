@@ -392,6 +392,7 @@
     <string name="i18n_layout" formatted="false">"版面配置"</string>
     <string name="i18n_layout_loaded_total_startup_time_0_ms_pr" formatted="true">"版面配置載入完成，啟動總耗時 %1$s ms（程序啟動→首幀繪製）"</string>
     <string name="i18n_layout_presets" formatted="false">"版面配置預設"</string>
+    <string name="i18n_layout_reorder_hint" formatted="false">"長按版面配置卡片並拖曳，可調整版面配置順序"</string>
     <string name="i18n_left" formatted="false">"向左"</string>
     <string name="i18n_left_3e0a82" formatted="false">"左方向"</string>
     <string name="i18n_left_a090d7" formatted="false">"左:"</string>

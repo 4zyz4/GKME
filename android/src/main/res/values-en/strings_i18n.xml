@@ -392,6 +392,7 @@
     <string name="i18n_layout" formatted="false">"Layout"</string>
     <string name="i18n_layout_loaded_total_startup_time_0_ms_pr" formatted="true">"Layout loaded, total startup time %1$s ms (process start → first frame)"</string>
     <string name="i18n_layout_presets" formatted="false">"Layout presets"</string>
+    <string name="i18n_layout_reorder_hint" formatted="false">"Long press a layout card and drag to reorder"</string>
     <string name="i18n_left" formatted="false">"Left"</string>
     <string name="i18n_left_3e0a82" formatted="false">"Left"</string>
     <string name="i18n_left_a090d7" formatted="false">"Left:"</string>

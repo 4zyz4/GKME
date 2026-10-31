@@ -392,6 +392,7 @@
     <string name="i18n_layout" formatted="false">"Макет"</string>
     <string name="i18n_layout_loaded_total_startup_time_0_ms_pr" formatted="true">"Макет загружен, общее время запуска %1$s мс (запуск процесса → первый кадр)"</string>
     <string name="i18n_layout_presets" formatted="false">"Пресеты макетов"</string>
+    <string name="i18n_layout_reorder_hint" formatted="false">"Долго нажмите на карточку макета и перетащите, чтобы изменить порядок"</string>
     <string name="i18n_left" formatted="false">"Влево"</string>
     <string name="i18n_left_3e0a82" formatted="false">"Влево"</string>
     <string name="i18n_left_a090d7" formatted="false">"Влево:"</string>

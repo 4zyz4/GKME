@@ -10,13 +10,16 @@ import android.animation.AnimatorSet
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
+import android.content.ClipData
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.VibrationEffect
 import android.provider.Settings
+import android.view.DragEvent
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -443,6 +446,32 @@ internal fun MainActivity.setupSettings() {
         val infos = a.viewModel.presetInfos.value
         val info = infos.getOrNull(position) ?: return@OnItemClickListener
         a.loadPresetByName(info.name)
+    }
+    // 长按布局卡片后进入拖拽排序；松手时把新顺序写回仓库。
+    gridView.setOnDragListener { _, event ->
+        val adapter = gridView.adapter as? PresetGridAdapter
+        if (adapter == null) return@setOnDragListener false
+        when (event.action) {
+            DragEvent.ACTION_DRAG_STARTED -> adapter.hasActiveDrag()
+            DragEvent.ACTION_DRAG_LOCATION -> {
+                val position = gridView.pointToPosition(
+                    event.x.roundToInt(),
+                    event.y.roundToInt(),
+                )
+                if (position != AdapterView.INVALID_POSITION) adapter.moveTo(position)
+                true
+            }
+            DragEvent.ACTION_DROP -> {
+                adapter.finishDrag()?.let { a.viewModel.reorderPresets(it) }
+                true
+            }
+            DragEvent.ACTION_DRAG_ENDED -> {
+                // 拖到网格外释放时 ACTION_DROP 不会触发，此时恢复原顺序。
+                adapter.cancelDragIfActive()
+                true
+            }
+            else -> true
+        }
     }
 
     a.findViewById<Button>(R.id.btnPresetNew).setOnClickListener { a.showNewPresetDialog() }
@@ -2039,22 +2068,82 @@ internal fun MainActivity.refreshPresetList() {
 
 internal class PresetGridAdapter(
     private val activity: MainActivity,
-    private val infos: List<GkViewModel.PresetInfo>,
+    infos: List<GkViewModel.PresetInfo>,
     private val currentPresetName: String
 ) : android.widget.BaseAdapter() {
-    override fun getCount() = infos.size
-    override fun getItem(position: Int) = infos[position]
+    private val items = infos.toMutableList()
+    private var dragOriginal: List<GkViewModel.PresetInfo>? = null
+    private var dragPosition = -1
+
+    override fun getCount() = items.size
+    override fun getItem(position: Int) = items[position]
     override fun getItemId(position: Int) = position.toLong()
+
+    fun hasActiveDrag(): Boolean = dragOriginal != null
+
+    /** 开始拖拽指定布局；返回 false 表示该布局已不在列表中。 */
+    fun beginDrag(name: String): Boolean {
+        val position = items.indexOfFirst { it.name == name }
+        if (position < 0) return false
+        dragOriginal = items.toList()
+        dragPosition = position
+        return true
+    }
+
+    /** 拖拽经过新的格子时实时换位，让卡片跟手重排。 */
+    fun moveTo(position: Int) {
+        if (dragOriginal == null) return
+        if (position !in items.indices || position == dragPosition) return
+        val moved = items.removeAt(dragPosition)
+        items.add(position, moved)
+        dragPosition = position
+        notifyDataSetChanged()
+    }
+
+    /** 松手后返回新顺序并结束拖拽；返回 null 表示当前没有拖拽。 */
+    fun finishDrag(): List<String>? {
+        if (dragOriginal == null) return null
+        val names = items.map { it.name }
+        dragOriginal = null
+        dragPosition = -1
+        return names
+    }
+
+    /** 拖拽被取消时恢复开始拖拽前的顺序。 */
+    fun cancelDragIfActive() {
+        val original = dragOriginal ?: return
+        items.clear()
+        items.addAll(original)
+        dragOriginal = null
+        dragPosition = -1
+        notifyDataSetChanged()
+    }
 
     override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
         val view = convertView ?: LayoutInflater.from(activity)
             .inflate(R.layout.item_preset_card, parent, false)
-        val info = infos[position]
+        val info = items[position]
+        view.tag = info.name
         view.findViewById<PresetPreviewView>(R.id.presetPreview).setButtons(info.buttons)
         view.findViewById<TextView>(R.id.presetName).text = activity.localizedPresetName(info.name)
         view.findViewById<View>(R.id.cardBackground).setBackgroundResource(
             if (info.name == currentPresetName) R.drawable.bg_chip_selected else R.drawable.bg_chip
         )
+        view.setOnLongClickListener {
+            val name = view.tag as? String ?: return@setOnLongClickListener false
+            val grid = view.parent as? WrapContentGridView ?: return@setOnLongClickListener false
+            val adapter = grid.adapter as? PresetGridAdapter ?: return@setOnLongClickListener false
+            if (!adapter.beginDrag(name)) return@setOnLongClickListener false
+            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+            val started = view.startDragAndDrop(
+                ClipData.newPlainText("preset", name),
+                View.DragShadowBuilder(view),
+                null,
+                0,
+            )
+            if (!started) adapter.cancelDragIfActive()
+            started
+        }
         return view
     }
 }

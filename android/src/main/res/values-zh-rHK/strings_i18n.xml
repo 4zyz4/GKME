@@ -392,6 +392,7 @@
     <string name="i18n_layout" formatted="false">"佈局"</string>
     <string name="i18n_layout_loaded_total_startup_time_0_ms_pr" formatted="true">"佈局加載完成，啓動總耗時 %1$s ms（程序啓動→首幀繪製）"</string>
     <string name="i18n_layout_presets" formatted="false">"佈局預設"</string>
+    <string name="i18n_layout_reorder_hint" formatted="false">"長按佈局卡片並拖動，可調整佈局順序"</string>
     <string name="i18n_left" formatted="false">"向左"</string>
     <string name="i18n_left_3e0a82" formatted="false">"左方向"</string>
     <string name="i18n_left_a090d7" formatted="false">"左:"</string>
