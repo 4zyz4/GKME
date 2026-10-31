@@ -674,4 +674,16 @@
     <string name="i18n_zoom_preview" formatted="false">"Aperçu du zoom"</string>
     <string name="i18n_sdl3" formatted="false">"SDL3"</string>
     <string name="i18n_input_manager" formatted="false">"InputManager"</string>
+    <string name="i18n_settings_button_actions" formatted="false">"Actions du bouton Paramètres"</string>
+    <string name="i18n_settings_button_wheel_hint" formatted="false">"Dès qu'une action est définie, maintenez le bouton Paramètres et sortez de sa zone pour afficher une roue au centre de l'écran. Relâchez vers une direction avec une action pour l'exécuter ; relâchez au centre ou vers une direction sans action pour annuler. Relâchez sans sortir du bouton pour ouvrir les paramètres."</string>
+    <string name="i18n_action_previous_layout" formatted="false">"Disposition précédente"</string>
+    <string name="i18n_action_next_layout" formatted="false">"Disposition suivante"</string>
+    <string name="i18n_action_open_settings" formatted="false">"Ouvrir les paramètres"</string>
+    <string name="i18n_action_toggle_service" formatted="false">"Démarrer/arrêter le service"</string>
+    <string name="i18n_action_edit_layout" formatted="false">"Modifier la disposition actuelle"</string>
+    <string name="i18n_wheel_action_previous_layout" formatted="false">"Préc."</string>
+    <string name="i18n_wheel_action_next_layout" formatted="false">"Suiv."</string>
+    <string name="i18n_wheel_action_open_settings" formatted="false">"Réglages"</string>
+    <string name="i18n_wheel_action_toggle_service" formatted="false">"Service"</string>
+    <string name="i18n_wheel_action_edit_layout" formatted="false">"Modifier"</string>
 </resources>

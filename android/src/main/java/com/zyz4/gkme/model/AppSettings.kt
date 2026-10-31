@@ -204,6 +204,44 @@ enum class HapticEffect(
 
 enum class FillType { SOLID_COLOR, IMAGE }
 
+/**
+ * 设置按钮轮盘菜单的滑动方向。
+ *
+ * [angleDeg] 为屏幕坐标系中的角度：0 = 向右，90 = 向上（逆时针为正），用于把手指相对
+ * 设置按钮的位移换算成方向；[diagonal] 表示该方向只在「8 方向」模式下可用。
+ */
+enum class SettingsButtonDirection(
+    val angleDeg: Float,
+    @StringRes val labelRes: Int,
+    val diagonal: Boolean = false,
+) {
+    UP(90f, R.string.i18n_up),
+    DOWN(270f, R.string.i18n_down),
+    LEFT(180f, R.string.i18n_left_d2aff1),
+    RIGHT(0f, R.string.i18n_right),
+    UP_LEFT(135f, R.string.i18n_top_left, diagonal = true),
+    UP_RIGHT(45f, R.string.i18n_top_right, diagonal = true),
+    DOWN_LEFT(225f, R.string.i18n_bottom_left, diagonal = true),
+    DOWN_RIGHT(315f, R.string.i18n_bottom_right, diagonal = true),
+}
+
+/**
+ * 设置按钮轮盘菜单可绑定的操作。
+ *
+ * [displayNameRes] 用于设置页下拉框，[wheelLabelRes] 是轮盘上的短标签。
+ */
+enum class SettingsButtonAction(
+    @StringRes val displayNameRes: Int,
+    @StringRes val wheelLabelRes: Int,
+) {
+    NONE(R.string.i18n_none, R.string.i18n_none),
+    PREVIOUS_LAYOUT(R.string.i18n_action_previous_layout, R.string.i18n_wheel_action_previous_layout),
+    NEXT_LAYOUT(R.string.i18n_action_next_layout, R.string.i18n_wheel_action_next_layout),
+    OPEN_SETTINGS(R.string.i18n_action_open_settings, R.string.i18n_wheel_action_open_settings),
+    TOGGLE_SERVICE(R.string.i18n_action_toggle_service, R.string.i18n_wheel_action_toggle_service),
+    EDIT_LAYOUT(R.string.i18n_action_edit_layout, R.string.i18n_wheel_action_edit_layout),
+}
+
 data class AppSettings(
     val connectionMode: ConnectionMode = ConnectionMode.WIFI,
     /** WiFi 模式下的角色（控制端 / 被控端）。 */
@@ -262,6 +300,10 @@ data class AppSettings(
     val floatingOpacity: Int = 50,
     /** 被控端是否启用「悬浮窗保活」（挂一个透明 1×1 悬浮窗降低后台被杀概率）。 */
     val floatingKeepAlive: Boolean = false,
+    /** 设置按钮轮盘菜单的方向模式：true = 4 方向，false = 8 方向。 */
+    val settingsButtonFourWay: Boolean = true,
+    /** 设置按钮轮盘菜单：滑动方向 -> 操作；为空表示不启用轮盘（设置按钮保持普通点击）。 */
+    val settingsButtonActions: Map<SettingsButtonDirection, SettingsButtonAction> = emptyMap(),
     // Disconnected state
     val controllerGyroEnabled: Boolean = false,
     // Connected state

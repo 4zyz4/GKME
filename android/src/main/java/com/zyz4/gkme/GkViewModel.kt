@@ -36,6 +36,8 @@ import com.zyz4.gkme.model.HapticEffect
 import com.zyz4.gkme.model.LayoutPreset
 import com.zyz4.gkme.model.LedAppearance
 import com.zyz4.gkme.model.PhysicalInputs
+import com.zyz4.gkme.model.SettingsButtonAction
+import com.zyz4.gkme.model.SettingsButtonDirection
 import com.zyz4.gkme.model.TargetPlatform
 import com.zyz4.gkme.model.VirtualGamepadType
 import com.zyz4.gkme.model.VibrationDevice
@@ -505,6 +507,19 @@ class GkViewModel @Inject constructor(
 
     fun updateFloatingKeepAlive(enabled: Boolean) {
         connectionManager.updateSettings(settings.value.copy(floatingKeepAlive = enabled))
+    }
+
+    fun updateSettingsButtonFourWay(fourWay: Boolean) {
+        if (settings.value.settingsButtonFourWay == fourWay) return
+        connectionManager.updateSettings(settings.value.copy(settingsButtonFourWay = fourWay))
+    }
+
+    fun updateSettingsButtonAction(direction: SettingsButtonDirection, action: SettingsButtonAction) {
+        val current = settings.value.settingsButtonActions
+        val updated = current.toMutableMap()
+        if (action == SettingsButtonAction.NONE) updated.remove(direction) else updated[direction] = action
+        if (updated == current) return
+        connectionManager.updateSettings(settings.value.copy(settingsButtonActions = updated.toMap()))
     }
 
     // ── Physical-controller remapping ──

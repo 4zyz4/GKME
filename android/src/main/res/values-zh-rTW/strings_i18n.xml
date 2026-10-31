@@ -674,4 +674,16 @@
     <string name="i18n_zoom_preview" formatted="false">"放大預覽"</string>
     <string name="i18n_sdl3" formatted="false">"SDL3"</string>
     <string name="i18n_input_manager" formatted="false">"InputManager"</string>
+    <string name="i18n_settings_button_actions" formatted="false">"設定按鈕操作"</string>
+    <string name="i18n_settings_button_wheel_hint" formatted="false">"至少設定一項後，手指按住設定按鈕並移出按鈕區域，螢幕中央會顯示輪盤；滑向已設定操作的方向並放開執行對應操作，滑回中央或滑向未設定操作的方向則取消，未移出按鈕區域時放開開啟設定。"</string>
+    <string name="i18n_action_previous_layout" formatted="false">"上一個版面配置"</string>
+    <string name="i18n_action_next_layout" formatted="false">"下一個版面配置"</string>
+    <string name="i18n_action_open_settings" formatted="false">"開啟設定"</string>
+    <string name="i18n_action_toggle_service" formatted="false">"啟動/停止服務"</string>
+    <string name="i18n_action_edit_layout" formatted="false">"編輯目前版面配置"</string>
+    <string name="i18n_wheel_action_previous_layout" formatted="false">"上版面"</string>
+    <string name="i18n_wheel_action_next_layout" formatted="false">"下版面"</string>
+    <string name="i18n_wheel_action_open_settings" formatted="false">"設定"</string>
+    <string name="i18n_wheel_action_toggle_service" formatted="false">"啟停服務"</string>
+    <string name="i18n_wheel_action_edit_layout" formatted="false">"編輯版面"</string>
 </resources>

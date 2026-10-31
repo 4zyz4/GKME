@@ -52,6 +52,8 @@ import com.zyz4.gkme.model.AdaptiveTriggerDevice
 import com.zyz4.gkme.model.AdaptiveTriggerTargetType
 import com.zyz4.gkme.model.ConnectionMode
 import com.zyz4.gkme.model.ControlType
+import com.zyz4.gkme.model.SettingsButtonAction
+import com.zyz4.gkme.model.SettingsButtonDirection
 import com.zyz4.gkme.model.VirtualGamepadType
 import com.zyz4.gkme.controlled.ControlledActivity
 import com.zyz4.gkme.controlled.GamepadInjector
@@ -1585,6 +1587,18 @@ internal fun MainActivity.setupMiscPage() {
         a.findViewById<View>(id).setOnClickListener { a.enterScreenOffMode() }
     }
 
+    // ── Settings button wheel actions ──
+    a.setupSettingsButtonWheelSection()
+    a.syncSettingsButtonWheelUI(a.viewModel.settings.value)
+    a.findViewById<Button>(R.id.btnWheelFourWay).setOnClickListener {
+        a.viewModel.updateSettingsButtonFourWay(true)
+        a.syncSettingsButtonWheelUI(a.viewModel.settings.value)
+    }
+    a.findViewById<Button>(R.id.btnWheelEightWay).setOnClickListener {
+        a.viewModel.updateSettingsButtonFourWay(false)
+        a.syncSettingsButtonWheelUI(a.viewModel.settings.value)
+    }
+
     a.findViewById<SeekBar>(R.id.seekFloatingOpacity).setOnSeekBarChangeListener(
         object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -1599,6 +1613,100 @@ internal fun MainActivity.setupMiscPage() {
 
     listOf(R.id.rowFloatingMode, R.id.btnFloatingMode).forEach { id ->
         a.findViewById<View>(id).setOnClickListener { a.enterFloatingMode() }
+    }
+}
+
+/**
+ * 在杂项页里生成 8 个方向的动作下拉框。4 方向模式下斜向行会被隐藏，但绑定仍保留，
+ * 方便切回 8 方向时恢复。
+ */
+internal fun MainActivity.setupSettingsButtonWheelSection() {
+    val a = this
+    val container = a.findViewById<LinearLayout>(R.id.layoutSettingsButtonActions) ?: return
+    container.removeAllViews()
+    a.settingsButtonActionRows.clear()
+    a.settingsButtonActionSpinners.clear()
+
+    val density = a.resources.displayMetrics.density
+    fun dp(value: Int): Int = (value * density).toInt()
+    val actions = SettingsButtonAction.entries
+    val actionLabels = actions.map { a.getString(it.displayNameRes) }
+
+    SettingsButtonDirection.entries.forEach { direction ->
+        val row = LinearLayout(a).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setBackgroundResource(R.color.bg_surface)
+            setPadding(dp(12), 0, dp(12), 0)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(48),
+            ).apply { bottomMargin = dp(8) }
+        }
+        val label = TextView(a).apply {
+            text = a.getString(direction.labelRes)
+            setTextColor(ContextCompat.getColor(a, R.color.text_primary))
+            textSize = 14f
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f,
+            )
+        }
+        val spinner = Spinner(a).apply {
+            id = View.generateViewId()
+            minimumWidth = dp(170)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.MATCH_PARENT,
+            )
+        }
+        val adapter = ArrayAdapter(a, android.R.layout.simple_spinner_item, actionLabels)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinner.adapter = adapter
+        val current = a.viewModel.settings.value.settingsButtonActions[direction]
+            ?: SettingsButtonAction.NONE
+        spinner.setSelection(current.ordinal, false)
+        spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(
+                parent: AdapterView<*>?,
+                view: View?,
+                position: Int,
+                id: Long,
+            ) {
+                if (a.settingsButtonActionsSyncing) return
+                val action = SettingsButtonAction.entries.getOrNull(position) ?: return
+                a.viewModel.updateSettingsButtonAction(direction, action)
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+        row.addView(label)
+        row.addView(spinner)
+        container.addView(row)
+        a.settingsButtonActionRows[direction] = row
+        a.settingsButtonActionSpinners[direction] = spinner
+    }
+}
+
+internal fun MainActivity.syncSettingsButtonWheelUI(s: com.zyz4.gkme.model.AppSettings) {
+    val a = this
+    a.settingsButtonActionsSyncing = true
+    try {
+        a.selectChipGroup(
+            listOf(R.id.btnWheelFourWay, R.id.btnWheelEightWay),
+            if (s.settingsButtonFourWay) 0 else 1,
+        )
+        SettingsButtonDirection.entries.forEach { direction ->
+            a.settingsButtonActionSpinners[direction]?.setSelection(
+                (s.settingsButtonActions[direction] ?: SettingsButtonAction.NONE).ordinal,
+                false,
+            )
+            a.settingsButtonActionRows[direction]?.visibility =
+                if (s.settingsButtonFourWay && direction.diagonal) View.GONE else View.VISIBLE
+        }
+    } finally {
+        a.settingsButtonActionsSyncing = false
     }
 }
 
@@ -1637,30 +1745,7 @@ internal fun MainActivity.showSponsorDialog() {
 internal fun MainActivity.setupConnectionPage() {
     val a = this
     a.findViewById<Button>(R.id.btnConnectAction).setOnClickListener {
-        val st = a.viewModel.connectionState.value
-        if (st.phase != ConnectionPhase.IDLE) {
-            val wasLocal = a.viewModel.settings.value.connectionMode == ConnectionMode.LOCAL
-            a.viewModel.stopServer()
-            if (wasLocal) a.exitFloatingMode()
-        } else {
-            val s = a.viewModel.settings.value
-            if (s.connectionMode == ConnectionMode.LOCAL) {
-                a.startLocalMode()
-                return@setOnClickListener
-            }
-            if (s.connectionMode == ConnectionMode.WIFI && s.controlType == ControlType.CONTROLLED) {
-                a.launchControlledMode()
-                return@setOnClickListener
-            }
-            if (s.connectionMode == ConnectionMode.BLUETOOTH) {
-                // 蓝牙权限只在启动蓝牙模式时按需申请（应用启动时不申请）。
-                a.startBluetoothModeWithPermission()
-            } else if (s.connectionMode == ConnectionMode.USB) {
-                a.checkUsbAdbAndStart()
-            } else {
-                a.viewModel.startServer()
-            }
-        }
+        a.toggleService()
     }
 
     a.findViewById<Switch>(R.id.switchAutoStart).setOnCheckedChangeListener { _, isChecked ->
@@ -2083,6 +2168,7 @@ internal fun MainActivity.syncSettingsUI() {
     a.updateGyroLandscapeInvertedNote(inverted)
 
     a.findViewById<Switch>(R.id.switchKeepScreenOn).isChecked = s.keepScreenOn
+    a.syncSettingsButtonWheelUI(s)
     a.findViewById<SeekBar>(R.id.seekFloatingOpacity).progress = s.floatingOpacity
     a.findViewById<TextView>(R.id.tvFloatingOpacity).text = "${s.floatingOpacity}%"
 
