@@ -1,7 +1,10 @@
 package com.zyz4.gkme.view
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.os.Build
@@ -13,6 +16,8 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.ImageButton
 import androidx.annotation.RequiresApi
+import com.zyz4.gkme.CATEGORY_SWITCH_DURATION
+import com.zyz4.gkme.easeOutQuint
 import com.zyz4.gkme.model.AppSettings
 import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.model.ComboTiming
@@ -105,6 +110,11 @@ class GamepadLayout @JvmOverloads constructor(
     // Grid fade animation
     private var gridAlpha = 0f
     private var gridAnimator: ValueAnimator? = null
+
+    // 布局切换擦除动画：旧布局快照从右向左擦除，露出新布局。
+    private var switchSnapshot: Bitmap? = null
+    private var switchProgress = 1f
+    private var switchAnimator: ValueAnimator? = null
 
     // Opacity preview
     private var previewOpacity = false
@@ -852,6 +862,77 @@ class GamepadLayout @JvmOverloads constructor(
 
     var onCapturedTouchpadEvent: ((normalizedX: Float, normalizedY: Float,
         touches: List<FloatArray>, touchpadTouch: Boolean, touchpadClick: Boolean) -> Unit)? = null
+
+    /**
+     * 捕获当前布局画面，供 [playPresetSwitchWipe] 做切换动画。
+     * 视图尚未完成布局时返回 null（此时直接切换，不播放动画）。
+     */
+    fun capturePresetSwitchSnapshot(): Bitmap? {
+        if (width <= 0 || height <= 0) return null
+        return Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also {
+            draw(Canvas(it))
+        }
+    }
+
+    /**
+     * 切换布局的过渡：旧布局从右向左擦除，逐渐露出已经加载的新布局。
+     * 时长与缓动复用设置页动画的统一参数（[CATEGORY_SWITCH_DURATION] + [easeOutQuint]）。
+     */
+    fun playPresetSwitchWipe(snapshot: Bitmap?) {
+        if (snapshot == null || width <= 0 || height <= 0) {
+            snapshot?.recycle()
+            return
+        }
+        switchAnimator?.cancel()
+        switchSnapshot?.recycle()
+        switchSnapshot = snapshot
+        switchProgress = 0f
+        val animator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = CATEGORY_SWITCH_DURATION
+            interpolator = easeOutQuint()
+            addUpdateListener {
+                switchProgress = it.animatedValue as Float
+                invalidate()
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    if (switchAnimator !== animation) return
+                    switchAnimator = null
+                    switchSnapshot?.recycle()
+                    switchSnapshot = null
+                    switchProgress = 1f
+                    invalidate()
+                }
+            })
+        }
+        switchAnimator = animator
+        animator.start()
+        invalidate()
+    }
+
+    /** 在已绘制的新布局上覆盖旧布局快照，裁剪边界随进度从右向左移动。 */
+    private fun drawPresetSwitchWipe(canvas: Canvas) {
+        val snapshot = switchSnapshot ?: return
+        if (switchProgress >= 1f) return
+        val save = canvas.save()
+        canvas.clipRect(0f, 0f, width * (1f - switchProgress), height.toFloat())
+        canvas.drawBitmap(snapshot, 0f, 0f, null)
+        canvas.restoreToCount(save)
+    }
+
+    override fun draw(canvas: Canvas) {
+        super.draw(canvas)
+        drawPresetSwitchWipe(canvas)
+    }
+
+    override fun onDetachedFromWindow() {
+        val animator = switchAnimator
+        switchAnimator = null
+        animator?.cancel()
+        switchSnapshot?.recycle()
+        switchSnapshot = null
+        super.onDetachedFromWindow()
+    }
 
     fun loadPreset(preset: LayoutPreset) {
         currentUseGrid = preset.useGrid
