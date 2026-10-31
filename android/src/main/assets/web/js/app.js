@@ -7,7 +7,7 @@ import { Connection, getDeviceName, setDeviceName } from "./protocol.js";
 import { GamepadLayout, DEFAULT_APPEARANCE, normalizeButton, onScreenGridSize } from "./layout.js";
 import {
   BIT, DPAD, Kb, KB_MODIFIER_CODES, MODIFIER_BITS, CONTROLS, getControl,
-  DISPLAY_MODES, defaultSizeFor, controlDisplayName,
+  DISPLAY_MODES, defaultSizeFor, controlDisplayName, CUSTOM_BUTTON_DEFAULT_TEXT,
 } from "./controls.js";
 import {
   loadSettings, saveSettings, ensurePresets, savePresets, getActivePresetName,
@@ -937,7 +937,7 @@ class App {
     const raw = { id, x: spot.x, y: spot.y, w, h };
     if (baseId === "btnCustomRect" || baseId === "btnCustomCircle") {
       raw.isCustom = true;
-      raw.customText = (await showInput(t("app.customTextTitle"), { hint: t("app.customTextHint"), prefill: t("common.custom") })) || t("common.custom");
+      raw.customText = (await showInput(t("app.customTextTitle"), { hint: t("app.customTextHint"), prefill: CUSTOM_BUTTON_DEFAULT_TEXT })) || CUSTOM_BUTTON_DEFAULT_TEXT;
       raw.customBits = [];
     }
     if (baseId === "customKeypad") {

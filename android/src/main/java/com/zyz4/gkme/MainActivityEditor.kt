@@ -333,7 +333,7 @@ internal fun MainActivity.getPreviewText(entry: CtrlEntry, mode: DisplayMode): S
         "btnMouseMMB" -> "MMB"
         "btnMouseBack" -> "BACK"
         "btnMouseForward" -> "FWD"
-        "btnCustomCircle", "btnCustomRect" -> getString(R.string.i18n_custom)
+        "btnCustomCircle", "btnCustomRect" -> ButtonPosition.CUSTOM_BUTTON_DEFAULT_TEXT
         else -> null
     }
 }
@@ -362,6 +362,55 @@ internal fun MainActivity.getPreviewIcon(entry: CtrlEntry, mode: DisplayMode): I
         else -> entry.icon
     }
 }
+
+/**
+ * 自定义按键盘在「添加控件」对话框里的预览图标：圆盘 + 四向罗盘字母 N/E/S/W。
+ * 矢量 drawable 无法绘制文字，这里用 View 动态绘制，替代 [R.drawable.ic_custom_keypad]。
+ */
+private fun createKeypadPreviewView(context: android.content.Context, sizePx: Int): View =
+    object : View(context) {
+        private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0xFF2A2A2A.toInt()
+            style = Paint.Style.FILL
+        }
+        private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0xFF666666.toInt()
+            style = Paint.Style.STROKE
+        }
+        private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0xFF666666.toInt()
+            textAlign = Paint.Align.CENTER
+            typeface = Typeface.DEFAULT_BOLD
+        }
+
+        override fun onDraw(canvas: Canvas) {
+            val cx = width / 2f
+            val cy = height / 2f
+            val r = minOf(cx, cy) * 0.92f
+            strokePaint.strokeWidth = r * 0.08f
+
+            canvas.drawCircle(cx, cy, r, fillPaint)
+            canvas.drawCircle(cx, cy, r, strokePaint)
+
+            // 中心方块 + 四角对角分隔线（与 ic_custom_keypad 一致）。
+            val half = r * 0.4f
+            canvas.drawRect(cx - half, cy - half, cx + half, cy + half, strokePaint)
+            val d = half * 1.4142f
+            canvas.drawLine(cx - half, cy - half, cx - d, cy - d, strokePaint)
+            canvas.drawLine(cx + half, cy - half, cx + d, cy - d, strokePaint)
+            canvas.drawLine(cx - half, cy + half, cx - d, cy + d, strokePaint)
+            canvas.drawLine(cx + half, cy + half, cx + d, cy + d, strokePaint)
+
+            // 四向方位字母：N 上 / E 右 / S 下 / W 左。
+            textPaint.textSize = r * 0.42f
+            val baseline = -(textPaint.ascent() + textPaint.descent()) / 2f
+            val ring = (half + r) / 2f
+            canvas.drawText("N", cx, cy - ring + baseline, textPaint)
+            canvas.drawText("E", cx + ring, cy + baseline, textPaint)
+            canvas.drawText("S", cx, cy + ring + baseline, textPaint)
+            canvas.drawText("W", cx - ring, cy + baseline, textPaint)
+        }
+    }.apply { layoutParams = LinearLayout.LayoutParams(sizePx, sizePx) }
 
 internal fun MainActivity.showAddButtonDialog() {
     val a = this
@@ -462,11 +511,7 @@ internal fun MainActivity.showAddButtonDialog() {
             }
             wrapper.addView(iv)
         } else if (entry.isKeypad) {
-            val iv = ImageView(a).apply {
-                setImageResource(a.getPreviewIcon(entry, mode))
-                layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
-            }
-            wrapper.addView(iv)
+            wrapper.addView(createKeypadPreviewView(a, iconSize))
         } else if (entry.isMousepad) {
             val iv = ImageView(a).apply {
                 setImageResource(a.getPreviewIcon(entry, mode))
@@ -673,7 +718,7 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
             val btn = if (!entry.lockAspect) RotatableButton(a) else Button(a)
             btn.apply {
                 this.id = View.generateViewId(); tag = id
-                text = getString(R.string.i18n_custom)
+                text = ButtonPosition.CUSTOM_BUTTON_DEFAULT_TEXT
                 setAllCaps(false)
                 setTextColor(-0x333334); textSize = 20f
                 setTypeface(null, Typeface.BOLD)
@@ -785,7 +830,7 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
             width = entryW, height = entryH,
             lockAspect = entry.lockAspect,
             isCustom = entry.isCustom,
-            customText = mouseTexts[entry.baseId] ?: getString(R.string.i18n_custom),
+            customText = mouseTexts[entry.baseId] ?: ButtonPosition.CUSTOM_BUTTON_DEFAULT_TEXT,
             customBits = if (entry.isCustom) emptyList() else listOfNotNull(a.getBitForEntry(entry)),
             roundShape = entry.baseId == "btnCustomCircle",
         )
@@ -814,7 +859,7 @@ internal fun MainActivity.addControl(entry: CtrlEntry) {
 
 internal fun MainActivity.createCustomButtonView(pos: ButtonPosition): View {
     val a = this
-    val displayText = (pos.customText ?: getString(R.string.i18n_custom)).ifEmpty { getString(R.string.i18n_custom) }
+    val displayText = (pos.customText ?: ButtonPosition.CUSTOM_BUTTON_DEFAULT_TEXT).ifEmpty { ButtonPosition.CUSTOM_BUTTON_DEFAULT_TEXT }
     val view: View = if (pos.roundShape || pos.lockAspect) {
         Button(a).apply {
             id = View.generateViewId(); tag = pos.id
@@ -1121,7 +1166,7 @@ internal fun MainActivity.createStandardControlView(pos: ButtonPosition) {
             val btn = if (!entry.lockAspect) RotatableButton(a) else Button(a)
             btn.apply {
                 id = View.generateViewId(); tag = pos.id
-                text = getString(R.string.i18n_custom)
+                text = ButtonPosition.CUSTOM_BUTTON_DEFAULT_TEXT
                 setAllCaps(false)
                 setTextColor(-0x333334); textSize = 20f
                 setTypeface(null, Typeface.BOLD)

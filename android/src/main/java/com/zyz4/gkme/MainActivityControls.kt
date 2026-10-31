@@ -1512,7 +1512,7 @@ internal fun MainActivity.updateButtonLabels(mode: DisplayMode) {
         if (baseId.startsWith("btnCustom")) {
             val pos = a.gamepadLayout.currentButtons.find { it.id == tag }
             (child as? TextView)?.apply {
-                text = (pos?.customText ?: getString(R.string.i18n_custom)).ifEmpty { getString(R.string.i18n_custom) }
+                text = (pos?.customText ?: ButtonPosition.CUSTOM_BUTTON_DEFAULT_TEXT).ifEmpty { ButtonPosition.CUSTOM_BUTTON_DEFAULT_TEXT }
                 setAllCaps(false)
                 textSize = 20f
             }

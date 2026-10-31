@@ -1776,17 +1776,9 @@ export function t(key, ...args) {
 }
 
 export function keypadDefaultTexts() {
-  return [
-    t("keypad.up"),
-    t("keypad.down"),
-    t("keypad.left"),
-    t("keypad.right"),
-    t("keypad.center"),
-    t("keypad.topLeft"),
-    t("keypad.topRight"),
-    t("keypad.bottomLeft"),
-    t("keypad.bottomRight"),
-  ];
+  // 默认区域文本使用罗盘方位（语言无关），与 Android ButtonPosition.KEYPAD_DEFAULT_TEXTS 一致：
+  // 0=上(N), 1=下(S), 2=左(W), 3=右(E), 4=中心(C), 5=左上(NW), 6=右上(NE), 7=左下(SW), 8=右下(SE)。
+  return ["N", "S", "W", "E", "C", "NW", "NE", "SW", "SE"];
 }
 
 // Legacy presets persist the built-in keypad labels in Chinese; localize them

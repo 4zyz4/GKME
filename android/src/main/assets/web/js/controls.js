@@ -223,6 +223,9 @@ export const DOUBLE_CLICK_IDS = new Set(["leftJoystick", "rightJoystick", "touch
 export const JOYSTICK_IDS = new Set(["leftJoystick", "rightJoystick"]);
 export const AREA_IDS = new Set(["leftJoystick", "rightJoystick", "touchpad", "dpadPad", "customKeypad"]);
 
+// 自定义按钮默认显示文本：固定英文 Custom，不随界面语言变化（与 Android 一致）。
+export const CUSTOM_BUTTON_DEFAULT_TEXT = "Custom";
+
 export function baseId(id) {
   return id.split("_")[0];
 }

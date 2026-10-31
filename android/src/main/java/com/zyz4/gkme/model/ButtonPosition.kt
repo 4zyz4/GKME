@@ -121,8 +121,13 @@ data class ButtonPosition(
             }
         }
 
+        /** 自定义按钮的默认显示文字：固定英文 [CUSTOM_BUTTON_DEFAULT_TEXT]，不随界面语言变化。 */
+        const val CUSTOM_BUTTON_DEFAULT_TEXT = "Custom"
+
+        // 自定义按键盘默认区域文本使用罗盘方位（语言无关）：
+        // 0=上(N), 1=下(S), 2=左(W), 3=右(E), 4=中心(C), 5=左上(NW), 6=右上(NE), 7=左下(SW), 8=右下(SE)。
         val KEYPAD_DEFAULT_TEXTS: List<String> =
-            listOf("上", "下", "左", "右", "中", "左上", "右上", "左下", "右下")
+            listOf("N", "S", "W", "E", "C", "NW", "NE", "SW", "SE")
         val KEYPAD_DEFAULT_BITS: List<List<Int>> = List(KEYPAD_EIGHT_WAY_COUNT) { emptyList() }
         val KEYPAD_DEFAULT_COMBO_TIMINGS: List<ComboTiming> =
             List(KEYPAD_EIGHT_WAY_COUNT) { ComboTiming.SIMULTANEOUS }

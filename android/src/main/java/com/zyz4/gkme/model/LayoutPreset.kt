@@ -317,7 +317,7 @@ data class LayoutPreset(
             m["rotation"] = b.rotation
             if (b.isCustom) {
                 m["isCustom"] = b.isCustom
-                m["customText"] = (b.customText ?: "自定义")
+                m["customText"] = (b.customText ?: ButtonPosition.CUSTOM_BUTTON_DEFAULT_TEXT)
                 m["customBits"] = (b.customBits ?: listOf<Int>())
             }
             if (b.comboTiming != ComboTiming.SIMULTANEOUS) m["comboTiming"] = b.comboTiming.name
