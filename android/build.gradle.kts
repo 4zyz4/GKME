@@ -1,9 +1,23 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("com.google.protobuf")
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
 }
+
+// 本地签名配置（local.properties 已被 .gitignore 忽略，不会入库）。
+// 配置齐全时，debug 变体复用 release 密钥签名，便于覆盖安装正式版。
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.isFile) {
+        file.reader(Charsets.UTF_8).use { load(it) }
+    }
+}
+
+fun localProperty(key: String): String? =
+    localProperties.getProperty(key)?.trim()?.takeIf { it.isNotEmpty() }
 
 kotlin {
     compilerOptions {
@@ -55,7 +69,23 @@ android {
         }
     }
 
+    signingConfigs {
+        val storePath = localProperty("GKME_RELEASE_STORE_FILE")
+        if (storePath != null && rootProject.file(storePath).isFile) {
+            create("releaseSigned") {
+                storeFile = rootProject.file(storePath)
+                storePassword = localProperty("GKME_RELEASE_STORE_PASSWORD")
+                keyAlias = localProperty("GKME_RELEASE_KEY_ALIAS")
+                keyPassword = localProperty("GKME_RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            // 与正式版同签名，可直接覆盖安装并保留应用数据 / Shizuku 授权。
+            signingConfigs.findByName("releaseSigned")?.let { signingConfig = it }
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
