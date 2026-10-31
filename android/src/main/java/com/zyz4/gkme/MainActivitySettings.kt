@@ -1967,9 +1967,16 @@ internal fun MainActivity.autoStartService() {
 
 internal fun MainActivity.loadPresetByName(name: String) {
     val a = this
-    if (!a.viewModel.loadPreset(name)) return
+    // 切换布局时先抓取旧画面，加载完成后从右向左擦除过渡（与其余设置动画同速率）。
+    val switching = name != a.viewModel.settings.value.currentPresetName
+    val switchSnapshot = if (switching) a.gamepadLayout.capturePresetSwitchSnapshot() else null
+    if (!a.viewModel.loadPreset(name)) {
+        switchSnapshot?.recycle()
+        return
+    }
     val preset = a.viewModel.currentPreset.value
     a.applyPreset(preset)
+    a.gamepadLayout.playPresetSwitchWipe(switchSnapshot)
     a.showToast(getString(R.string.i18n_loaded_0, localizedPresetName(name)))
     a.refreshPresetList()
 }
