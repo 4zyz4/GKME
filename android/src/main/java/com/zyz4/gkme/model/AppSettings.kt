@@ -237,6 +237,7 @@ enum class SettingsButtonAction(
     NONE(R.string.i18n_none, R.string.i18n_none),
     PREVIOUS_LAYOUT(R.string.i18n_action_previous_layout, R.string.i18n_wheel_action_previous_layout),
     NEXT_LAYOUT(R.string.i18n_action_next_layout, R.string.i18n_wheel_action_next_layout),
+    OPEN_LAYOUT_PICKER(R.string.i18n_action_open_layout_picker, R.string.i18n_wheel_action_open_layout_picker),
     OPEN_SETTINGS(R.string.i18n_action_open_settings, R.string.i18n_wheel_action_open_settings),
     TOGGLE_SERVICE(R.string.i18n_action_toggle_service, R.string.i18n_wheel_action_toggle_service),
     EDIT_LAYOUT(R.string.i18n_action_edit_layout, R.string.i18n_wheel_action_edit_layout),

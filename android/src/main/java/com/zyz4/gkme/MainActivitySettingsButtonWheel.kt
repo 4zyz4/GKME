@@ -215,6 +215,7 @@ internal fun MainActivity.executeSettingsButtonAction(action: SettingsButtonActi
         SettingsButtonAction.OPEN_SETTINGS -> showSettings()
         SettingsButtonAction.PREVIOUS_LAYOUT -> switchLayoutBy(-1)
         SettingsButtonAction.NEXT_LAYOUT -> switchLayoutBy(1)
+        SettingsButtonAction.OPEN_LAYOUT_PICKER -> showLayoutPickerDialog()
         SettingsButtonAction.TOGGLE_SERVICE -> toggleService()
         SettingsButtonAction.EDIT_LAYOUT -> enterLayoutEditMode()
     }
