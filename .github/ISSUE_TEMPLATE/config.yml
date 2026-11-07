@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Contributing Guide
+  - name: Contributing Guide / 贡献指南
     url: https://github.com/4zyz4/GKME/blob/master/CONTRIBUTING.md
-    about: Read the contribution guide before opening an issue or pull request.
-  - name: Documentation
+    about: Read the contribution guide before opening an issue or pull request. / 提交 issue 或 PR 前请先阅读贡献指南。
+  - name: Documentation / 开发者文档
     url: https://github.com/4zyz4/GKME/blob/master/docs/README.md
-    about: Architecture, protocol, and developer documentation.
-  - name: Questions and Discussion
+    about: Architecture, protocol, and developer documentation. / 架构、协议和开发者文档。
+  - name: Questions and Discussion / 问题与讨论
     url: https://github.com/4zyz4/GKME/issues
-    about: For general questions, search existing issues or open a new one.
+    about: For general questions, search existing issues or open a new one. / 一般性问题请先搜索现有 issue，或新建 issue 讨论。

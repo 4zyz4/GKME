@@ -1,0 +1,127 @@
+name: 问题反馈 (简体中文)
+description: 报告 GKME 中可复现的 bug 或崩溃（简体中文）
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢你花时间提交问题反馈！
+
+        提交前请：
+        - 搜索[已有 issue](https://github.com/4zyz4/GKME/issues)，避免重复。
+        - 确认你使用的是最新版本。
+        - 在日志和截图中隐去敏感信息（IP 地址、MAC 地址、序列号、账号信息等）。
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: 前置检查
+      options:
+        - label: 我已搜索过现有 issue，确认这不是重复问题。
+          required: true
+        - label: 我正在使用 GKME 的最新版本。
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 描述问题
+      description: 请清晰、简洁地描述这个 bug。
+      placeholder: 当我通过 WiFi 连接并按下 A 键时，……
+    validations:
+      required: true
+
+  - type: input
+    id: app-version
+    attributes:
+      label: 应用版本
+      description: 设置中显示的版本，或 `versionName`（例如 4.9.0）。
+      placeholder: "4.9.0"
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: 设备与系统
+      description: 手机或平板型号、Android 版本、ROM / OEM 版本。
+      placeholder: "Pixel 8，Android 15，官方系统"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: connection
+    attributes:
+      label: 连接方式
+      description: 客户端如何连接电脑或受控设备。
+      multiple: true
+      options:
+        - WiFi
+        - USB (ADB)
+        - 蓝牙 HID
+        - DSU
+        - 本地模式 (Shizuku)
+        - 受控设备
+        - 网页手柄
+        - 不适用
+    validations:
+      required: true
+
+  - type: dropdown
+    id: working-mode
+    attributes:
+      label: 工作模式
+      options:
+        - 手柄
+        - 受控设备
+        - 本地模式
+        - 悬浮模式
+        - 其他（请在下方说明）
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 从启动应用直到问题出现的完整操作序列。
+      placeholder: |
+        1. 打开 GKME 并通过 WiFi 连接
+        2. 切换到手柄布局
+        3. 按下……
+        4. 出现错误
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-actual
+    attributes:
+      label: 期望行为与实际行为
+      description: 你期望发生什么，实际发生了什么。
+      placeholder: |
+        期望：……
+        实际：……
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志
+      description: |
+        与 `com.zyz4.gkme` 相关的 `adb logcat` 输出。如果应用生成了 `gkme_error.log`，请一并附上。
+        可将文件直接拖拽到此处，或粘贴相关日志行。
+      render: shell
+
+  - type: input
+    id: peripherals
+    attributes:
+      label: 外设
+      description: 手柄型号及连接方式（OTG / 蓝牙）；本地模式 / 受控设备模式请注明 Shizuku 版本。
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 附加信息
+      description: 截图、录屏或其他有助于说明问题的信息。

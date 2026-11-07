@@ -1,0 +1,49 @@
+name: 功能建议 (简体中文)
+description: 为 GKME 提出新功能或改进建议（简体中文）
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢你的建议！
+
+        提交前请搜索[已有 issue](https://github.com/4zyz4/GKME/issues)，避免重复。
+        对于较大的功能、UI 改版或架构调整，请先通过 issue 讨论方向，再开始写代码。
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: 前置检查
+      options:
+        - label: 我已搜索过现有 issue，确认这不是重复问题。
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 问题或使用场景
+      description: 你遇到了什么痛点？请先描述使用场景，再描述解决方案。
+      placeholder: 我希望……但目前只能……
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: 建议方案
+      description: 描述你期望的交互或行为。
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 考虑过的替代方案
+      description: 你考虑过的临时解决办法或其他方案。
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 附加信息
+      description: 草图、参考实现、与其他应用的对比或截图。请勿提交来源不明的素材。

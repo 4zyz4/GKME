@@ -1,5 +1,5 @@
-name: Bug Report
-description: Report a reproducible bug or crash in GKME
+name: Bug Report (English)
+description: Report a reproducible bug or crash in GKME (English)
 title: "[Bug]: "
 labels: ["bug"]
 body:
