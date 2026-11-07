@@ -1,0 +1,127 @@
+name: Bug Report
+description: Report a reproducible bug or crash in GKME
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report!
+
+        Before submitting, please:
+        - Search the [existing issues](https://github.com/4zyz4/GKME/issues) to avoid duplicates.
+        - Make sure you are running the latest release.
+        - Redact sensitive information (IP addresses, MAC addresses, serial numbers, account details) from logs and screenshots.
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      options:
+        - label: I have searched the existing issues and this is not a duplicate.
+          required: true
+        - label: I am running the latest version of GKME.
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what the bug is.
+      placeholder: When I connect via WiFi and press the A button, ...
+    validations:
+      required: true
+
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+      description: The version shown in Settings, or the `versionName` (e.g. 4.9.0).
+      placeholder: "4.9.0"
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device and OS
+      description: Phone or tablet model, Android version, and ROM / OEM build.
+      placeholder: "Pixel 8, Android 15, stock ROM"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: connection
+    attributes:
+      label: Connection method
+      description: How the client is connected to the PC or the controlled device.
+      multiple: true
+      options:
+        - WiFi
+        - USB (ADB)
+        - Bluetooth HID
+        - DSU
+        - Local mode (Shizuku)
+        - Controlled device
+        - Web gamepad
+        - Not applicable
+    validations:
+      required: true
+
+  - type: dropdown
+    id: working-mode
+    attributes:
+      label: Working mode
+      options:
+        - Controller
+        - Controlled device
+        - Local mode
+        - Floating mode
+        - Other (described below)
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The complete sequence from launching the app to the problem.
+      placeholder: |
+        1. Open GKME and connect via WiFi
+        2. Switch to the gamepad layout
+        3. Press ...
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-actual
+    attributes:
+      label: Expected behavior vs. actual behavior
+      description: What you expected to happen, and what actually happened.
+      placeholder: |
+        Expected: ...
+        Actual: ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Relevant `adb logcat` output for `com.zyz4.gkme`. Attach `gkme_error.log` if the app generated one.
+        Drag and drop files here, or paste the relevant lines.
+      render: shell
+
+  - type: input
+    id: peripherals
+    attributes:
+      label: Peripherals
+      description: Controller model and connection (OTG / Bluetooth), and the Shizuku version for local / controlled modes.
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Screenshots, screen recordings, or anything else that helps explain the problem.

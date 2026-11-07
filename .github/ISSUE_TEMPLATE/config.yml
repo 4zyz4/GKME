@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Contributing Guide
+    url: https://github.com/4zyz4/GKME/blob/master/CONTRIBUTING.md
+    about: Read the contribution guide before opening an issue or pull request.
+  - name: Documentation
+    url: https://github.com/4zyz4/GKME/blob/master/docs/README.md
+    about: Architecture, protocol, and developer documentation.
+  - name: Questions and Discussion
+    url: https://github.com/4zyz4/GKME/issues
+    about: For general questions, search existing issues or open a new one.

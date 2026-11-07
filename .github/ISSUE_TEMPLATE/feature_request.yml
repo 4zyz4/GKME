@@ -1,0 +1,49 @@
+name: Feature Request
+description: Suggest an idea or improvement for GKME
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement!
+
+        Before submitting, please search the [existing issues](https://github.com/4zyz4/GKME/issues) to avoid duplicates.
+        For large features, UI overhauls, or architectural changes, use this issue to discuss the direction before writing code.
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      options:
+        - label: I have searched the existing issues and this is not a duplicate.
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What pain point are you facing? Describe the use case before the solution.
+      placeholder: I want to ... but currently I have to ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe the interaction or behavior you would like to see.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any workarounds or other approaches you have considered.
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Sketches, reference implementations, comparisons with other apps, or screenshots. Do not submit assets of unknown origin.
