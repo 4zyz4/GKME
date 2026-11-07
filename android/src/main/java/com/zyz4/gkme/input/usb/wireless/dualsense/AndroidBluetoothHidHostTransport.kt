@@ -181,6 +181,8 @@ internal class AndroidBluetoothHidHostTransport(
     private fun selectionKey(preferredAddress: String?): String =
         preferredAddress?.uppercase() ?: FALLBACK_SELECTION_KEY
 
+    // 蓝牙隐藏 API 直连是 DualSense 无线的既定方案，配合 hiddenapibypass 使用。
+    @SuppressLint("PrivateApi")
     private fun resolveMethods(proxy: BluetoothProfile) {
         val classes = linkedSetOf<Class<*>>(proxy.javaClass)
         runCatching { Class.forName("android.bluetooth.BluetoothHidHost") }

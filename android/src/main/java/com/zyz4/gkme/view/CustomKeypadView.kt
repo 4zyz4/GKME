@@ -13,6 +13,7 @@ import android.os.Looper
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
+import androidx.core.graphics.withClip
 import com.zyz4.gkme.R
 import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.model.CenterShape
@@ -461,13 +462,12 @@ class CustomKeypadView @JvmOverloads constructor(
                 val right = centerX + centerHalf
                 val top = centerY - centerHalf
                 val bottom = centerY + centerHalf
-                canvas.save()
-                canvas.clipPath(circlePath)
-                canvas.drawLine(left, originY, left, originY + side, sepPaint)
-                canvas.drawLine(right, originY, right, originY + side, sepPaint)
-                canvas.drawLine(originX, top, originX + side, top, sepPaint)
-                canvas.drawLine(originX, bottom, originX + side, bottom, sepPaint)
-                canvas.restore()
+                canvas.withClip(circlePath) {
+                    drawLine(left, originY, left, originY + side, sepPaint)
+                    drawLine(right, originY, right, originY + side, sepPaint)
+                    drawLine(originX, top, originX + side, top, sepPaint)
+                    drawLine(originX, bottom, originX + side, bottom, sepPaint)
+                }
             } else {
                 canvas.drawPath(separatorPath, sepPaint)
                 canvas.drawRect(centerX - centerHalf, centerY - centerHalf, centerX + centerHalf, centerY + centerHalf, sepPaint)

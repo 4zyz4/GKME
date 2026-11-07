@@ -837,13 +837,8 @@ class UsbPhysicalControllerBackend(private val context: Context) : PhysicalContr
         if (clamped == lastPhoneAmp) return
         lastPhoneAmp = clamped
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator.cancel()
-                vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(50), intArrayOf(clamped), 0))
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator.vibrate(60000)
-            }
+            vibrator.cancel()
+            vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(50), intArrayOf(clamped), 0))
         } catch (_: Exception) {
         }
     }

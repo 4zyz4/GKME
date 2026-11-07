@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name" translatable="false">GKME</string>
+    <string name="i18n_0_ms" translatable="false">%1$d ms</string>
+    <string name="i18n_0_percent" translatable="false">%1$d%%</string>
 </resources>

@@ -964,7 +964,7 @@ open class InputManagerPhysicalControllerBackend(private val context: Context) :
                 legacy.cancel()
                 return
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && legacy.hasAmplitudeControl()) {
+            if (legacy.hasAmplitudeControl()) {
                 legacy.cancel()
                 legacy.vibrate(VibrationEffect.createOneShot(VIBRATION_DURATION_MS, amp))
             } else {
@@ -1069,13 +1069,8 @@ open class InputManagerPhysicalControllerBackend(private val context: Context) :
         val vibrator = phoneVibrator() ?: return
         lastPhoneAmp = clamped
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator.cancel()
-                vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(50), intArrayOf(clamped), 0))
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator.vibrate(VIBRATION_DURATION_MS)
-            }
+            vibrator.cancel()
+            vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(50), intArrayOf(clamped), 0))
         } catch (_: Exception) {
         }
     }

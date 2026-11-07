@@ -526,10 +526,7 @@ class ClassicHidTransport(
         registerJob = null
     }
 
-    private fun isBluetoothEnabled(): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return false
-        return bluetoothAdapter.isEnabled
-    }
+    private fun isBluetoothEnabled(): Boolean = bluetoothAdapter.isEnabled
 
     private suspend fun tryAutoReconnect() {
         if (!started.get() || stopping.get()) return

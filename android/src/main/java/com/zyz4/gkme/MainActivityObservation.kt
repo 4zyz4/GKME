@@ -1,6 +1,7 @@
 package com.zyz4.gkme
 
 import com.zyz4.gkme.R
+import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.content.Intent
 import android.view.View
@@ -24,6 +25,8 @@ import kotlinx.coroutines.launch
 
 // ── State Observation ────────────────────────────────────
 
+// X/Y/Z 与数值格式为调试读数，不含可翻译文案。
+@SuppressLint("SetTextI18n")
 internal fun MainActivity.observeState() {
     val a = this
     a.lifecycleScope.launch {

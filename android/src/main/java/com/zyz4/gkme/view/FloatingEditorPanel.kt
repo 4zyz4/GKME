@@ -23,6 +23,8 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.Spinner
+import androidx.core.view.isEmpty
+import androidx.core.view.isNotEmpty
 import androidx.core.widget.NestedScrollView
 import android.widget.SeekBar
 import android.widget.TextView
@@ -37,6 +39,7 @@ import com.zyz4.gkme.model.MouseGestureAction
 import com.zyz4.gkme.model.SlideDirection
 import com.zyz4.gkme.Kb
 import com.zyz4.gkme.BitNameMapper
+import java.util.Locale
 
 class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
@@ -637,7 +640,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         val fresh = createParamsContent()
         buttonParamsInner = fresh
         buttonParamsHost.addView(fresh)
-        if (old.childCount == 0) {
+        if (old.isEmpty()) {
             buttonParamsHost.removeView(old)
             return
         }
@@ -661,7 +664,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         val offset = CONTENT_SLIDE_DP * resources.displayMetrics.density
         // Draw the outgoing content on top: for same-type controls the two layouts are nearly
         // identical, so otherwise the incoming view would cover the outgoing animation.
-        if (old.childCount > 0) buttonParamsHost.bringChildToFront(old)
+        if (old.isNotEmpty()) buttonParamsHost.bringChildToFront(old)
         fresh.translationY = offset
         fresh.alpha = 0f
         fresh.animate()
@@ -670,7 +673,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             .setDuration(CONTENT_FADE_MS)
             .setInterpolator(easeOutQuint())
             .start()
-        if (old.childCount == 0) {
+        if (old.isEmpty()) {
             buttonParamsHost.removeView(old)
         } else {
             old.animate()
@@ -2114,7 +2117,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             textSize = 13f
         }
 
-        fun fmt(v: Float) = String.format("%.2f", v)
+        fun fmt(v: Float) = String.format(Locale.ROOT, "%.2f", v)
         fun progressOf(v: Float) = ((v - min) * scale).toInt().coerceAtLeast(0)
 
         et = EditText(context).apply {

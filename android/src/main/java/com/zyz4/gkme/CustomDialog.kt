@@ -5,8 +5,8 @@ import android.app.Dialog
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
-import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
+import androidx.core.graphics.drawable.toDrawable
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -137,7 +137,7 @@ object CustomDialog {
     private fun baseDialog(context: Context) = Dialog(context).apply {
         requestWindowFeature(Window.FEATURE_NO_TITLE)
         window?.apply {
-            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
             val lp = attributes
             lp.width = (context.resources.displayMetrics.widthPixels * 0.88).toInt()
             lp.gravity = Gravity.CENTER

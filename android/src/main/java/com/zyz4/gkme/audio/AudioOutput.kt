@@ -238,6 +238,7 @@ object AudioOutput {
                 AudioDeviceInfo.TYPE_BUILTIN_EARPIECE,
                 AudioDeviceInfo.TYPE_REMOTE_SUBMIX,
                 AudioDeviceInfo.TYPE_TELEPHONY -> continue
+                else -> {}
             }
             if (info.id <= 0) continue
             deviceInfos[info.id] = info

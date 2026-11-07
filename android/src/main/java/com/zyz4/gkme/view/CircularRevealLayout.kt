@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Path
 import android.util.AttributeSet
 import android.widget.LinearLayout
+import androidx.core.graphics.withSave
 
 class CircularRevealLayout @JvmOverloads constructor(
     context: Context,
@@ -36,10 +37,10 @@ class CircularRevealLayout @JvmOverloads constructor(
         if (holeEnabled && holeRadius > 0f) {
             holePath.reset()
             holePath.addCircle(holeX, holeY, holeRadius, Path.Direction.CW)
-            canvas.save()
-            canvas.clipOutPath(holePath)
-            super.draw(canvas)
-            canvas.restore()
+            canvas.withSave {
+                clipOutPath(holePath)
+                super.draw(this)
+            }
         } else {
             super.draw(canvas)
         }

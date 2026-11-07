@@ -3,6 +3,7 @@ package com.zyz4.gkme.service
 import com.zyz4.gkme.R
 import com.zyz4.gkme.i18n.AppStrings
 import com.zyz4.gkme.i18n.AppText
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
 import android.os.Vibrator
@@ -942,6 +943,8 @@ class ConnectionManager @Inject constructor(
      *  it actually carries ANDROID_ID, which survives reboots and app updates and
      *  is unique per app-signing-key + user. Renamed from `getMacAddress` to avoid
      *  the false implication of a real hardware MAC. */
+    // ANDROID_ID 用作被控端稳定标识（默认值），这是该字段的预期用途。
+    @SuppressLint("HardwareIds")
     fun getDeviceId(): String {
         return try {
             Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)

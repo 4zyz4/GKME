@@ -1,5 +1,6 @@
 package com.zyz4.gkme.controlled
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.PixelFormat
 import android.os.Handler
@@ -19,6 +20,8 @@ import android.view.WindowManager
  * 该方法不强制，由设置里的「悬浮窗保活」开关控制；需要 [Settings.canDrawOverlays] 权限，
  * 未授权时 [start] 会直接跳过，由界面引导用户授权。
  */
+// 进程级单例：view 只在悬浮窗存活期间持有，stop() 会置空；泄漏风险可控且必须跨 Activity 生命周期。
+@SuppressLint("StaticFieldLeak")
 object FloatingKeepAlive {
 
     private const val TAG = "GKME_FloatingKeepAlive"

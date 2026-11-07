@@ -4,6 +4,7 @@ import com.zyz4.gkme.R
 import com.zyz4.gkme.i18n.AppStrings
 import android.graphics.Canvas
 import android.graphics.Paint
+import androidx.core.graphics.withRotation
 import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.view.inputdispatcher.isTouchpadId
 
@@ -270,10 +271,9 @@ class GamepadRenderer(
 
         if (!isAdjustingFollowArea && selId != "btnSettings") {
             markPaint.textSize = 14f * density
-            canvas.save()
-            canvas.rotate(markAngle, markX, markY)
-            canvas.drawText(AppStrings.get(R.string.i18n_up), markX, markY, markPaint)
-            canvas.restore()
+            canvas.withRotation(markAngle, markX, markY) {
+                drawText(AppStrings.get(R.string.i18n_up), markX, markY, markPaint)
+            }
         }
     }
 

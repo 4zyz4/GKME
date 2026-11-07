@@ -9,6 +9,7 @@ import android.graphics.Path
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
+import androidx.core.graphics.withRotation
 import kotlin.math.min
 
 class CurveEditorView @JvmOverloads constructor(
@@ -69,10 +70,14 @@ class CurveEditorView @JvmOverloads constructor(
 
         val labelY = top + size + labelPaint.textSize * 1.8f
         canvas.drawText(context.getString(R.string.i18n_finger_distance), left + size / 2f, labelY, labelPaint)
-        canvas.save()
-        canvas.rotate(-90f, left - labelPaint.textSize * 1.2f, top + size / 2f)
-        canvas.drawText(context.getString(R.string.i18n_output_distance), left - labelPaint.textSize * 1.2f, top + size / 2f, labelPaint)
-        canvas.restore()
+        canvas.withRotation(-90f, left - labelPaint.textSize * 1.2f, top + size / 2f) {
+            drawText(
+                context.getString(R.string.i18n_output_distance),
+                left - labelPaint.textSize * 1.2f,
+                top + size / 2f,
+                labelPaint
+            )
+        }
     }
 
     private fun drawCurve(canvas: Canvas, left: Float, top: Float, size: Float) {

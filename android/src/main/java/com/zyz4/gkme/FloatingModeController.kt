@@ -237,9 +237,12 @@ internal class FloatingModeController(private val activity: MainActivity) {
             gravity = Gravity.TOP or Gravity.START
             x = 0
             y = 0
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 layoutInDisplayCutoutMode =
                     WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 // 不避让任何系统栏：否则 MATCH_PARENT 只会拿到「应用区」（例如竖屏下

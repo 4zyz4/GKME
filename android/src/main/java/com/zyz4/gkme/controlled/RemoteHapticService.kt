@@ -1,5 +1,6 @@
 package com.zyz4.gkme.controlled
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Process
 import android.os.VibrationEffect
@@ -24,6 +25,8 @@ import java.lang.reflect.Method
  *
  * type 2 的 raw int[] 编码见 [RichTapRawCodec]（逆向自 SDK `base.b.a`）。
  */
+// RichTap HD 震动只能通过厂商隐藏 API 反射调用，这是本类的核心实现方式。
+@SuppressLint("PrivateApi")
 class RemoteHapticService @JvmOverloads constructor(
     @Suppress("unused") private val context: Context? = null,
 ) {

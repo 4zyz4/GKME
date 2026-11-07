@@ -12,6 +12,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewTreeObserver
 import android.view.ViewGroup
+import androidx.core.graphics.createBitmap
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.ImageButton
@@ -703,17 +704,16 @@ internal fun MainActivity.renderAppearancePreview() {
     val bmpW = (gl.width * scale).toInt().coerceAtLeast(1)
     val bmpH = (gl.height * scale).toInt().coerceAtLeast(1)
 
-    val bmp = Bitmap.createBitmap(bmpW, bmpH, Bitmap.Config.ARGB_8888)
+    val bmp = createBitmap(bmpW, bmpH)
     val canvas = Canvas(bmp)
     canvas.scale(scale, scale)
     gl.draw(canvas)
 
     // Recycle old bitmaps
-    val prevImg = a.findViewById<ImageView>(R.id.previewImage)
-    val oldTag = prevImg?.tag as? Bitmap
+    val oldTag = previewImg.tag as? Bitmap
     if (oldTag != null && oldTag !== bmp) oldTag.recycle()
-    prevImg?.setImageBitmap(bmp)
-    prevImg?.tag = bmp
+    previewImg.setImageBitmap(bmp)
+    previewImg.tag = bmp
 
     // Also update the zoom overlay image if visible
     if (a.previewZoomVisible) {

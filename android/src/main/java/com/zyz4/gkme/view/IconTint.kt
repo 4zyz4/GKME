@@ -9,6 +9,7 @@ import android.graphics.PixelFormat
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
 import android.graphics.drawable.Drawable
+import androidx.core.graphics.createBitmap
 
 /**
  * 给手柄图标着色，同时保留图标自身的明暗与透明度。
@@ -63,7 +64,7 @@ private class ShadedIconDrawable(
 
     private fun ensureBitmap(w: Int, h: Int): Bitmap? {
         bitmap?.let { if (bitmapW == w && bitmapH == h) return it }
-        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val bmp = createBitmap(w, h)
         val c = Canvas(bmp)
         c.drawColor(Color.BLACK)
         inner.setBounds(0, 0, w, h)

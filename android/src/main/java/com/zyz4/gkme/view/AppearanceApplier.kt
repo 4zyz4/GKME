@@ -10,6 +10,7 @@ import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
+import androidx.core.content.ContextCompat
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
 import android.graphics.drawable.StateListDrawable
@@ -448,7 +449,7 @@ object AppearanceApplier {
             else -> null
         }
         if (resId == null) return null
-        val drawable = view.context.getDrawable(resId)?.mutate() ?: return null
+        val drawable = ContextCompat.getDrawable(view.context, resId)?.mutate() ?: return null
         return IconTint.tint(drawable, settings.btnIconColor, resId in shadedIconRes)
     }
 
@@ -478,7 +479,7 @@ object AppearanceApplier {
      *  as a single unit so they scale together. maxSizePx caps the whole unit (null = unlimited). */
     private fun letterIconDrawable(view: View, letter: String, maxSizePx: Float?, color: Int): Drawable {
         val resId = if (letter == "L") R.drawable.ic_ls else R.drawable.ic_rs
-        val triangle = view.context.getDrawable(resId)?.mutate()?.apply { colorFilter = IconTint.mono(color) }
+        val triangle = ContextCompat.getDrawable(view.context, resId)?.mutate()?.apply { colorFilter = IconTint.mono(color) }
         return LetterIconDrawable(letter, triangle, maxSizePx, color)
     }
 

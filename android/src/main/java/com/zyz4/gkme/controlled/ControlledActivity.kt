@@ -1,11 +1,11 @@
 package com.zyz4.gkme.controlled
 
 import com.zyz4.gkme.i18n.AppLocale
+import android.annotation.SuppressLint
 import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -27,6 +27,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -158,6 +159,8 @@ class ControlledActivity : ComponentActivity() {
         updateWebAddress(interfaces[primaryIndex].address)
     }
 
+    // URL 是技术字符串，不做翻译。
+    @SuppressLint("SetTextI18n")
     private fun updateWebAddress(address: String?) {
         if (address.isNullOrBlank()) {
             tvWebHost.text = ""
@@ -291,7 +294,7 @@ class ControlledActivity : ComponentActivity() {
     private fun requestOverlayPermission() {
         val intent = Intent(
             Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-            Uri.parse("package:$packageName"),
+            "package:$packageName".toUri(),
         )
         runCatching { overlayPermissionLauncher.launch(intent) }
             .onFailure { showToast(getString(R.string.i18n_failed_to_open_overlay_permission_settin)) }

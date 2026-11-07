@@ -6,6 +6,7 @@ import android.graphics.ColorFilter
 import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
+import androidx.core.graphics.withClip
 
 class SidebarItemDrawable : Drawable() {
 
@@ -19,15 +20,14 @@ class SidebarItemDrawable : Drawable() {
         if (b.isEmpty) return
         canvas.drawRect(b, basePaint)
         if (fill > 0f) {
-            canvas.save()
-            canvas.clipRect(
+            canvas.withClip(
                 b.left.toFloat(),
                 b.top.toFloat(),
                 b.left + b.width() * fill.coerceIn(0f, 1f),
                 b.bottom.toFloat()
-            )
-            canvas.drawRect(b, selectedPaint)
-            canvas.restore()
+            ) {
+                drawRect(b, selectedPaint)
+            }
         }
     }
 

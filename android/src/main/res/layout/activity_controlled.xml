@@ -2,7 +2,6 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg_dark"
     android:fitsSystemWindows="true"
     android:scrollbars="vertical">
 
@@ -26,8 +25,9 @@
                 android:layout_height="44dp"
                 android:background="?android:attr/selectableItemBackground"
                 android:text="@string/i18n_back"
-                android:drawableLeft="@drawable/ic_back"
+                android:drawableStart="@drawable/ic_back"
                 android:paddingStart="8dp"
+                android:paddingEnd="8dp"
                 android:textColor="@color/text_primary"
                 android:textSize="13sp"
                 android:stateListAnimator="@null" />
@@ -179,6 +179,7 @@
                 android:background="@drawable/bg_small_btn"
                 android:hint="@string/i18n_host_ip"
                 android:inputType="text"
+                android:importantForAutofill="no"
                 android:paddingHorizontal="10dp"
                 android:singleLine="true"
                 android:textColor="@color/text_primary"

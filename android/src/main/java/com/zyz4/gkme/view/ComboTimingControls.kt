@@ -94,7 +94,7 @@ internal fun LinearLayout.addComboTimingControls(
         LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
     )
     val intervalValue = TextView(context).apply {
-        text = "$currentInterval ms"
+        text = context.getString(R.string.i18n_0_ms, currentInterval)
         setTextColor(COLOR_TEXT_SECONDARY)
         textSize = 13f
     }
@@ -117,7 +117,7 @@ internal fun LinearLayout.addComboTimingControls(
                 if (!fromUser) return
                 currentInterval = (progress + ComboTiming.MIN_INTERVAL_MS)
                     .coerceIn(ComboTiming.MIN_INTERVAL_MS, ComboTiming.MAX_INTERVAL_MS)
-                intervalValue.text = "$currentInterval ms"
+                intervalValue.text = context.getString(R.string.i18n_0_ms, currentInterval)
                 onChange(currentTiming, currentInterval)
             }
 

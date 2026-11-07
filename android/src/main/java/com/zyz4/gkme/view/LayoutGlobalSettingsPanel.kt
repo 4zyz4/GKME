@@ -4,7 +4,6 @@ import android.content.Context
 import android.animation.AnimatorSet
 import android.animation.ValueAnimator
 import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.text.InputType
 import android.util.TypedValue
@@ -25,6 +24,9 @@ import android.widget.SeekBar
 import android.widget.Spinner
 import android.widget.TextView
 import androidx.core.graphics.ColorUtils
+import androidx.core.graphics.drawable.toDrawable
+import androidx.core.view.isEmpty
+import androidx.core.view.isVisible
 import com.zyz4.gkme.CATEGORY_SWITCH_DURATION
 import com.zyz4.gkme.PAGE_SWITCH_OFFSET_DP
 import com.zyz4.gkme.R
@@ -143,7 +145,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         alpha = 0f
         isClickable = true
         isFocusable = true
-        background = ColorDrawable(ColorUtils.setAlphaComponent(Color.BLACK, (pageAlpha * 255).toInt()))
+        background = ColorUtils.setAlphaComponent(Color.BLACK, (pageAlpha * 255).toInt()).toDrawable()
         buildShell()
         curveZoom = CurveZoomOverlay(context).also {
             addView(it, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
@@ -264,19 +266,19 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
     private fun populateTab(index: Int) {
         when (index) {
             0 -> gridContainer?.let {
-                if (gridDirty || it.childCount == 0) {
+                if (gridDirty || it.isEmpty()) {
                     gridDirty = false
                     rebuildGridContent()
                 }
             }
             2 -> physicalContainer?.let {
-                if (physicalDirty || it.childCount == 0) {
+                if (physicalDirty || it.isEmpty()) {
                     physicalDirty = false
                     listener?.onPopulatePhysicalMapping(it)
                 }
             }
             3 -> volumeContainer?.let {
-                if (volumeDirty || it.childCount == 0) {
+                if (volumeDirty || it.isEmpty()) {
                     volumeDirty = false
                     listener?.onPopulateVolumeMapping(it)
                 }
@@ -295,7 +297,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
                 p.alpha = 1f
             }
         }
-        if (oldPage.visibility == View.VISIBLE) {
+        if (oldPage.isVisible) {
             oldPage.animate()
                 .translationY(-offset)
                 .alpha(0f)
@@ -366,12 +368,10 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         // ── Left sidebar ──
         val sidebar = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            background = ColorDrawable(
-                ColorUtils.setAlphaComponent(
-                    androidx.core.content.ContextCompat.getColor(context, R.color.bg_surface),
-                    (pageAlpha * 255).toInt()
-                )
-            )
+            background = ColorUtils.setAlphaComponent(
+                androidx.core.content.ContextCompat.getColor(context, R.color.bg_surface),
+                (pageAlpha * 255).toInt()
+            ).toDrawable()
             setPadding(0, (16f * density).toInt(), 0, 0)
         }
         root.addView(sidebar, LinearLayout.LayoutParams(sidebarWidth, ViewGroup.LayoutParams.MATCH_PARENT))

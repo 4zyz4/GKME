@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <com.zyz4.gkme.view.CircularRevealLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/settingsPanel"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:baselineAligned="false"
     android:orientation="horizontal"
     android:background="@color/bg_dark"
-    android:visibility="gone">
+    android:visibility="gone"
+    tools:ignore="Overdraw,TooManyViews,HardcodedText">
 
 <!-- ── Left Sidebar ── -->
     <LinearLayout
@@ -22,8 +24,9 @@
             android:layout_height="44dp"
             android:background="?android:attr/selectableItemBackground"
             android:text="@string/i18n_back"
-            android:drawableLeft="@drawable/ic_back"
+            android:drawableStart="@drawable/ic_back"
             android:paddingStart="8dp"
+            android:paddingEnd="8dp"
             android:textColor="@color/text_primary"
             android:textSize="13sp"
             android:stateListAnimator="@null"
@@ -345,6 +348,7 @@
             android:id="@+id/pageAppearance"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:baselineAligned="false"
             android:orientation="horizontal"
             android:visibility="gone">
 
@@ -492,7 +496,7 @@
                             android:layout_height="wrap_content"
                             android:paddingHorizontal="8dp"
                             android:text="@string/i18n_reset"
-                            android:textSize="10sp"
+                            android:textSize="11sp"
                             android:stateListAnimator="@null" />
                      </LinearLayout>
 
@@ -561,7 +565,7 @@
                             android:layout_height="wrap_content"
                             android:paddingHorizontal="8dp"
                             android:text="@string/i18n_reset"
-                            android:textSize="10sp"
+                            android:textSize="11sp"
                             android:stateListAnimator="@null" />
                      </LinearLayout>
 
@@ -602,7 +606,7 @@
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
                              android:text="@string/i18n_reset"
-                             android:textSize="10sp"
+                             android:textSize="11sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
 
@@ -659,7 +663,7 @@
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
                              android:text="@string/i18n_reset"
-                             android:textSize="10sp"
+                             android:textSize="11sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
 
@@ -702,7 +706,7 @@
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
                              android:text="@string/i18n_reset"
-                             android:textSize="10sp"
+                             android:textSize="11sp"
                              android:stateListAnimator="@null" />
                       </LinearLayout>
 
@@ -795,7 +799,7 @@
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
                              android:text="@string/i18n_reset"
-                             android:textSize="10sp"
+                             android:textSize="11sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
 
@@ -836,7 +840,7 @@
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
                              android:text="@string/i18n_reset"
-                             android:textSize="10sp"
+                             android:textSize="11sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
 
@@ -913,7 +917,7 @@
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
                              android:text="@string/i18n_reset"
-                             android:textSize="10sp"
+                             android:textSize="11sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
 
@@ -954,7 +958,7 @@
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
                              android:text="@string/i18n_reset"
-                             android:textSize="10sp"
+                             android:textSize="11sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
 
@@ -1011,7 +1015,7 @@
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
                              android:text="@string/i18n_reset"
-                             android:textSize="10sp"
+                             android:textSize="11sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
 
@@ -1052,7 +1056,7 @@
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
                              android:text="@string/i18n_reset"
-                             android:textSize="10sp"
+                             android:textSize="11sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
 
@@ -1137,7 +1141,7 @@
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
                              android:text="@string/i18n_reset"
-                             android:textSize="10sp"
+                             android:textSize="11sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
 
@@ -1178,7 +1182,7 @@
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
                              android:text="@string/i18n_reset"
-                             android:textSize="10sp"
+                             android:textSize="11sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
 
@@ -1235,7 +1239,7 @@
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
                              android:text="@string/i18n_reset"
-                             android:textSize="10sp"
+                             android:textSize="11sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
 
@@ -1277,7 +1281,7 @@
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
                              android:text="@string/i18n_reset"
-                             android:textSize="10sp"
+                             android:textSize="11sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
 
@@ -1362,7 +1366,7 @@
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
                              android:text="@string/i18n_reset"
-                             android:textSize="10sp"
+                             android:textSize="11sp"
                              android:stateListAnimator="@null" />
                       </LinearLayout>
 
@@ -1403,7 +1407,7 @@
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
                              android:text="@string/i18n_reset"
-                             android:textSize="10sp"
+                             android:textSize="11sp"
                              android:stateListAnimator="@null" />
                       </LinearLayout>
 
@@ -1460,7 +1464,7 @@
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
                              android:text="@string/i18n_reset"
-                             android:textSize="10sp"
+                             android:textSize="11sp"
                              android:stateListAnimator="@null" />
                      </LinearLayout>
 
@@ -1502,7 +1506,7 @@
                              android:layout_height="wrap_content"
                              android:paddingHorizontal="8dp"
                              android:text="@string/i18n_reset"
-                             android:textSize="10sp"
+                             android:textSize="11sp"
                              android:stateListAnimator="@null" />
                       </LinearLayout>
 
@@ -1568,6 +1572,7 @@
                             android:layout_height="240dp"
                             android:scaleType="fitCenter"
                             android:adjustViewBounds="true"
+                            android:importantForAccessibility="no"
                             android:background="@color/bg_surface" />
 
                         <ImageButton
@@ -1592,6 +1597,7 @@
 
                         <Button
                             android:id="@+id/btnExportAppearance"
+                            tools:ignore="ButtonStyle"
                             android:layout_width="0dp"
                             android:layout_height="44dp"
                             android:layout_weight="1"
@@ -1604,6 +1610,7 @@
 
                         <Button
                             android:id="@+id/btnImportAppearance"
+                            tools:ignore="ButtonStyle"
                             android:layout_width="0dp"
                             android:layout_height="44dp"
                             android:layout_weight="1"
@@ -2081,6 +2088,7 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:baselineAligned="false"
                     android:orientation="horizontal"
                     android:weightSum="2">
 
@@ -2109,9 +2117,9 @@
                             android:gravity="center"
                             android:layout_marginBottom="4dp">
 
-                            <Button android:id="@+id/btnVibPressTypeNone" style="@style/GamepadChip" android:layout_marginEnd="3dp" android:text="@string/i18n_none" android:textSize="10sp" />
-                            <Button android:id="@+id/btnVibPressTypeView" style="@style/GamepadChip" android:layout_marginEnd="3dp" android:text="@string/i18n_system_effect" android:textSize="10sp" />
-                            <Button android:id="@+id/btnVibPressTypeEffect" style="@style/GamepadChip" android:text="@string/i18n_custom" android:textSize="10sp" />
+                            <Button android:id="@+id/btnVibPressTypeNone" style="@style/GamepadChip" android:layout_marginEnd="3dp" android:text="@string/i18n_none" android:textSize="11sp" />
+                            <Button android:id="@+id/btnVibPressTypeView" style="@style/GamepadChip" android:layout_marginEnd="3dp" android:text="@string/i18n_system_effect" android:textSize="11sp" />
+                            <Button android:id="@+id/btnVibPressTypeEffect" style="@style/GamepadChip" android:text="@string/i18n_custom" android:textSize="11sp" />
                         </LinearLayout>
 
                         <LinearLayout android:id="@+id/layoutPressViewEffects" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone" android:background="@color/bg_surface" android:padding="6dp" android:layout_marginBottom="4dp">
@@ -2154,9 +2162,9 @@
                             android:gravity="center"
                             android:layout_marginBottom="4dp">
 
-                            <Button android:id="@+id/btnVibReleaseTypeNone" style="@style/GamepadChip" android:layout_marginEnd="3dp" android:text="@string/i18n_none" android:textSize="10sp" />
-                            <Button android:id="@+id/btnVibReleaseTypeView" style="@style/GamepadChip" android:layout_marginEnd="3dp" android:text="@string/i18n_system_effect" android:textSize="10sp" />
-                            <Button android:id="@+id/btnVibReleaseTypeEffect" style="@style/GamepadChip" android:text="@string/i18n_custom" android:textSize="10sp" />
+                            <Button android:id="@+id/btnVibReleaseTypeNone" style="@style/GamepadChip" android:layout_marginEnd="3dp" android:text="@string/i18n_none" android:textSize="11sp" />
+                            <Button android:id="@+id/btnVibReleaseTypeView" style="@style/GamepadChip" android:layout_marginEnd="3dp" android:text="@string/i18n_system_effect" android:textSize="11sp" />
+                            <Button android:id="@+id/btnVibReleaseTypeEffect" style="@style/GamepadChip" android:text="@string/i18n_custom" android:textSize="11sp" />
                         </LinearLayout>
 
                         <LinearLayout android:id="@+id/layoutReleaseViewEffects" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone" android:background="@color/bg_surface" android:padding="6dp" android:layout_marginBottom="4dp">
@@ -2928,6 +2936,7 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:baselineAligned="false"
                     android:orientation="horizontal"
                     android:weightSum="2">
 

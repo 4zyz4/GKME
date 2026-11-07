@@ -1091,14 +1091,9 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
         if (clamped == lastPhoneAmp) return
         lastPhoneAmp = clamped
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val effect = VibrationEffect.createWaveform(longArrayOf(50), intArrayOf(clamped), 0)
-                vibrator.cancel()
-                vibrator.vibrate(effect)
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator.vibrate(60000)
-            }
+            val effect = VibrationEffect.createWaveform(longArrayOf(50), intArrayOf(clamped), 0)
+            vibrator.cancel()
+            vibrator.vibrate(effect)
         } catch (_: Exception) {}
     }
 

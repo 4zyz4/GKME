@@ -25,6 +25,7 @@ class AppearancePreviewView @JvmOverloads constructor(
     private val rectOutlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val circlePaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val circleOutlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val tmpRect = RectF()
 
     fun loadBitmap(path: String?): Bitmap? {
         if (path == null) return null
@@ -81,13 +82,15 @@ class AppearancePreviewView @JvmOverloads constructor(
             rectPaint.color = btnColor
         }
         rectPaint.style = Paint.Style.FILL
-        canvas.drawRoundRect(RectF(sqLeft, sqTop, sqRight, sqBottom), 12f, 12f, rectPaint)
+        tmpRect.set(sqLeft, sqTop, sqRight, sqBottom)
+        canvas.drawRoundRect(tmpRect, 12f, 12f, rectPaint)
         rectPaint.shader = null
         if (btnOutlineWidth > 0) {
             rectOutlinePaint.color = btnOutlineColor
             rectOutlinePaint.strokeWidth = btnOutlineWidth.toFloat()
             val hs = btnOutlineWidth / 2f
-            canvas.drawRoundRect(RectF(sqLeft + hs, sqTop + hs, sqRight - hs, sqBottom - hs), 12f, 12f, rectOutlinePaint)
+            tmpRect.set(sqLeft + hs, sqTop + hs, sqRight - hs, sqBottom - hs)
+            canvas.drawRoundRect(tmpRect, 12f, 12f, rectOutlinePaint)
         }
     }
 }

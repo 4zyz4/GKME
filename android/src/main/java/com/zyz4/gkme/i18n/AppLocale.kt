@@ -1,7 +1,9 @@
 package com.zyz4.gkme.i18n
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Configuration
+import androidx.core.content.edit
 import java.util.Locale
 
 data class LanguageOption(val code: String, val label: String)
@@ -55,15 +57,16 @@ object AppLocale {
         if (code == storedLanguage(context)) return false
         if (code != SYSTEM_LANGUAGE && languageCodes(context).none { it == code }) return false
         val app = context.applicationContext
-        app.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_LANGUAGE, code)
-            .apply()
+        app.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
+            putString(KEY_LANGUAGE, code)
+        }
         AppStrings.init(wrap(app))
         return true
     }
 
     /** Wraps [base] with the selected locale so resource lookups use `values-xx`. */
+    // 应用以 APK 分发，不依赖 Play Feature Delivery 的语言分包，运行时切换语言是安全的。
+    @SuppressLint("AppBundleLocaleChanges")
     fun wrap(base: Context): Context {
         val code = currentLanguage(base)
         val config = Configuration(base.resources.configuration)

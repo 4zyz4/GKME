@@ -7,7 +7,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
-import android.os.Build
 import android.util.AttributeSet
 import android.view.InputDevice
 import android.view.MotionEvent
@@ -15,7 +14,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.ImageButton
-import androidx.annotation.RequiresApi
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.withClip
+import androidx.core.view.isVisible
 import com.zyz4.gkme.CATEGORY_SWITCH_DURATION
 import com.zyz4.gkme.easeOutQuint
 import com.zyz4.gkme.model.AppSettings
@@ -282,7 +283,6 @@ class GamepadLayout @JvmOverloads constructor(
     // MARK: - Dispatcher wiring
 
     fun setTouchpadCaptureMode(enabled: Boolean) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         if (enabled == hasPointerCapture()) return
         if (enabled) {
             if (!isFocused) requestFocus()
@@ -294,10 +294,7 @@ class GamepadLayout @JvmOverloads constructor(
 
     var oldButtonState = 0
 
-    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCapturedPointerEvent(event: MotionEvent): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return super.onCapturedPointerEvent(event)
-
         // ── Mouse mode via pointer capture ──
         // NOTE: Mousepad now uses touch events via setupMousepadView() instead of
         // pointer capture.  This pointer capture path is used for touchpad input
@@ -531,7 +528,7 @@ class GamepadLayout @JvmOverloads constructor(
         val map = mutableMapOf<String, android.graphics.Rect>()
         for (i in 0 until childCount) {
             val c = getChildAt(i)
-            if (c.visibility == View.VISIBLE) {
+            if (c.isVisible) {
                 val id = getButtonId(c) ?: continue
                 val pos = currentButtons.find { it.id == id }
                 if (pos != null) {
@@ -869,7 +866,7 @@ class GamepadLayout @JvmOverloads constructor(
      */
     fun capturePresetSwitchSnapshot(): Bitmap? {
         if (width <= 0 || height <= 0) return null
-        return Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also {
+        return createBitmap(width, height).also {
             draw(Canvas(it))
         }
     }
@@ -914,10 +911,9 @@ class GamepadLayout @JvmOverloads constructor(
     private fun drawPresetSwitchWipe(canvas: Canvas) {
         val snapshot = switchSnapshot ?: return
         if (switchProgress >= 1f) return
-        val save = canvas.save()
-        canvas.clipRect(0f, 0f, width * (1f - switchProgress), height.toFloat())
-        canvas.drawBitmap(snapshot, 0f, 0f, null)
-        canvas.restoreToCount(save)
+        canvas.withClip(0f, 0f, width * (1f - switchProgress), height.toFloat()) {
+            drawBitmap(snapshot, 0f, 0f, null)
+        }
     }
 
     override fun draw(canvas: Canvas) {

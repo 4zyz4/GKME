@@ -20,6 +20,7 @@ class TouchpadPreviewView @JvmOverloads constructor(
 
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val outlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val tmpRect = RectF()
 
     fun loadBitmap(path: String?): Bitmap? {
         if (path == null) return null
@@ -40,7 +41,8 @@ class TouchpadPreviewView @JvmOverloads constructor(
         }
         fillPaint.style = Paint.Style.FILL
 
-        val rect = RectF(pad, pad, w - pad, h - pad)
+        val rect = tmpRect
+        rect.set(pad, pad, w - pad, h - pad)
         canvas.drawRoundRect(rect, 10f, 10f, fillPaint)
         fillPaint.shader = null
 
@@ -48,7 +50,8 @@ class TouchpadPreviewView @JvmOverloads constructor(
             outlinePaint.color = outlineColor
             outlinePaint.strokeWidth = outlineWidth.toFloat()
             val hs = outlineWidth / 2f
-            canvas.drawRoundRect(RectF(pad + hs, pad + hs, w - pad - hs, h - pad - hs), 10f, 10f, outlinePaint)
+            rect.set(pad + hs, pad + hs, w - pad - hs, h - pad - hs)
+            canvas.drawRoundRect(rect, 10f, 10f, outlinePaint)
         }
     }
 }

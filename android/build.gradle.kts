@@ -101,6 +101,11 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    lint {
+        // Gradle wrapper 版本跟随 CI/Android SDK，升级需单独验证，不作为 lint 告警。
+        disable += "AndroidGradlePluginVersion"
+    }
 }
 
 dependencies {
@@ -115,6 +120,7 @@ dependencies {
     implementation("com.google.dagger:hilt-android:2.60.1")
     ksp("com.google.dagger:hilt-android-compiler:2.60.1")
 
+    //noinspection NewerVersionAvailable
     implementation("com.google.protobuf:protobuf-javalite:3.25.5")
 
     // 被控端：通过 Shizuku 在 shell/root 进程创建 uinput 虚拟手柄。
@@ -122,9 +128,11 @@ dependencies {
     implementation("dev.rikka.shizuku:provider:13.1.5")
 
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+    //noinspection NewerVersionAvailable
     implementation("com.google.code.gson:gson:2.11.0")
 
     // 绕过隐藏 API 限制，访问系统 Bluetooth HID Host profile 直连 DualSense
+    //noinspection NewerVersionAvailable
     implementation("org.lsposed.hiddenapibypass:hiddenapibypass:6.1")
 
     implementation("androidx.core:core-ktx:1.15.0")

@@ -1,5 +1,6 @@
 package com.zyz4.gkme.view
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -8,6 +9,8 @@ import android.graphics.Color
 import android.graphics.ColorFilter
 import android.graphics.Paint
 import android.graphics.Path
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.withClip
 import android.graphics.Rect
 import android.graphics.RectF
 import android.util.AttributeSet
@@ -179,6 +182,8 @@ class DpadPadView @JvmOverloads constructor(
         return Color.rgb(r, g, b)
     }
 
+    // 整个方向键绘制都建立在一次 translate 之上，拆成 withTranslation 需重排整段绘制代码。
+    @SuppressLint("UseKtx")
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         if (side <= 0f) return
@@ -205,10 +210,9 @@ class DpadPadView @JvmOverloads constructor(
         // cell (clipped to the circle), so the highlight matches the UI shape exactly.
         if (activeBits != 0) {
             fillPaint.color = highlightColor(appearanceColor, 0.3f)
-            canvas.save()
-            canvas.clipPath(shapePath)
-            canvas.drawPath(regionPath(activeBits), fillPaint)
-            canvas.restore()
+            canvas.withClip(shapePath) {
+                drawPath(regionPath(activeBits), fillPaint)
+            }
         }
 
         if (!useRadialRegions) {
@@ -230,31 +234,30 @@ class DpadPadView @JvmOverloads constructor(
             borderPaint.color = appearanceBorderColor
             borderPaint.strokeWidth = appearanceBorderWidth
             canvas.drawPath(shapePath, borderPaint)
-            canvas.save()
-            canvas.clipPath(shapePath)
-            if (!useRadialRegions) {
-                val cx = originX + side / 2f
-                val cy = originY + side / 2f
-                canvas.drawLine(cx - centerHalf, originY, cx - centerHalf, originY + side, borderPaint)
-                canvas.drawLine(cx + centerHalf, originY, cx + centerHalf, originY + side, borderPaint)
-                canvas.drawLine(originX, cy - centerHalf, originX + side, cy - centerHalf, borderPaint)
-                canvas.drawLine(originX, cy + centerHalf, originX + side, cy + centerHalf, borderPaint)
-            } else {
-                // 中心圆 + 8 条扇区分隔线（中心圆边缘 → 外圆）
-                canvas.drawCircle(centerX, centerY, centerRadius, borderPaint)
-                val r = side / 2f
-                for (i in 0 until 8) {
-                    val rad = Math.toRadians((22.5 + i * 45).toDouble())
-                    val cos = Math.cos(rad).toFloat()
-                    val sin = Math.sin(rad).toFloat()
-                    canvas.drawLine(
-                        centerX + centerRadius * cos, centerY + centerRadius * sin,
-                        centerX + r * cos, centerY + r * sin,
-                        borderPaint,
-                    )
+            canvas.withClip(shapePath) {
+                if (!useRadialRegions) {
+                    val cx = originX + side / 2f
+                    val cy = originY + side / 2f
+                    drawLine(cx - centerHalf, originY, cx - centerHalf, originY + side, borderPaint)
+                    drawLine(cx + centerHalf, originY, cx + centerHalf, originY + side, borderPaint)
+                    drawLine(originX, cy - centerHalf, originX + side, cy - centerHalf, borderPaint)
+                    drawLine(originX, cy + centerHalf, originX + side, cy + centerHalf, borderPaint)
+                } else {
+                    // 中心圆 + 8 条扇区分隔线（中心圆边缘 → 外圆）
+                    drawCircle(centerX, centerY, centerRadius, borderPaint)
+                    val r = side / 2f
+                    for (i in 0 until 8) {
+                        val rad = Math.toRadians((22.5 + i * 45).toDouble())
+                        val cos = Math.cos(rad).toFloat()
+                        val sin = Math.sin(rad).toFloat()
+                        drawLine(
+                            centerX + centerRadius * cos, centerY + centerRadius * sin,
+                            centerX + r * cos, centerY + r * sin,
+                            borderPaint,
+                        )
+                    }
                 }
             }
-            canvas.restore()
         }
 
         canvas.restore()
@@ -278,7 +281,7 @@ class DpadPadView @JvmOverloads constructor(
     }
 
     private fun drawArrow(canvas: Canvas, resId: Int, left: Float, top: Float, w: Float, h: Float) {
-        val drawable = context.getDrawable(resId)?.mutate() ?: return
+        val drawable = ContextCompat.getDrawable(context, resId)?.mutate() ?: return
         if (arrowColorFilterSource != appearanceArrowColor) {
             arrowColorFilter = IconTint.mono(appearanceArrowColor)
             arrowColorFilterSource = appearanceArrowColor

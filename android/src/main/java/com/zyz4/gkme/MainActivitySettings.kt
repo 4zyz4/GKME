@@ -31,6 +31,7 @@ import android.view.animation.Interpolator
 import android.view.animation.PathInterpolator
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
+import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import com.zyz4.gkme.haptic.RichTapFrequency
 import kotlin.math.roundToInt
@@ -330,7 +331,7 @@ private fun MainActivity.animatePageSwitch(pages: List<View>, oldPage: View?, ne
             p.alpha = 1f
         }
     }
-    if (oldPage != null && oldPage !== newPage && oldPage.visibility == View.VISIBLE) {
+    if (oldPage != null && oldPage !== newPage && oldPage.isVisible) {
         oldPage.animate()
             .translationY(-offset)
             .alpha(0f)
@@ -1647,7 +1648,8 @@ internal fun MainActivity.setupMiscPage() {
     a.findViewById<SeekBar>(R.id.seekFloatingOpacity).setOnSeekBarChangeListener(
         object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                a.findViewById<TextView>(R.id.tvFloatingOpacity).text = "$progress%"
+                a.findViewById<TextView>(R.id.tvFloatingOpacity).text =
+                    a.getString(R.string.i18n_0_percent, progress)
                 if (fromUser) a.viewModel.updateFloatingOpacity(progress)
             }
 

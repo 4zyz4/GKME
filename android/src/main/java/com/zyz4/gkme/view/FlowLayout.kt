@@ -2,8 +2,8 @@ package com.zyz4.gkme.view
 
 import android.content.Context
 import android.util.AttributeSet
-import android.view.View
 import android.view.ViewGroup
+import androidx.core.view.isGone
 
 class FlowLayout @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
@@ -29,7 +29,7 @@ class FlowLayout @JvmOverloads constructor(
 
         for (i in 0 until childCount) {
             val child = getChildAt(i)
-            if (child.visibility == GONE) continue
+            if (child.isGone) continue
 
             measureChild(child, widthMeasureSpec, heightMeasureSpec)
             val childWidth = child.measuredWidth
@@ -65,7 +65,7 @@ class FlowLayout @JvmOverloads constructor(
 
         for (i in 0 until childCount) {
             val child = getChildAt(i)
-            if (child.visibility == GONE) continue
+            if (child.isGone) continue
             val childWidth = child.measuredWidth
             val childHeight = child.measuredHeight
             if (x != 0 && x + childWidth > width) {

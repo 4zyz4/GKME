@@ -2,7 +2,6 @@ package com.zyz4.gkme.view
 
 import android.content.Context
 import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
 import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.Gravity
@@ -14,6 +13,8 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
+import androidx.core.graphics.drawable.toDrawable
+import androidx.core.view.isVisible
 import com.zyz4.gkme.R
 
 /**
@@ -33,7 +34,7 @@ class CurveZoomOverlay @JvmOverloads constructor(
 
     init {
         visibility = View.GONE
-        background = ColorDrawable(ColorUtils.setAlphaComponent(Color.BLACK, 235))
+        background = ColorUtils.setAlphaComponent(Color.BLACK, 235).toDrawable()
         isClickable = true
         isFocusable = true
 
@@ -105,7 +106,7 @@ class CurveZoomOverlay @JvmOverloads constructor(
             setAutoSizeTextTypeUniformWithConfiguration(9, 13, 1, TypedValue.COMPLEX_UNIT_SP)
             setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_back, 0, 0, 0)
             compoundDrawablePadding = (4f * density).toInt()
-            background = ColorDrawable(ContextCompat.getColor(context, R.color.bg_surface))
+            background = ContextCompat.getColor(context, R.color.bg_surface).toDrawable()
             stateListAnimator = null
             setOnClickListener { hide() }
         }, LayoutParams(
@@ -131,5 +132,5 @@ class CurveZoomOverlay @JvmOverloads constructor(
         visibility = View.GONE
     }
 
-    val isOverlayVisible: Boolean get() = visibility == View.VISIBLE
+    val isOverlayVisible: Boolean get() = isVisible
 }

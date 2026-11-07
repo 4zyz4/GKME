@@ -1,6 +1,7 @@
 package com.zyz4.gkme.view
 
 import android.content.Context
+import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.BitmapShader
@@ -117,6 +118,8 @@ class JoystickView @JvmOverloads constructor(
         knobY = effectiveCenterY
     }
 
+    // 整个摇杆绘制都依赖旋转画布，拆成 withRotation 需要重排大段绘制代码，保持现状。
+    @SuppressLint("UseKtx")
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         canvas.save()

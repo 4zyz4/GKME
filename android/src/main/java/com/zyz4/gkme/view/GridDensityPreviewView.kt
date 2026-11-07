@@ -30,6 +30,7 @@ class GridDensityPreviewView @JvmOverloads constructor(
     private var density = LayoutPreset.DEFAULT_GRID_DENSITY
 
     private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val tmpArea = RectF()
 
     fun setState(useGrid: Boolean, density: Int) {
         this.useGrid = useGrid
@@ -45,7 +46,8 @@ class GridDensityPreviewView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
-        val area = RectF(0f, 0f, width.toFloat(), height.toFloat())
+        val area = tmpArea
+        area.set(0f, 0f, width.toFloat(), height.toFloat())
         if (area.width() <= 0f || area.height() <= 0f) return
 
         drawGrid(canvas, area)

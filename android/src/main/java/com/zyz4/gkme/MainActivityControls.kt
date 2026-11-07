@@ -2,6 +2,7 @@ package com.zyz4.gkme
 
 import com.zyz4.gkme.R
 import androidx.annotation.StringRes
+import androidx.core.content.ContextCompat
 import com.zyz4.gkme.i18n.AppStrings
 import android.annotation.SuppressLint
 import android.os.Handler
@@ -1533,7 +1534,7 @@ internal fun MainActivity.updateButtonLabels(mode: DisplayMode) {
                         DisplayMode.PLAYSTATION -> {
                             text = ""; textSize = 12f
                             setBackgroundResource(R.drawable.button_circle)
-                            foreground = context.getDrawable(intArrayOf(
+                            foreground = ContextCompat.getDrawable(context, intArrayOf(
                                 R.drawable.ic_ps_cross, R.drawable.ic_ps_circle,
                                 R.drawable.ic_ps_square, R.drawable.ic_ps_triangle
                             )[idx])?.mutate()

@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.util.AttributeSet
 import android.widget.Button
+import androidx.core.graphics.withRotation
 
 class RotatableButton @JvmOverloads constructor(
     context: Context,
@@ -49,9 +50,8 @@ class RotatableButton @JvmOverloads constructor(
         }
         val cx = width / 2f
         val cy = height / 2f
-        canvas.save()
-        canvas.rotate(r.toFloat(), cx, cy)
-        super.onDraw(canvas)
-        canvas.restore()
+        canvas.withRotation(r.toFloat(), cx, cy) {
+            super.onDraw(this)
+        }
     }
 }

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!-- 方形启动图标是本项目的品牌设计，故意不留透明边距。 -->
+    <issue id="IconLauncherShape">
+        <ignore path="src/main/res/mipmap/icon.png" />
+    </issue>
+
+    <!-- 触摸输入均为手柄/摇杆/滑杆式连续输入，没有“点击”语义，
+         强行补 performClick 反而会给读屏器制造错误的无障碍行为。 -->
+    <issue id="ClickableViewAccessibility" severity="ignore" />
+
+    <!-- 项目使用平台 Material 主题 + ComponentActivity，未引入 AppCompat/Material 组件库；
+         minSdk 26 下平台 Switch 与 Context.getDrawable 均可安全使用。 -->
+    <issue id="UseSwitchCompatOrMaterialXml" severity="ignore" />
+    <issue id="UseSwitchCompatOrMaterialCode" severity="ignore" />
+</lint>

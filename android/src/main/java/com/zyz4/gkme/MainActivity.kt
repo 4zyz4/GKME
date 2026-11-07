@@ -9,7 +9,6 @@ import android.content.Intent
 import android.hardware.display.DisplayManager
 import android.view.Display
 import android.media.session.MediaSession
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -34,6 +33,7 @@ import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
+import androidx.core.net.toUri
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
@@ -147,6 +147,8 @@ class MainActivity : ComponentActivity() {
      * 启动蓝牙模式：应用启动时不申请蓝牙权限，只有用户启动蓝牙模式时才在此处按需申请；
      * 已授权则直接检查蓝牙开关并启动服务。
      */
+    // BLUETOOTH_CONNECT / BLUETOOTH_ADVERTISE 是编译期内联常量，低版本读取不会崩溃。
+    @SuppressLint("InlinedApi")
     internal fun startBluetoothModeWithPermission() {
         if (hasBluetoothRuntimePermissions()) {
             checkBluetoothOnAndStart()
@@ -427,7 +429,7 @@ class MainActivity : ComponentActivity() {
         if (!Settings.canDrawOverlays(this)) {
             val intent = Intent(
                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                Uri.parse("package:$packageName"),
+                "package:$packageName".toUri(),
             )
             overlayPermissionLauncher.launch(intent)
             return

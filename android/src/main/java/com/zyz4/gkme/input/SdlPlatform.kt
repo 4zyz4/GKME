@@ -1,5 +1,6 @@
 package com.zyz4.gkme.input
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.view.InputDevice
 import android.view.MotionEvent
@@ -15,6 +16,8 @@ import org.libsdl.app.SDLControllerManager
  * classes are initialised as a library and the raw key/motion events already
  * delivered to MainActivity are forwarded into SDL.
  */
+// SDL 的 Java glue 是进程级单例，HIDDeviceManager 只持有 Application Context。
+@SuppressLint("StaticFieldLeak")
 object SdlPlatform {
 
     private var hidDeviceManager: HIDDeviceManager? = null

@@ -1,6 +1,7 @@
 package com.zyz4.gkme
 
 import com.zyz4.gkme.R
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.provider.Settings
 import android.view.ViewGroup
@@ -29,6 +30,8 @@ internal fun MainActivity.checkUsbAdbAndStart() {
     }
 }
 
+// 这里拼接的都是已本地化的字符串资源，不是硬编码文案。
+@SuppressLint("SetTextI18n")
 internal fun MainActivity.showUsbAdbGuideDialog() {
     val a = this
     val text = TextView(a).apply {

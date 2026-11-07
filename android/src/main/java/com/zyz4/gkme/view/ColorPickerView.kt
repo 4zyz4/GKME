@@ -1,5 +1,6 @@
 package com.zyz4.gkme.view
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
@@ -78,6 +79,8 @@ class ColorPickerView @JvmOverloads constructor(
         totalH = squareS + pad * 2
     }
 
+    // 调色器只在设置页交互时绘制；渐变 shader 依赖实时色相/尺寸，无法复用。
+    @SuppressLint("DrawAllocation")
     override fun onDraw(canvas: Canvas) {
         val sL = squareL; val sT = squareT; val sS = squareS
         if (sS <= 0) return

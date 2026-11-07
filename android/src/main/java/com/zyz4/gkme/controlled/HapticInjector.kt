@@ -2,6 +2,7 @@ package com.zyz4.gkme.controlled
 
 import com.zyz4.gkme.R
 import com.zyz4.gkme.i18n.AppStrings
+import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Log
 import com.zyz4.gkme.haptic.HapticArbiter
@@ -18,6 +19,8 @@ import com.zyz4.gkme.haptic.RichTapPrebaked
  * 不会被系统的“后台震动”策略丢弃，也不再依赖 Shizuku 授权。只有本机支持 RichTap 隐藏
  * API 时 [isHapticReady] 才为 true；否则调用方应回退到普通 Vibrator 通路。
  */
+// 进程级单例，service 持有 Application Context，生命周期与进程一致。
+@SuppressLint("StaticFieldLeak")
 object HapticInjector {
 
     private const val TAG = "GKME_HapticInjector"
