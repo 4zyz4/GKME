@@ -245,3 +245,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 | [SDL3 / HIDAPI](https://libsdl.org/) | 实体手柄输入与 HID 访问 |
 | [Dagger Hilt](https://dagger.dev/hilt/) | 依赖注入框架 |
 | [Shizuku](https://shizuku.rikka.app/) | 本机模式 / 被控端模式的虚拟手柄创建授权 |
+
+---
+
+## 贡献
+
+欢迎参与贡献！提交 Issue 或 Pull Request 前，请先阅读 [CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md)。

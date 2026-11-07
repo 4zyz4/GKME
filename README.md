@@ -245,3 +245,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 | [SDL3 / HIDAPI](https://libsdl.org/) | Physical gamepad input and HID access |
 | [Dagger Hilt](https://dagger.dev/hilt/) | Dependency injection framework |
 | [Shizuku](https://shizuku.rikka.app/) | Authorization for creating virtual gamepads in local / controlled device modes |
+
+---
+
+## Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening an issue or pull request.
