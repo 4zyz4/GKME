@@ -18,6 +18,7 @@ import android.os.VibratorManager
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
+import androidx.annotation.ChecksSdkIntAtLeast
 import com.zyz4.gkme.haptic.HapticSource
 import com.zyz4.gkme.haptic.PhoneHdHaptics
 import com.zyz4.gkme.model.GamepadState
@@ -295,6 +296,7 @@ open class InputManagerPhysicalControllerBackend(private val context: Context) :
      * `getSensorManager()` call, so it is only queried for gamepads that plausibly carry
      * motion sensors (Sony / Nintendo). Android 13+ is unrestricted (mirrors Moonlight).
      */
+    @ChecksSdkIntAtLeast(api = Build.VERSION_CODES.S)
     private fun canQuerySensors(device: InputDevice): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return true
@@ -934,14 +936,16 @@ open class InputManagerPhysicalControllerBackend(private val context: Context) :
     }
 
     private fun cancelBinding(binding: AndroidVibrators) {
-        try { binding.manager?.cancel() } catch (_: Exception) {}
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) binding.manager?.cancel()
+        } catch (_: Exception) {}
         try { binding.legacy?.cancel() } catch (_: Exception) {}
     }
 
     private fun driveVibrators(binding: AndroidVibrators?, low: Int, high: Int) {
         if (binding == null) return
         val vm = binding.manager
-        if (vm != null) {
+        if (vm != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val ids = vm.vibratorIds
             // 执行器顺序对齐 GKME 的 SDL 后端：id[0] = 低频（大/左）/强，id[1] = 高频（小/右）/弱，
             // 2/3 = 左右扳机（本后端不驱动扳机，置 0）。注意这与 Moonlight 默认顺序相反
@@ -988,6 +992,7 @@ open class InputManagerPhysicalControllerBackend(private val context: Context) :
      * leave a stale effect running.
      */
     private fun rumbleCombined(vm: VibratorManager, ids: IntArray, amps: IntArray) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
         try {
             var active = false
             val combo = CombinedVibration.startParallel()
@@ -1030,7 +1035,7 @@ open class InputManagerPhysicalControllerBackend(private val context: Context) :
             if (!phoneHdOwned) {
                 phoneHdOwned = true
                 // HD 接管前清掉普通/多马达通路，避免旧波形残留。
-                try { phoneVibratorManager()?.cancel() } catch (_: Exception) {}
+                try { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) phoneVibratorManager()?.cancel() } catch (_: Exception) {}
                 try { phoneVibrator()?.cancel() } catch (_: Exception) {}
             }
             lastPhoneAmp = maxOf(motor0, motor1)
@@ -1055,7 +1060,7 @@ open class InputManagerPhysicalControllerBackend(private val context: Context) :
             PhoneHdHaptics.stop(HapticSource.GAME_RUMBLE)
             // 多马达路径是在 VibratorManager 上启动的：必须用 manager.cancel() 才能停掉
             // 全部马达，只 cancel 默认马达会遗漏其余马达，直到 60s one-shot 自行过期。
-            try { phoneVibratorManager()?.cancel() } catch (_: Exception) {}
+            try { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) phoneVibratorManager()?.cancel() } catch (_: Exception) {}
             try { phoneVibrator()?.cancel() } catch (_: Exception) {}
             lastPhoneAmp = -1
             return
@@ -1083,7 +1088,9 @@ open class InputManagerPhysicalControllerBackend(private val context: Context) :
     }
 
     private fun phoneVibrator(): Vibrator? {
-        phoneVibratorManager()?.let { return it.defaultVibrator }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            phoneVibratorManager()?.let { return it.defaultVibrator }
+        }
         @Suppress("DEPRECATION")
         return context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
     }

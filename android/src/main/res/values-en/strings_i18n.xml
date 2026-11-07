@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="i18n_0_available_connections" formatted="true">"%1$s available connections"</string>
+    <string name="i18n_0_available_connections" formatted="true">"%1$d available connections"</string>
     <string name="i18n_0_motor" formatted="true">"%1$s motor"</string>
-    <string name="i18n_0_motors" formatted="true">"%1$s motors"</string>
+    <string name="i18n_0_motors" formatted="true">"%1$d motors"</string>
     <string name="i18n_0_trigger" formatted="true">"%1$s trigger"</string>
     <string name="i18n_1_open_settings_about_phone_and_tap_buil" formatted="false">"1. Open Settings → About phone and tap Build number 7 times to enable Developer options.\n\n"</string>
     <string name="i18n_2_open_developer_options_and_enable_usb" formatted="false">"2. Open Developer options and enable USB debugging.\n\n"</string>
@@ -28,7 +28,7 @@
     <string name="i18n_area_color" formatted="false">"Area color"</string>
     <string name="i18n_area_height" formatted="false">"Area height"</string>
     <string name="i18n_area_width" formatted="false">"Area width"</string>
-    <string name="i18n_area_width_0" formatted="true">"Area width: %1$s"</string>
+    <string name="i18n_area_width_0" formatted="true">"Area width: %1$d"</string>
     <string name="i18n_area_width_875556" formatted="false">"Area width"</string>
     <string name="i18n_audio" formatted="false">"Audio"</string>
     <string name="i18n_author_4zyz4_qq_group_639317971" formatted="false">"Author: 4zyz4  QQ group: 639317971\n\n"</string>
@@ -48,7 +48,7 @@
     <string name="i18n_base_direction" formatted="false">"Base direction"</string>
     <string name="i18n_base_outline_color" formatted="false">"Base outline color"</string>
     <string name="i18n_base_outline_width" formatted="false">"Base outline width"</string>
-    <string name="i18n_base_outline_width_0" formatted="true">"Base outline width: %1$s"</string>
+    <string name="i18n_base_outline_width_0" formatted="true">"Base outline width: %1$d"</string>
     <string name="i18n_binduserservice_attempt_0_1_daemon_2" formatted="true">"bindUserService attempt #%1$s (%2$s, daemon=%3$s)"</string>
     <string name="i18n_binduserservice_failed_0" formatted="true">"bindUserService failed (%1$s)"</string>
     <string name="i18n_bit_0" formatted="true">"Bit %1$s"</string>
@@ -101,7 +101,7 @@
     <string name="i18n_control_color" formatted="false">"Control color"</string>
     <string name="i18n_control_outline_color" formatted="false">"Control outline color"</string>
     <string name="i18n_control_outline_width" formatted="false">"Control outline width"</string>
-    <string name="i18n_control_outline_width_0" formatted="true">"Control outline width: %1$s"</string>
+    <string name="i18n_control_outline_width_0" formatted="true">"Control outline width: %1$d"</string>
     <string name="i18n_control_type" formatted="false">"Control type"</string>
     <string name="i18n_controlled_mode" formatted="false">"Controlled mode"</string>
     <string name="i18n_controlled_mode_5bf179" formatted="false">"Controlled mode"</string>
@@ -164,7 +164,7 @@
     <string name="i18n_driver" formatted="false">"Driver"</string>
     <string name="i18n_ds_gamepad" formatted="false">"DS gamepad"</string>
     <string name="i18n_dualsense_bluetooth" formatted="false">"DualSense Bluetooth"</string>
-    <string name="i18n_duration_0_ms" formatted="true">"Duration: %1$sms"</string>
+    <string name="i18n_duration_0_ms" formatted="true">"Duration: %1$dms"</string>
     <string name="i18n_duration_20ms" formatted="false">"Duration: 20ms"</string>
     <string name="i18n_duration_50ms" formatted="false">"Duration: 50ms"</string>
     <string name="i18n_dynamic" formatted="false">"Dynamic"</string>
@@ -220,12 +220,12 @@
     <string name="i18n_floating_opacity" formatted="false">"Floating opacity"</string>
     <string name="i18n_follow_area_opacity" formatted="false">"Follow-area opacity (%)"</string>
     <string name="i18n_follow_inside_rectangle" formatted="false">"Follow inside rectangle"</string>
-    <string name="i18n_frequency_0_1_hz" formatted="true">"Frequency: %1$s (%2$sHz)"</string>
+    <string name="i18n_frequency_0_1_hz" formatted="true">"Frequency: %1$d (%2$dHz)"</string>
     <string name="i18n_frequency_56" formatted="false">"Frequency: 56"</string>
     <string name="i18n_full_controller" formatted="false">"Full controller"</string>
     <string name="i18n_game_vibration" formatted="false">"Game vibration"</string>
     <string name="i18n_gamepad" formatted="false">"Gamepad"</string>
-    <string name="i18n_gamepad_0" formatted="true">"Gamepad %1$s"</string>
+    <string name="i18n_gamepad_0" formatted="true">"Gamepad %1$d"</string>
     <string name="i18n_gamepad_a" formatted="false">"Gamepad: A"</string>
     <string name="i18n_gamepad_b" formatted="false">"Gamepad: B"</string>
     <string name="i18n_gamepad_details" formatted="false">"Gamepad details"</string>
@@ -294,7 +294,7 @@
     <string name="i18n_instant" formatted="false">"Instant"</string>
     <string name="i18n_integrated_d_pad" formatted="false">"Integrated D-pad"</string>
     <string name="i18n_integrated_d_pad_custom_keypad" formatted="false">"Integrated D-pad / custom keypad"</string>
-    <string name="i18n_intensity_0" formatted="true">"Intensity: %1$s"</string>
+    <string name="i18n_intensity_0" formatted="true">"Intensity: %1$d"</string>
     <string name="i18n_intensity_128" formatted="false">"Intensity: 128"</string>
     <string name="i18n_intensity_64" formatted="false">"Intensity: 64"</string>
     <string name="i18n_invalid_ip_address_format" formatted="false">"Invalid IP address format"</string>
@@ -410,7 +410,7 @@
     <string name="i18n_long_press" formatted="false">"Long press"</string>
     <string name="i18n_mapped_keys" formatted="false">"Mapped keys"</string>
     <string name="i18n_mask_out_of_range" formatted="false">"Mask out of range"</string>
-    <string name="i18n_max_icon_size_0_sp" formatted="true">"Max icon size: %1$ssp"</string>
+    <string name="i18n_max_icon_size_0_sp" formatted="true">"Max icon size: %1$dsp"</string>
     <string name="i18n_max_icon_size_28sp" formatted="false">"Max icon size: 28sp"</string>
     <string name="i18n_max_icon_size_unlimited" formatted="false">"Max icon size: Unlimited"</string>
     <string name="i18n_menu" formatted="false">"Menu"</string>
@@ -454,7 +454,7 @@
     <string name="i18n_open_the_app_to_exit_floating_mode" formatted="false">"Open the app to exit floating mode"</string>
     <string name="i18n_outline_color" formatted="false">"Outline color"</string>
     <string name="i18n_outline_width" formatted="false">"Outline width"</string>
-    <string name="i18n_outline_width_0" formatted="true">"Outline width: %1$s"</string>
+    <string name="i18n_outline_width_0" formatted="true">"Outline width: %1$d"</string>
     <string name="i18n_output_distance" formatted="false">"Output distance -&gt;"</string>
     <string name="i18n_overlap_trigger" formatted="false">"Overlap trigger"</string>
     <string name="i18n_overlay_keep_alive" formatted="false">"Overlay keep-alive"</string>
@@ -563,7 +563,7 @@
     <string name="i18n_stick_cap_color" formatted="false">"Stick cap color"</string>
     <string name="i18n_stick_cap_outline_color" formatted="false">"Stick cap outline color"</string>
     <string name="i18n_stick_cap_outline_width" formatted="false">"Stick cap outline width"</string>
-    <string name="i18n_stick_cap_outline_width_0" formatted="true">"Stick cap outline width: %1$s"</string>
+    <string name="i18n_stick_cap_outline_width_0" formatted="true">"Stick cap outline width: %1$d"</string>
     <string name="i18n_stop" formatted="false">"Stop"</string>
     <string name="i18n_stop_service" formatted="false">"Stop service"</string>
     <string name="i18n_stop_the_service_first" formatted="false">"Stop the service first"</string>
@@ -600,16 +600,16 @@
     <string name="i18n_touchpad_gamepad" formatted="false">"Touchpad (gamepad)"</string>
     <string name="i18n_touchpad_mode" formatted="false">"Touchpad mode"</string>
     <string name="i18n_touchpad_mouse" formatted="false">"Touchpad (mouse)"</string>
-    <string name="i18n_touchpad_outline_width_0" formatted="true">"Touchpad outline width: %1$s"</string>
+    <string name="i18n_touchpad_outline_width_0" formatted="true">"Touchpad outline width: %1$d"</string>
     <string name="i18n_travel" formatted="false">"Travel"</string>
     <string name="i18n_trigger" formatted="false">"Trigger"</string>
     <string name="i18n_trigger_area" formatted="false">"- Trigger area"</string>
     <string name="i18n_trigger_area_color" formatted="false">"Trigger area color"</string>
     <string name="i18n_trigger_area_outline_color" formatted="false">"Trigger area outline color"</string>
     <string name="i18n_trigger_area_outline_width" formatted="false">"Trigger area outline width"</string>
-    <string name="i18n_trigger_area_outline_width_0" formatted="true">"Trigger area outline width: %1$s"</string>
+    <string name="i18n_trigger_area_outline_width_0" formatted="true">"Trigger area outline width: %1$d"</string>
     <string name="i18n_trigger_area_width" formatted="false">"Trigger area width"</string>
-    <string name="i18n_trigger_area_width_0" formatted="true">"Trigger area width: %1$s"</string>
+    <string name="i18n_trigger_area_width_0" formatted="true">"Trigger area width: %1$d"</string>
     <string name="i18n_trigger_travel" formatted="false">"Trigger travel"</string>
     <string name="i18n_trigger_when_rectangles_overlap" formatted="false">"Trigger when rectangles overlap"</string>
     <string name="i18n_try_to_connect" formatted="false">"Try to connect"</string>
@@ -666,7 +666,7 @@
     <string name="i18n_windows_gamepad_only" formatted="false">"Windows gamepad only"</string>
     <string name="i18n_wireframe_color" formatted="false">"Wireframe color"</string>
     <string name="i18n_wireframe_width" formatted="false">"Wireframe width"</string>
-    <string name="i18n_wireframe_width_0" formatted="true">"Wireframe width: %1$s"</string>
+    <string name="i18n_wireframe_width_0" formatted="true">"Wireframe width: %1$d"</string>
     <string name="i18n_world_space" formatted="false">"World space"</string>
     <string name="i18n_xbox_gamepad" formatted="false">"Xbox gamepad"</string>
     <string name="i18n_yaw" formatted="false">"Yaw"</string>

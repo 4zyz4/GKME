@@ -486,7 +486,9 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
     }
 
     private fun cancelBinding(binding: AndroidVibrators) {
-        try { binding.manager?.cancel() } catch (_: Exception) {}
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) binding.manager?.cancel()
+        } catch (_: Exception) {}
         try { binding.legacy?.cancel() } catch (_: Exception) {}
     }
 
@@ -1018,7 +1020,7 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
             if (!phoneHdOwned) {
                 phoneHdOwned = true
                 // HD 接管前清掉普通/多马达通路，避免旧波形残留。
-                try { phoneVibratorManager()?.cancel() } catch (_: Exception) {}
+                try { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) phoneVibratorManager()?.cancel() } catch (_: Exception) {}
                 try { phoneVibrator()?.cancel() } catch (_: Exception) {}
             }
             lastPhoneAmp = maxOf(motor0, motor1)
@@ -1080,7 +1082,7 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
             PhoneHdHaptics.stop(HapticSource.GAME_RUMBLE)
             // 多马达路径在 VibratorManager 上启动：必须 manager.cancel() 才能停掉全部马达，
             // 只 cancel 默认马达会遗漏其余马达直到 60s one-shot 过期。
-            try { phoneVibratorManager()?.cancel() } catch (_: Exception) {}
+            try { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) phoneVibratorManager()?.cancel() } catch (_: Exception) {}
             try { phoneVibrator()?.cancel() } catch (_: Exception) {}
             lastPhoneAmp = -1
             return
@@ -1108,7 +1110,9 @@ class SdlPhysicalControllerBackend(private val context: Context) : PhysicalContr
     }
 
     private fun phoneVibrator(): Vibrator? {
-        phoneVibratorManager()?.let { return it.defaultVibrator }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            phoneVibratorManager()?.let { return it.defaultVibrator }
+        }
         @Suppress("DEPRECATION")
         return context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
     }

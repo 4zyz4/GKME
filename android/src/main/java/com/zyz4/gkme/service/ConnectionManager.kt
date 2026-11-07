@@ -932,13 +932,9 @@ class ConnectionManager @Inject constructor(
     }
 
     private fun getRealDeviceName(): String {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
-            Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME)
-                ?: Build.MODEL
-        } else {
-            @Suppress("DEPRECATION")
-            android.bluetooth.BluetoothAdapter.getDefaultAdapter()?.name ?: Build.MODEL
-        }
+        // minSdk 26，Settings.Global.DEVICE_NAME（API 25+）始终可用。
+        return Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME)
+            ?: Build.MODEL
     }
 
     /** Stable identity of the physical phone, broadcast to the PC. Despite the

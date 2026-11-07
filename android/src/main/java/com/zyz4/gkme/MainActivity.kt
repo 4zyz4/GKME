@@ -569,6 +569,8 @@ class MainActivity : ComponentActivity() {
     /** True when [event] is a BACK key coming from a gamepad/joystick rather than the
      *  system back key or back gesture. Some controllers report their B button as
      *  KEYCODE_BACK, which would otherwise leave screen-off mode. */
+    // 这里只是识别手柄来源的 BACK，不拦截系统返回手势/返回键，故与手势返回无关。
+    @SuppressLint("GestureBackNavigation")
     private fun isGamepadBackEvent(event: KeyEvent): Boolean {
         if (event.keyCode != KeyEvent.KEYCODE_BACK) return false
         val source = event.source
@@ -579,6 +581,9 @@ class MainActivity : ComponentActivity() {
             device.sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK
     }
 
+    // AppCompatActivity/ComponentActivity 将该方法标记为 RestrictTo，但自定义物理手柄按键
+    // 分发（含 screen-off 模式下吞掉手柄 BACK）必须在 Activity 层拦截，重写是唯一入口。
+    @SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         // In screen-off mode the gamepad is meant for gameplay: swallow controller
         // BACK events (e.g. the B button) so only the real back key/gesture exits.

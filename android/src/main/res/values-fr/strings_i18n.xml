@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="i18n_0_available_connections" formatted="true">"%1$s connexions disponibles"</string>
+    <string name="i18n_0_available_connections" formatted="true">"%1$d connexions disponibles"</string>
     <string name="i18n_0_motor" formatted="true">"%1$s moteur"</string>
-    <string name="i18n_0_motors" formatted="true">"%1$s moteurs"</string>
+    <string name="i18n_0_motors" formatted="true">"%1$d moteurs"</string>
     <string name="i18n_0_trigger" formatted="true">"%1$s gâchette"</string>
     <string name="i18n_1_open_settings_about_phone_and_tap_buil" formatted="false">"1. Ouvrez Paramètres → À propos du téléphone et appuyez 7 fois sur Numéro de build pour activer les Options pour les développeurs.\n\n"</string>
     <string name="i18n_2_open_developer_options_and_enable_usb" formatted="false">"2. Ouvrez Options pour les développeurs et activez le débogage USB.\n\n"</string>
@@ -28,7 +28,7 @@
     <string name="i18n_area_color" formatted="false">"Couleur de la zone"</string>
     <string name="i18n_area_height" formatted="false">"Hauteur de la zone"</string>
     <string name="i18n_area_width" formatted="false">"Largeur de la zone"</string>
-    <string name="i18n_area_width_0" formatted="true">"Largeur de la zone : %1$s"</string>
+    <string name="i18n_area_width_0" formatted="true">"Largeur de la zone : %1$d"</string>
     <string name="i18n_area_width_875556" formatted="false">"Largeur de la zone"</string>
     <string name="i18n_audio" formatted="false">"Audio"</string>
     <string name="i18n_author_4zyz4_qq_group_639317971" formatted="false">"Auteur : 4zyz4  Groupe QQ : 639317971\n\n"</string>
@@ -48,7 +48,7 @@
     <string name="i18n_base_direction" formatted="false">"Direction de base"</string>
     <string name="i18n_base_outline_color" formatted="false">"Couleur du contour de base"</string>
     <string name="i18n_base_outline_width" formatted="false">"Largeur du contour de base"</string>
-    <string name="i18n_base_outline_width_0" formatted="true">"Largeur du contour de base : %1$s"</string>
+    <string name="i18n_base_outline_width_0" formatted="true">"Largeur du contour de base : %1$d"</string>
     <string name="i18n_binduserservice_attempt_0_1_daemon_2" formatted="true">"Tentative bindUserService n°%1$s (%2$s, daemon=%3$s)"</string>
     <string name="i18n_binduserservice_failed_0" formatted="true">"Échec de bindUserService (%1$s)"</string>
     <string name="i18n_bit_0" formatted="true">"Bit %1$s"</string>
@@ -101,7 +101,7 @@
     <string name="i18n_control_color" formatted="false">"Couleur du contrôle"</string>
     <string name="i18n_control_outline_color" formatted="false">"Couleur du contour du contrôle"</string>
     <string name="i18n_control_outline_width" formatted="false">"Largeur du contour du contrôle"</string>
-    <string name="i18n_control_outline_width_0" formatted="true">"Largeur du contour du contrôle : %1$s"</string>
+    <string name="i18n_control_outline_width_0" formatted="true">"Largeur du contour du contrôle : %1$d"</string>
     <string name="i18n_control_type" formatted="false">"Type de contrôle"</string>
     <string name="i18n_controlled_mode" formatted="false">"Mode contrôlé"</string>
     <string name="i18n_controlled_mode_5bf179" formatted="false">"Mode contrôlé"</string>
@@ -164,7 +164,7 @@
     <string name="i18n_driver" formatted="false">"Pilote"</string>
     <string name="i18n_ds_gamepad" formatted="false">"Manette DS"</string>
     <string name="i18n_dualsense_bluetooth" formatted="false">"DualSense Bluetooth"</string>
-    <string name="i18n_duration_0_ms" formatted="true">"Durée : %1$sms"</string>
+    <string name="i18n_duration_0_ms" formatted="true">"Durée : %1$dms"</string>
     <string name="i18n_duration_20ms" formatted="false">"Durée : 20ms"</string>
     <string name="i18n_duration_50ms" formatted="false">"Durée : 50ms"</string>
     <string name="i18n_dynamic" formatted="false">"Dynamique"</string>
@@ -220,12 +220,12 @@
     <string name="i18n_floating_opacity" formatted="false">"Opacité flottante"</string>
     <string name="i18n_follow_area_opacity" formatted="false">"Opacité de la zone de suivi (%)"</string>
     <string name="i18n_follow_inside_rectangle" formatted="false">"Suivre à l'intérieur du rectangle"</string>
-    <string name="i18n_frequency_0_1_hz" formatted="true">"Fréquence : %1$s (%2$sHz)"</string>
+    <string name="i18n_frequency_0_1_hz" formatted="true">"Fréquence : %1$d (%2$dHz)"</string>
     <string name="i18n_frequency_56" formatted="false">"Fréquence : 56"</string>
     <string name="i18n_full_controller" formatted="false">"Manette complète"</string>
     <string name="i18n_game_vibration" formatted="false">"Vibration du jeu"</string>
     <string name="i18n_gamepad" formatted="false">"Manette"</string>
-    <string name="i18n_gamepad_0" formatted="true">"Manette %1$s"</string>
+    <string name="i18n_gamepad_0" formatted="true">"Manette %1$d"</string>
     <string name="i18n_gamepad_a" formatted="false">"Manette : A"</string>
     <string name="i18n_gamepad_b" formatted="false">"Manette : B"</string>
     <string name="i18n_gamepad_details" formatted="false">"Détails de la manette"</string>
@@ -294,7 +294,7 @@
     <string name="i18n_instant" formatted="false">"Instantané"</string>
     <string name="i18n_integrated_d_pad" formatted="false">"Croix directionnelle intégrée"</string>
     <string name="i18n_integrated_d_pad_custom_keypad" formatted="false">"Croix directionnelle intégrée / pavé personnalisé"</string>
-    <string name="i18n_intensity_0" formatted="true">"Intensité : %1$s"</string>
+    <string name="i18n_intensity_0" formatted="true">"Intensité : %1$d"</string>
     <string name="i18n_intensity_128" formatted="false">"Intensité : 128"</string>
     <string name="i18n_intensity_64" formatted="false">"Intensité : 64"</string>
     <string name="i18n_invalid_ip_address_format" formatted="false">"Format d'adresse IP invalide"</string>
@@ -410,7 +410,7 @@
     <string name="i18n_long_press" formatted="false">"Appui long"</string>
     <string name="i18n_mapped_keys" formatted="false">"Touches mappées"</string>
     <string name="i18n_mask_out_of_range" formatted="false">"Masque hors plage"</string>
-    <string name="i18n_max_icon_size_0_sp" formatted="true">"Taille maximale de l'icône : %1$ssp"</string>
+    <string name="i18n_max_icon_size_0_sp" formatted="true">"Taille maximale de l'icône : %1$dsp"</string>
     <string name="i18n_max_icon_size_28sp" formatted="false">"Taille maximale de l'icône : 28sp"</string>
     <string name="i18n_max_icon_size_unlimited" formatted="false">"Taille maximale de l'icône : Illimitée"</string>
     <string name="i18n_menu" formatted="false">"Menu"</string>
@@ -454,7 +454,7 @@
     <string name="i18n_open_the_app_to_exit_floating_mode" formatted="false">"Ouvrez l'application pour quitter le mode flottant"</string>
     <string name="i18n_outline_color" formatted="false">"Couleur du contour"</string>
     <string name="i18n_outline_width" formatted="false">"Largeur du contour"</string>
-    <string name="i18n_outline_width_0" formatted="true">"Largeur du contour : %1$s"</string>
+    <string name="i18n_outline_width_0" formatted="true">"Largeur du contour : %1$d"</string>
     <string name="i18n_output_distance" formatted="false">"Distance de sortie -&gt;"</string>
     <string name="i18n_overlap_trigger" formatted="false">"Gâchette de chevauchement"</string>
     <string name="i18n_overlay_keep_alive" formatted="false">"Maintien de la superposition"</string>
@@ -563,7 +563,7 @@
     <string name="i18n_stick_cap_color" formatted="false">"Couleur du capuchon de stick"</string>
     <string name="i18n_stick_cap_outline_color" formatted="false">"Couleur du contour du capuchon de stick"</string>
     <string name="i18n_stick_cap_outline_width" formatted="false">"Largeur du contour du capuchon de stick"</string>
-    <string name="i18n_stick_cap_outline_width_0" formatted="true">"Largeur du contour du capuchon de stick : %1$s"</string>
+    <string name="i18n_stick_cap_outline_width_0" formatted="true">"Largeur du contour du capuchon de stick : %1$d"</string>
     <string name="i18n_stop" formatted="false">"Arrêter"</string>
     <string name="i18n_stop_service" formatted="false">"Arrêter le service"</string>
     <string name="i18n_stop_the_service_first" formatted="false">"Arrêtez d'abord le service"</string>
@@ -600,16 +600,16 @@
     <string name="i18n_touchpad_gamepad" formatted="false">"Pavé tactile (manette)"</string>
     <string name="i18n_touchpad_mode" formatted="false">"Mode pavé tactile"</string>
     <string name="i18n_touchpad_mouse" formatted="false">"Pavé tactile (souris)"</string>
-    <string name="i18n_touchpad_outline_width_0" formatted="true">"Largeur du contour du pavé tactile : %1$s"</string>
+    <string name="i18n_touchpad_outline_width_0" formatted="true">"Largeur du contour du pavé tactile : %1$d"</string>
     <string name="i18n_travel" formatted="false">"Course"</string>
     <string name="i18n_trigger" formatted="false">"Gâchette"</string>
     <string name="i18n_trigger_area" formatted="false">"- Zone de gâchette"</string>
     <string name="i18n_trigger_area_color" formatted="false">"Couleur de la zone de gâchette"</string>
     <string name="i18n_trigger_area_outline_color" formatted="false">"Couleur du contour de la zone de gâchette"</string>
     <string name="i18n_trigger_area_outline_width" formatted="false">"Largeur du contour de la zone de gâchette"</string>
-    <string name="i18n_trigger_area_outline_width_0" formatted="true">"Largeur du contour de la zone de gâchette : %1$s"</string>
+    <string name="i18n_trigger_area_outline_width_0" formatted="true">"Largeur du contour de la zone de gâchette : %1$d"</string>
     <string name="i18n_trigger_area_width" formatted="false">"Largeur de la zone de gâchette"</string>
-    <string name="i18n_trigger_area_width_0" formatted="true">"Largeur de la zone de gâchette : %1$s"</string>
+    <string name="i18n_trigger_area_width_0" formatted="true">"Largeur de la zone de gâchette : %1$d"</string>
     <string name="i18n_trigger_travel" formatted="false">"Course de la gâchette"</string>
     <string name="i18n_trigger_when_rectangles_overlap" formatted="false">"Déclencher lorsque les rectangles se chevauchent"</string>
     <string name="i18n_try_to_connect" formatted="false">"Essayer de connecter"</string>
@@ -666,7 +666,7 @@
     <string name="i18n_windows_gamepad_only" formatted="false">"Manette Windows uniquement"</string>
     <string name="i18n_wireframe_color" formatted="false">"Couleur du fil de fer"</string>
     <string name="i18n_wireframe_width" formatted="false">"Largeur du fil de fer"</string>
-    <string name="i18n_wireframe_width_0" formatted="true">"Largeur du fil de fer : %1$s"</string>
+    <string name="i18n_wireframe_width_0" formatted="true">"Largeur du fil de fer : %1$d"</string>
     <string name="i18n_world_space" formatted="false">"Espace mondial"</string>
     <string name="i18n_xbox_gamepad" formatted="false">"Manette Xbox"</string>
     <string name="i18n_yaw" formatted="false">"Lacet"</string>

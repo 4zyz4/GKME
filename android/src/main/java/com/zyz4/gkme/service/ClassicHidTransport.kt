@@ -26,9 +26,11 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import android.util.Log
+import androidx.annotation.RequiresApi
 import kotlin.time.Duration.Companion.milliseconds
 
 @SuppressLint("MissingPermission")
+@RequiresApi(Build.VERSION_CODES.P)
 class ClassicHidTransport(
     private val context: Context,
     private val pairingStateRepository: PairingStateRepository,

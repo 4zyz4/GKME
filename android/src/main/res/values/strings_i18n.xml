@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="i18n_0_available_connections" formatted="true">"%1$s 个可用连接"</string>
+    <string name="i18n_0_available_connections" formatted="true">"%1$d 个可用连接"</string>
     <string name="i18n_0_motor" formatted="true">"%1$s 马达"</string>
-    <string name="i18n_0_motors" formatted="true">"%1$s个马达"</string>
+    <string name="i18n_0_motors" formatted="true">"%1$d个马达"</string>
     <string name="i18n_0_trigger" formatted="true">"%1$s 扳机"</string>
     <string name="i18n_1_open_settings_about_phone_and_tap_buil" formatted="false">"1. 打开「设置 → 关于手机」，连续点击「版本号」7 次，开启开发者选项。\n\n"</string>
     <string name="i18n_2_open_developer_options_and_enable_usb" formatted="false">"2. 进入「开发者选项」，打开「USB 调试」。\n\n"</string>
@@ -28,7 +28,7 @@
     <string name="i18n_area_color" formatted="false">"区域颜色"</string>
     <string name="i18n_area_height" formatted="false">"区域高度"</string>
     <string name="i18n_area_width" formatted="false">"区域宽度"</string>
-    <string name="i18n_area_width_0" formatted="true">"区域粗细: %1$s"</string>
+    <string name="i18n_area_width_0" formatted="true">"区域粗细: %1$d"</string>
     <string name="i18n_area_width_875556" formatted="false">"区域粗细"</string>
     <string name="i18n_audio" formatted="false">"音频"</string>
     <string name="i18n_author_4zyz4_qq_group_639317971" formatted="false">"作者：4zyz4  软件Q群：639317971\n\n"</string>
@@ -48,7 +48,7 @@
     <string name="i18n_base_direction" formatted="false">"基准方向"</string>
     <string name="i18n_base_outline_color" formatted="false">"底座轮廓颜色"</string>
     <string name="i18n_base_outline_width" formatted="false">"底座轮廓粗细"</string>
-    <string name="i18n_base_outline_width_0" formatted="true">"底座轮廓粗细: %1$s"</string>
+    <string name="i18n_base_outline_width_0" formatted="true">"底座轮廓粗细: %1$d"</string>
     <string name="i18n_binduserservice_attempt_0_1_daemon_2" formatted="true">"bindUserService 尝试#%1$s (%2$s, daemon=%3$s)"</string>
     <string name="i18n_binduserservice_failed_0" formatted="true">"bindUserService 失败 (%1$s)"</string>
     <string name="i18n_bit_0" formatted="true">"位%1$s"</string>
@@ -101,7 +101,7 @@
     <string name="i18n_control_color" formatted="false">"控件颜色"</string>
     <string name="i18n_control_outline_color" formatted="false">"控件轮廓颜色"</string>
     <string name="i18n_control_outline_width" formatted="false">"控件轮廓粗细"</string>
-    <string name="i18n_control_outline_width_0" formatted="true">"控件轮廓粗细: %1$s"</string>
+    <string name="i18n_control_outline_width_0" formatted="true">"控件轮廓粗细: %1$d"</string>
     <string name="i18n_control_type" formatted="false">"控制类型"</string>
     <string name="i18n_controlled_mode" formatted="false">"作为被控端"</string>
     <string name="i18n_controlled_mode_5bf179" formatted="false">"被控端"</string>
@@ -164,7 +164,7 @@
     <string name="i18n_driver" formatted="false">"驱动"</string>
     <string name="i18n_ds_gamepad" formatted="false">"DS 手柄"</string>
     <string name="i18n_dualsense_bluetooth" formatted="false">"DualSense 蓝牙"</string>
-    <string name="i18n_duration_0_ms" formatted="true">"时长: %1$sms"</string>
+    <string name="i18n_duration_0_ms" formatted="true">"时长: %1$dms"</string>
     <string name="i18n_duration_20ms" formatted="false">"时长: 20ms"</string>
     <string name="i18n_duration_50ms" formatted="false">"时长: 50ms"</string>
     <string name="i18n_dynamic" formatted="false">"动态"</string>
@@ -220,12 +220,12 @@
     <string name="i18n_floating_opacity" formatted="false">"悬浮不透明度"</string>
     <string name="i18n_follow_area_opacity" formatted="false">"矩形区域不透明度(%)"</string>
     <string name="i18n_follow_inside_rectangle" formatted="false">"矩形区域内跟随"</string>
-    <string name="i18n_frequency_0_1_hz" formatted="true">"频率: %1$s (%2$sHz)"</string>
+    <string name="i18n_frequency_0_1_hz" formatted="true">"频率: %1$d (%2$dHz)"</string>
     <string name="i18n_frequency_56" formatted="false">"频率: 56"</string>
     <string name="i18n_full_controller" formatted="false">"完整控制器"</string>
     <string name="i18n_game_vibration" formatted="false">"游戏震动"</string>
     <string name="i18n_gamepad" formatted="false">"手柄"</string>
-    <string name="i18n_gamepad_0" formatted="true">"手柄%1$s"</string>
+    <string name="i18n_gamepad_0" formatted="true">"手柄%1$d"</string>
     <string name="i18n_gamepad_a" formatted="false">"手柄：A"</string>
     <string name="i18n_gamepad_b" formatted="false">"手柄：B"</string>
     <string name="i18n_gamepad_details" formatted="false">"手柄详细信息"</string>
@@ -294,7 +294,7 @@
     <string name="i18n_instant" formatted="false">"即时"</string>
     <string name="i18n_integrated_d_pad" formatted="false">"一体十字键"</string>
     <string name="i18n_integrated_d_pad_custom_keypad" formatted="false">"一体十字键/自定义按键盘"</string>
-    <string name="i18n_intensity_0" formatted="true">"强度: %1$s"</string>
+    <string name="i18n_intensity_0" formatted="true">"强度: %1$d"</string>
     <string name="i18n_intensity_128" formatted="false">"强度: 128"</string>
     <string name="i18n_intensity_64" formatted="false">"强度: 64"</string>
     <string name="i18n_invalid_ip_address_format" formatted="false">"IP 地址格式无效"</string>
@@ -410,7 +410,7 @@
     <string name="i18n_long_press" formatted="false">"长按"</string>
     <string name="i18n_mapped_keys" formatted="false">"映射键值"</string>
     <string name="i18n_mask_out_of_range" formatted="false">"掩码越界"</string>
-    <string name="i18n_max_icon_size_0_sp" formatted="true">"最大图标大小: %1$ssp"</string>
+    <string name="i18n_max_icon_size_0_sp" formatted="true">"最大图标大小: %1$dsp"</string>
     <string name="i18n_max_icon_size_28sp" formatted="false">"最大图标大小: 28sp"</string>
     <string name="i18n_max_icon_size_unlimited" formatted="false">"最大图标大小: 无限"</string>
     <string name="i18n_menu" formatted="false">"菜单"</string>
@@ -454,7 +454,7 @@
     <string name="i18n_open_the_app_to_exit_floating_mode" formatted="false">"点击返回应用即可退出悬浮模式"</string>
     <string name="i18n_outline_color" formatted="false">"轮廓颜色"</string>
     <string name="i18n_outline_width" formatted="false">"轮廓粗细"</string>
-    <string name="i18n_outline_width_0" formatted="true">"轮廓粗细: %1$s"</string>
+    <string name="i18n_outline_width_0" formatted="true">"轮廓粗细: %1$d"</string>
     <string name="i18n_output_distance" formatted="false">"输出距离 -&gt;"</string>
     <string name="i18n_overlap_trigger" formatted="false">"重叠区域触发"</string>
     <string name="i18n_overlay_keep_alive" formatted="false">"悬浮窗保活"</string>
@@ -563,7 +563,7 @@
     <string name="i18n_stick_cap_color" formatted="false">"摇杆帽颜色"</string>
     <string name="i18n_stick_cap_outline_color" formatted="false">"摇杆帽轮廓颜色"</string>
     <string name="i18n_stick_cap_outline_width" formatted="false">"摇杆帽轮廓粗细"</string>
-    <string name="i18n_stick_cap_outline_width_0" formatted="true">"摇杆帽轮廓粗细: %1$s"</string>
+    <string name="i18n_stick_cap_outline_width_0" formatted="true">"摇杆帽轮廓粗细: %1$d"</string>
     <string name="i18n_stop" formatted="false">"停止"</string>
     <string name="i18n_stop_service" formatted="false">"停止服务"</string>
     <string name="i18n_stop_the_service_first" formatted="false">"请先停止服务"</string>
@@ -600,16 +600,16 @@
     <string name="i18n_touchpad_gamepad" formatted="false">"触摸板（手柄）"</string>
     <string name="i18n_touchpad_mode" formatted="false">"触摸板模式"</string>
     <string name="i18n_touchpad_mouse" formatted="false">"触摸板（鼠标）"</string>
-    <string name="i18n_touchpad_outline_width_0" formatted="true">"触摸板轮廓粗细: %1$s"</string>
+    <string name="i18n_touchpad_outline_width_0" formatted="true">"触摸板轮廓粗细: %1$d"</string>
     <string name="i18n_travel" formatted="false">"行程"</string>
     <string name="i18n_trigger" formatted="false">"扳机"</string>
     <string name="i18n_trigger_area" formatted="false">"- 触发区域"</string>
     <string name="i18n_trigger_area_color" formatted="false">"触发区域颜色"</string>
     <string name="i18n_trigger_area_outline_color" formatted="false">"触发区域轮廓颜色"</string>
     <string name="i18n_trigger_area_outline_width" formatted="false">"触发区域轮廓粗细"</string>
-    <string name="i18n_trigger_area_outline_width_0" formatted="true">"触发区域轮廓粗细: %1$s"</string>
+    <string name="i18n_trigger_area_outline_width_0" formatted="true">"触发区域轮廓粗细: %1$d"</string>
     <string name="i18n_trigger_area_width" formatted="false">"触发区域粗细"</string>
-    <string name="i18n_trigger_area_width_0" formatted="true">"触发区域粗细: %1$s"</string>
+    <string name="i18n_trigger_area_width_0" formatted="true">"触发区域粗细: %1$d"</string>
     <string name="i18n_trigger_travel" formatted="false">"扳机行程"</string>
     <string name="i18n_trigger_when_rectangles_overlap" formatted="false">"触发矩形区域重叠触发"</string>
     <string name="i18n_try_to_connect" formatted="false">"尝试连接"</string>
@@ -666,7 +666,7 @@
     <string name="i18n_windows_gamepad_only" formatted="false">"Windows仅手柄"</string>
     <string name="i18n_wireframe_color" formatted="false">"线框颜色"</string>
     <string name="i18n_wireframe_width" formatted="false">"线框粗细"</string>
-    <string name="i18n_wireframe_width_0" formatted="true">"线框粗细: %1$s"</string>
+    <string name="i18n_wireframe_width_0" formatted="true">"线框粗细: %1$d"</string>
     <string name="i18n_world_space" formatted="false">"世界空间"</string>
     <string name="i18n_xbox_gamepad" formatted="false">"Xbox 手柄"</string>
     <string name="i18n_yaw" formatted="false">"偏航"</string>

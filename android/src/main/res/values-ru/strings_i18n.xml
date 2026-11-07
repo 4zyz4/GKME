@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="i18n_0_available_connections" formatted="true">"%1$s доступных подключений"</string>
+    <string name="i18n_0_available_connections" formatted="true">"%1$d доступных подключений"</string>
     <string name="i18n_0_motor" formatted="true">"%1$s мотор"</string>
-    <string name="i18n_0_motors" formatted="true">"%1$s моторов"</string>
+    <string name="i18n_0_motors" formatted="true">"%1$d моторов"</string>
     <string name="i18n_0_trigger" formatted="true">"%1$s триггер"</string>
     <string name="i18n_1_open_settings_about_phone_and_tap_buil" formatted="false">"1. Откройте «Настройки» → «О телефоне» и 7 раз нажмите «Номер сборки», чтобы включить «Для разработчиков».\n\n"</string>
     <string name="i18n_2_open_developer_options_and_enable_usb" formatted="false">"2. Откройте «Для разработчиков» и включите «Отладка по USB».\n\n"</string>
@@ -28,7 +28,7 @@
     <string name="i18n_area_color" formatted="false">"Цвет области"</string>
     <string name="i18n_area_height" formatted="false">"Высота области"</string>
     <string name="i18n_area_width" formatted="false">"Ширина области"</string>
-    <string name="i18n_area_width_0" formatted="true">"Ширина области: %1$s"</string>
+    <string name="i18n_area_width_0" formatted="true">"Ширина области: %1$d"</string>
     <string name="i18n_area_width_875556" formatted="false">"Ширина области"</string>
     <string name="i18n_audio" formatted="false">"Аудио"</string>
     <string name="i18n_author_4zyz4_qq_group_639317971" formatted="false">"Автор: 4zyz4  Группа QQ: 639317971\n\n"</string>
@@ -48,7 +48,7 @@
     <string name="i18n_base_direction" formatted="false">"Направление основы"</string>
     <string name="i18n_base_outline_color" formatted="false">"Цвет обводки основы"</string>
     <string name="i18n_base_outline_width" formatted="false">"Ширина обводки основы"</string>
-    <string name="i18n_base_outline_width_0" formatted="true">"Ширина обводки основы: %1$s"</string>
+    <string name="i18n_base_outline_width_0" formatted="true">"Ширина обводки основы: %1$d"</string>
     <string name="i18n_binduserservice_attempt_0_1_daemon_2" formatted="true">"Попытка bindUserService #%1$s (%2$s, daemon=%3$s)"</string>
     <string name="i18n_binduserservice_failed_0" formatted="true">"Сбой bindUserService (%1$s)"</string>
     <string name="i18n_bit_0" formatted="true">"Бит %1$s"</string>
@@ -101,7 +101,7 @@
     <string name="i18n_control_color" formatted="false">"Цвет элемента"</string>
     <string name="i18n_control_outline_color" formatted="false">"Цвет обводки элемента"</string>
     <string name="i18n_control_outline_width" formatted="false">"Ширина обводки элемента"</string>
-    <string name="i18n_control_outline_width_0" formatted="true">"Ширина обводки элемента: %1$s"</string>
+    <string name="i18n_control_outline_width_0" formatted="true">"Ширина обводки элемента: %1$d"</string>
     <string name="i18n_control_type" formatted="false">"Тип элемента"</string>
     <string name="i18n_controlled_mode" formatted="false">"Управляемый режим"</string>
     <string name="i18n_controlled_mode_5bf179" formatted="false">"Управляемый режим"</string>
@@ -164,7 +164,7 @@
     <string name="i18n_driver" formatted="false">"Драйвер"</string>
     <string name="i18n_ds_gamepad" formatted="false">"Геймпад DS"</string>
     <string name="i18n_dualsense_bluetooth" formatted="false">"DualSense Bluetooth"</string>
-    <string name="i18n_duration_0_ms" formatted="true">"Длительность: %1$s мс"</string>
+    <string name="i18n_duration_0_ms" formatted="true">"Длительность: %1$d мс"</string>
     <string name="i18n_duration_20ms" formatted="false">"Длительность: 20 мс"</string>
     <string name="i18n_duration_50ms" formatted="false">"Длительность: 50 мс"</string>
     <string name="i18n_dynamic" formatted="false">"Динамический"</string>
@@ -220,12 +220,12 @@
     <string name="i18n_floating_opacity" formatted="false">"Непрозрачность плавающего окна"</string>
     <string name="i18n_follow_area_opacity" formatted="false">"Непрозрачность области следования (%)"</string>
     <string name="i18n_follow_inside_rectangle" formatted="false">"Следовать внутри прямоугольника"</string>
-    <string name="i18n_frequency_0_1_hz" formatted="true">"Частота: %1$s (%2$s Гц)"</string>
+    <string name="i18n_frequency_0_1_hz" formatted="true">"Частота: %1$d (%2$d Гц)"</string>
     <string name="i18n_frequency_56" formatted="false">"Частота: 56"</string>
     <string name="i18n_full_controller" formatted="false">"Полный контроллер"</string>
     <string name="i18n_game_vibration" formatted="false">"Вибрация игры"</string>
     <string name="i18n_gamepad" formatted="false">"Геймпад"</string>
-    <string name="i18n_gamepad_0" formatted="true">"Геймпад %1$s"</string>
+    <string name="i18n_gamepad_0" formatted="true">"Геймпад %1$d"</string>
     <string name="i18n_gamepad_a" formatted="false">"Геймпад: A"</string>
     <string name="i18n_gamepad_b" formatted="false">"Геймпад: B"</string>
     <string name="i18n_gamepad_details" formatted="false">"Сведения о геймпаде"</string>
@@ -294,7 +294,7 @@
     <string name="i18n_instant" formatted="false">"Мгновенно"</string>
     <string name="i18n_integrated_d_pad" formatted="false">"Встроенная крестовина"</string>
     <string name="i18n_integrated_d_pad_custom_keypad" formatted="false">"Встроенная крестовина / своя клавиатура"</string>
-    <string name="i18n_intensity_0" formatted="true">"Интенсивность: %1$s"</string>
+    <string name="i18n_intensity_0" formatted="true">"Интенсивность: %1$d"</string>
     <string name="i18n_intensity_128" formatted="false">"Интенсивность: 128"</string>
     <string name="i18n_intensity_64" formatted="false">"Интенсивность: 64"</string>
     <string name="i18n_invalid_ip_address_format" formatted="false">"Неверный формат IP-адреса"</string>
@@ -410,7 +410,7 @@
     <string name="i18n_long_press" formatted="false">"Долгое нажатие"</string>
     <string name="i18n_mapped_keys" formatted="false">"Назначенные клавиши"</string>
     <string name="i18n_mask_out_of_range" formatted="false">"Маска вне диапазона"</string>
-    <string name="i18n_max_icon_size_0_sp" formatted="true">"Макс. размер значка: %1$ssp"</string>
+    <string name="i18n_max_icon_size_0_sp" formatted="true">"Макс. размер значка: %1$dsp"</string>
     <string name="i18n_max_icon_size_28sp" formatted="false">"Макс. размер значка: 28sp"</string>
     <string name="i18n_max_icon_size_unlimited" formatted="false">"Макс. размер значка: без ограничений"</string>
     <string name="i18n_menu" formatted="false">"Меню"</string>
@@ -454,7 +454,7 @@
     <string name="i18n_open_the_app_to_exit_floating_mode" formatted="false">"Откройте приложение, чтобы выйти из плавающего режима"</string>
     <string name="i18n_outline_color" formatted="false">"Цвет обводки"</string>
     <string name="i18n_outline_width" formatted="false">"Ширина обводки"</string>
-    <string name="i18n_outline_width_0" formatted="true">"Ширина обводки: %1$s"</string>
+    <string name="i18n_outline_width_0" formatted="true">"Ширина обводки: %1$d"</string>
     <string name="i18n_output_distance" formatted="false">"Выходное расстояние -&gt;"</string>
     <string name="i18n_overlap_trigger" formatted="false">"Триггер перекрытия"</string>
     <string name="i18n_overlay_keep_alive" formatted="false">"Поддержание активности оверлея"</string>
@@ -563,7 +563,7 @@
     <string name="i18n_stick_cap_color" formatted="false">"Цвет накладки стика"</string>
     <string name="i18n_stick_cap_outline_color" formatted="false">"Цвет обводки накладки стика"</string>
     <string name="i18n_stick_cap_outline_width" formatted="false">"Ширина обводки накладки стика"</string>
-    <string name="i18n_stick_cap_outline_width_0" formatted="true">"Ширина обводки накладки стика: %1$s"</string>
+    <string name="i18n_stick_cap_outline_width_0" formatted="true">"Ширина обводки накладки стика: %1$d"</string>
     <string name="i18n_stop" formatted="false">"Стоп"</string>
     <string name="i18n_stop_service" formatted="false">"Остановить сервис"</string>
     <string name="i18n_stop_the_service_first" formatted="false">"Сначала остановите сервис"</string>
@@ -600,16 +600,16 @@
     <string name="i18n_touchpad_gamepad" formatted="false">"Тачпад (геймпад)"</string>
     <string name="i18n_touchpad_mode" formatted="false">"Режим тачпада"</string>
     <string name="i18n_touchpad_mouse" formatted="false">"Тачпад (мышь)"</string>
-    <string name="i18n_touchpad_outline_width_0" formatted="true">"Ширина обводки тачпада: %1$s"</string>
+    <string name="i18n_touchpad_outline_width_0" formatted="true">"Ширина обводки тачпада: %1$d"</string>
     <string name="i18n_travel" formatted="false">"Ход"</string>
     <string name="i18n_trigger" formatted="false">"Триггер"</string>
     <string name="i18n_trigger_area" formatted="false">"- Область триггера"</string>
     <string name="i18n_trigger_area_color" formatted="false">"Цвет области триггера"</string>
     <string name="i18n_trigger_area_outline_color" formatted="false">"Цвет обводки области триггера"</string>
     <string name="i18n_trigger_area_outline_width" formatted="false">"Ширина обводки области триггера"</string>
-    <string name="i18n_trigger_area_outline_width_0" formatted="true">"Ширина обводки области триггера: %1$s"</string>
+    <string name="i18n_trigger_area_outline_width_0" formatted="true">"Ширина обводки области триггера: %1$d"</string>
     <string name="i18n_trigger_area_width" formatted="false">"Ширина области триггера"</string>
-    <string name="i18n_trigger_area_width_0" formatted="true">"Ширина области триггера: %1$s"</string>
+    <string name="i18n_trigger_area_width_0" formatted="true">"Ширина области триггера: %1$d"</string>
     <string name="i18n_trigger_travel" formatted="false">"Ход триггера"</string>
     <string name="i18n_trigger_when_rectangles_overlap" formatted="false">"Срабатывать при перекрытии прямоугольников"</string>
     <string name="i18n_try_to_connect" formatted="false">"Попробовать подключиться"</string>
@@ -666,7 +666,7 @@
     <string name="i18n_windows_gamepad_only" formatted="false">"Только геймпад Windows"</string>
     <string name="i18n_wireframe_color" formatted="false">"Цвет каркаса"</string>
     <string name="i18n_wireframe_width" formatted="false">"Ширина каркаса"</string>
-    <string name="i18n_wireframe_width_0" formatted="true">"Ширина каркаса: %1$s"</string>
+    <string name="i18n_wireframe_width_0" formatted="true">"Ширина каркаса: %1$d"</string>
     <string name="i18n_world_space" formatted="false">"Мировое пространство"</string>
     <string name="i18n_xbox_gamepad" formatted="false">"Геймпад Xbox"</string>
     <string name="i18n_yaw" formatted="false">"Рыскание"</string>

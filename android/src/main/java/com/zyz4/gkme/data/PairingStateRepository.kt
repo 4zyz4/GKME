@@ -1,5 +1,6 @@
 package com.zyz4.gkme.data
 
+import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
 import android.content.Context
 import androidx.datastore.preferences.core.edit
@@ -26,6 +27,8 @@ class PairingStateRepository @Inject constructor(
     val pairedDeviceAddress: Flow<String?> = context.pairingDataStore.data.map { it[Keys.PAIRED_DEVICE_ADDRESS] }
     val pairedDeviceName: Flow<String?> = context.pairingDataStore.data.map { it[Keys.PAIRED_DEVICE_NAME] }
 
+    // 仅在 HID 连接建立后调用，此时 BLUETOOTH_CONNECT 已由系统实际授予。
+    @SuppressLint("MissingPermission")
     suspend fun savePairedDevice(device: BluetoothDevice) {
         context.pairingDataStore.edit {
             it[Keys.PAIRED_DEVICE_ADDRESS] = device.address
