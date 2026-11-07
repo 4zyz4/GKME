@@ -103,7 +103,9 @@ android {
 }
 
 dependencies {
-    implementation(files("libs/SDL3-3.4.18.aar"))
+    // SDL3 输入专用构建：仅启用 Events / Gamepad / Haptic / HIDAPI / Sensor，
+    // 以及用于 Android 触控、键鼠事件桥接的 Video 核心。
+    implementation(files("libs/SDL3-3.4.20-input.aar"))
 
     implementation("androidx.activity:activity-ktx:1.9.3")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
