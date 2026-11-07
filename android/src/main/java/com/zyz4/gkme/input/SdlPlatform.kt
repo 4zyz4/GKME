@@ -22,9 +22,8 @@ object SdlPlatform {
 
     /**
      * Initialises the SDL Java glue and stores the Activity context without
-     * touching USB/HID. This is enough for the SDL audio subsystem (device
-     * enumeration needs an Android context) and is safe to call with any
-     * controller driver selected.
+     * touching USB/HID. This is only needed for gamepad/controller handling;
+     * phone audio no longer goes through SDL.
      */
     @Synchronized
     fun ensureCore(activity: Activity) {
@@ -49,8 +48,8 @@ object SdlPlatform {
 
     @Synchronized
     fun shutdown() {
-        // The SDL core/context stays initialised (the audio output may still use it);
-        // only the HID device manager is released with the gamepad backend.
+        // The SDL core/context stays initialised; only the HID device manager is
+        // released with the gamepad backend.
         hidDeviceManager?.let { HIDDeviceManager.release(it) }
         hidDeviceManager = null
     }

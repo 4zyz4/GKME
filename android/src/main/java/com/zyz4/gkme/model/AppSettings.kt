@@ -109,13 +109,13 @@ enum class AudioDeviceType(val persistId: Int) {
 data class AudioDevice(
     val type: AudioDeviceType = AudioDeviceType.PHONE_MOTOR,
     val controllerIndex: Int = 0,
-    /** SDL playback device id, only meaningful for [AudioDeviceType.SOUND_DEVICE]. */
+    /** Android output device id, only meaningful for [AudioDeviceType.SOUND_DEVICE]. */
     val deviceId: Int = AUTO_SOUND_DEVICE_ID,
-    /** Cached SDL device name for display/persistence, only for [AudioDeviceType.SOUND_DEVICE]. */
+    /** Cached Android device name for display/persistence, only for [AudioDeviceType.SOUND_DEVICE]. */
     val deviceName: String = "",
 ) {
     companion object {
-        /** Sentinel device id meaning "first enumerated SDL playback device". */
+        /** Sentinel device id meaning "first enumerated output device". */
         const val AUTO_SOUND_DEVICE_ID = 0
 
         val NONE = AudioDevice(AudioDeviceType.NONE, 0)

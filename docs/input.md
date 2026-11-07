@@ -255,19 +255,25 @@ protobuf `GamepadInput`。要点：
   停止时也必须 `manager.cancel()`，只 cancel 默认马达会漏掉其余马达。
 - 不可用能力：自适应扳机、LED（返回默认/`false`）。
 
-### 4.6 SdlNative / SdlPlatform / SdlAudio
+### 4.6 SdlNative / SdlPlatform / AudioOutput
 
 | 文件 | 职责 |
 |------|------|
-| `input/SdlNative.kt` | `libgkme_sdl.so` 的 JNI 声明（手柄/传感器/音频） |
+| `input/SdlNative.kt` | `libgkme_sdl.so` 的 JNI 声明（手柄/传感器） |
 | `input/SdlPlatform.kt` | 初始化 SDL Java glue（`org.libsdl.app.*`），转发 key/motion 事件 |
-| `input/SdlAudio.kt` | SDL 音频设备枚举与低延迟播放 |
+| `audio/AudioNative.kt` | `libgkme_audio.so` 的 JNI 声明（AAudio） |
+| `audio/AudioOutput.kt` | 通过 `AudioManager` 枚举设备，AAudio 优先、AudioTrack 回退 |
+| `cpp/audio_out.cpp` | AAudio 低延迟输出（共享/独占模式） |
 
 - `SdlPlatform.ensureCore` 先调 `nativeGetControllerCount()` 触发 `libSDL3.so` 的 `JNI_OnLoad`，
   再 `SDL.setupJNI/initialize/setContext`。应用**不继承 `SDLActivity`**，把 SDL 当 library 使用，
   因此事件需自行 forwarding。
-- `SdlAudio`：`HANDLE_VOICE_COIL=1`、`HANDLE_CONTROLLER_AUDIO=2`；
-  `DEFAULT_DEVICE=-1`（SDL）与 `AudioDevice.AUTO_SOUND_DEVICE_ID=0` 是两套 sentinel。
+- 音频**完全不经过 SDL3**：`AudioOutput` 用 `AudioManager.getDevices(GET_DEVICES_OUTPUTS)` 枚举，
+  过滤掉听筒（`TYPE_BUILTIN_EARPIECE`）等无用输出，内置扬声器统一显示为“手机扬声器”，
+  优先打开 AAudio 低延迟流（`AAUDIO_PERFORMANCE_MODE_LOW_LATENCY`，独占失败后重试共享），
+  打开失败才回退到 `AudioTrack`（`PERFORMANCE_MODE_LOW_LATENCY` + `setPreferredDevice`）。
+- `AudioOutput`：`HANDLE_VOICE_COIL=1`、`HANDLE_CONTROLLER_AUDIO=2`；
+  `DEFAULT_DEVICE=0`（系统默认）与 `AudioDevice.AUTO_SOUND_DEVICE_ID=0` 使用同一 sentinel。
 
 ---
 

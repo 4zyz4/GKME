@@ -95,7 +95,7 @@ GKME organizes its functionality along two dimensions: the **connection method**
 |---------|-------------|
 | **Vibration feedback** | Vibrate on button press/release; in-game vibration can be mapped to phone or gamepad motors, with freely assignable strong/weak vibration and left/right motor swapping |
 | **Switch Pro HD rumble** | Synthesizes Switch Pro HD rumble locally on the phone and converts PC-side PCM into Switch HD rumble |
-| **Gamepad audio / voice coil actuators** | Phone speaker and controller audio use SDL3 multi-device low-latency playback; a physical DualSense speaker plays PC audio and supports voice coil actuator haptics |
+| **Gamepad audio / voice coil actuators** | Phone speaker and controller audio use a direct low-latency AAudio stream (falling back to AudioTrack when unavailable); a physical DualSense speaker plays PC audio and supports voice coil actuator haptics |
 | **Adaptive triggers** | Receives DualSense adaptive trigger effects from the PC and forwards them to the physical gamepad over USB |
 | **LED sync** | Forwards gamepad LED colors and player indicators; appearance colors can bind to the LED in real time |
 

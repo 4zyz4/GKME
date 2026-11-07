@@ -59,7 +59,6 @@ import com.zyz4.gkme.view.SettingsButtonWheelView
 import com.zyz4.gkme.view.addComboTimingControls
 import com.zyz4.gkme.input.AdaptiveTriggerHandler
 import com.zyz4.gkme.input.PhysicalControllerHandler
-import com.zyz4.gkme.input.SdlAudio
 import com.zyz4.gkme.input.SdlPlatform
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -313,12 +312,9 @@ class MainActivity : ComponentActivity() {
         setupUsbAudioCallbacks()
         displayManager.registerDisplayListener(displayListener, null)
         checkDeviceRotation()
-        // Bring up the SDL Java glue (without claiming USB HID) and the SDL audio
-        // subsystem so the sound-device list is available even when the physical
-        // controller is handled by the non-SDL driver. Failure is non-fatal: the
-        // phone-speaker path then falls back to AudioTrack.
+        // Bring up the SDL Java glue (without claiming USB HID). Phone audio uses
+        // AAudio directly (see AudioOutput) and never touches SDL.
         runCatching { SdlPlatform.ensureCore(this) }
-        SdlAudio.ensureInit()
     }
 
     private fun setupUsbAudioCallbacks() {

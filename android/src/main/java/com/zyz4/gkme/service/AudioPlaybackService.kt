@@ -6,8 +6,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.util.Log
-import com.zyz4.gkme.input.SdlAudio
-import com.zyz4.gkme.input.SdlNative
+import com.zyz4.gkme.audio.AudioOutput
 import com.zyz4.gkme.haptic.HdPcmStreamer
 import com.zyz4.gkme.model.AudioDevice
 import com.zyz4.gkme.model.AudioDeviceType
@@ -41,11 +40,11 @@ class AudioPlaybackService @Inject constructor(
         private const val TEST_TONE_RATE = 48000
         private const val TEST_TONE_CHANNELS = 4
         private const val TEST_TONE_FRAME_SAMPLES = 480 // 10 ms
-        // SDL3 output: cap the queued audio at ~30 ms for low latency, and wait at
+        // Phone output: cap the queued audio at ~30 ms for low latency, and wait at
         // most this long for the queue to drain before giving up (the producer
         // thread is dedicated, so a bounded block is safe).
-        private const val SDL_MAX_QUEUE_MS = 30
-        private const val SDL_WRITE_WAIT_MS = 200
+        private const val AUDIO_MAX_QUEUE_MS = 30
+        private const val AUDIO_WRITE_WAIT_MS = 200
         // Locally synthesised Switch Pro HD rumble. The PC sends only the
         // decoded band parameters, so network jitter delays an update instead
         // of tearing a hole in the PCM stream (heard as a pop).
@@ -74,11 +73,11 @@ class AudioPlaybackService @Inject constructor(
         private const val HD_RUMBLE_SUPPRESS_NS = 200_000_000L
     }
 
-    /** One open SDL sink: the device it plays on and the sample rate it was opened at. */
-    private class SdlSinkState(val deviceId: Int, val sampleRate: Int)
+    /** One open phone sink: the device it plays on and the sample rate it was opened at. */
+    private class AudioSinkState(val deviceId: Int, val sampleRate: Int)
 
-    // Open SDL sinks keyed by handle (voice coil / controller audio).
-    private val sdlSinks = HashMap<Int, SdlSinkState>()
+    // Open phone sinks keyed by handle (voice coil / controller audio).
+    private val audioSinks = HashMap<Int, AudioSinkState>()
 
     // Local 1 kHz test-tone generator state (see setTestTone).
     private var testToneThread: Thread? = null
@@ -213,21 +212,21 @@ class AudioPlaybackService @Inject constructor(
         if (this.voiceCoilDevice != voiceCoilDevice) {
             stopHdOutput()
         }
-        // A different SDL sound device (or no longer a sound device) was chosen for
+        // A different phone sound device (or no longer a sound device) was chosen for
         // either lane: drop the old sink so the next frame opens a fresh one.
-        if (sdlSinkTarget(this.voiceCoilDevice) != sdlSinkTarget(voiceCoilDevice)) {
-            stopSdlSink(SdlAudio.HANDLE_VOICE_COIL)
+        if (audioSinkTarget(this.voiceCoilDevice) != audioSinkTarget(voiceCoilDevice)) {
+            stopAudioSink(AudioOutput.HANDLE_VOICE_COIL)
         }
-        if (sdlSinkTarget(this.controllerAudioDevice) != sdlSinkTarget(controllerAudioDevice)) {
-            stopSdlSink(SdlAudio.HANDLE_CONTROLLER_AUDIO)
+        if (audioSinkTarget(this.controllerAudioDevice) != audioSinkTarget(controllerAudioDevice)) {
+            stopAudioSink(AudioOutput.HANDLE_CONTROLLER_AUDIO)
         }
         this.voiceCoilDevice = voiceCoilDevice
         this.voiceCoilSwap = voiceCoilSwap
         this.controllerAudioDevice = controllerAudioDevice
     }
 
-    /** The stored SDL target of [device], or null when it is not an SDL sound device. */
-    private fun sdlSinkTarget(device: AudioDevice): Int? =
+    /** The stored phone-audio target of [device], or null when it is not a sound device. */
+    private fun audioSinkTarget(device: AudioDevice): Int? =
         if (device.type == AudioDeviceType.SOUND_DEVICE) device.deviceId else null
 
     fun stop() {
@@ -236,65 +235,64 @@ class AudioPlaybackService @Inject constructor(
         stopHdOutput()
         clearAdaptiveTriggerHaptic()
         HdPcmStreamer.stop()
-        stopAllSdlSinks()
+        stopAllAudioSinks()
         _vibrator.cancel()
     }
 
     @Synchronized
-    private fun stopSdlSink(handle: Int) {
-        if (sdlSinks.remove(handle) != null) {
+    private fun stopAudioSink(handle: Int) {
+        if (audioSinks.remove(handle) != null) {
             try {
-                SdlNative.nativeAudioClose(handle)
+                AudioOutput.close(handle)
             } catch (_: Throwable) {}
         }
     }
 
     @Synchronized
-    private fun stopAllSdlSinks() {
-        if (sdlSinks.isNotEmpty()) {
+    private fun stopAllAudioSinks() {
+        if (audioSinks.isNotEmpty()) {
             try {
-                SdlNative.nativeAudioCloseAll()
+                AudioOutput.closeAll()
             } catch (_: Throwable) {}
-            sdlSinks.clear()
+            audioSinks.clear()
         }
     }
 
     /**
-     * Opens (or reuses) the SDL sink [handle] for [device] at the current sample
-     * rate. Returns false when the device cannot be opened.
+     * Opens (or reuses) the phone sink [handle] for [device] at the current sample
+     * rate. Returns false when neither AAudio nor AudioTrack can be opened.
      */
     @Synchronized
-    private fun ensureSdlSink(handle: Int, device: AudioDevice): Boolean {
+    private fun ensureAudioSink(handle: Int, device: AudioDevice): Boolean {
         if (device.type != AudioDeviceType.SOUND_DEVICE) return false
-        val deviceId = SdlAudio.resolveDeviceId(device.deviceId)
-        val state = sdlSinks[handle]
+        val deviceId = AudioOutput.resolveDeviceId(device.deviceId)
+        val state = audioSinks[handle]
         if (state != null && state.deviceId == deviceId && state.sampleRate == sampleRate) {
             return true
         }
-        stopSdlSink(handle)
-        if (!SdlAudio.ensureInit()) return false
+        stopAudioSink(handle)
         val ok = try {
-            SdlNative.nativeAudioOpen(handle, deviceId, sampleRate, 2, SDL_MAX_QUEUE_MS)
+            AudioOutput.open(handle, device.deviceId, sampleRate, 2, AUDIO_MAX_QUEUE_MS)
         } catch (_: Throwable) {
             false
         }
         if (ok) {
-            sdlSinks[handle] = SdlSinkState(deviceId, sampleRate)
+            audioSinks[handle] = AudioSinkState(deviceId, sampleRate)
         }
         return ok
     }
 
     /** Writes interleaved stereo S16 [data] to sink [handle]. False when it closed. */
-    private fun writeSdlSink(handle: Int, data: ByteArray): Boolean {
-        if (!sdlSinks.containsKey(handle)) return false
+    private fun writeAudioSink(handle: Int, data: ByteArray): Boolean {
+        if (!audioSinks.containsKey(handle)) return false
         val written = try {
-            SdlNative.nativeAudioWrite(handle, data, SDL_WRITE_WAIT_MS)
+            AudioOutput.write(handle, data, AUDIO_WRITE_WAIT_MS)
         } catch (_: Throwable) {
             -1
         }
         if (written < 0) {
-            Log.e(TAG, "SDL audio write failed on handle=$handle, closing sink")
-            stopSdlSink(handle)
+            Log.e(TAG, "phone audio write failed on handle=$handle, closing sink")
+            stopAudioSink(handle)
             return false
         }
         return true
@@ -776,9 +774,9 @@ class AudioPlaybackService @Inject constructor(
         if (sampleRate > 0 && this.sampleRate != oldRate ||
             channels > 0 && this.channels != oldCh ||
             bitsPerSample > 0 && this.bitsPerSample != oldBits) {
-            // The PCM layout changed: drop the SDL sinks so they reopen with the new
-            // format on the next frame instead of replaying stale queued audio.
-            stopAllSdlSinks()
+            // The PCM layout changed: drop the phone sinks so they reopen with the
+            // new format on the next frame instead of replaying stale queued audio.
+            stopAllAudioSinks()
         }
 
         if (pcm.isEmpty()) {
@@ -972,24 +970,24 @@ class AudioPlaybackService @Inject constructor(
             onVoiceCoilAmplitudes?.invoke(leftAmp, rightAmp)
         }
 
-        // ── SDL sound-device outputs (voice coil and controller audio) ──
+        // ── Phone sound-device outputs (voice coil and controller audio) ──
         // The two lanes are independent: each can target a different enumerated
         // sound device (or none). They share the same 48 kHz resampled stream only
         // on the USB controller path; here they are mixed down to stereo S16.
-        val playVoiceCoilSdl = voiceCoilDevice.type == AudioDeviceType.SOUND_DEVICE
-        val playControllerAudioSdl = controllerAudioDevice.type == AudioDeviceType.SOUND_DEVICE
-        if (!playVoiceCoilSdl && !playControllerAudioSdl) return
+        val playVoiceCoilOut = voiceCoilDevice.type == AudioDeviceType.SOUND_DEVICE
+        val playControllerAudioOut = controllerAudioDevice.type == AudioDeviceType.SOUND_DEVICE
+        if (!playVoiceCoilOut && !playControllerAudioOut) return
 
-        if (playVoiceCoilSdl && ensureSdlSink(SdlAudio.HANDLE_VOICE_COIL, voiceCoilDevice)) {
+        if (playVoiceCoilOut && ensureAudioSink(AudioOutput.HANDLE_VOICE_COIL, voiceCoilDevice)) {
             val voiceCoilBytes = buildVoiceCoilStereo(
                 pcm, numSamples, bytesPerFrame, leftVcmCh, rightVcmCh, voiceCoilSwap,
             )
-            writeSdlSink(SdlAudio.HANDLE_VOICE_COIL, voiceCoilBytes)
+            writeAudioSink(AudioOutput.HANDLE_VOICE_COIL, voiceCoilBytes)
         }
 
-        if (playControllerAudioSdl && ensureSdlSink(SdlAudio.HANDLE_CONTROLLER_AUDIO, controllerAudioDevice)) {
+        if (playControllerAudioOut && ensureAudioSink(AudioOutput.HANDLE_CONTROLLER_AUDIO, controllerAudioDevice)) {
             val controllerBytes = buildMonoToStereo(pcm, numSamples, bytesPerFrame, controllerCh)
-            writeSdlSink(SdlAudio.HANDLE_CONTROLLER_AUDIO, controllerBytes)
+            writeAudioSink(AudioOutput.HANDLE_CONTROLLER_AUDIO, controllerBytes)
         }
     }
 

@@ -40,3 +40,5 @@
 # Shizuku Provider 子类：由 Android 依据类名反射实例化，需保留原名与构造。
 -keep class com.zyz4.gkme.GkmeShizukuProvider { *; }
 
+# 音频：AudioNative 的 native 方法按 JNI 静态命名解析，类名与方法名必须保留。
+-keep class com.zyz4.gkme.audio.AudioNative { *; }

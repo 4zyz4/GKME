@@ -20,6 +20,15 @@ target_link_libraries(gkme_sdl PRIVATE
         android
         log)
 
+# 手机音频输出：直接使用 AAudio（不经过 SDL3）。Kotlin 层在打开失败时回退到 AudioTrack。
+add_library(gkme_audio SHARED
+        audio_out.cpp)
+
+target_link_libraries(gkme_audio PRIVATE
+        aaudio
+        android
+        log)
+
 # 被控端虚拟手柄：运行在 Shizuku UserService 进程，直接操作 /dev/uinput 与 /dev/uhid。
 # uinput 路径伪装 Xbox One S；uhid 路径用真实 HID 描述符创建 DS4/DualSense/
 # Switch Pro 与键鼠。

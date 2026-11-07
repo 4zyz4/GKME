@@ -79,7 +79,7 @@ import com.zyz4.gkme.model.VibrationDevice
 import com.zyz4.gkme.model.VibrationDeviceType
 import com.zyz4.gkme.model.VibrationType
 import com.zyz4.gkme.input.ControllerInfo
-import com.zyz4.gkme.input.SdlAudio
+import com.zyz4.gkme.audio.AudioOutput
 import com.zyz4.gkme.service.ConnectionPhase
 import com.zyz4.gkme.view.CircularRevealLayout
 import com.zyz4.gkme.view.GamepadLayout
@@ -306,7 +306,7 @@ internal fun MainActivity.selectSettingsCategory(index: Int, animate: Boolean = 
         }
     }
     if (index == 6) {
-        // Re-read the SDL sound device list so hotplugged outputs show up.
+        // Re-read the phone sound-device list so hotplugged outputs show up.
         a.syncVoiceCoilUI()
         a.syncControllerAudioUI()
         a.audioPollingJob = a.lifecycleScope.launch {
@@ -1338,7 +1338,7 @@ internal fun MainActivity.buildControllerAudioDeviceEntries(): List<AudioDevice>
     val a = this
     val entries = mutableListOf<AudioDevice>()
     // Sound devices come first so the "first enumerated device" default is index 0.
-    SdlAudio.devices().forEach { device ->
+    AudioOutput.devices().forEach { device ->
         entries.add(AudioDevice.soundDevice(device.id, device.name))
     }
     a.physicalControllerHandler.connectedControllers.value.forEachIndexed { index, _ ->
@@ -1357,9 +1357,9 @@ internal fun MainActivity.buildVoiceCoilDeviceEntries(): List<AudioDevice> {
         entries.add(AudioDevice.controller(index))
     }
     entries.add(AudioDevice.PHONE_MOTOR)
-    // SDL enumerates the system's sound devices, including the phone speaker as a
-    // regular device (built-in speaker, USB, Bluetooth...).
-    SdlAudio.devices().forEach { device ->
+    // AudioManager enumerates the system's sound devices, including the phone speaker
+    // as a regular device (built-in speaker, USB, Bluetooth...).
+    AudioOutput.devices().forEach { device ->
         entries.add(AudioDevice.soundDevice(device.id, device.name))
     }
     entries.add(AudioDevice.NONE)
