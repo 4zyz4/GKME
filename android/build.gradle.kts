@@ -59,7 +59,8 @@ android {
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
-            version = "4.4.3"
+            // 使用 Android SDK 官方仓库可下载的 CMake 版本，保证 CI 可复现
+            version = "4.1.2"
         }
     }
 

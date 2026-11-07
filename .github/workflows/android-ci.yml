@@ -19,7 +19,7 @@ permissions:
 env:
   ANDROID_HOME: /usr/local/lib/android/sdk
   NDK_VERSION: "30.0.16248370"
-  CMAKE_VERSION: "4.4.3"
+  CMAKE_VERSION: "4.1.2"
 
 jobs:
   build:
@@ -29,10 +29,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
@@ -90,10 +90,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
