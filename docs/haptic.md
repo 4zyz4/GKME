@@ -102,16 +102,37 @@ flowchart TB
 `haptic/RichTapPrebaked.kt`。读取 asset `richtap_prebaked.json`，ID `10001..10050`。
 数据源自 RichTap ASDK 2.2.0，已离线转为 HE 1.0。`load()` 幂等、线程安全；`he(id)` 未加载返回 null。
 
-### 1.6 RichTapRawCodec + HeJson
+### 1.6 HE2.0：He2Json / He2Converter / RichTapHe2
 
-`haptic/RichTapRawCodec.kt`：复刻 SDK `base.b.a(...)` 的 HE 1.0/HE 2.0 raw `int[]` 编码，
-供 type2 `createPatternHeWithParam(int[])` 使用。
+**这是完整的 HE2.0 数据通路。** 与 HE1.0 只作为“降级格式”不同，HE2.0 在
+type 2 + core ≥ 24 上会保留全部特性：
 
-- 常量：`TAG_CONTINUOUS=4096`、`TAG_TRANSIENT=4097`、`DEFAULT_FREQUENCY=56`、`MAX_EVENTS=16`、
-  `MAX_POINTS=16`、`POINT_SCALE=100.0`。
-- `encode(...)` 按 core 版本分派 `encodeHe10`/`encodeHe20`；`swapId` 交换左右马达索引。
-
-`haptic/HeJson.kt`：把 HE 1.0 JSON 解析为 `RichTapRawCodec.HeEvent`（`parseHe10`）。
+- `haptic/He2.kt`
+  - `HeDocument` / `HeMetadata`：统一文档模型，`patterns` 对应 `PatternList`。
+  - `He2Json.parse()`：自动识别 HE1.0（`Pattern`）和 HE2.0（`PatternList`），解析
+    `AbsoluteTime`、`Index`、`transient`、4–16 点曲线；HE2.0 的 transient 缺省
+    `Duration=48ms`（SDK 语义）。
+  - `He2Json.writeHe20()`：原生 HE2.0 序列化，保留多 pattern、`Index`、16 点曲线、
+    `AbsoluteTime`；transient 的 `Duration` 像 SDK 一样省略。
+  - `He2Json.writeHe10()`：降级为设备可解析的 HE1.0。
+  - `He2Converter`
+    - `toHe10Sdk()`：逐行复刻 SDK `base.b.a(String, true)`：`trim16pTo4p`、
+      `trimOverlapEvent`、**只保留 `PatternList[0]`**。
+    - `toHe10BestEffort()`：type 1 的最优降级：拍平所有 pattern、加 `AbsoluteTime`、
+      按 SDK 规则裁剪重叠、补 4 点曲线、限制 16 事件。HE1.0 输入保持原有重叠关系，
+      避免改变预置效果等已验证行为。
+    - `normalizeForHe20()`：type 2 raw 前归一化：transient 补 48ms、曲线 4–16 点、
+      每 pattern ≤16 事件；保留 `Frequency=-1` 哨兵供旧/新 core 分支处理。
+- `haptic/RichTapHe2.kt`：HE2.0 构造器。支持 `PatternSpec`/`EventSpec`、多段
+  `AbsoluteTime`、每事件 `Index`、`transient`、4–16 点曲线。
+- `haptic/RichTapRawCodec.kt`
+  - `encode(document, core, minor, pid, sid, swap)`：**按 core 选择** HE1.0（≤23）或
+    HE2.0（≥24），与 SDK `RichTapPerformer.start()` 一致。
+  - HE2.0 头部 `[2,2,pid,sid,patternCount]`；每段 `index, absoluteTime, eventCount`；
+    continuous/transient 事件布局、4–16 点、`Index` 交换、扩展频率字段（core>32 或
+    minor>16）均按反编译 bytecode 复刻。
+  - HE1.0 分支修正了 core≥24 时的头部值（3）与 transient 时长/频率语义。
+- `haptic/HeJson.kt` 仅保留为 HE1.0 兼容入口，内部委托 `He2Json`。
 
 ### 1.7 HapticArbiter / HapticSource
 
@@ -147,7 +168,9 @@ flowchart TB
 `haptic/PcmHeEncoder.kt`。把逐帧 `(amp01, HE)` 切成多事件 HE。
 
 - 默认 `eventsPerChunk=16, eventMs=200`，被 HdPcmStreamer 用 2/100 构造。
-- 每事件 `POINTS=4`。**控制点时间必须聚到事件两端**（`0, 2, eventMs-2, eventMs`，`EDGE_POINT_MS=2`）：
+- 默认每事件 `POINTS=4`；type 2 + core ≥ 24 时 `HdPcmStreamer` 会切换为
+  `pointsPerEvent=16, he2=true`，输出原生 HE2.0（事件内 16 点包络），非 type 2 仍保持 4 点 HE1.0。
+- 每事件 4 点时，**控制点时间必须聚到事件两端**（`0, 2, eventMs-2, eventMs`，`EDGE_POINT_MS=2`）：
   真机实测均匀分布（`0, eventMs/3, 2eventMs/3, eventMs`）会让引擎给每个事件叠加约 25–30% 时长的
   起振/衰减，造成事件边界掉幅；聚到两端则事件内部平直、相邻事件无缝。见
   [richtap-hd-vibration.md §13](richtap-hd-vibration.md)。
@@ -211,6 +234,12 @@ flowchart TB
 - `init`：优先 `tryInitType2()`，失败回退 `tryInitType1()`。
 - **type2 RichTapPerformer**：`richtap.os.PhonyVibrationEffect` / `android.os.RichTapVibrationEffect`；
   `checkIfRichTapSupport` 解版本；反射 `createPatternHeWithParam/createHapticParameter/createPatternHeParameter`。
+  - `startPattern/startEffect` 统一走 `He2Json.parse`：core ≥ 24 用 `RichTapRawCodec.encode(document)`
+    原生 HE2.0 raw（多 pattern、`Index`、16 点）；core ≤ 23 用 `He2Converter.toHe10BestEffort`
+    降级后走 HE1 raw。
+  - `supportsNativeHe20()` = type 2 && core ≥ 24，供 PCM 编码器选择 16 点/HE2.0。
+  - 第五个 `freq` 参数恒传 0（与 SDK `RichTapPerformer.start()` 一致），频率由事件
+    `Parameters.Frequency` 决定。
 - **type1 TencentPerformer**：`android.os.HapticPlayer` + `DynamicEffect.create(String)`；
   `startTencent` 必须先 `stop` 再 `start`。
   - `mPackageName` 反射补值：`app_process` 下为 null 必须补，否则 `start()` NPE；**app 进程内该字段是
@@ -303,8 +332,9 @@ native 模式下空闲补 10ms 静音帧（见 [usb-drivers.md §4](usb-drivers.
 | 强度律底数 | 1.14 |
 | Q / 最大补偿 | 10.0 / 2.0 |
 | HE 可用范围 | 107.2–280.3 Hz（实测） |
-| 曲线点数 | 4 |
-| 事件上限 | 16 |
+| 曲线点数 | HE1: 4；HE2: 4–16 |
+| 事件上限 | 16 / pattern |
+| pattern 段数 | HE2: 建议 ≤4（SDK 超过会警告） |
 | 单事件时长上限 | 5000ms |
 | 分块 | `EVENT_MS=100 × EVENTS_PER_CHUNK=2 = 200ms` |
 | AUDIO 活跃/释放 | 4 / 120ms |
@@ -332,14 +362,18 @@ native 模式下空闲补 10ms 静音帧（见 [usb-drivers.md §4](usb-drivers.
 
 ### 8.2 代码新增、实验档未覆盖
 
-1. type2 `RichTapPerformer` 完整实现（`RichTapRawCodec`、`HeJson`、`RemoteHapticService.tryInitType2`）。
-2. 实时调参 `updateParameter` / `supportsRealtimeAdjustment`。
-3. 优先级仲裁（`HapticSource` / `HapticArbiter` / `HdPcmStreamer` 音频租约看门狗）。
-4. 控制点聚两端（`EDGE_POINT_MS=2`）+ 分块无 `stop()` 链接（取代早年 `SEAM_BOOST` / `SEAM_FADE_MS`）。
-5. 音频起点过冲 `ONSET_ACCENT_MS=5` / `START_OVERSHOOT=5.0`。
-6. 基频钳制与曲线偏移钳制。
-7. 预置效果资源加载 `RichTapPrebaked` + `richtap_prebaked.json`。
-8. Switch HD rumble 与 DualSense 音频触觉两个独立子系统。
+1. type2 `RichTapPerformer` 完整实现（`RichTapRawCodec`、`He2Json`、`RemoteHapticService.tryInitType2`）。
+2. **完整 HE2.0 通路**：`He2Json`（HE1/HE2 解析+序列化）、`He2Converter`（SDK 兼容 +
+   best-effort 降级）、`RichTapHe2`（多 pattern/16 点/Index/transient 构造）、
+   `RichTapRawCodec.encode(document)` 按 core 自动选择 HE1/HE2。
+3. 实时调参 `updateParameter` / `supportsRealtimeAdjustment`；增加来源校验，避免被抢占后串扰。
+4. 优先级仲裁（`HapticSource` / `HapticArbiter` / `HdPcmStreamer` 音频租约看门狗）。
+5. 控制点聚两端（`EDGE_POINT_MS=2`）+ 分块无 `stop()` 链接（取代早年 `SEAM_BOOST` / `SEAM_FADE_MS`）。
+6. 音频起点过冲 `ONSET_ACCENT_MS=5` / `START_OVERSHOOT=5.0`。
+7. 基频钳制与曲线偏移钳制。
+8. 预置效果资源加载 `RichTapPrebaked` + `richtap_prebaked.json`。
+9. Switch HD rumble 与 DualSense 音频触觉两个独立子系统。
+10. type2 PCM 编码：`HdPcmStreamer` 在 `nativeHe20` 时切到 16 点/HE2.0，否则保持 4 点/HE1.0。
 
 ### 8.3 文档与代码的过时差异（需注意）
 
@@ -354,9 +388,15 @@ native 模式下空闲补 10ms 静音帧（见 [usb-drivers.md §4](usb-drivers.
 
 | 问题 | 证据 |
 |------|------|
-| [已修复] `HeJson` 对 `Curve.Frequency` 用 `optInt`，小数偏移会被截断 | `HeJson.kt:35` |
-| type2 `startEffect` 并非真正“无全局覆盖”：仍传 `amplitude=255, freq=0` | `RemoteHapticService.kt:127-135` |
-| [已修复] type2 `swapVibrationIndex` 未接入设置（已删除未接线的字段，保留 SDK 默认不交换） | `RemoteHapticService.kt:78-80` |
+| [已修复] 曲线 `Frequency` 小数偏移曾被 `optInt` 截断；现由 `He2Json` 用 `optDouble().roundToInt()` 保留 | `He2.kt` 曲线解析 |
+| [已修复] type2 `startPattern` 把非 0 `freq` 传给 `createPatternHeWithParam` 第 5 参；SDK 恒传 0 | `RemoteHapticService.startRichtap` |
+| [已修复] `swapVibrationIndex` 已接入 `RemoteHapticService`/`HapticInjector`（默认 false，无 UI） | `RemoteHapticService.kt`、`HapticInjector.kt` |
+| [已修复] HE2.0 transient `Duration=0` 未补 48ms，预置瞬态效果在 type2 可能失效 | `RichTapRawCodec.encodeHe20`、`He2Converter.normalizeForHe20` |
+| [已修复] `updateParameter` 在来源被抢占后仍可能调到新效果（跨来源串扰） | `HapticInjector.updateParameter` 增加 `source` 校验 |
+| 无 type2 真机：HE2.0 raw 布局与 SDK bytecode 对齐，但没有真机 golden dump/加速度计验证 | `RichTapRawCodecHe2Test` 为 JVM 结构测试 |
+| type2 core 24–31：SDK 旧路径会先 stop 再 start，当前实现不 stop；替换语义待真机验证 | `RichTapUtils.playHaptic` vs `RemoteHapticService.startRichtap` |
+| type2 未传 `VibrationAttributes`（SDK API≥33 可选传入）；DND/usage 路由待验证 | `RemoteHapticService.startRichtap` |
+| `HE_HZ`/Q/幅度补偿按 `manet` 标定，其他 type2 机型 LRA 可能不同 | `RichTapEngine` |
 | [已修复] `RichTapHe.pattern` 只 `take(4)` 不补齐，少于 4 点会产出非法曲线（当前生产者都固定 4 点） | `RichTapHe.kt:112` |
 | [已修复] 被高优先级占用时 `HdPcmStreamer.resetBuffer()` 直接丢缓冲，解禁后损失约 0.2s（改为限时保留） | `HdPcmStreamer.kt:119-124` |
 | [已修复] 主线程卡顿 >40ms 时真实流逝时间被 `MAX_DT_MS` 截断，时间轴压缩/滞后（文档原表述为"跳桶"，已更正） | `HdPcmStreamer.kt:60-64,137,162` |

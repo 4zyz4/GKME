@@ -154,11 +154,11 @@ void stop();
 }
 ```
 
-**HE 2.0 → HE 1.0 转换**（SDK `com.apprichtap.haptic.base.b.a(String, boolean)` 的逻辑）：
-1. 曲线裁点：`trim16pTo4p` —— 每条 `Curve` 压成 4 点。
-2. 把 `PatternList[].AbsoluteTime` 加到该段内每个事件的 `RelativeTime` 上。
-3. 顶层从 `PatternList[].Pattern` 拍平成 `Pattern`；写 `Metadata.Version=1`。
-4. 若事件 `Frequency == -1` 则设为默认 56。
+**HE 2.0 → HE 1.0 转换**（SDK `com.apprichtap.haptic.base.b.a(String, boolean)` 的实际逻辑）：
+1. `trim16pTo4p`：**>4 点**才压成 4 点（保留首尾，中间两半分别平均）；**≤4 点原样返回，不补齐**。因此 3 点 HE2.0 曲线转成 3 点 HE1.0，本机 HAL 会因“必须恰好 4 点”整条拒绝。
+2. `trimOverlapEvent`：删除 `Index==2` 的事件；按 `RelativeTime` 排序；相邻事件重叠时，若后一个为 continuous 且 overhang > 48ms，则截断为 `cur.end .. next.end` 并替换成 4 点 `0→1→1→0` 斜坡；否则删除后一个事件。
+3. **只取 `PatternList.get(0)`**，把该段的 `AbsoluteTime` 加到事件 `RelativeTime` 上；**其余 pattern 段直接丢弃**（不是拍平）。
+4. 写 `Metadata.Version=1`；continuous 的 `Frequency == -1` 改为默认 56，并把曲线频率偏移清零。
 5. 丢弃 `Index`。
 
 ### 3.4 encapsulate() 序列化格式（实测观测，字段名部分为推断）
@@ -292,13 +292,18 @@ dumpsys vibrator_manager → effect | ignored_background | usage: MEDIA | com.an
 - app 进程内 `android.os.HapticPlayer` 的 `mPackageName` 字段是 hidden API `blocked`，`getDeclaredField`
   直接抛异常——但 app 内厂商构造函数会自动填包名，因此**跳过该字段**即可。
 
-### 5.2 待实现模块
-1. **HE2.0→HE1.0 转换器**：把 `Car Ignite.he` 这类真实效果的曲线裁成 4 点、`PatternList`→`Pattern`。
-2. **参数映射**：
+### 5.2 实现状态
+1. [x] **HE2.0→HE1.0 转换器**：`He2Converter.toHe10Sdk()`（逐行复刻 SDK，只保留 `PatternList[0]`）
+   与 `toHe10BestEffort()`（type1 拍平所有 pattern、裁剪重叠、补齐 4 点）。见 `He2.kt`。
+2. [x] **原生 HE2.0**：`He2Json`/`RichTapHe2`/`RichTapRawCodec.encode(document)` 支持多 pattern、
+   `AbsoluteTime`、`Index`、4–16 点曲线、`transient`；type2 core≥24 直接走 HE2 raw。
+3. [ ] **参数映射**：
    - 振幅：游戏 rumble 强度 → `Parameters.Intensity`(0-100) 或 `Curve[].Intensity`(0-1)；帧级 → `start(..., amplitude, ...)`。
    - 频率：音频包络/谱心 → `Parameters.Frequency`(0-100) 或 `Curve[].Frequency` 偏移。
-3. **流式播放**：`getDuration()` 返回 -1（厂商不报时长），需要按自算时长分块 `start()`，或借助 `addParameter` + `HapticPlayer` 的实时更新（本机 `HapticPlayer` 无 `updateParameter`，只能重启）。
-4. **左右/多马达**：单马达设备（`vibratorIds=[0]`）；多马达需 `CombinedVibration` 组合。
+4. [~] **流式播放**：type1 仍按 200ms 分块 `start()`；type2 core≥24 已切 16 点 HE2.0，
+   但仍是分块重投递（未使用多 pattern/更长效果）。`getDuration()` 返回 -1（厂商不报时长）。
+5. [x] **左右/多马达**：`Index` 已贯通解析/编码；`swapVibrationIndex` 已接入服务（默认 false，
+   无 UI）。单马达设备（`vibratorIds=[0]`）无影响。
 
 ### 5.3 关键常量速查
 ```

@@ -3,7 +3,10 @@ package com.zyz4.gkme.haptic
 import kotlin.math.roundToInt
 
 /**
- * 把逐帧 PCM 的（归一化幅度, HE 频率）编码成 **HE 1.0 多事件效果**。
+ * 把逐帧 PCM 的（归一化幅度, HE 频率）编码成 **HE1.0 或 HE2.0 多事件效果**。
+ *
+ * - 默认 `he2=false, pointsPerEvent=4`：产 HE1.0，兼容 type 1 / core ≤ 23；
+ * - `he2=true, pointsPerEvent=16`：产 HE2.0，供 type 2 / core ≥ 24 保留事件内包络。
  *
  * 真机实测的硬约束（见 docs/richtap-hd-vibration.md）：
  * - 单条效果最多 [eventsPerChunk] 个事件（本机 16；超出会被 HAL 整条丢弃）；
@@ -11,7 +14,8 @@ import kotlin.math.roundToInt
  *   并使整条效果无输出）；
  * - 单个事件时长 ≤ 5000ms。
  *
- * 因此这里把时间轴切成 [eventsPerChunk] 个 [eventMs] 长的事件，每个事件压成 4 个控制点。
+ * 因此这里把时间轴切成 [eventsPerChunk] 个 [eventMs] 长的事件；HE1.0 每事件压成 4 个
+ * 控制点，HE2.0 可用 4–16 点（默认 16）保留事件内包络。
  *
  * **控制点时间必须聚到事件两端**（`0, ε, eventMs-ε, eventMs`）而不是均匀分布
  * （`0, eventMs/3, 2eventMs/3, eventMs`）。真机加速度计实测：均匀分布时厂商引擎会给
@@ -34,10 +38,23 @@ class PcmHeEncoder(
      * 0 = 关闭。
      */
     private val accentMs: Int = 0,
+    /**
+     * 每个事件的控制点数：type 1 必须恰好 4；type 2 / core ≥ 24 可用 4–16。
+     * 默认 4，保持既有行为。
+     */
+    val pointsPerEvent: Int = 4,
+    /** true 时输出 HE2.0 JSON（原生多 pattern/16 点通道）；false 输出 HE1.0。 */
+    val he2: Boolean = false,
 ) {
 
+    init {
+        require(pointsPerEvent in 4..16) { "pointsPerEvent must be 4..16: $pointsPerEvent" }
+        require(he2 || pointsPerEvent == 4) { "HE1.0 requires exactly 4 points per event" }
+    }
+
+    private val points = pointsPerEvent
+
     private companion object {
-        const val POINTS = 4
         const val MAX_OFFSET = 60.0
 
         /**
@@ -67,10 +84,10 @@ class PcmHeEncoder(
         const val PEAK_MIX = 0.85f
     }
 
-    private val ampSum = Array(eventsPerChunk) { FloatArray(POINTS) }
-    private val ampMax = Array(eventsPerChunk) { FloatArray(POINTS) }
-    private val heSum = Array(eventsPerChunk) { DoubleArray(POINTS) }
-    private val count = Array(eventsPerChunk) { IntArray(POINTS) }
+    private val ampSum = Array(eventsPerChunk) { FloatArray(points) }
+    private val ampMax = Array(eventsPerChunk) { FloatArray(points) }
+    private val heSum = Array(eventsPerChunk) { DoubleArray(points) }
+    private val count = Array(eventsPerChunk) { IntArray(points) }
     private var tMs = 0
 
     // 音频起点检测：静音（[noteSilence]/[flush]/[resetStream]）后置位，首个有声帧消费。
@@ -144,7 +161,7 @@ class PcmHeEncoder(
             return json
         }
         val local = tMs - e * eventMs
-        val p = (local * POINTS / eventMs).coerceIn(0, POINTS - 1)
+        val p = (local * points / eventMs).coerceIn(0, points - 1)
         ampSum[e][p] += amp
         if (amp > ampMax[e][p]) ampMax[e][p] = amp
         heSum[e][p] += he.coerceIn(0, 100).toDouble()
@@ -170,7 +187,7 @@ class PcmHeEncoder(
         startPending = true
         var lastNonEmpty = -1
         for (e in 0 until eventsPerChunk) {
-            for (p in 0 until POINTS) {
+            for (p in 0 until points) {
                 if (count[e][p] > 0) { lastNonEmpty = e; break }
             }
         }
@@ -190,13 +207,28 @@ class PcmHeEncoder(
             var ampPeak = 0.0
             var heAll = 0.0
             var cAll = 0
-            for (p in 0 until POINTS) {
+            // 每个桶自己的电平；桶为空时沿用前一个桶，保证曲线连续。
+            val bucketAmp = DoubleArray(points)
+            val bucketHe = DoubleArray(points)
+            var prevBucketAmp = lastAmp
+            var prevBucketHe = lastHe
+            for (p in 0 until points) {
                 val c = count[e][p]
-                if (c <= 0) continue
-                ampMeanSum += ampSum[e][p]
-                ampPeak = maxOf(ampPeak, ampMax[e][p].toDouble() * PEAK_MIX)
-                heAll += heSum[e][p]
-                cAll += c
+                if (c > 0) {
+                    val amp = maxOf(ampSum[e][p].toDouble() / c, ampMax[e][p].toDouble() * PEAK_MIX)
+                    val he = heSum[e][p] / c
+                    bucketAmp[p] = amp
+                    bucketHe[p] = he
+                    prevBucketAmp = amp
+                    prevBucketHe = he
+                    ampMeanSum += ampSum[e][p]
+                    ampPeak = maxOf(ampPeak, ampMax[e][p].toDouble() * PEAK_MIX)
+                    heAll += heSum[e][p]
+                    cAll += c
+                } else {
+                    bucketAmp[p] = prevBucketAmp
+                    bucketHe[p] = prevBucketHe
+                }
             }
             val ampE: Double
             val heE: Double
@@ -204,20 +236,68 @@ class PcmHeEncoder(
                 ampE = maxOf(ampMeanSum / cAll, ampPeak)
                 heE = heAll / cAll
             } else {
-                // 空事件：沿用上一事件电平，保证曲线连续且始终 4 点。
+                // 空事件：沿用上一事件电平，保证曲线连续。
                 ampE = lastAmp
                 heE = lastHe
             }
             val base = heE.roundToInt().coerceIn(BASE_MIN, BASE_MAX)
-            val edge = (EDGE_POINT_MS).coerceIn(1, (eventMs / 4).coerceAtLeast(1))
-            // 控制点聚到事件两端：0/ε 用上一事件收尾电平（起点连续），
-            // `eventMs-ε`/`eventMs` 用本事件聚合电平；引擎在两点间线性过渡 → 事件内也平滑。
-            val points = ArrayList<RichTapHe.CurvePoint>(POINTS)
-            points.add(edgePoint(0, lastAmp, lastHe, base, eventMs))
-            points.add(edgePoint(edge, lastAmp, lastHe, base, eventMs))
-            points.add(edgePoint(eventMs - edge, ampE, heE, base, eventMs))
-            points.add(edgePoint(eventMs, ampE, heE, base, eventMs))
-            events.add(RichTapHe.Event(e * eventMs, eventMs, base, points))
+            val edge = EDGE_POINT_MS.coerceIn(1, (eventMs / 4).coerceAtLeast(1))
+
+            val times = IntArray(points)
+            val pointAmp = DoubleArray(points)
+            val pointHe = DoubleArray(points)
+            if (points == 4) {
+                // type 1 的已验证布局：0, ε, eventMs-ε, eventMs。
+                times[0] = 0
+                times[1] = edge.coerceAtMost(eventMs / 2)
+                times[2] = (eventMs - edge).coerceAtLeast(times[1])
+                times[3] = eventMs
+                pointAmp[0] = lastAmp
+                pointAmp[1] = lastAmp
+                pointAmp[2] = ampE
+                pointAmp[3] = ampE
+                pointHe[0] = lastHe
+                pointHe[1] = lastHe
+                pointHe[2] = heE
+                pointHe[3] = heE
+            } else {
+                // HE2.0：首尾仍聚到两端，中间按桶均匀铺开，保留事件内包络细节。
+                times[0] = 0
+                times[1] = edge.coerceAtMost(eventMs / 3)
+                times[points - 2] = (eventMs - edge).coerceAtLeast(times[1])
+                times[points - 1] = eventMs
+                val denom = (points - 3).coerceAtLeast(1)
+                for (p in 2 until points - 2) {
+                    times[p] = times[1] +
+                        ((times[points - 2] - times[1]).toLong() * (p - 1) / denom).toInt()
+                }
+                for (p in 1 until points) {
+                    val minT = (times[p - 1] + 1).coerceAtMost(eventMs)
+                    times[p] = times[p].coerceIn(minT, eventMs)
+                }
+                for (p in 0 until points) {
+                    when {
+                        p <= 1 -> {
+                            pointAmp[p] = lastAmp
+                            pointHe[p] = lastHe
+                        }
+                        p >= points - 2 -> {
+                            pointAmp[p] = ampE
+                            pointHe[p] = heE
+                        }
+                        else -> {
+                            pointAmp[p] = bucketAmp[p]
+                            pointHe[p] = bucketHe[p]
+                        }
+                    }
+                }
+            }
+
+            val pts = ArrayList<RichTapHe.CurvePoint>(points)
+            for (p in 0 until points) {
+                pts.add(edgePoint(times[p], pointAmp[p], pointHe[p], base, eventMs))
+            }
+            events.add(RichTapHe.Event(e * eventMs, eventMs, base, pts))
             lastAmp = ampE
             lastHe = heE
         }
@@ -225,7 +305,7 @@ class PcmHeEncoder(
         seamAmp = lastAmp
         seamHe = lastHe
         appendPulses(events, eventCount)
-        return RichTapHe.pattern(events)
+        return if (he2) RichTapHe2.patternFromEvents(events) else RichTapHe.pattern(events)
     }
 
     /** 生成一个控制点：频率偏移相对事件基频 [base]，幅度-频率补偿后再走引擎的次方律逆变换。 */

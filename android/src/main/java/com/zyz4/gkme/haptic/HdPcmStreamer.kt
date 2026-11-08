@@ -92,7 +92,30 @@ object HdPcmStreamer {
     private const val ONSET_ACCENT_MS = 5
 
     private val lock = Any()
-    private val encoder = PcmHeEncoder(EVENTS_PER_CHUNK, EVENT_MS, ONSET_ACCENT_MS)
+    @Volatile
+    private var encoder = PcmHeEncoder(EVENTS_PER_CHUNK, EVENT_MS, ONSET_ACCENT_MS)
+
+    /**
+     * 根据当前 backend 选择编码器：
+     * - type 2 / core ≥ 24：HE2.0 + 每事件 16 点，保留事件内包络；
+     * - 其他：HE1.0 + 4 点，保持既有真机标定行为。
+     *
+     * 只在分块空闲时切换，避免丢掉正在累积的样本。
+     */
+    private fun ensureEncoderMode() {
+        val wantHe2 = HapticInjector.nativeHe20
+        if (encoder.he2 == wantHe2) return
+        synchronized(lock) {
+            if (pending || lastNs != 0L) return
+            encoder = PcmHeEncoder(
+                eventsPerChunk = EVENTS_PER_CHUNK,
+                eventMs = EVENT_MS,
+                accentMs = ONSET_ACCENT_MS,
+                pointsPerEvent = if (wantHe2) 16 else 4,
+                he2 = wantHe2,
+            )
+        }
+    }
     private var lastNs = 0L
     private var pending = false
     private var heldSinceNs = 0L
@@ -114,6 +137,7 @@ object HdPcmStreamer {
     fun submit(left: Int, right: Int, pitchHz: Double): Boolean {
         if (!PhoneHdHaptics.enabled) return false
         if (!HapticInjector.isHapticReady()) return false
+        ensureEncoderMode()
         ensureWatchdog()
 
         // 被更高优先级来源（自适应扳机）占用：暂停累积并保留缓冲，解禁后继续，

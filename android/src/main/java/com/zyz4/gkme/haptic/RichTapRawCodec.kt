@@ -74,9 +74,49 @@ object RichTapRawCodec {
             if (heVersion == 1) {
                 encodeHe10(out, events, coreMajorRichTap)
             } else {
-                // SDK：HE2.0 要求 core > 24
+                // SDK：HE2.0 要求 core >= 24
                 if (coreMajorRichTap < 24) return null
-                encodeHe20(out, patterns ?: listOf(HePattern(0, events)), coreMajorRichTap, minorRichTap, pid, sid, swapVibrationIndex)
+                encodeHe20(
+                    out,
+                    patterns ?: listOf(HePattern(0, events)),
+                    coreMajorRichTap,
+                    minorRichTap,
+                    pid,
+                    sid,
+                    swapVibrationIndex,
+                )
+            }
+        } catch (_: Throwable) {
+            return null
+        }
+        if (out.isEmpty()) return null
+        return IntArray(out.size) { out[it] }
+    }
+
+    /**
+     * 从统一的 [HeDocument] 编码：
+     * - core ≤ 23：best-effort 转 HE1.0，走 HE1 raw；
+     * - core ≥ 24：归一化后走原生 HE2.0 raw（多 pattern、16 点、Index）。
+     *
+     * SDK `RichTapPerformer.start()` 也是按 core 版本选择 1/2，而不是按输入 JSON 的版本。
+     */
+    fun encode(
+        document: HeDocument,
+        coreMajorRichTap: Int,
+        minorRichTap: Int,
+        pid: Int,
+        sid: Int,
+        swapVibrationIndex: Boolean,
+    ): IntArray? {
+        val out = ArrayList<Int>(128)
+        try {
+            if (coreMajorRichTap <= 23) {
+                val he10 = He2Converter.toHe10BestEffort(document) ?: return null
+                val events = he10.patterns.firstOrNull()?.events ?: return null
+                encodeHe10(out, events, coreMajorRichTap)
+            } else {
+                val he20 = He2Converter.normalizeForHe20(document) ?: return null
+                encodeHe20(out, he20.patterns, coreMajorRichTap, minorRichTap, pid, sid, swapVibrationIndex)
             }
         } catch (_: Throwable) {
             return null
@@ -87,7 +127,7 @@ object RichTapRawCodec {
 
     /** SDK HE1.0 分支（`i2 == 1`）。 */
     private fun encodeHe10(out: ArrayList<Int>, events: List<HeEvent>, coreMajor: Int) {
-        out.add(if (coreMajor > 24) 3 else 1)
+        out.add(if (coreMajor >= 24) 3 else 1)
         val size = minOf(events.size, MAX_EVENTS)
         for (i in 0 until size) {
             val e = events[i]
@@ -172,8 +212,9 @@ object RichTapRawCodec {
                         out.add(swapId(e.vibrationId, swap))
                         out.add(e.relativeTimeMs)
                         out.add(e.params.intensity)
-                        out.add(e.params.frequency)
-                        out.add(e.durationMs)
+                        // SDK 解析 HE2.0 时会把 transient 频率夹到 0..100、时长补 48ms。
+                        out.add(e.params.frequency.coerceIn(0, 100))
+                        out.add(if (e.durationMs <= 0) 48 else e.durationMs)
                     }
 
                     TYPE_CONTINUOUS -> {

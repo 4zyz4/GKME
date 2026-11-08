@@ -6,7 +6,9 @@ import android.os.Process
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.Log
-import com.zyz4.gkme.haptic.HeJson
+import com.zyz4.gkme.haptic.He2Converter
+import com.zyz4.gkme.haptic.He2Json
+import com.zyz4.gkme.haptic.HeDocument
 import com.zyz4.gkme.haptic.RichTapRawCodec
 import java.lang.reflect.Field
 import java.lang.reflect.Method
@@ -65,6 +67,13 @@ class RemoteHapticService @JvmOverloads constructor(
     @Volatile
     private var packageName: String = DEFAULT_PACKAGE
 
+    /**
+     * HE2.0 的 `Index` 左右交换。部分机型把左右马达索引接反，SDK 提供
+     * `swapVibrationIndex(boolean)`；默认 false，保持厂商语义。
+     */
+    @Volatile
+    var swapVibrationIndex: Boolean = false
+
     // ── type 1 资源 ──
     @Volatile
     private var player: Any? = null
@@ -105,6 +114,9 @@ class RemoteHapticService @JvmOverloads constructor(
     /** 是否支持 type 2 实时调参（`createHapticParameter`）。 */
     fun supportsRealtimeAdjustment(): Boolean = playerType == PLAYER_RICHTAP && coreMajor >= 32
 
+    /** 是否支持原生 HE2.0 raw（type 2 且 core ≥ 24）。 */
+    fun supportsNativeHe20(): Boolean = playerType == PLAYER_RICHTAP && coreMajor >= 24
+
     // ── 效果下发 ──
 
     fun startPattern(
@@ -115,21 +127,37 @@ class RemoteHapticService @JvmOverloads constructor(
         freq: Int,
     ): Boolean {
         if (!available) return false
+        val document = He2Json.parse(heJson)
         return if (playerType == PLAYER_RICHTAP) {
-            startRichtap(heJson, loop, interval, amplitude, freq)
+            val doc = document ?: return false
+            startRichtap(doc, loop, interval, amplitude, freq)
         } else {
-            startTencent(heJson, loop, interval, amplitude, freq)
+            startTencent(toHe10Json(heJson, document), loop, interval, amplitude, freq)
         }
     }
 
     fun startEffect(heJson: String): Boolean {
         if (!available) return false
+        val document = He2Json.parse(heJson)
         return if (playerType == PLAYER_RICHTAP) {
+            val doc = document ?: return false
             // 事件自带参数：无全局覆盖（对齐 SDK start() 的 1,0,gain,0）。
-            startRichtap(heJson, 1, 0, 255, 0)
+            startRichtap(doc, 1, 0, 255, 0)
         } else {
-            startTencentEffect(heJson)
+            startTencentEffect(toHe10Json(heJson, document))
         }
+    }
+
+    /**
+     * type 1 只能吃 HE1.0：
+     * - 输入本来就是 HE1.0：原样下发，避免改变已验证的预置效果/分块行为；
+     * - 输入是 HE2.0：best-effort 转换后序列化为 HE1.0。
+     */
+    private fun toHe10Json(original: String, document: HeDocument?): String {
+        if (document == null) return original
+        if (document.version == He2Json.VERSION_1 && document.patterns.size == 1) return original
+        val he10 = He2Converter.toHe10BestEffort(document) ?: return original
+        return He2Json.writeHe10(he10)
     }
 
     fun updateParameter(intensity: Int, frequency: Int): Boolean {
@@ -206,33 +234,45 @@ class RemoteHapticService @JvmOverloads constructor(
         }
     }
 
-    private fun startRichtap(heJson: String, loop: Int, interval: Int, amplitude: Int, freq: Int): Boolean {
+    private fun startRichtap(
+        document: HeDocument,
+        loop: Int,
+        interval: Int,
+        amplitude: Int,
+        freq: Int,
+    ): Boolean {
         val method = createPatternHeWithParam ?: return false
         val vib = vibrator ?: return false
-        val events = HeJson.parseHe10(heJson)
-        if (events.isNullOrEmpty()) {
-            Log.w(TAG, "type 2 解析 HE 失败")
+        if (document.events().isEmpty()) {
+            Log.w(TAG, "type 2 效果没有事件")
             return false
         }
-        // SDK：core ≤ 23 走 HE1.0，否则包成单个 pattern 走 HE2.0（带 senderId，便于实时调参）。
+        // SDK：core ≤ 23 走 HE1.0（有损转换），core ≥ 24 原生 HE2.0 raw。
         val heVersion = if (coreMajor <= 23) 1 else 2
         val raw = RichTapRawCodec.encode(
-            events = events,
-            heVersion = heVersion,
+            document = document,
             coreMajorRichTap = coreMajor,
             minorRichTap = coreMinor,
             pid = pid,
             sid = nextSid(),
-            // 左右马达交换未接入 UI；保留 SDK 的默认（不交换）。
-            swapVibrationIndex = false,
-        ) ?: return false
+            swapVibrationIndex = swapVibrationIndex,
+        ) ?: run {
+            Log.w(TAG, "type 2 编码 HE 失败: version=${document.version} patterns=${document.patterns.size}")
+            return false
+        }
         synchronized(lock) {
             return try {
+                // SDK `RichTapPerformer.start()` 恒传 freq=0；频率由事件 `Parameters.Frequency`
+                // 决定。传非 0 的全局 freq 可能被厂商实现当成覆盖/叠加，导致频率翻倍或偏移。
                 val effect = method.invoke(
-                    null, raw, loop, interval, amplitude.coerceIn(0, 255), freq.coerceIn(0, 100),
+                    null, raw, loop, interval, amplitude.coerceIn(0, 255), 0,
                 ) as VibrationEffect
                 vib.vibrate(effect)
-                Log.i(TAG, "startRichtap heV=$heVersion raw=${raw.size} loop=$loop interval=$interval amp=$amplitude freq=$freq")
+                Log.i(
+                    TAG,
+                    "startRichtap heV=$heVersion raw=${raw.size} patterns=${document.patterns.size} " +
+                        "loop=$loop interval=$interval amp=$amplitude requestedFreq=$freq",
+                )
                 true
             } catch (t: Throwable) {
                 Log.e(TAG, "startRichtap 失败", t)

@@ -289,7 +289,7 @@ object PhoneHdHaptics {
                     } else {
                         wantAmp
                     }
-                    if (HapticInjector.updateParameter(realtimeAmp, wantFreq)) {
+                    if (HapticInjector.updateParameter(realtimeAmp, wantFreq, source)) {
                         appliedAmp = wantAmp
                         appliedFreq = wantFreq
                         appliedLowHz = 0.0

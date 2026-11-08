@@ -61,6 +61,23 @@ object HapticInjector {
     var realtimeAdjust: Boolean = false
         private set
 
+    /**
+     * 是否走原生 HE2.0 raw（type 2 且 core ≥ 24）。
+     *
+     * 为 true 时 PCM 编码器会用 16 点曲线和 HE2.0 JSON；否则保持 HE1.0/4 点。
+     */
+    @Volatile
+    var nativeHe20: Boolean = false
+        private set
+
+    /** HE2.0 `Index` 左右交换开关；无 UI，默认 false。 */
+    @Volatile
+    var swapVibrationIndex: Boolean = false
+        set(value) {
+            field = value
+            service?.swapVibrationIndex = value
+        }
+
     @Volatile
     private var initialized = false
 
@@ -79,6 +96,7 @@ object HapticInjector {
         }
         if (local != null && local.available) {
             service = local
+            local.swapVibrationIndex = swapVibrationIndex
             refreshCapabilities(local)
             Log.i(TAG, "使用 app 进程内 RichTap: playerType=$playerType version=$version")
         }
@@ -105,6 +123,11 @@ object HapticInjector {
         }
         realtimeAdjust = try {
             svc.supportsRealtimeAdjustment()
+        } catch (_: Throwable) {
+            false
+        }
+        nativeHe20 = try {
+            svc.supportsNativeHe20()
         } catch (_: Throwable) {
             false
         }
@@ -182,9 +205,11 @@ object HapticInjector {
      * type 2 专用：实时调整当前效果的全局强度/频率（`createHapticParameter`），无需 stop+start。
      * [amplitude] 0-255 会换算成引擎的 0-100 强度。仅当 [realtimeAdjust] 为 true 时有效。
      */
-    fun updateParameter(amplitude: Int, frequency: Int): Boolean {
+    fun updateParameter(amplitude: Int, frequency: Int, source: HapticSource? = null): Boolean {
         val svc = service ?: return false
         if (!available || !realtimeAdjust) return false
+        // 防止被更高优先级来源抢占后，旧来源的 tick 用同一个 sender group 改到新效果。
+        if (source != null && arbiter.current() !== source) return false
         val intensity = (amplitude.coerceIn(0, 255) * 100 / 255)
         return try {
             svc.updateParameter(intensity, frequency.coerceIn(0, 100))
@@ -255,6 +280,7 @@ object HapticInjector {
         available = false
         playerType = 0
         realtimeAdjust = false
+        nativeHe20 = false
         initialized = false
     }
 }

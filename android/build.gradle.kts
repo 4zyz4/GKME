@@ -139,6 +139,8 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.2.0")
 
     testImplementation("junit:junit:4.13.2")
+    // Android 的 org.json 在 JVM 单测里是 stub；用真实实现测试 HE 解析/序列化。
+    testImplementation("org.json:json:20240303")
 }
 
 protobuf {
