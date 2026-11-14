@@ -639,4 +639,11 @@
     <string name="i18n_other" formatted="false">"Other"</string>
     <string name="i18n_expand" formatted="false">"Expand"</string>
     <string name="i18n_collapse" formatted="false">"Collapse"</string>
+    <string name="i18n_gpl3_agreement_title" formatted="false">"GNU GPLv3 Agreement"</string>
+    <string name="i18n_gpl3_agreement_message" formatted="false">"GKME is free software, released under the GNU General Public License, version 3 (GPLv3), not proprietary software.\n\nYou may run, study, modify and redistribute it; when distributing a modified version, keep the copyright and license notices and provide the complete source code under the GPLv3.\n\nThis app is provided “as is”, without any warranty. Continuing means you agree to the GPLv3; if not, please exit."</string>
+    <string name="i18n_gpl3_view_full" formatted="false">"Read the full GPLv3"</string>
+    <string name="i18n_gpl3_full_title" formatted="false">"GNU General Public License, Version 3"</string>
+    <string name="i18n_gpl3_text_unavailable" formatted="false">"The full GPLv3 text could not be loaded."</string>
+    <string name="i18n_agree_and_continue" formatted="false">"Agree and continue"</string>
+    <string name="i18n_exit_app" formatted="false">"Exit app"</string>
 </resources>

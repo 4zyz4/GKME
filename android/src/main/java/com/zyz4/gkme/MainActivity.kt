@@ -261,9 +261,19 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
         enableEdgeToEdge()
         hideSystemBars()
+        // Register the appearance image-picker launchers before the activity is resumed. This
+        // must stay ahead of the license gate because the gate may defer the main UI until the
+        // user taps "agree" (too late for registerForActivityResult).
+        setupAppearanceImageLaunchers()
+        // 首次启动必须先接受 GPLv3；未接受时不构建主界面，也不会启动任何服务。
+        if (!ensureLicenseAgreement(onAccepted = { startMainContent() })) return
+        startMainContent()
+    }
+
+    private fun startMainContent() {
+        setContentView(R.layout.activity_main)
         gamepadLayout = findViewById(R.id.gamepadLayout)
         floatingController = FloatingModeController(this)
         physicalControllerHandler = PhysicalControllerHandler(this)
@@ -272,11 +282,6 @@ class MainActivity : ComponentActivity() {
         viewModel.onHapticFeedbackPress = { performHaptic(isPress = true) }
         viewModel.onHapticFeedbackRelease = { performHaptic(isPress = false) }
         gamepadLayout.applyAppearance(viewModel.settings.value)
-        // Register the appearance image-picker launchers now (registration must happen before
-        // the activity is resumed). The settings panel itself is inflated lazily on the first
-        // showSettings(), and the inflation is also pre-scheduled off the startup path so the
-        // first frame stays fast.
-        setupAppearanceImageLaunchers()
         Handler(Looper.getMainLooper()).postDelayed({
             // 首帧之后再初始化 Shizuku 监听与 RichTap 预置资源，避免拖慢启动。
             // 注册 Shizuku 监听（本机模式使用），以便连接页正确显示授权条目状态。
@@ -366,7 +371,7 @@ class MainActivity : ComponentActivity() {
             runCatching { floatingController.exit() }
             stopService(Intent(this, FloatingOverlayService::class.java))
         }
-        physicalControllerHandler.stop()
+        if (::physicalControllerHandler.isInitialized) physicalControllerHandler.stop()
         mediaSession?.release()
         displayManager.unregisterDisplayListener(displayListener)
         super.onDestroy()
@@ -398,6 +403,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun maybeAutoEnterFloating() {
+        // 协议门槛尚未通过时主界面还没构建，此时不要初始化 ViewModel 或触碰手柄布局。
+        if (!::gamepadLayout.isInitialized) return
         if (viewModel.settings.value.connectionMode != ConnectionMode.LOCAL) return
         if (viewModel.connectionState.value.phase == ConnectionPhase.IDLE) return
         if (!::floatingController.isInitialized || floatingController.isActive) return
@@ -593,8 +600,10 @@ class MainActivity : ComponentActivity() {
         // In screen-off mode the gamepad is meant for gameplay: swallow controller
         // BACK events (e.g. the B button) so only the real back key/gesture exits.
         if (isScreenOff && isGamepadBackEvent(event)) return true
-        if (isPhysicalGamepadKey(event.keyCode) &&
-            physicalControllerHandler.handleKeyEvent(event)) {
+        if (::physicalControllerHandler.isInitialized &&
+            isPhysicalGamepadKey(event.keyCode) &&
+            physicalControllerHandler.handleKeyEvent(event)
+        ) {
             syncPhysicalControllerState()
             return true
         }
@@ -602,10 +611,14 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (event != null && physicalControllerHandler.handleKeyEvent(event)) {
+        if (event != null && ::physicalControllerHandler.isInitialized &&
+            physicalControllerHandler.handleKeyEvent(event)
+        ) {
             syncPhysicalControllerState()
             return true
         }
+        // 协议门槛尚未通过时主界面还没构建，不要让音量键提前创建 ViewModel。
+        if (!::gamepadLayout.isInitialized) return super.onKeyDown(keyCode, event)
         val preset = viewModel.currentPreset.value
         when (keyCode) {
             KeyEvent.KEYCODE_VOLUME_UP -> {
@@ -635,10 +648,13 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
-        if (event != null && physicalControllerHandler.handleKeyEvent(event)) {
+        if (event != null && ::physicalControllerHandler.isInitialized &&
+            physicalControllerHandler.handleKeyEvent(event)
+        ) {
             syncPhysicalControllerState()
             return true
         }
+        if (!::gamepadLayout.isInitialized) return super.onKeyUp(keyCode, event)
         val preset = viewModel.currentPreset.value
         when (keyCode) {
             KeyEvent.KEYCODE_VOLUME_UP -> {
@@ -668,7 +684,9 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun dispatchGenericMotionEvent(event: MotionEvent?): Boolean {
-        if (event != null && physicalControllerHandler.handleMotionEvent(event)) {
+        if (event != null && ::physicalControllerHandler.isInitialized &&
+            physicalControllerHandler.handleMotionEvent(event)
+        ) {
             syncPhysicalControllerState()
             return true
         }
@@ -676,8 +694,10 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun dispatchTouchEvent(event: MotionEvent?): Boolean {
-        if (event != null && event.device?.vendorId == 0x054c &&
-            physicalControllerHandler.handleMotionEvent(event)) {
+        if (event != null && ::physicalControllerHandler.isInitialized &&
+            event.device?.vendorId == 0x054c &&
+            physicalControllerHandler.handleMotionEvent(event)
+        ) {
             syncPhysicalControllerState()
             return true
         }

@@ -639,4 +639,11 @@
     <string name="i18n_other" formatted="false">"其他"</string>
     <string name="i18n_expand" formatted="false">"展開"</string>
     <string name="i18n_collapse" formatted="false">"收起"</string>
+    <string name="i18n_gpl3_agreement_title" formatted="false">"GNU GPLv3 使用者協議"</string>
+    <string name="i18n_gpl3_agreement_message" formatted="false">"本應用程式（GKME）是自由軟體，依據 GNU 通用公共許可證第 3 版（GPLv3）發佈，並非專有軟體。\n\n你可以自由執行、研究、修改和重新發佈本應用程式；重新發佈修改後的版本時，須保留版權與授權聲明，並以 GPLv3 提供完整的對應原始碼。\n\n本應用程式按「原樣」提供，不附帶任何擔保。繼續即表示你同意 GPLv3；不同意請退出應用程式。"</string>
+    <string name="i18n_gpl3_view_full" formatted="false">"查看 GPLv3 全文"</string>
+    <string name="i18n_gpl3_full_title" formatted="false">"GNU 通用公共許可證第 3 版"</string>
+    <string name="i18n_gpl3_text_unavailable" formatted="false">"無法讀取 GPLv3 全文。"</string>
+    <string name="i18n_agree_and_continue" formatted="false">"同意並繼續"</string>
+    <string name="i18n_exit_app" formatted="false">"退出應用程式"</string>
 </resources>

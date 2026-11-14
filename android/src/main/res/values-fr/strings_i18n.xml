@@ -639,4 +639,11 @@
     <string name="i18n_other" formatted="false">"Autre"</string>
     <string name="i18n_expand" formatted="false">"Développer"</string>
     <string name="i18n_collapse" formatted="false">"Réduire"</string>
+    <string name="i18n_gpl3_agreement_title" formatted="false">"Contrat de licence GNU GPLv3"</string>
+    <string name="i18n_gpl3_agreement_message" formatted="false">"GKME est un logiciel libre, publié sous la GNU General Public License, version 3 (GPLv3), et non un logiciel propriétaire.\n\nVous pouvez l'exécuter, l'étudier, le modifier et le redistribuer librement ; lors de la redistribution d'une version modifiée, conservez les mentions de copyright et de licence et fournissez le code source complet sous GPLv3.\n\nCette application est fournie « en l'état », sans garantie. Continuer signifie que vous acceptez la GPLv3 ; sinon, veuillez quitter."</string>
+    <string name="i18n_gpl3_view_full" formatted="false">"Lire la GPLv3 intégrale"</string>
+    <string name="i18n_gpl3_full_title" formatted="false">"GNU General Public License, version 3"</string>
+    <string name="i18n_gpl3_text_unavailable" formatted="false">"Impossible de charger le texte intégral de la GPLv3."</string>
+    <string name="i18n_agree_and_continue" formatted="false">"Accepter et continuer"</string>
+    <string name="i18n_exit_app" formatted="false">"Quitter l'application"</string>
 </resources>
