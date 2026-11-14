@@ -45,7 +45,6 @@ Write "None" if not applicable.
 
 ## Checklist
 
-- [ ] I have read the [Contributing Guide](../CONTRIBUTING.md).
 - [ ] The change is focused and does not include unrelated formatting or renames.
 - [ ] I have added or updated tests where applicable.
 - [ ] I have updated the affected documentation (`docs/`, `README.md`, `README.zh-CN.md`).
