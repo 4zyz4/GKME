@@ -514,9 +514,12 @@ class MainActivity : ComponentActivity() {
     /** True while the user is picking the physical-controller driver from the spinner. */
     internal var controllerDriverUserSelecting = false
 
-    /** Drivers backing the physical-controller driver spinner. */
+    /** Drivers backing the physical-controller driver spinner; AUTO is the default choice. */
     internal var controllerDriverEntries: List<com.zyz4.gkme.model.ControllerDriver> =
-        com.zyz4.gkme.model.ControllerDriver.entries
+        listOf(com.zyz4.gkme.model.ControllerDriver.AUTO) +
+            com.zyz4.gkme.model.ControllerDriver.entries.filter {
+                it != com.zyz4.gkme.model.ControllerDriver.AUTO
+            }
 
     /** True while the user is picking a game-rumble device from the spinner. */
     internal var gameVibrationUserSelecting = false

@@ -1,5 +1,6 @@
 package com.zyz4.gkme.input
 
+import android.app.Activity
 import android.content.Context
 import android.hardware.usb.UsbManager
 import android.view.InputDevice
@@ -12,7 +13,9 @@ import com.zyz4.gkme.input.usb.ProConController
 import com.zyz4.gkme.input.usb.Xbox360Controller
 import com.zyz4.gkme.input.usb.Xbox360WirelessDongle
 import com.zyz4.gkme.input.usb.XboxOneController
+import com.zyz4.gkme.input.usb.wireless.dualsense.DirectDualSenseBluetoothManager
 import com.zyz4.gkme.model.ControllerDriver
+import com.zyz4.gkme.model.PhysicalInputs
 import com.zyz4.gkme.model.TouchPoint
 import com.zyz4.gkme.model.VibrationDevice
 import com.zyz4.gkme.model.VibrationDeviceType
@@ -49,12 +52,16 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
     private var fallbackToSdl = false
 
     /** The driver chosen by the user in the settings. */
-    var driver: ControllerDriver = ControllerDriver.SDL3
+    var driver: ControllerDriver = ControllerDriver.AUTO
         private set
 
-    /** The driver actually in use; differs from [driver] when a fallback to SDL3 is active. */
+    /** The driver actually in use; differs from [driver] while AUTO resolves or falls back. */
     private val _activeDriver = MutableStateFlow(ControllerDriver.SDL3)
     val activeDriver: StateFlow<ControllerDriver> = _activeDriver.asStateFlow()
+
+    /** Cached result of the SDL3 paddle probe for one set of attached system gamepads. */
+    private var paddleProbeKey: String? = null
+    private var paddleProbeHasPaddles = false
 
     // Facade-owned flows so existing collectors stay valid across driver switches.
     private val _isConnected = MutableStateFlow(false)
@@ -137,6 +144,7 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
         if (newDriver == driver) return
         driver = newDriver
         fallbackToSdl = false
+        paddleProbeKey = null
         if (started) {
             stopBackend()
             createAndStartBackend()
@@ -152,12 +160,14 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
     }
 
     private fun createAndStartBackend() {
-        val effectiveDriver = if (fallbackToSdl) ControllerDriver.SDL3 else driver
+        val effectiveDriver = resolveEffectiveDriver()
         val newBackend: PhysicalControllerBackend = when (effectiveDriver) {
             ControllerDriver.SDL3 -> SdlPhysicalControllerBackend(context)
             ControllerDriver.AXIXI2233_USB -> UsbPhysicalControllerBackend(context)
             ControllerDriver.INPUT_MANAGER -> InputManagerPhysicalControllerBackend(context)
             ControllerDriver.DUALSENSE_BLUETOOTH -> DualSenseBluetoothPhysicalControllerBackend(context)
+            // AUTO is resolved above; the default keeps the exhaustive when well-formed.
+            ControllerDriver.AUTO -> SdlPhysicalControllerBackend(context)
         }
         newBackend.controllerGyroEnabled = storedControllerGyroEnabled
         newBackend.inputControllerIndex = storedInputControllerIndex
@@ -173,16 +183,105 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
     }
 
     /**
+     * Resolves the backend to start. Explicit choices are used as-is (the USB driver keeps
+     * its existing SDL3 compatibility fallback); [ControllerDriver.AUTO] is evaluated against
+     * the devices that are attached right now.
+     */
+    private fun resolveEffectiveDriver(): ControllerDriver = when {
+        driver == ControllerDriver.AUTO -> resolveAutoDriver()
+        fallbackToSdl -> ControllerDriver.SDL3
+        else -> driver
+    }
+
+    /**
+     * Automatic driver order:
+     * 1. Axixi2233 USB driver (when an attached USB device matches it);
+     * 2. Direct DualSense Bluetooth output (system-Bluetooth PS5 pad);
+     * 3. InputManager for any other system gamepad;
+     * 4. SDL3 as the final fallback (also covers HIDAPI-only pads).
+     *
+     * Controllers with back paddles swap 3 and 4: only SDL3 reports the paddle buttons, so
+     * InputManager's extra compatibility is not worth losing them.
+     */
+    private fun resolveAutoDriver(): ControllerDriver {
+        if (isUsbDriverCompatible()) return ControllerDriver.AXIXI2233_USB
+        val gamepads = systemGamepads()
+        if (gamepads.any { DirectDualSenseBluetoothManager.isDualSenseBluetooth(context, it) }) {
+            return ControllerDriver.DUALSENSE_BLUETOOTH
+        }
+        if (gamepads.isEmpty()) return ControllerDriver.SDL3
+        return when (detectPaddles(gamepads)) {
+            true -> ControllerDriver.SDL3
+            false -> ControllerDriver.INPUT_MANAGER
+            // SDL3 has not enumerated the pad yet; keep the fallback until it can answer.
+            null -> ControllerDriver.SDL3
+        }
+    }
+
+    /**
+     * Returns whether the attached pads expose back paddles, or `null` when the active SDL3
+     * backend has not enumerated them yet. The answer is cached per attached-device set so
+     * the one-second monitor does not restart SDL3 on every tick.
+     */
+    private fun detectPaddles(gamepads: List<InputDevice>): Boolean? {
+        val key = gamepads.joinToString("|") { "${it.id}:${it.vendorId}:${it.productId}:${it.name}" }
+        if (key == paddleProbeKey) return paddleProbeHasPaddles
+        val active = backend
+        val result = if (active is SdlPhysicalControllerBackend) {
+            val infos = _connectedControllers.value
+            if (infos.isEmpty()) return null
+            infos.any { it.supportedButtons and PhysicalInputs.PADDLE_MASK != 0 }
+        } else {
+            probeSdlPaddles()
+        }
+        paddleProbeKey = key
+        paddleProbeHasPaddles = result
+        return result
+    }
+
+    /**
+     * Starts a short-lived SDL3 session to read the paddle capability of the attached pads.
+     * Must only be called while no SDL3 backend is running: the session is always shut down
+     * before returning, and a real SDL3 backend starts from a clean slate when it is chosen.
+     */
+    private fun probeSdlPaddles(): Boolean {
+        val activity = context as? Activity ?: return false
+        return try {
+            SdlPlatform.ensureCore(activity)
+            if (!SdlNative.nativeInit()) return false
+            (0 until SdlNative.nativeGetControllerCount()).any { index ->
+                SdlNative.nativeGetControllerButtonMask(index) and PhysicalInputs.PADDLE_MASK != 0
+            }
+        } catch (_: Throwable) {
+            false
+        } finally {
+            runCatching { SdlNative.nativeShutdown() }
+        }
+    }
+
+    /**
      * Watches for a gamepad that the USB driver cannot handle and transparently
      * retries the connection through SDL3. The user's driver preference is kept, so
      * once a supported controller is attached (or the current one is removed) the
      * USB driver is brought back up automatically.
+     *
+     * In AUTO mode the monitor also re-resolves the driver when the attached-device
+     * set changes (hot-plug, Bluetooth pairing) and switches backends if needed.
      */
     private fun startCompatibilityMonitor() {
         compatibilityJob?.cancel()
         compatibilityJob = scope.launch {
             while (isActive) {
                 delay(COMPATIBILITY_CHECK_INTERVAL_MS)
+                if (driver == ControllerDriver.AUTO) {
+                    if (!started) continue
+                    val desired = resolveAutoDriver()
+                    if (desired != _activeDriver.value) {
+                        stopBackend()
+                        createAndStartBackend()
+                    }
+                    continue
+                }
                 if (driver != ControllerDriver.AXIXI2233_USB) continue
                 val shouldFallback = hasSystemGamepad() && !isUsbDriverCompatible()
                 if (shouldFallback == fallbackToSdl) continue
@@ -213,20 +312,24 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
         }
     }
 
-    /** True when Android reports an attached gamepad or joystick (wired or wireless). */
-    private fun hasSystemGamepad(): Boolean {
+    /** All attached Android input devices that report themselves as a gamepad/joystick. */
+    private fun systemGamepads(): List<InputDevice> {
         return try {
-            InputDevice.getDeviceIds().any { id ->
-                val device = InputDevice.getDevice(id) ?: return@any false
-                if (VirtualGamepad.matches(device)) return@any false
+            InputDevice.getDeviceIds().toList().mapNotNull { id ->
+                val device = InputDevice.getDevice(id) ?: return@mapNotNull null
+                if (VirtualGamepad.matches(device)) return@mapNotNull null
                 val sources = device.sources
-                (sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD) ||
-                    (sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK)
+                val gamepad = sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD
+                val joystick = sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK
+                device.takeIf { gamepad || joystick }
             }
         } catch (_: Exception) {
-            false
+            emptyList()
         }
     }
+
+    /** True when Android reports an attached gamepad or joystick (wired or wireless). */
+    private fun hasSystemGamepad(): Boolean = systemGamepads().isNotEmpty()
 
     private fun stopBackend() {
         mirrorJobs.forEach { it.cancel() }

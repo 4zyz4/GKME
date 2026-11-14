@@ -532,18 +532,32 @@ void pollLoop() {
     const bool ok = SDL_InitSubSystem(SDL_INIT_GAMEPAD | SDL_INIT_SENSOR);
     if (!ok) {
         LOGE("SDL_Init failed: %s", SDL_GetError());
-    }
-    {
-        std::lock_guard<std::mutex> lock(g_initMutex);
-        g_initResult = ok;
-        g_initFinished = true;
-    }
-    g_initCv.notify_all();
-
-    if (!ok) {
+        {
+            std::lock_guard<std::mutex> lock(g_initMutex);
+            g_initResult = false;
+            g_initFinished = true;
+        }
+        g_initCv.notify_all();
         g_running.store(false);
         return;
     }
+
+    // Enumerate the attached pads once before reporting success. The auto driver selector
+    // queries the button mask immediately after nativeInit() returns, so the controller
+    // list must already be populated at that point.
+    {
+        std::lock_guard<std::mutex> lock(g_mutex);
+        SDL_PumpEvents();
+        SDL_UpdateGamepads();
+        reconcileLocked();
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(g_initMutex);
+        g_initResult = true;
+        g_initFinished = true;
+    }
+    g_initCv.notify_all();
 
     while (g_running.load(std::memory_order_relaxed)) {
         {

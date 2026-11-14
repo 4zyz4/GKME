@@ -83,4 +83,11 @@ class DirectDualSenseBluetoothManager(context: Context) : Closeable {
         transport = created
         return created
     }
+
+    companion object {
+        /** True when [device] is a DualSense reachable through the system Bluetooth stack. */
+        fun isDualSenseBluetooth(context: Context, device: InputDevice): Boolean =
+            AndroidBluetoothHidHostTransport.isAvailable(context) &&
+                DirectDualSenseBluetoothOutput.supports(device)
+    }
 }

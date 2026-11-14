@@ -42,6 +42,16 @@ enum class ControllerDriver(@StringRes val displayNameRes: Int) {
     INPUT_MANAGER(R.string.i18n_input_manager),
     /** 仅处理系统蓝牙连接的 PS5 DualSense：InputManager 读取输入，隐藏 HID Host 直写震动/扳机/LED。 */
     DUALSENSE_BLUETOOTH(R.string.i18n_dualsense_bluetooth),
+
+    /**
+     * 按当前接入设备的实际能力自动选择驱动：
+     * USB 驱动 → DualSense 蓝牙 → InputManager → SDL3 兜底。
+     * 手柄带背键时，SDL3 与 InputManager 的顺序对调（只有 SDL3 能上报背键）。
+     *
+     * 注意：持久化按 ordinal 写入，因此 [AUTO] 必须保持在末尾，避免旧存档被重新解释。
+     * 设置页的显示顺序由 `MainActivity.controllerDriverEntries` 单独控制。
+     */
+    AUTO(R.string.i18n_auto),
 }
 
 enum class VibrationType { NONE, VIEW, VIBRATION_EFFECT }
@@ -316,8 +326,8 @@ data class AppSettings(
     val gyroControllerIndex: Int = 0,
     /** Controller gyro index used while a physical controller is connected. */
     val gyroControllerIndexConnected: Int = 0,
-    /** Low-level driver used for physical gamepads (SDL3 or the Axixi2233 USB driver). */
-    val controllerDriver: ControllerDriver = ControllerDriver.SDL3,
+    /** Low-level driver used for physical gamepads. [ControllerDriver.AUTO] picks one per attached pad. */
+    val controllerDriver: ControllerDriver = ControllerDriver.AUTO,
     /** Index into the list of currently connected gamepads used as the input source.
      *  -1 means the physical controller input is disabled ("不使用手柄"). */
     val inputControllerIndex: Int = 0,

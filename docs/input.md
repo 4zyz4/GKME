@@ -46,7 +46,7 @@ flowchart LR
 
 - **状态容器**：`model/GamepadState.kt`。
 - **触屏路径**：`view/GamepadLayout` → `GkViewModel.on*` → `_gamepadState`。
-- **物理手柄路径**：`PhysicalControllerHandler` facade，三选一 backend（SDL3 / Axixi2233 USB / InputManager）。
+- **物理手柄路径**：`PhysicalControllerHandler` facade，四选一 backend（SDL3 / Axixi2233 USB / InputManager / DualSense 蓝牙），默认 `AUTO`。
 - **体感路径**：`SensorHandler`（手机）+ `AccelSteeringMapper`（加速度计转向）+ `SensitivityCurve`。
 - **反馈路径**：`AdaptiveTriggerHandler` 解析 PC 自适应扳机并路由到各执行器。
 - **去回环**：`VirtualGamepad` 排除 GKME 自建的虚拟手柄。
@@ -166,7 +166,7 @@ protobuf `GamepadInput`。要点：
 
 ### 4.1 PhysicalControllerBackend（接口）
 
-`input/PhysicalControllerBackend.kt`。SDL3、Axixi2233 USB 与 InputManager 三个 backend 的公共契约。
+`input/PhysicalControllerBackend.kt`。SDL3、Axixi2233 USB、InputManager 与 DualSense 蓝牙四个 backend 的公共契约。
 
 - `data class ControllerInfo(id, name, motorCount, hasTriggerRumble, hasAdaptiveTrigger, hasGyro,
   hasAnalogTrigger, hasTouchpad, supportedButtons)`。
@@ -183,12 +183,18 @@ protobuf `GamepadInput`。要点：
 `input/PhysicalControllerHandler.kt`。按用户设置选择/切换 backend，透明 fallback，并把 backend Flows
 镜像成自己的 Flows，保证切换时收集者不失效。
 
-- `driver`（`ControllerDriver`：`SDL3` / `AXIXI2233_USB` / `INPUT_MANAGER`）+ `fallbackToSdl`。
+- `driver`（`ControllerDriver`：`AUTO` / `SDL3` / `AXIXI2233_USB` / `INPUT_MANAGER` / `DUALSENSE_BLUETOOTH`）+ `fallbackToSdl`。
+- `AUTO`（默认）按当前接入设备解析具体 backend：USB 驱动 → DualSense 蓝牙 → InputManager → SDL3 兜底；
+  若手柄带背键（`supportedButtons & PADDLE_MASK`），SDL3 与 InputManager 顺序对调，因为只有 SDL3 上报背键。
+  背键能力通过一次临时 SDL3 会话读取（`probeSdlPaddles`，结果按设备集合缓存），USB/蓝牙 DualSense 检查都是轻量的系统查询。
+- 持久化使用 `controller_driver_v2`；旧键 `controller_driver` 的默认值 0（SDL3）一次性迁移为 AUTO，
+  其余显式选择（USB / InputManager / DualSense 蓝牙）保留。
 - `createAndStartBackend()`：new backend、回灌设置、`start()`、`startMirroring`。
 - **兼容性监控**（`COMPATIBILITY_CHECK_INTERVAL_MS=1000`，Main 线程）：用户选 USB driver 但
   `hasSystemGamepad()` 为真且 `isUsbDriverCompatible()` 为假时自动切 SDL；支持的设备接入后恢复 USB。
+  `AUTO` 模式复用同一循环，每秒重新解析并在接入设备集合变化时切换 backend。
 - `isUsbDriverCompatible()`：遍历 `UsbManager.deviceList`，用各控制器 `canClaimDevice` 判断。
-- `hasSystemGamepad()`：遍历 `InputDevice`，排除 `VirtualGamepad.matches`。
+- `systemGamepads()`：遍历 `InputDevice`，过滤 `SOURCE_GAMEPAD/SOURCE_JOYSTICK`，排除 `VirtualGamepad`。
 
 > thread：生命周期/切换/镜像 collect 均在 `Dispatchers.Main.immediate`；
 > `isUsbDriverCompatible`/`hasSystemGamepad` 也在 Main（每秒一次）。
@@ -198,6 +204,7 @@ protobuf `GamepadInput`。要点：
 `input/SdlPhysicalControllerBackend.kt`（约 1090 行）。SDL3/HIDAPI 后端。
 
 - 专用轮询线程 `GkmeSdlPoll`，每 2ms `nativePollState`；每 50 帧刷 USB 设备列表、每 125 帧刷控制器列表。
+- `nativeInit()` 在返回前完成一次设备枚举，因此 `AUTO` 选驱时可以立即读取 `nativeGetControllerButtonMask` 判定背键。
 - Android key/motion 事件经 `SdlPlatform` → native。
 - **`nativePollState` out 布局**（`SdlNative.kt:58-61`）：
   `0 buttons, 1 lx, 2 ly, 3 rx, 4 ry, 5 lt, 6 rt, 7 dpad, 8 touchCount,

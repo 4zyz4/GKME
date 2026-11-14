@@ -105,7 +105,9 @@ class SettingsRepository @Inject constructor(
         val VOLUME_UP_BITS = stringPreferencesKey("volume_up_bits")
         val VOLUME_DOWN_BITS = stringPreferencesKey("volume_down_bits")
         val PHYSICAL_INPUT_MAPPINGS = stringPreferencesKey("physical_input_mappings")
-        val CONTROLLER_DRIVER = intPreferencesKey("controller_driver")
+        val CONTROLLER_DRIVER = intPreferencesKey("controller_driver_v2")
+        // 旧版本键：AUTO 加入前没有该选项，旧默认值 0（SDL3）在迁移时映射到 AUTO。
+        val LEGACY_CONTROLLER_DRIVER = intPreferencesKey("controller_driver")
         val INPUT_CONTROLLER_INDEX = intPreferencesKey("input_controller_index")
         // Audio
         val LEFT_VOICE_COIL_OUTPUT = intPreferencesKey("left_voice_coil_output")
@@ -282,9 +284,17 @@ class SettingsRepository @Inject constructor(
             gyroEnabledConnected = prefs[Keys.GYRO_ENABLED_CONNECTED] ?: true,
             gyroControllerIndex = prefs[Keys.GYRO_CONTROLLER_INDEX] ?: 0,
             gyroControllerIndexConnected = prefs[Keys.GYRO_CONTROLLER_INDEX_CONNECTED] ?: 0,
-            controllerDriver = ControllerDriver.entries.getOrElse(
-                prefs[Keys.CONTROLLER_DRIVER] ?: 0
-            ) { ControllerDriver.SDL3 },
+            controllerDriver = prefs[Keys.CONTROLLER_DRIVER]?.let { stored ->
+                ControllerDriver.entries.getOrElse(stored) { ControllerDriver.AUTO }
+            } ?: when (prefs[Keys.LEGACY_CONTROLLER_DRIVER]) {
+                null -> ControllerDriver.AUTO
+                // 旧默认值：迁移到新的 AUTO 默认项。
+                ControllerDriver.SDL3.ordinal -> ControllerDriver.AUTO
+                ControllerDriver.AXIXI2233_USB.ordinal -> ControllerDriver.AXIXI2233_USB
+                ControllerDriver.INPUT_MANAGER.ordinal -> ControllerDriver.INPUT_MANAGER
+                ControllerDriver.DUALSENSE_BLUETOOTH.ordinal -> ControllerDriver.DUALSENSE_BLUETOOTH
+                else -> ControllerDriver.AUTO
+            },
             inputControllerIndex = prefs[Keys.INPUT_CONTROLLER_INDEX] ?: 0,
             bgFillType = FillType.entries.getOrElse(prefs[Keys.BG_FILL_TYPE] ?: 0) { FillType.SOLID_COLOR },
             bgColor = prefs[Keys.BG_COLOR] ?: 0xFF000000.toInt(),

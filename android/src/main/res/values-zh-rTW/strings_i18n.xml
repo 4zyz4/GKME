@@ -32,6 +32,7 @@
     <string name="i18n_audio" formatted="false">"音訊"</string>
     <string name="i18n_author_4zyz4_qq_group_639317971" formatted="false">"作者：4zyz4  軟體Q群：639317971\n\n"</string>
     <string name="i18n_authorized" formatted="false">"已授權"</string>
+    <string name="i18n_auto" formatted="false">"自動"</string>
     <string name="i18n_auto_hold" formatted="false">"自動保持"</string>
     <string name="i18n_available" formatted="false">"可連線"</string>
     <string name="i18n_back" formatted="false">"返回"</string>

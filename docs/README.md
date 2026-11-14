@@ -179,8 +179,8 @@ android/src/main/
 | **DSU** | Cemuhook/Dolphin 的 UDP 手柄协议（Emotion 兼容） |
 | **uinput / uhid** | Linux 两种虚拟输入设备路径；uhid 使用真实 HID 描述符伪装手柄 |
 | **Shizuku** | 以 shell/root 身份运行 UserService，绕过 hidden API 限制 |
-| **物理手柄 / Physical controller** | 经 OTG/蓝牙接入的实体手柄，经 SDL3 或 Axixi2233 USB 驱动读取 |
-| **SDL3 backend / USB backend** | 物理手柄的两条接入栈，二选一，接口一致（`PhysicalControllerBackend`） |
+| **物理手柄 / Physical controller** | 经 OTG/蓝牙接入的实体手柄，可经 SDL3、Axixi2233 USB、InputManager 或 DualSense 蓝牙驱动读取（默认 AUTO） |
+| **SDL3 backend / USB backend** | 物理手柄的多条接入栈，默认由 `AUTO` 选择，接口一致（`PhysicalControllerBackend`） |
 
 ---
 

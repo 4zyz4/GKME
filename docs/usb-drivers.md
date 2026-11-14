@@ -3,7 +3,7 @@
 > 覆盖 `android/src/main/java/com/zyz4/gkme/input/usb/*.java`（19 个文件）。
 >
 > 这一层是从 “Axixi2233 的 USB 驱动” 移植而来的手写 USB HID 驱动（`LimeLog` TAG = `Axixi2233Usb`），
-> 按钮位布局对齐 Sunshine/Limelight。它是物理手柄两条后端之一（另一条为 SDL3，见 [input.md](input.md)）。
+> 按钮位布局对齐 Sunshine/Limelight。它是物理手柄接入栈之一（另有 SDL3 / InputManager / DualSense 蓝牙，见 [input.md](input.md)）。
 > Kotlin 侧对应 `input/UsbPhysicalControllerBackend.kt`。
 
 ---
