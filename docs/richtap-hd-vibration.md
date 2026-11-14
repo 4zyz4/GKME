@@ -250,7 +250,8 @@ dumpsys：`usage: MEDIA | com.android.shell | reason: DynamicEffect`。
 
 ## 4. RichTap ASDK 2.2.0 逆向要点（`RichTapDynamics/app/libs`）
 
-反编译：`java -jar cfr.jar extract/classes.jar --outputdir out`（CFR 0.152）。
+> 反编译产物为第三方闭源代码，**不随仓库分发**（本地用
+> `java -jar cfr.jar extract/classes.jar --outputdir out` 即可复现，CFR 0.152）。
 
 `RichTapUtils`（`com/apprichtap/haptic/RichTapUtils.java`）按优先级选 backend：
 | type | 类 | 底层 |
@@ -345,11 +346,12 @@ adb logcat -d | grep -iE 'vibratorfeature|DynamicEffectThread|AACTrack|AGM|gsl'
 - 探针源码：`richtap/probes/`（`HapticProbe.java`、`HeInfo.java`、`HeRec.java`、`HeStream.java` 等）
 - 脚本：`richtap/scripts/`（`gen_he.py`、`pcm_to_he.py`、`analyze_rec.py`、`mkjar.ps1` 等）
 - HE 样例：`richtap/he-samples/`（`v1_4p.he`、`sweep.he`、`f0.he`/`f100.he`、`he/*.json` 等）
-- 反编译源码：`richtap/decompiled/`
 - 框架隐藏类 dump：`richtap/framework-dumps/`
-- 逆向工程产物：`richtap/richtapdynamics-extract/`（原 `RichTapDynamics/app/libs/extract`）
 - 设备预置效果表：`richtap/Hapticsconfig.xml`（原 `/vendor/etc/Hapticsconfig.xml`）
 
+> SDK 反编译源码（`richtap/decompiled/`）与二进制提取产物（`richtap/richtapdynamics-extract/`）
+> 为第三方闭源代码，已从仓库移除。
+>
 > 原始录音（`.pcm`/`.f32`，约 55MB）、编译产物（`jar/dex/class`）与框架全量 dump（约 488MB）体积过大，
 > 未纳入仓库；复现命令见 §6。
 

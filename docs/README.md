@@ -117,7 +117,7 @@ flowchart TB
 | [controlled-native.md](controlled-native.md) | 被控端模式、Shizuku UserService 绑定、`GamepadInjector`/`HapticInjector`、uinput/uhid 原生虚拟 HID、HID 描述符 |
 | [model-data.md](model-data.md) | 数据模型、`AppSettings`/`LayoutPreset`、DataStore 持久化、布局预设仓库、Hilt 注入 |
 | [richtap-hd-vibration.md](richtap-hd-vibration.md) | （实验档案）通过 adb `app_process` 驱动线性马达、HE 格式逆向、真机标定记录 |
-| [richtap/](richtap/README.md) | （实验附件）探针源码、脚本、HE 样例、反编译源码、框架 dump、逆向产物、预置效果表 |
+| [richtap/](richtap/README.md) | （实验附件）探针源码、脚本、HE 样例、框架 dump、预置效果表 |
 
 ---
 

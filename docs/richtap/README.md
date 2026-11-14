@@ -15,10 +15,12 @@
 | `probes/` | 反射调用隐藏 API 的 `app_process` 探针源码（`.java`） | 18 |
 | `scripts/` | 生成 HE、构建探针 jar、分析录音的脚本（`.py` / `.ps1`） | 8 |
 | `he-samples/` | HE 1.0/2.0 效果样例（`.json` / `.he`） | 56 |
-| `decompiled/` | RichTap ASDK 2.2.0 反编译 Java（CFR） | 38 |
 | `framework-dumps/` | 框架隐藏类的成员 dump（文本） | 7 |
-| `richtapdynamics-extract/` | `RichTapDynamics` 仓库 `app/libs/extract` 逆向产物 | 65 |
 | `Hapticsconfig.xml` | 设备 `/vendor/etc/Hapticsconfig.xml`（Qualcomm 预置效果表） | 1 |
+
+> **已移除**：`decompiled/`（RichTap ASDK 反编译 Java）与 `richtapdynamics-extract/`
+> （SDK `classes.jar` / `.class` 提取产物）属于第三方闭源代码，出于版权考虑不再随仓库分发；
+> 相关结论已整理进 [../richtap-hd-vibration.md §4](../richtap-hd-vibration.md)。
 
 ---
 
@@ -71,21 +73,10 @@ HE 1.0/2.0 效果样例，用于验证引擎约束（事件数、曲线点数、
 `he/v1_2ev_*.json`、`he/v1_32events.json`、`he/v2_patternlist.json`（HE 2.0）、
 根目录 `v1_4p.he`、`sweep.he`、`f0.he`/`f50.he`/`f100.he`、`t_*.he`（时长）等。
 
-## decompiled/
-
-RichTap ASDK 2.2.0（`RichTap_ASDK_2.2.0_20250313_NETWORK_release.aar`）的 CFR 反编译结果，
-含 `com/apprichtap/haptic/**`、`android/os/DynamicEffect.java`、`android/os/HapticPlayer.java` 等
-stub，以及 `summary.txt`。是 [../haptic.md](../haptic.md) 中 type2/type1 backend 对照的来源。
-
 ## framework-dumps/
 
-`fw/` 中**小体积**的隐藏类成员 dump（`cls_*.txt`）。原始全量 `alldump.txt`（约 330MB）、
-`miui-framework.dis.txt`（约 35MB）、`framework.jar`、`.dex` 等因体积过大**未纳入本仓库**。
-
-## richtapdynamics-extract/
-
-来自逆向工程仓库 `RichTapDynamics/app/libs/extract`：`classes.jar`、`AndroidManifest.xml`、
-各 `.class`。是 `decompiled/` 的二进制对照物。原始 `.aar` 未纳入。
+`fw/` 中**小体积**的隐藏类成员 dump（`cls_*.txt`，仅签名/常量，不含实现）。原始全量 `alldump.txt`
+（约 330MB）、`miui-framework.dis.txt`（约 35MB）、`framework.jar`、`.dex` 等因体积过大**未纳入本仓库**。
 
 ---
 
