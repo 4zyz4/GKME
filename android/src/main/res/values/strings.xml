@@ -3,4 +3,10 @@
     <string name="app_name" translatable="false">GKME</string>
     <string name="i18n_0_ms" translatable="false">%1$d ms</string>
     <string name="i18n_0_percent" translatable="false">%1$d%%</string>
+
+    <!-- 关于页：README 风格的品牌标语与徽章（不翻译） -->
+    <string name="about_tagline_primary" translatable="false">GAMEPAD KEYBOARD MOUSE EMULATOR</string>
+    <string name="about_tagline_secondary" translatable="false">General Key Mapping Engine</string>
+    <string name="about_badge_github" translatable="false">GitHub</string>
+    <string name="about_badge_gpl" translatable="false">GPLv3</string>
 </resources>

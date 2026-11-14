@@ -414,6 +414,33 @@
     <string name="i18n_none" formatted="false">"Нет"</string>
     <string name="i18n_not_started" formatted="false">"Не запущено"</string>
     <string name="i18n_note_this_app_is_not_emotion_join_qq_gro" formatted="false">"Примечание: это приложение не Emotion. Вступите в группу QQ 1045923515, чтобы скачать официальный Emotion"</string>
+    <string name="i18n_about_intro" formatted="false">"Превратите телефон Android в виртуальный геймпад — а также в виртуальную клавиатуру и мышь. Поддерживаются WiFi-сеть, прямое USB- и Bluetooth-подключение."</string>
+    <string name="i18n_about_section_connections" formatted="false">"Способы подключения"</string>
+    <string name="i18n_about_section_opensource" formatted="false">"Открытый код"</string>
+    <string name="i18n_about_section_author" formatted="false">"Автор и обратная связь"</string>
+    <string name="i18n_about_opensource_intro" formatted="false">"GKME основан на следующих проектах с открытым исходным кодом. Спасибо всем участникам."</string>
+    <string name="i18n_about_opensource_referenced" formatted="false">"Проекты-референсы и производные"</string>
+    <string name="i18n_about_opensource_libraries" formatted="false">"Используемые библиотеки с открытым кодом"</string>
+    <string name="i18n_about_license_notice" formatted="false">"Распространяется по лицензии GNU General Public License v3.0.\nCopyright (C) 2026 4zyz4"</string>
+    <string name="i18n_about_unable_to_open_link" formatted="false">"Не удалось открыть ссылку"</string>
+    <string name="i18n_about_connection_wifi" formatted="false">"WiFi (локальная сеть)"</string>
+    <string name="i18n_about_connection_wifi_desc" formatted="false">"Автопоиск или ручной IP, UDP + Protobuf"</string>
+    <string name="i18n_about_connection_usb" formatted="false">"USB (ADB)"</string>
+    <string name="i18n_about_connection_usb_desc" formatted="false">"Прямое подключение через adb forward, без локальной сети, ниже задержка"</string>
+    <string name="i18n_about_connection_bt" formatted="false">"Bluetooth HID"</string>
+    <string name="i18n_about_connection_bt_desc" formatted="false">"Телефон эмулирует Bluetooth HID-геймпад для ПК или другого телефона"</string>
+    <string name="i18n_about_connection_dsu" formatted="false">"Emotion (DSU)"</string>
+    <string name="i18n_about_connection_dsu_desc" formatted="false">"Совместимо с протоколом DSU UDP программы DecideX Emotion"</string>
+    <string name="i18n_about_connection_local" formatted="false">"Локально (Shizuku)"</string>
+    <string name="i18n_about_connection_local_desc" formatted="false">"Без ПК: виртуальный геймпад через Shizuku + uinput"</string>
+    <string name="i18n_about_project_hidmaestro_desc" formatted="false">"Фреймворк драйвера виртуального геймпада"</string>
+    <string name="i18n_about_project_usbip_desc" formatted="false">"Мост-драйвер виртуального HID-устройства для ПК"</string>
+    <string name="i18n_about_project_moonlight_desc" formatted="false">"Референс алгоритма распознавания тачпада DualSense"</string>
+    <string name="i18n_about_project_axixi_desc" formatted="false">"Источник USB-драйвера физического геймпада"</string>
+    <string name="i18n_about_project_vplus_desc" formatted="false">"Источник Bluetooth-драйвера DS"</string>
+    <string name="i18n_about_project_sdl3_desc" formatted="false">"Ввод с физического геймпада и доступ к HID"</string>
+    <string name="i18n_about_project_hilt_desc" formatted="false">"Фреймворк внедрения зависимостей"</string>
+    <string name="i18n_about_project_shizuku_desc" formatted="false">"Авторизация создания виртуального геймпада в локальном / управляемом режиме"</string>
     <string name="i18n_ok" formatted="false">"ОК"</string>
     <string name="i18n_one_finger_swipe" formatted="false">"Свайп одним пальцем"</string>
     <string name="i18n_open_settings" formatted="false">"Открыть настройки"</string>

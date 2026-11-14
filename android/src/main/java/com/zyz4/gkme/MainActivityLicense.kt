@@ -228,7 +228,7 @@ private fun MainActivity.licenseButton(
     }
 }
 
-private fun MainActivity.readGplLicenseText(): String = runCatching {
+internal fun MainActivity.readGplLicenseText(): String = runCatching {
     resources.openRawResource(R.raw.gpl_3_0).bufferedReader().use { it.readText() }
 }.getOrElse {
     getString(R.string.i18n_gpl3_text_unavailable)

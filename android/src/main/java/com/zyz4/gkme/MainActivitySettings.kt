@@ -41,7 +41,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import android.widget.Button
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.ScrollView
@@ -1755,38 +1754,6 @@ internal fun MainActivity.syncSettingsButtonWheelUI(s: com.zyz4.gkme.model.AppSe
     } finally {
         a.settingsButtonActionsSyncing = false
     }
-}
-
-@SuppressLint("SetTextI18n")
-internal fun MainActivity.setupAboutPage() {
-    val a = this
-    val packageInfo = a.packageManager.getPackageInfo(a.packageName, 0)
-    a.findViewById<TextView>(R.id.tvAppName).text = "GKME"
-    a.findViewById<TextView>(R.id.tvAppVersion).text = getString(R.string.i18n_version_0, packageInfo.versionName)
-    a.findViewById<TextView>(R.id.tvAppDescription).text = getString(R.string.i18n_author_4zyz4_qq_group_639317971) +
-            getString(R.string.i18n_source_https_github_com_4zyz4_gkme) +
-            getString(R.string.i18n_note_this_app_is_not_emotion_join_qq_gro)
-
-    a.findViewById<ImageView>(R.id.ivAppIcon).setImageResource(R.mipmap.icon)
-
-    a.findViewById<Button>(R.id.btnSponsor).setOnClickListener {
-        a.showSponsorDialog()
-    }
-}
-
-internal fun MainActivity.showSponsorDialog() {
-    val a = this
-    val imageView = ImageView(a).apply {
-        setImageResource(R.mipmap.reward)
-        setScaleType(ImageView.ScaleType.FIT_CENTER)
-        setPadding(40, 0, 40, 0)
-    }
-    val content = LinearLayout(a).apply {
-        orientation = LinearLayout.VERTICAL
-        addView(TextView(a).apply { text = getString(R.string.i18n_thank_you_for_your_support); textSize = 14f; setTextColor(-0x777778); gravity = Gravity.CENTER })
-        addView(imageView)
-    }
-    CustomDialog.showCustomView(a, getString(R.string.i18n_sponsor), content, negativeText = getString(R.string.i18n_close))
 }
 
 internal fun MainActivity.setupConnectionPage() {

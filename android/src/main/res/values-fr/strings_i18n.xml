@@ -414,6 +414,33 @@
     <string name="i18n_none" formatted="false">"Aucun"</string>
     <string name="i18n_not_started" formatted="false">"Non démarré"</string>
     <string name="i18n_note_this_app_is_not_emotion_join_qq_gro" formatted="false">"Remarque : cette application n'est pas Emotion. Rejoignez le groupe QQ 1045923515 pour télécharger l'Emotion officiel"</string>
+    <string name="i18n_about_intro" formatted="false">"Transformez votre téléphone Android en manette virtuelle — mais aussi en clavier et souris virtuels. Connexions WiFi, USB direct et Bluetooth direct."</string>
+    <string name="i18n_about_section_connections" formatted="false">"Modes de connexion"</string>
+    <string name="i18n_about_section_opensource" formatted="false">"Open source"</string>
+    <string name="i18n_about_section_author" formatted="false">"Auteur et retours"</string>
+    <string name="i18n_about_opensource_intro" formatted="false">"GKME s'appuie sur les projets open source suivants. Merci à tous les contributeurs."</string>
+    <string name="i18n_about_opensource_referenced" formatted="false">"Projets de référence et dérivés"</string>
+    <string name="i18n_about_opensource_libraries" formatted="false">"Bibliothèques open source utilisées"</string>
+    <string name="i18n_about_license_notice" formatted="false">"Publié sous GNU General Public License v3.0.\nCopyright (C) 2026 4zyz4"</string>
+    <string name="i18n_about_unable_to_open_link" formatted="false">"Impossible d'ouvrir le lien"</string>
+    <string name="i18n_about_connection_wifi" formatted="false">"WiFi (LAN)"</string>
+    <string name="i18n_about_connection_wifi_desc" formatted="false">"Découverte automatique ou IP manuelle, UDP + Protobuf"</string>
+    <string name="i18n_about_connection_usb" formatted="false">"USB (ADB)"</string>
+    <string name="i18n_about_connection_usb_desc" formatted="false">"Liaison directe via adb forward, sans réseau local, latence réduite"</string>
+    <string name="i18n_about_connection_bt" formatted="false">"Bluetooth HID"</string>
+    <string name="i18n_about_connection_bt_desc" formatted="false">"Le téléphone émule une manette Bluetooth HID pour un PC ou un autre téléphone"</string>
+    <string name="i18n_about_connection_dsu" formatted="false">"Emotion (DSU)"</string>
+    <string name="i18n_about_connection_dsu_desc" formatted="false">"Compatible avec le protocole DSU UDP de DecideX Emotion"</string>
+    <string name="i18n_about_connection_local" formatted="false">"Local (Shizuku)"</string>
+    <string name="i18n_about_connection_local_desc" formatted="false">"Sans PC ; crée une manette virtuelle via Shizuku + uinput"</string>
+    <string name="i18n_about_project_hidmaestro_desc" formatted="false">"Framework de pilote de manette virtuelle"</string>
+    <string name="i18n_about_project_usbip_desc" formatted="false">"Pilote de pont HID virtuel côté PC"</string>
+    <string name="i18n_about_project_moonlight_desc" formatted="false">"Référence pour l'algorithme de reconnaissance du pavé tactile DualSense"</string>
+    <string name="i18n_about_project_axixi_desc" formatted="false">"Source du pilote USB pour manettes physiques"</string>
+    <string name="i18n_about_project_vplus_desc" formatted="false">"Source du pilote Bluetooth DS"</string>
+    <string name="i18n_about_project_sdl3_desc" formatted="false">"Entrée des manettes physiques et accès HID"</string>
+    <string name="i18n_about_project_hilt_desc" formatted="false">"Framework d'injection de dépendances"</string>
+    <string name="i18n_about_project_shizuku_desc" formatted="false">"Autorisation de création de manettes virtuelles en mode local / contrôlé"</string>
     <string name="i18n_ok" formatted="false">"OK"</string>
     <string name="i18n_one_finger_swipe" formatted="false">"Balayage à un doigt"</string>
     <string name="i18n_open_settings" formatted="false">"Ouvrir les paramètres"</string>

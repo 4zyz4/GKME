@@ -414,6 +414,33 @@
     <string name="i18n_none" formatted="false">"無"</string>
     <string name="i18n_not_started" formatted="false">"未啓動"</string>
     <string name="i18n_note_this_app_is_not_emotion_join_qq_gro" formatted="false">"注意：本軟件不是Emotion，請進入Q羣1045923515以下載正版Emotion"</string>
+    <string name="i18n_about_intro" formatted="false">"把你的 Android 手機變成一台虛擬遊戲手掣 —— 也可以是虛擬鍵盤和滑鼠。支援 WiFi 區域網絡、USB 直連與藍牙直連。"</string>
+    <string name="i18n_about_section_connections" formatted="false">"連接方式"</string>
+    <string name="i18n_about_section_opensource" formatted="false">"開源專案"</string>
+    <string name="i18n_about_section_author" formatted="false">"作者與回饋"</string>
+    <string name="i18n_about_opensource_intro" formatted="false">"GKME 基於以下開源專案構建，感謝每一位貢獻者。"</string>
+    <string name="i18n_about_opensource_referenced" formatted="false">"參考與衍生專案"</string>
+    <string name="i18n_about_opensource_libraries" formatted="false">"使用的開源庫"</string>
+    <string name="i18n_about_license_notice" formatted="false">"本專案基於 GNU General Public License v3.0 發布。\nCopyright (C) 2026 4zyz4"</string>
+    <string name="i18n_about_unable_to_open_link" formatted="false">"無法開啟連結"</string>
+    <string name="i18n_about_connection_wifi" formatted="false">"WiFi 區域網絡"</string>
+    <string name="i18n_about_connection_wifi_desc" formatted="false">"自動發現或手動輸入 IP，UDP + Protobuf 通訊"</string>
+    <string name="i18n_about_connection_usb" formatted="false">"USB（ADB）"</string>
+    <string name="i18n_about_connection_usb_desc" formatted="false">"透過 adb forward 直連，無需區域網絡，延遲更低"</string>
+    <string name="i18n_about_connection_bt" formatted="false">"藍牙 HID"</string>
+    <string name="i18n_about_connection_bt_desc" formatted="false">"手機模擬藍牙 HID 手掣，直連電腦或其他手機"</string>
+    <string name="i18n_about_connection_dsu" formatted="false">"Emotion（DSU）"</string>
+    <string name="i18n_about_connection_dsu_desc" formatted="false">"相容 DecideX Emotion 的 DSU UDP 協議"</string>
+    <string name="i18n_about_connection_local" formatted="false">"本機（Shizuku）"</string>
+    <string name="i18n_about_connection_local_desc" formatted="false">"無需電腦，透過 Shizuku + uinput 建立虛擬手掣"</string>
+    <string name="i18n_about_project_hidmaestro_desc" formatted="false">"虛擬手掣驅動框架"</string>
+    <string name="i18n_about_project_usbip_desc" formatted="false">"電腦端虛擬 HID 裝置橋接驅動"</string>
+    <string name="i18n_about_project_moonlight_desc" formatted="false">"DualSense 觸控板辨識演算法參考"</string>
+    <string name="i18n_about_project_axixi_desc" formatted="false">"實體手掣 USB 驅動來源"</string>
+    <string name="i18n_about_project_vplus_desc" formatted="false">"DS 藍牙驅動來源"</string>
+    <string name="i18n_about_project_sdl3_desc" formatted="false">"實體手掣輸入與 HID 存取"</string>
+    <string name="i18n_about_project_hilt_desc" formatted="false">"依賴注入框架"</string>
+    <string name="i18n_about_project_shizuku_desc" formatted="false">"本機 / 被控端虛擬手掣建立授權"</string>
     <string name="i18n_ok" formatted="false">"確定"</string>
     <string name="i18n_one_finger_swipe" formatted="false">"單指滑動"</string>
     <string name="i18n_open_settings" formatted="false">"去開啓"</string>

@@ -414,6 +414,33 @@
     <string name="i18n_none" formatted="false">"None"</string>
     <string name="i18n_not_started" formatted="false">"Not started"</string>
     <string name="i18n_note_this_app_is_not_emotion_join_qq_gro" formatted="false">"Note: this app is not Emotion. Join QQ group 1045923515 to download the official Emotion"</string>
+    <string name="i18n_about_intro" formatted="false">"Turn your Android phone into a virtual gamepad — or a virtual keyboard and mouse. Supports WiFi LAN, direct USB, and direct Bluetooth connections."</string>
+    <string name="i18n_about_section_connections" formatted="false">"Connection Methods"</string>
+    <string name="i18n_about_section_opensource" formatted="false">"Open Source"</string>
+    <string name="i18n_about_section_author" formatted="false">"Author &amp; Feedback"</string>
+    <string name="i18n_about_opensource_intro" formatted="false">"GKME is built on the following open-source projects. Thanks to every contributor."</string>
+    <string name="i18n_about_opensource_referenced" formatted="false">"Referenced &amp; Derived Projects"</string>
+    <string name="i18n_about_opensource_libraries" formatted="false">"Open-Source Libraries Used"</string>
+    <string name="i18n_about_license_notice" formatted="false">"Released under the GNU General Public License v3.0.\nCopyright (C) 2026 4zyz4"</string>
+    <string name="i18n_about_unable_to_open_link" formatted="false">"Unable to open link"</string>
+    <string name="i18n_about_connection_wifi" formatted="false">"WiFi LAN"</string>
+    <string name="i18n_about_connection_wifi_desc" formatted="false">"Auto-discovery or manual IP, UDP + Protobuf"</string>
+    <string name="i18n_about_connection_usb" formatted="false">"USB (ADB)"</string>
+    <string name="i18n_about_connection_usb_desc" formatted="false">"Direct link over adb forward, no LAN needed, lower latency"</string>
+    <string name="i18n_about_connection_bt" formatted="false">"Bluetooth HID"</string>
+    <string name="i18n_about_connection_bt_desc" formatted="false">"The phone emulates a Bluetooth HID gamepad for a PC or another phone"</string>
+    <string name="i18n_about_connection_dsu" formatted="false">"Emotion (DSU)"</string>
+    <string name="i18n_about_connection_dsu_desc" formatted="false">"Compatible with the DSU UDP protocol used by DecideX Emotion"</string>
+    <string name="i18n_about_connection_local" formatted="false">"Local (Shizuku)"</string>
+    <string name="i18n_about_connection_local_desc" formatted="false">"No PC needed; creates a virtual gamepad via Shizuku + uinput"</string>
+    <string name="i18n_about_project_hidmaestro_desc" formatted="false">"Virtual gamepad driver framework"</string>
+    <string name="i18n_about_project_usbip_desc" formatted="false">"PC-side virtual HID device bridging driver"</string>
+    <string name="i18n_about_project_moonlight_desc" formatted="false">"Reference for the DualSense touchpad recognition algorithm"</string>
+    <string name="i18n_about_project_axixi_desc" formatted="false">"Source of the physical gamepad USB driver"</string>
+    <string name="i18n_about_project_vplus_desc" formatted="false">"Source of the DS Bluetooth driver"</string>
+    <string name="i18n_about_project_sdl3_desc" formatted="false">"Physical gamepad input and HID access"</string>
+    <string name="i18n_about_project_hilt_desc" formatted="false">"Dependency injection framework"</string>
+    <string name="i18n_about_project_shizuku_desc" formatted="false">"Authorization for creating virtual gamepads in local / controlled modes"</string>
     <string name="i18n_ok" formatted="false">"OK"</string>
     <string name="i18n_one_finger_swipe" formatted="false">"One-finger swipe"</string>
     <string name="i18n_open_settings" formatted="false">"Open settings"</string>
