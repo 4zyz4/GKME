@@ -131,6 +131,10 @@ flowchart TB
 - `toXInputButtons`：GKME 位 → XInput wButtons（触摸板点击用保留位 `0x20000`，十字键写低 4 位）。
 - `buildTouches`：最多 2 点 × `[id,x,y,active]`，x 0..1919、y 0..942。
 - `pumpRumble`：返回 long（高 16 位左、低 16 位右）。
+- `refreshSystemVibrateInputDevices`：虚拟手柄创建后经用户服务以 shell 身份读取
+  `Settings.System.vibrate_input_devices`（1 = 系统振动器输出被重定向到输入设备，
+  本机模式不能再用系统振动器转发，否则回环），供 `ConnectionManager` 判断本机震动
+  是否转发（`readSystemSetting`，null = 不存在/失败，按“未重定向”处理）。
 - `setCreated`：维护 `VirtualGamepad.virtualGamepadActive` 与 `SdlNative.nativeSetVirtualGamepadExclusion`。
 - `statusText`：按 binder/授权/service/lastError/created 顺序给出用户可读状态。
 - **降级**：Shizuku 未运行/未授权/服务未起 → false，由调用方轮询重试；原生库加载失败返回 `-19`（-ENODEV）；
@@ -275,7 +279,8 @@ flowchart TB
     12 位 nibble 打包摇杆 + 3 组 IMU。
 - **Feature 应答** `gkme_build_feature`：DS4/DualSense 的校准/固件/MAC；键盘/鼠标 `rnum==0` 时返回
   `{0x01}`（鼠标 Resolution Multiplier 必须回有效值，否则内核写 feature 可能阻塞）。
-- **Output（震动回读）** `gkme_handle_output`：`rumble_enabled==0` 直接忽略（避免回环）；
+- **Output（震动回读）** `gkme_handle_output`：`rumble_enabled==0` 时忽略（保留给不需要回读的调用方）；
+  本机/被控模式均传 1，是否真正驱动振动器由 App 侧决定；
   DS4 rid 0x05、DualSense rid 0x02、Switch rid 0x01/0x10。
 - **Switch 专有协议**：`gkme_switch_proprietary`（0x01/0x02/0x03）与 `gkme_switch_subcommand`
   （0x02/0x03/0x04/0x10/0x21/0x40/0x48）；`gkme_switch_spi_byte` 镜像校准数据。
@@ -345,7 +350,7 @@ flowchart TB
 
 | 问题 | 证据 |
 |------|------|
-| `ensureReady` 默认 `rumble=true, mouse=true`；本机模式只关闭 `rumble`，鼠标照常创建（实体手柄映射鼠标需要） | `GamepadInjector.kt:145-150`；`MainActivitySettings.kt:1836-1839` |
+| `ensureReady` 默认 `rumble=true, mouse=true`；本机模式同样读回震动（是否转发见 `vibrate_input_devices`），鼠标照常创建（实体手柄映射鼠标需要） | `GamepadInjector.kt:145-150`；`MainActivitySettings.kt:1836-1839` |
 | [已修复] 震动数值范围注释不一致（AIDL/注释已统一为 0..65535） | `IGamepadService.aidl:27`；`ControlledHostManager.kt:483-484` |
 | `configure()` 重建沿用旧 `rumbleEnabled`，未重新同步 `mouseEnabled` | `GamepadInjector.kt:113` |
 | [已修复] `swapVibrationIndex` 未接入设置（已删除未接线的字段） | `RemoteHapticService.kt:78-80` |

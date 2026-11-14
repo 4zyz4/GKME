@@ -104,7 +104,7 @@ typedef struct {
     pthread_mutex_t lock;
     int left;  /* 0..65535（Linux ff_rumble strong_magnitude） */
     int right; /* 0..65535（Linux ff_rumble weak_magnitude） */
-    /* 为 0 时仍暴露 FF 能力，但忽略震动数据（本机模式，避免回环）。 */
+    /* 为 0 时仍暴露 FF 能力，但忽略震动数据；本机/被控模式由 Kotlin 侧决定是否回读。 */
     int rumble_enabled;
     unsigned char has_effect[GKME_MAX_FF];
     unsigned char playing[GKME_MAX_FF];
@@ -310,7 +310,7 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeCreate(JNIEnv *env, jcla
     }
 
     /* 始终暴露 FF 能力：即便本机模式也要在系统/游戏里显示为带震动的设备，
-     * 是否把震动数据转发到手机由 rumbleEnabled（存于 dev->rumble_enabled）决定。 */
+     * rumbleEnabled（存于 dev->rumble_enabled）只决定 pumpRumble 是否返回数据。 */
     uint32_t ff_max = 0;
     if (ioctl(fd, GKME_UI_SET_EVBIT, EV_FF) == 0 &&
         ioctl(fd, GKME_UI_SET_FFBIT, FF_RUMBLE) == 0) {

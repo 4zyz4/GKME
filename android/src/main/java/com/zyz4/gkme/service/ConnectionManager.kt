@@ -10,6 +10,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import android.provider.Settings
 import com.zyz4.gkme.controlled.GamepadInjector
+import com.zyz4.gkme.controlled.HapticInjector
 import com.zyz4.gkme.data.PairingStateRepository
 import com.zyz4.gkme.data.SettingsRepository
 import com.zyz4.gkme.haptic.HdPcmStreamer
@@ -40,6 +41,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import java.util.concurrent.ArrayBlockingQueue
@@ -99,6 +101,7 @@ class ConnectionManager @Inject constructor(
     private var btPhaseJob: Job? = null
     private var watchdogJob: Job? = null
     private var reconnectJob: Job? = null
+    private var localRumbleJob: Job? = null
 
     /**
      * 当前生效的传输协议。WiFi(UDP) 与 Emotion(DSU) 在设计上互斥（只有一个生效），
@@ -301,7 +304,9 @@ class ConnectionManager @Inject constructor(
             }
             ConnectionMode.LOCAL -> {
                 // 本机模式：虚拟手柄由 GamepadInjector（Shizuku + uinput）创建，
-                // 输入直接在本机注入，不经过网络传输。
+                // 输入直接在本机注入，不经过网络传输；震动从虚拟手柄读回后按
+                // 振动器设置转发给手机/实体手柄。
+                startLocalRumblePump()
                 _connectionState.value = _connectionState.value.copy(
                     connected = true,
                     phase = ConnectionPhase.CONNECTED,
@@ -540,6 +545,8 @@ class ConnectionManager @Inject constructor(
         watchdogJob = null
         btPhaseJob?.cancel()
         btPhaseJob = null
+        localRumbleJob?.cancel()
+        localRumbleJob = null
         stopAutoReconnect()
         udpService.stop()
         usbService.stop()
@@ -553,6 +560,66 @@ class ConnectionManager @Inject constructor(
         clearTriggerEffects()
         if (_settings.value.connectionMode == ConnectionMode.LOCAL) {
             GamepadInjector.release()
+        }
+    }
+
+    /**
+     * 本机模式：轮询虚拟手柄的震动数据，并按配置转发给手机或实体手柄。
+     *
+     * 系统设置 `vibrate_input_devices=1` 时系统会把手机振动器的输出重定向到输入设备；
+     * 若再用系统振动器驱动手机，震动会被送回虚拟手柄形成回环，因此默认不再转发。
+     * 若手机实际走 RichTap HD（不经系统振动器），仍继续转发。读取完成前先不转发，
+     * 避免启动瞬间进入回环。
+     */
+    private fun startLocalRumblePump() {
+        localRumbleJob?.cancel()
+        localRumbleJob = scope.launch(Dispatchers.Default) {
+            // 虚拟手柄刚创建：先经 Shizuku 读取 vibrate_input_devices。读取完成前
+            // shouldForwardLocalRumble() 返回 false，避免启动瞬间触发系统振动器回环。
+            GamepadInjector.refreshSystemVibrateInputDevices()
+            var lastLeft = -1
+            var lastRight = -1
+            fun emit(left: Int, right: Int) {
+                if (left == lastLeft && right == lastRight) return
+                lastLeft = left
+                lastRight = right
+                onRumbleRequest?.invoke(left, right)
+            }
+            try {
+                while (isActive) {
+                    if (!GamepadInjector.isReady() || !shouldForwardLocalRumble()) {
+                        emit(0, 0)
+                    } else {
+                        val packed = GamepadInjector.pumpRumble()
+                        val left = (((packed ushr 16) and 0xFFFF).toInt() * 255 + 32767) / 65535
+                        val right = ((packed and 0xFFFF).toInt() * 255 + 32767) / 65535
+                        emit(left, right)
+                    }
+                    delay(8)
+                }
+            } finally {
+                emit(0, 0)
+            }
+        }
+    }
+
+    /**
+     * 本机模式是否由 GKME 转发虚拟手柄的震动。
+     *
+     * 实体手柄马达不受系统输入设备震动设置影响，始终转发；手机马达在
+     * `vibrate_input_devices` 关闭/不存在时转发，开启时仅在手机实际走 RichTap HD
+     * 的情况下转发（RichTap 不经系统振动器，不会被重定向回虚拟手柄）。
+     */
+    private fun shouldForwardLocalRumble(): Boolean {
+        val target = _settings.value.gameVibrationDeviceFor(physicalControllerConnected)
+        return when (target.type) {
+            VibrationDeviceType.NONE -> false
+            VibrationDeviceType.CONTROLLER -> true
+            VibrationDeviceType.PHONE -> when (GamepadInjector.systemVibratesInputDevices) {
+                null -> false
+                false -> true
+                true -> PhoneHdHaptics.enabled && HapticInjector.isHapticReady()
+            }
         }
     }
 

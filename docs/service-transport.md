@@ -96,6 +96,10 @@ LOCAL          -> GamepadInjector.update(state)
 
 鼠标/键盘报告同理；WiFi/USB 的鼠标位移不单独发包，而是经 `onMouseReport` 合并进下一帧手柄状态。
 
+本机模式还会启动 `startLocalRumblePump`（每 8ms 读取 `GamepadInjector.pumpRumble()`）：创建虚拟手柄后经
+Shizuku 读取 `Settings.System.vibrate_input_devices`，关闭/不存在时按 `gameVibrationDevice` 转发到手机或实体手柄；
+开启且手机未走 RichTap HD 时不转发（系统会把手机振动器的输出重定向回输入设备，形成回环）。
+
 ### 2.5 下行分发
 
 `processServerToClientPayload(msg)`（`ConnectionManager.kt:571-638`）：

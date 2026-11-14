@@ -3,6 +3,7 @@ package com.zyz4.gkme.controlled
 import android.content.Context
 import android.os.Process
 import android.util.Log
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -240,6 +241,30 @@ class RemoteGamepadService @JvmOverloads constructor(
                 }
                 Log.i(TAG, "虚拟鼠标已销毁 fd=$m")
             }
+        }
+    }
+
+    /**
+     * 以 shell 身份执行 `cmd settings get system <key>`。
+     *
+     * 用户服务以 shell/root 运行，可以读取 App 进程无权访问的私有设置；
+     * 这里只用于本机模式判断系统是否会把手机振动重定向到输入设备（形成回环）。
+     */
+    override fun readSystemSetting(key: String): String? {
+        // 只接受普通设置键名，避免把调用方传入的任意内容拼进命令行。
+        if (!key.matches(Regex("[A-Za-z0-9_.]+"))) return null
+        return try {
+            val process = Runtime.getRuntime()
+                .exec(arrayOf("/system/bin/cmd", "settings", "get", "system", key))
+            if (!process.waitFor(2, TimeUnit.SECONDS)) {
+                process.destroy()
+                return null
+            }
+            val value = process.inputStream.bufferedReader().use { it.readText() }.trim()
+            value.takeIf { it.isNotEmpty() && it != "null" }
+        } catch (t: Throwable) {
+            Log.w(TAG, "读取系统设置失败: $key", t)
+            null
         }
     }
 

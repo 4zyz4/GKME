@@ -302,6 +302,7 @@ void updateKeyboard(int modifiers, in int[] usages);
 int  createMouse();
 void updateMouse(int dx, int dy, int wheel, int pan, int buttons);
 void releaseKeyboardMouse();
+String readSystemSetting(String key);  // 以 shell 身份读取 Settings.System，null = 不存在/失败
 void exitService();
 ```
 

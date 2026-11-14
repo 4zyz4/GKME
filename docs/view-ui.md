@@ -149,8 +149,8 @@ flowchart TB
 - `selectSettingsCategory`：页面位移动画 + 侧边栏高亮；第 2 页触发外观预览，第 4 页启动震动 UI 轮询，
   第 6 页启动音频指示轮询。
 - `setupSettings` 绑定各页；大量 `sync*`/`build*` 辅助。
-- 本机模式（Shizuku）：`startLocalMode` / `tryStartLocalVirtualDevice`（rumble=false、mouse=true）/
-  `startShizukuPolling`。
+- 本机模式（Shizuku）：`startLocalMode` / `tryStartLocalVirtualDevice`（rumble=true、mouse=true）/
+  `startShizukuPolling`；创建后经 Shizuku 读取 `vibrate_input_devices` 决定是否转发震动。
 - 预设管理：`refreshPresetList` + `PresetGridAdapter`、新建/导入/导出/重命名/复制。
 - 连接页 `setupConnectionPage`：启动/停止服务、蓝牙权限、USB adb 检查、轮询率选项
   `[30,45,60,90,100,120,200,250,300,500,750,1000]`。
@@ -418,7 +418,7 @@ Activity **不直接改 ViewModel 内部状态**：
 | settings 按钮置顶必须用 `translationZ`，`bringChildToFront` 会被 elevation 抵消 | `GamepadLayout.kt:850-867` |
 | 编辑模式必须整树重建，否则 `applyPreset` 堆叠重复 settings 按钮 | `MainActivityEditor.kt:924-944` |
 | 鼠标键位需取并集，避免“按住屏幕按钮再点鼠标板把它松开” | `GkViewModel.kt:1005-1006,1272-1275` |
-| 悬浮/本机模式特殊处理：本机 rumble=false、mouse=true（实体手柄映射鼠标可用，屏幕触摸板移动不注入） | `MainActivitySettings.kt:1836-1839` |
+| 悬浮/本机模式特殊处理：本机 rumble=true、mouse=true（实体手柄映射鼠标可用，屏幕触摸板移动不注入）；震动是否转发由 `vibrate_input_devices`（防系统振动器回环）与 RichTap 决定 | `MainActivitySettings.kt:1836-1839` |
 | Shizuku 授权只自动尝试一次，拒绝后停止轮询 | `MainActivitySettings.kt:1670-1676` |
 | [已修复] 悬浮模式在后台拿不到屏幕方向更新（`getRealSize`/`DisplayListener`/`WindowMetrics` 都可能停在进后台前的值），导致「手机已横屏、悬浮层仍按竖屏排版」 | `FloatingModeController.kt`；改为以窗口 frame 为准 |
 | [已修复] 隐藏态旋转后小眼睛按钮留在旧坐标（竖屏下跑到屏幕外）：隐藏态已无全屏窗口可量尺寸 | 全屏窗口在隐藏态常驻（不可触摸、空内容）作为方向探针 |

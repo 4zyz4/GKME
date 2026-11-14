@@ -19,6 +19,12 @@ object GamepadInjector {
 
     private const val TAG = "GKME_GamepadInjector"
 
+    /**
+     * 系统设置：为 1 时系统振动器的输出会被重定向到支持震动的输入设备；
+     * 若本机再用系统振动器转发虚拟手柄震动，会形成回环。
+     */
+    private const val SYSTEM_VIBRATE_INPUT_DEVICES = "vibrate_input_devices"
+
     const val SHIZUKU_PACKAGE = ShizukuServiceBinding.SHIZUKU_PACKAGE
     const val SHIZUKU_DOWNLOAD_URL = ShizukuServiceBinding.SHIZUKU_DOWNLOAD_URL
 
@@ -38,6 +44,17 @@ object GamepadInjector {
 
     @Volatile
     private var mouseEnabled = true
+
+    /**
+     * 系统设置 `vibrate_input_devices` 的状态：true 表示系统会把手机振动器的输出
+     * 重定向到支持震动的输入设备（虚拟手柄），此时本机模式不能用系统振动器转发
+     * 虚拟手柄的震动，否则会形成回环。null 表示尚未读取；读取失败/无此设置时为 false。
+     */
+    @Volatile
+    private var vibrateInputDevices: Boolean? = null
+
+    /** 系统是否会把手机振动重定向到输入设备；null 表示尚未读取。 */
+    val systemVibratesInputDevices: Boolean? get() = vibrateInputDevices
 
     /** 当前虚拟手柄后端（0 = uinput，1 = uhid）与 uhid 身份（1 = DS4，2 = DualSense，3 = Switch Pro）。 */
     @Volatile
@@ -134,9 +151,9 @@ object GamepadInjector {
      * 确保虚拟手柄已就绪。若 Shizuku 未运行/未授权/未绑定，则返回 false 并触发相应流程，
      * 调用方可稍后重试。
      *
-     * @param rumble 是否把虚拟手柄的震动数据转发回控制端/手机。FF 能力始终暴露（系统
-     *   与游戏仍视其为带震动的设备）；本机模式传 false 以忽略震动数据，避免手机马达
-     *   与虚拟手柄之间形成死循环。
+     * @param rumble 是否允许 [pumpRumble] 读回虚拟手柄的震动数据。FF 能力始终暴露（系统
+     *   与游戏仍视其为带震动的设备）；本机/被控模式均为 true，是否把数据转发给振动器
+     *   由调用方决定（本机模式还要参考系统设置 `vibrate_input_devices`）。
      * @param mouse 是否创建虚拟鼠标。本机/被控模式均为 true：实体手柄映射的鼠标
      *   输入需要可用的虚拟鼠标注入；屏幕触摸板的移动仍由调用方在 LOCAL 分支丢弃，
      *   不会与屏幕触摸冲突。
@@ -197,6 +214,25 @@ object GamepadInjector {
     }
 
     fun isReady(): Boolean = binderAlive && permissionGranted && service != null && created
+
+    /**
+     * 读取系统设置 `vibrate_input_devices`，用于本机模式决定是否把虚拟手柄的震动
+     * 转发到手机/实体手柄。
+     *
+     * 该设置是私有设置，App 进程无权读取，因此经 Shizuku 用户服务以 shell 身份执行
+     * `settings get system`。在虚拟手柄创建成功后调用；为 1 时系统会把手机振动器的
+     * 输出重定向到输入设备，再用系统振动器转发会形成回环；读取失败/设置不存在时按
+     * false（不重定向）处理，即允许 GKME 自己转发。
+     */
+    fun refreshSystemVibrateInputDevices() {
+        val raw = try {
+            service?.readSystemSetting(SYSTEM_VIBRATE_INPUT_DEVICES)
+        } catch (t: Throwable) {
+            Log.w(TAG, "读取 vibrate_input_devices 失败", t)
+            null
+        }
+        vibrateInputDevices = raw == "1"
+    }
 
     fun release() {
         val svc = service

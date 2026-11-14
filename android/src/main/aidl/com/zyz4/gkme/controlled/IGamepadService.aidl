@@ -7,8 +7,8 @@ interface IGamepadService {
      * 创建虚拟手柄，返回 0 表示成功，负数表示 -errno。
      * backend：0 = uinput（伪装 Xbox One S），1 = uhid（真实 HID 身份）。
      * profile：backend=uhid 时选择身份，1 = DualShock 4，2 = DualSense，3 = Switch Pro。
-     * rumbleEnabled：是否把虚拟手柄的震动数据转发回控制端/手机。FF 能力始终暴露，
-     *   本机模式传 false 以忽略震动数据，避免“手机震动 ↔ 虚拟手柄”回环。
+     * rumbleEnabled：是否允许 pumpRumble 读回虚拟手柄的震动数据。FF 能力始终暴露；
+     *   本机模式/被控端均为 true，是否真正驱动振动器由 App 侧决定。
      */
     int create(int backend, int profile, boolean rumbleEnabled) = 1;
 
@@ -51,6 +51,12 @@ interface IGamepadService {
 
     /** 销毁虚拟键盘与鼠标。 */
     void releaseKeyboardMouse() = 9;
+
+    /**
+     * 以 shell 身份读取 Settings.System 中的设置项（用于 vibrate_input_devices）。
+     * 返回 null 表示该设置不存在或读取失败。
+     */
+    String readSystemSetting(String key) = 10;
 
     /**
      * 用户服务退出（Shizuku 约定的事务号，见 Shizuku-API 文档：

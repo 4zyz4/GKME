@@ -125,7 +125,7 @@ typedef struct {
     int left;
     int right;
 
-    /* 本机模式为 0：忽略 output 报告里的震动，避免“手机震动 ↔ 虚拟手柄”回环。 */
+    /* 为 0 时忽略 output 报告（不提供震动回读）；本机/被控模式均传 1。 */
     int rumble_enabled;
 
     /* 运动传感器（rad/s、m/s²），由 App 每帧注入，写入 uhid 手柄的 input 报告。 */
@@ -594,7 +594,7 @@ static void gkme_set_rumble(gkme_uk_dev *dev, int left, int right) {
 }
 
 static void gkme_handle_output(gkme_uk_dev *dev, const uint8_t *data, int len) {
-    /* 本机模式禁用震动回传：忽略 output 报告，避免“手机震动 ↔ 虚拟手柄”死循环。 */
+    /* 为 0 时忽略 output 报告（不提供震动回读）；本机/被控模式均传 1。 */
     if (!dev->rumble_enabled) return;
     if (len <= 0) return;
     uint8_t rid = data[0];
