@@ -27,6 +27,7 @@ import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.view.isEmpty
 import androidx.core.view.isVisible
+import com.zyz4.gkme.BitNameMapper
 import com.zyz4.gkme.CATEGORY_SWITCH_DURATION
 import com.zyz4.gkme.PAGE_SWITCH_OFFSET_DP
 import com.zyz4.gkme.R
@@ -39,6 +40,9 @@ import com.zyz4.gkme.model.GyroMode
 import com.zyz4.gkme.model.GyroOrientation
 import com.zyz4.gkme.model.LayoutPreset
 import com.zyz4.gkme.model.PhysicalInputs
+import com.zyz4.gkme.model.PhysicalStickDirection
+import com.zyz4.gkme.model.PhysicalStickDirectionSettings
+import com.zyz4.gkme.model.PhysicalStickMode
 import com.zyz4.gkme.model.PhysicalStickSettings
 
 /**
@@ -65,6 +69,8 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         fun onPopulatePhysicalMapping(container: LinearLayout)
         fun onPopulateVolumeMapping(container: LinearLayout)
         fun onPhysicalStickSettingsChanged(left: PhysicalStickSettings, right: PhysicalStickSettings)
+        /** 打开输出选择器（摇杆方向输出），由 Activity 弹出通用选择对话框。 */
+        fun onPickPhysicalStickOutputs(currentBits: List<Int>, onResult: (List<Int>) -> Unit)
         /** 布局级网格设置变化：开关 + 密度（30..240）。 */
         fun onGridSettingsChanged(useGrid: Boolean, density: Int)
 
@@ -855,6 +861,8 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
     /**
      * Appends the analog shaping controls (dead zone / anti dead zone / curve) for the physical
      * joystick named by [key] into its mapping card, right below the gyro-activation checkbox.
+     * Also adds the stick mapping selector (4/8-way buttons, left/right stick, mouse) and, for the
+     * two button modes, one independent output editor per direction.
      */
     fun appendStickTuning(container: LinearLayout, key: String) {
         val density = resources.displayMetrics.density
@@ -862,6 +870,67 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         val get: () -> PhysicalStickSettings = if (isLeft) ({ physicalLeftStick }) else ({ physicalRightStick })
         val set: (PhysicalStickSettings) -> Unit =
             if (isLeft) ({ physicalLeftStick = it }) else ({ physicalRightStick = it })
+
+        // ── 摇杆映射 ──
+        container.addView(sectionLabel(context.getString(R.string.i18n_stick_mapping), density))
+        val modeValues: List<PhysicalStickMode?> = listOf(null) + PhysicalStickMode.entries
+        val modeLabels = listOf(context.getString(R.string.i18n_native_mapping)) +
+            PhysicalStickMode.entries.map { context.getString(it.labelRes) }
+        val directionsContainer = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        val mouseSensitivityContainer = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+
+        // 鼠标灵敏度只在鼠标模式显示；100% = 基准速度。
+        fun renderMouseSensitivity() {
+            mouseSensitivityContainer.removeAllViews()
+            if (get().mode != PhysicalStickMode.MOUSE) return
+            addSeekbar(
+                mouseSensitivityContainer,
+                context.getString(R.string.i18n_mouse_sensitivity),
+                get().mouseSensitivity,
+                PhysicalStickSettings.MIN_MOUSE_SENSITIVITY,
+                PhysicalStickSettings.MAX_MOUSE_SENSITIVITY,
+            ) {
+                set(get().copy(mouseSensitivity = it))
+                notifyStickSettings()
+            }
+        }
+
+        fun renderDirections() {
+            directionsContainer.removeAllViews()
+            for (direction in PhysicalStickDirection.forMode(get().mode)) {
+                directionsContainer.addView(
+                    buildStickDirectionEditor(direction, density, get, set, ::renderDirections),
+                )
+            }
+            renderMouseSensitivity()
+        }
+
+        val modeSpinner = Spinner(context).apply {
+            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, modeLabels).also {
+                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+            setSelection(modeValues.indexOf(get().mode).coerceAtLeast(0))
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                    val mode = modeValues.getOrNull(pos)
+                    if (mode == get().mode) return
+                    set(get().copy(mode = mode))
+                    notifyStickSettings()
+                    renderDirections()
+                }
+
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
+        }
+        container.addView(modeSpinner, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply {
+            topMargin = (4f * density).toInt()
+            bottomMargin = (2f * density).toInt()
+        })
+        container.addView(directionsContainer)
+        container.addView(mouseSensitivityContainer)
+        renderDirections()
 
         addSeekbar(container, context.getString(R.string.i18n_dead_zone), get().deadZone, 0, 100) {
             set(get().copy(deadZone = it))
@@ -875,6 +944,135 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
             set(get().copy(curve = list))
             notifyStickSettings()
         })
+    }
+
+    /**
+     * One direction row of the 4/8-way stick mapping: label + output chips + add/clear, and the
+     * combo-timing controls once the direction has outputs.
+     *
+     * [rerender] rebuilds the whole direction list after a structural change (mode-independent);
+     * timing edits deliberately do not rerender so the seekbar keeps its drag.
+     */
+    private fun buildStickDirectionEditor(
+        direction: PhysicalStickDirection,
+        density: Float,
+        get: () -> PhysicalStickSettings,
+        set: (PhysicalStickSettings) -> Unit,
+        rerender: () -> Unit,
+    ): View {
+        fun update(transform: (PhysicalStickDirectionSettings) -> PhysicalStickDirectionSettings) {
+            val base = get().directionAt(direction)
+            set(get().withDirection(direction, transform(base)))
+            notifyStickSettings()
+        }
+
+        fun updateAndRerender(transform: (PhysicalStickDirectionSettings) -> PhysicalStickDirectionSettings) {
+            update(transform)
+            rerender()
+        }
+
+        val current = get().directionAt(direction)
+        val column = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        column.addView(
+            TextView(context).apply {
+                text = context.getString(direction.labelRes)
+                setTextColor(-0x1)
+                textSize = 13f
+            },
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+            ).apply { topMargin = (6f * density).toInt() },
+        )
+        val row = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        val chips = FlowLayout(context)
+        row.addView(
+            chips,
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                rightMargin = (6f * density).toInt()
+            },
+        )
+        fillStickDirectionChips(chips, current.outputs, density) { removed ->
+            updateAndRerender { it.copy(outputs = it.outputs - removed) }
+        }
+
+        row.addView(
+            Button(context, null, 0, R.style.GamepadChip).apply {
+                text = context.getString(R.string.i18n_add_b58c75)
+                setOnClickListener {
+                    listener?.onPickPhysicalStickOutputs(get().directionAt(direction).outputs) { picked ->
+                        updateAndRerender { it.copy(outputs = picked) }
+                    }
+                }
+            },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, (36f * density).toInt()),
+        )
+        row.addView(
+            Button(context, null, 0, R.style.GamepadChip).apply {
+                text = context.getString(R.string.i18n_clear)
+                setOnClickListener { updateAndRerender { it.copy(outputs = emptyList()) } }
+            },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, (36f * density).toInt()).apply {
+                leftMargin = (4f * density).toInt()
+            },
+        )
+        column.addView(row)
+        column.addView(View(context).apply {
+            minimumHeight = (2f * density).toInt()
+        })
+
+        if (current.outputs.isNotEmpty()) {
+            val timing = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+            timing.addComboTimingControls(current.comboTiming, current.comboIntervalMs) { t, ms ->
+                update { it.copy(comboTiming = t, comboIntervalMs = ms) }
+            }
+            column.addView(timing)
+        }
+        return column
+    }
+
+    private fun fillStickDirectionChips(
+        container: FlowLayout,
+        outputs: List<Int>,
+        density: Float,
+        onRemove: (Int) -> Unit,
+    ) {
+        container.removeAllViews()
+        if (outputs.isEmpty()) {
+            container.addView(
+                TextView(context).apply {
+                    text = context.getString(R.string.i18n_unmapped)
+                    setTextColor(-0x444445)
+                    textSize = 12f
+                },
+                ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                ),
+            )
+            return
+        }
+        for (bit in outputs) {
+            val chip = TextView(context).apply {
+                text = BitNameMapper.getBitName(bit)
+                setTextColor(-0x1)
+                textSize = 11f
+                gravity = Gravity.CENTER
+                setBackgroundResource(R.drawable.bg_chip)
+                val h = (4f * density).toInt()
+                val w = (6f * density).toInt()
+                setPadding(w, h, w, h)
+                setOnClickListener { onRemove(bit) }
+            }
+            container.addView(
+                chip,
+                ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                ),
+            )
+        }
     }
 
     private fun notifyStickSettings() {

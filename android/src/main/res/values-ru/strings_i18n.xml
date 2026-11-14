@@ -624,4 +624,8 @@
     <string name="i18n_action_open_layout_picker" formatted="false">"Открыть выбор макета"</string>
     <string name="i18n_wheel_action_open_layout_picker" formatted="false">"Макеты"</string>
     <string name="i18n_select_layout" formatted="false">"Выбрать макет"</string>
+    <string name="i18n_stick_mapping" formatted="false">"Сопоставление стика"</string>
+    <string name="i18n_native_mapping" formatted="false">"Нативное сопоставление"</string>
+    <string name="i18n_4_way_buttons" formatted="false">"4 направления кнопками"</string>
+    <string name="i18n_8_way_buttons" formatted="false">"8 направлений кнопками"</string>
 </resources>

@@ -35,6 +35,21 @@ class ComboSequencer(
     fun hasTarget(key: String): Boolean = states[key]?.target?.isNotEmpty() == true
 
     /**
+     * Union of every source's currently applied outputs.
+     *
+     * Callers that share one sequencer between several sources (e.g. a physical stick's
+     * per-direction chords plus the button mappings) can use this to rebuild the desired HID
+     * state from scratch, so releasing one source cannot cancel an output another source still
+     * holds. Only valid inside [applyChanges] or after a synchronous [setTarget]: the applied
+     * sets are updated before the callback runs.
+     */
+    fun appliedOutputs(): Set<Int> {
+        val union = LinkedHashSet<Int>()
+        for (state in states.values) union.addAll(state.applied)
+        return union
+    }
+
+    /**
      * Replaces the desired outputs of [key]. New items are pressed in target order; removed items
      * are released in reverse order so a modifier never comes up before the key it modifies.
      * Calls with an unchanged [items] list are ignored.
@@ -62,14 +77,14 @@ class ComboSequencer(
         state.job = scope.launch {
             for (item in up) {
                 if (!isActive) return@launch
-                applyChanges(emptyList(), listOf(item))
                 state.applied.remove(item)
+                applyChanges(emptyList(), listOf(item))
                 delay(interval.toLong())
             }
             for (item in down) {
                 if (!isActive) return@launch
-                applyChanges(listOf(item), emptyList())
                 state.applied.add(item)
+                applyChanges(listOf(item), emptyList())
                 delay(interval.toLong())
             }
         }

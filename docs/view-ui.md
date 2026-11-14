@@ -125,6 +125,13 @@ flowchart TB
 - `writePhysicalMapping`：默认值不落盘（从 map 移除）；同时保存组合键时序。
 - `populatePhysicalMapping` / `buildPhysicalMappingRow` / `fillPhysicalMappingChips`；
   每个按键卡片通过 `addComboTimingControls` 提供组合键时序。
+- 摇杆卡片额外调用 `LayoutGlobalSettingsPanel.appendStickTuning`：
+  - 「摇杆映射」下拉：原生 / 4 向按钮 / 8 向按钮 / 左摇杆 / 右摇杆 / 鼠标。
+  - 4/8 向模式在下方按方向渲染输出编辑器（chips + 添加/清除 + 组合键时序），
+    输出选择复用 Activity 的 `showOutputValuePicker`（通过
+    `Listener.onPickPhysicalStickOutputs` 回调）。
+  - 鼠标模式显示「鼠标灵敏度」滑块（10–300%，默认 100）。
+  - 时序/灵敏度编辑不重建列表，避免拖动滑块时控件被替换。
 
 ### 2.7 MainActivitySettings.kt（设置页，最大 partial）
 
@@ -383,7 +390,8 @@ Activity **不直接改 ViewModel 内部状态**：
 | 悬浮 resume 保护 | 2000ms | `MainActivity.kt` |
 | 鼠标 tap 超时 | 200ms | `MouseInputDispatcher.kt` |
 | 物理扳机按下阈值 | 128 | `GkViewModel.kt` |
-| 物理摇杆陀螺激活阈值 | 8000 | `GkViewModel.kt` |
+| 摇杆 4/8 向判定阈值 | 0.5（归一化） | `PhysicalStickRouting.kt` |
+| 摇杆转鼠标满偏转速度 | 2000 px/s | `GkViewModel.kt` |
 | 陀螺满量程角速度 | 5 rad/s | `GkViewModel.kt` |
 | 文本“无限”上限 | 8192px | `AppearanceApplier.kt` |
 

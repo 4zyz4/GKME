@@ -624,4 +624,8 @@
     <string name="i18n_action_open_layout_picker" formatted="false">"Ouvrir le sélecteur de disposition"</string>
     <string name="i18n_wheel_action_open_layout_picker" formatted="false">"Dispos"</string>
     <string name="i18n_select_layout" formatted="false">"Choisir une disposition"</string>
+    <string name="i18n_stick_mapping" formatted="false">"Mappage du stick"</string>
+    <string name="i18n_native_mapping" formatted="false">"Mappage natif"</string>
+    <string name="i18n_4_way_buttons" formatted="false">"Boutons 4 directions"</string>
+    <string name="i18n_8_way_buttons" formatted="false">"Boutons 8 directions"</string>
 </resources>

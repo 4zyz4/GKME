@@ -624,4 +624,8 @@
     <string name="i18n_action_open_layout_picker" formatted="false">"開啟佈局選擇器"</string>
     <string name="i18n_wheel_action_open_layout_picker" formatted="false">"選佈局"</string>
     <string name="i18n_select_layout" formatted="false">"選擇佈局"</string>
+    <string name="i18n_stick_mapping" formatted="false">"搖桿映射"</string>
+    <string name="i18n_native_mapping" formatted="false">"原生映射"</string>
+    <string name="i18n_4_way_buttons" formatted="false">"4向按鈕"</string>
+    <string name="i18n_8_way_buttons" formatted="false">"8向按鈕"</string>
 </resources>

@@ -11,6 +11,7 @@ import com.zyz4.gkme.data.LayoutRepository
 import com.zyz4.gkme.i18n.AppText
 import com.zyz4.gkme.input.AccelSteeringMapper
 import com.zyz4.gkme.input.ComboSequencer
+import com.zyz4.gkme.input.PhysicalStickRouting
 import com.zyz4.gkme.input.SensitivityCurve
 import com.zyz4.gkme.input.SensorHandler
 import com.zyz4.gkme.input.StickShaping
@@ -36,6 +37,8 @@ import com.zyz4.gkme.model.HapticEffect
 import com.zyz4.gkme.model.LayoutPreset
 import com.zyz4.gkme.model.LedAppearance
 import com.zyz4.gkme.model.PhysicalInputs
+import com.zyz4.gkme.model.PhysicalStickDirectionSettings
+import com.zyz4.gkme.model.PhysicalStickSettings
 import com.zyz4.gkme.model.SettingsButtonAction
 import com.zyz4.gkme.model.SettingsButtonDirection
 import com.zyz4.gkme.model.TargetPlatform
@@ -139,6 +142,16 @@ class GkViewModel @Inject constructor(
     private var physicalStickY: Short = 0
     private var physicalRStickX: Short = 0
     private var physicalRStickY: Short = 0
+
+    // ── 摇杆映射 ──
+    /** 摇杆映射到鼠标时的归一化速度分量（-1..1；Y 向上为负，与 HID 鼠标一致）。 */
+    private var physicalStickMouseX = 0f
+    private var physicalStickMouseY = 0f
+    private var physicalStickMouseAccumX = 0f
+    private var physicalStickMouseAccumY = 0f
+    private var lastPhysicalStickMouseNanos = 0L
+    /** 上一次写入键盘的物理端 scan code（用于按并集差异上报）。 */
+    private var physicalComboAppliedKeys: Set<Int> = emptySet()
     private var _keyboardModifier = 0u
     private var _keyboardKeys = UShortArray(6)
 
@@ -162,8 +175,8 @@ class GkViewModel @Inject constructor(
     }
 
     /** Applies mapped physical-controller chords, including the continuous per-frame updates. */
-    private val physicalComboSequencer = ComboSequencer(viewModelScope) { down, up ->
-        applyPhysicalComboChanges(down, up)
+    private val physicalComboSequencer = ComboSequencer(viewModelScope) { _, _ ->
+        applyPhysicalComboChanges()
     }
 
     private val _keyboardShiftActive = MutableStateFlow(false)
@@ -678,12 +691,23 @@ class GkViewModel @Inject constructor(
         val hasPhoneRT = phoneRT.toInt() > 0
         val previousPhysicalMouse = physicalMappedMouseButtons
         val stickPreset = _currentPreset.value
-        val (shapedLx, shapedLy) = shapePhysicalStick(stickPreset.leftStickSettings, leftStickX, leftStickY)
-        val (shapedRx, shapedRy) = shapePhysicalStick(stickPreset.rightStickSettings, rightStickX, rightStickY)
+        val leftSettings = stickPreset.leftStickSettings
+        val rightSettings = stickPreset.rightStickSettings
+        val (shapedLx, shapedLy) = shapePhysicalStick(leftSettings, leftStickX, leftStickY)
+        val (shapedRx, shapedRy) = shapePhysicalStick(rightSettings, rightStickX, rightStickY)
         applyPhysicalMappings(
             buttons, leftTrigger, rightTrigger,
             shapedLx, shapedLy, shapedRx, shapedRy, touchpadTouch,
         )
+        // 摇杆映射发生在塑形之后：可交叉到另一侧摇杆、改作 4/8 向按钮或鼠标。
+        // 鼠标灵敏度按各自摇杆的配置叠加到归一化速度上。
+        val routed = PhysicalStickRouting.route(
+            leftSettings?.mode, shapedLx, shapedLy,
+            rightSettings?.mode, shapedRx, shapedRy,
+            leftSettings?.mouseSensitivityScale ?: 1f,
+            rightSettings?.mouseSensitivityScale ?: 1f,
+        )
+        applyPhysicalStickDirections(leftSettings, shapedLx, shapedLy, rightSettings, shapedRx, shapedRy)
         val mouseButtonsChanged = physicalMappedMouseButtons != previousPhysicalMouse
         val combinedMouseButtons =
             (_gamepadState.value.mouseButtons and previousPhysicalMouse.inv()) or physicalMappedMouseButtons
@@ -692,10 +716,10 @@ class GkViewModel @Inject constructor(
         _gamepadState.value = _gamepadState.value.copy(
             buttons = phoneButtons or physicalMappedButtonBits,
             mouseButtons = combinedMouseButtons,
-            leftStickX = (phoneStickX.toInt() + shapedLx).coerceIn(-32768, 32767).toShort(),
-            leftStickY = (phoneStickY.toInt() + shapedLy).coerceIn(-32768, 32767).toShort(),
-            rightStickX = (phoneRStickX.toInt() + shapedRx).coerceIn(-32768, 32767).toShort(),
-            rightStickY = (phoneRStickY.toInt() + shapedRy).coerceIn(-32768, 32767).toShort(),
+            leftStickX = (phoneStickX.toInt() + routed.leftX).coerceIn(-32768, 32767).toShort(),
+            leftStickY = (phoneStickY.toInt() + routed.leftY).coerceIn(-32768, 32767).toShort(),
+            rightStickX = (phoneRStickX.toInt() + routed.rightX).coerceIn(-32768, 32767).toShort(),
+            rightStickY = (phoneRStickY.toInt() + routed.rightY).coerceIn(-32768, 32767).toShort(),
             leftTrigger = if (hasPhoneLT) maxOf(phoneLT.toInt(), physicalLeftTriggerAnalog) else physicalLeftTriggerAnalog,
             rightTrigger = if (hasPhoneRT) maxOf(phoneRT.toInt(), physicalRightTriggerAnalog) else physicalRightTriggerAnalog,
             dpad = hatValue,
@@ -705,10 +729,12 @@ class GkViewModel @Inject constructor(
             touchpadClick = touchpadClick || hasPhoneTouch,
             touches = if (hasPhoneTouch) phoneTouches else touches,
         )
-        physicalStickX = shapedLx.toShort()
-        physicalStickY = shapedLy.toShort()
-        physicalRStickX = shapedRx.toShort()
-        physicalRStickY = shapedRy.toShort()
+        physicalStickX = routed.leftX.toShort()
+        physicalStickY = routed.leftY.toShort()
+        physicalRStickX = routed.rightX.toShort()
+        physicalRStickY = routed.rightY.toShort()
+        physicalStickMouseX = routed.mouseX
+        physicalStickMouseY = routed.mouseY
         if (mouseButtonsChanged && settings.value.connectionMode == ConnectionMode.BLUETOOTH) {
             viewModelScope.launch {
                 connectionManager.sendMouseReport(
@@ -719,18 +745,99 @@ class GkViewModel @Inject constructor(
         }
     }
 
-    /** Applies the per-layout dead zone / anti dead zone / curve to a raw physical stick vector. */
+    /**
+     * Applies the per-layout dead zone / anti dead zone / curve to a raw physical stick vector.
+     *
+     * 塑形与「摇杆映射模式」无关：只要配置了死区/反死区/曲线，无论映射到摇杆、鼠标还是
+     * 4/8 向按钮都先套用同一套塑形，再把结果交给路由。只有塑形参数全部为默认值时才原样
+     * 透传（保持旧预设的手感）。
+     */
     private fun shapePhysicalStick(
         settings: com.zyz4.gkme.model.PhysicalStickSettings?,
         x: Short,
         y: Short,
     ): Pair<Int, Int> {
-        if (settings == null || settings.isDefault()) return x.toInt() to y.toInt()
+        if (settings == null) return x.toInt() to y.toInt()
+        if (StickShaping.isDefault(settings.deadZone, settings.reverseDeadZone, settings.curve)) {
+            return x.toInt() to y.toInt()
+        }
         val (sx, sy) = StickShaping.apply(
             x.toFloat(), y.toFloat(), PHYSICAL_STICK_FULL_SCALE,
             settings.deadZone, settings.reverseDeadZone, settings.curve,
         )
         return sx.toInt() to sy.toInt()
+    }
+
+    /**
+     * 4 / 8 向按钮模式：把当前方向的方向输出交给共享的组合键序列器。
+     *
+     * 每根摇杆使用独立的 source key，并且每个 source 在方向切换时一次性把目标从「旧方向
+     * 的输出」替换为「新方向的输出」，因此两个方向的输出有重叠时也不会互相取消。
+     * 不在 4/8 向模式时目标为空，会释放该摇杆此前按下的方向输出。
+     */
+    private fun applyPhysicalStickDirections(
+        leftSettings: PhysicalStickSettings?,
+        leftX: Int, leftY: Int,
+        rightSettings: PhysicalStickSettings?,
+        rightX: Int, rightY: Int,
+    ) {
+        applyStickDirection(PHYSICAL_LEFT_STICK_SOURCE, leftSettings, leftX, leftY)
+        applyStickDirection(PHYSICAL_RIGHT_STICK_SOURCE, rightSettings, rightX, rightY)
+    }
+
+    private fun applyStickDirection(
+        source: String,
+        settings: PhysicalStickSettings?,
+        x: Int,
+        y: Int,
+    ) {
+        val direction = PhysicalStickRouting.directionOf(settings?.mode, x, y)
+        val target = if (direction == null) {
+            PhysicalStickDirectionSettings()
+        } else {
+            settings!!.directionAt(direction)
+        }
+        physicalComboSequencer.setTarget(
+            source,
+            target.outputs,
+            target.comboTiming,
+            target.comboIntervalMs,
+        )
+    }
+
+    /**
+     * 把鼠标模式摇杆的速度按时间积分成鼠标位移。
+     *
+     * `physicalStickMouseX/Y` 已包含各自的「鼠标灵敏度」倍率（见
+     * [PhysicalStickRouting.route]）。[onPhysicalControllerInput] 只在控制器状态变化时回调，
+     * 摇杆保持不动时不会继续触发，所以位移必须在发送循环里按帧计算。累加器保留不足 1px
+     * 的余量，避免低速时丢步。
+     */
+    private fun applyPhysicalStickMouse() {
+        val now = System.nanoTime()
+        val dt = if (lastPhysicalStickMouseNanos == 0L) 0f else
+            ((now - lastPhysicalStickMouseNanos) / 1_000_000_000f).coerceIn(0f, 0.05f)
+        lastPhysicalStickMouseNanos = now
+        val sx = physicalStickMouseX
+        val sy = physicalStickMouseY
+        if (sx == 0f && sy == 0f) {
+            physicalStickMouseAccumX = 0f
+            physicalStickMouseAccumY = 0f
+            return
+        }
+        if (dt <= 0f) return
+        physicalStickMouseAccumX += sx * PHYSICAL_STICK_MOUSE_SPEED_PX_PER_SEC * dt
+        physicalStickMouseAccumY += sy * PHYSICAL_STICK_MOUSE_SPEED_PX_PER_SEC * dt
+        val dx = physicalStickMouseAccumX.toInt().coerceIn(-127, 127)
+        val dy = physicalStickMouseAccumY.toInt().coerceIn(-127, 127)
+        physicalStickMouseAccumX -= dx
+        physicalStickMouseAccumY -= dy
+        if (dx == 0 && dy == 0) return
+        val state = _gamepadState.value
+        _gamepadState.value = state.copy(
+            mouseDx = (state.mouseDx.toInt() + dx).coerceIn(-32768, 32767).toShort(),
+            mouseDy = (state.mouseDy.toInt() + dy).coerceIn(-32768, 32767).toShort(),
+        )
     }
 
     /**
@@ -841,15 +948,20 @@ class GkViewModel @Inject constructor(
     }
 
     /** Applies one batch of mapped physical-controller outputs. */
-    private fun applyPhysicalComboChanges(down: List<Int>, up: List<Int>) {
-        var bits = physicalMappedButtonBits
-        for (bit in up) if (bit >= 0) bits = bits and bit.toUInt().inv()
-        for (bit in down) if (bit >= 0) bits = bits or bit.toUInt()
+    private fun applyPhysicalComboChanges() {
+        // 物理端有多个并发 source（按键映射 + 每根摇杆的当前方向），同一输出可能同时被
+        // 多个 source 持有。这里不再对单个 source 的 up 做增量清除，而是用所有 source 的
+        // 已应用并集重建，避免释放一个方向时误松开另一个方向仍按住的键。
+        val applied = physicalComboSequencer.appliedOutputs()
+        var bits = 0u
+        for (item in applied) if (item >= 0) bits = bits or item.toUInt()
         physicalMappedButtonBits = bits
         physicalMappedMouseButtons = mouseButtonsFromPhysicalBits(bits)
 
-        val kbDown = down.filter { it < 0 }.map { -it }
-        val kbUp = up.filter { it < 0 }.map { -it }
+        val keys = applied.filter { it < 0 }.map { -it }.toSet()
+        val kbDown = keys - physicalComboAppliedKeys
+        val kbUp = physicalComboAppliedKeys - keys
+        physicalComboAppliedKeys = keys
         if (kbDown.isNotEmpty() || kbUp.isNotEmpty()) {
             applyKeyboardChanges(down = kbDown, up = kbUp)
         }
@@ -990,6 +1102,7 @@ class GkViewModel @Inject constructor(
 
     private fun startPeriodicSendLoop() {
         sendJob?.cancel()
+        lastPhysicalStickMouseNanos = 0L
         var lastBatteryRead = 0L
         sendJob = CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             var nextSendTime = System.currentTimeMillis()
@@ -998,6 +1111,7 @@ class GkViewModel @Inject constructor(
                     readBattery()
                     lastBatteryRead = System.currentTimeMillis()
                 }
+                applyPhysicalStickMouse()
                 val combinedLx = (phoneStickX.toInt() + physicalStickX.toInt()).coerceIn(-32768, 32767).toShort()
                 val combinedLy = (phoneStickY.toInt() + physicalStickY.toInt()).coerceIn(-32768, 32767).toShort()
                 val combinedRx = (phoneRStickX.toInt() + physicalRStickX.toInt()).coerceIn(-32768, 32767).toShort()
@@ -1077,6 +1191,7 @@ class GkViewModel @Inject constructor(
 
     private fun startSensorSendLoop() {
         sendJob?.cancel()
+        lastPhysicalStickMouseNanos = 0L
         var lastBatteryRead = 0L
         sendJob = CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             var nextSendTime = System.currentTimeMillis()
@@ -1318,6 +1433,7 @@ class GkViewModel @Inject constructor(
                     }
                     else -> (phoneRStickY.toInt() + physicalRStickY.toInt()).coerceIn(-32768, 32767).toShort()
                 }
+                applyPhysicalStickMouse()
                 val currentState = _gamepadState.value
                 val input = currentState.copy(
                     leftStickX = combinedLx,
@@ -1732,6 +1848,13 @@ class GkViewModel @Inject constructor(
 /** Trigger value (0..255) above which a remapped LT/RT counts as pressed. */
 private const val PHYSICAL_TRIGGER_MAP_THRESHOLD = 128
 private const val PHYSICAL_COMBO_SOURCE = "physical"
+
+/** 4/8 向按钮模式下，每根摇杆各用一个组合键 source，方向切换即整体替换目标。 */
+private const val PHYSICAL_LEFT_STICK_SOURCE = "stick:left"
+private const val PHYSICAL_RIGHT_STICK_SOURCE = "stick:right"
+
+/** 摇杆映射为鼠标时的最大速度（满偏转，px/s）。 */
+private const val PHYSICAL_STICK_MOUSE_SPEED_PX_PER_SEC = 2000f
 
 /** Short-axis magnitude that maps to full deflection for physical stick shaping. */
 private const val PHYSICAL_STICK_FULL_SCALE = 32767f

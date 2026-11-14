@@ -624,4 +624,8 @@
     <string name="i18n_action_open_layout_picker" formatted="false">"Open layout picker"</string>
     <string name="i18n_wheel_action_open_layout_picker" formatted="false">"Layouts"</string>
     <string name="i18n_select_layout" formatted="false">"Select layout"</string>
+    <string name="i18n_stick_mapping" formatted="false">"Stick mapping"</string>
+    <string name="i18n_native_mapping" formatted="false">"Native mapping"</string>
+    <string name="i18n_4_way_buttons" formatted="false">"4-way buttons"</string>
+    <string name="i18n_8_way_buttons" formatted="false">"8-way buttons"</string>
 </resources>

@@ -320,9 +320,29 @@ protobuf `GamepadInput`。要点：
   - `STANDARD_BUTTON_MASK`、`BUTTONS`、`GYRO_ONLY`、`ALL`。
   - `byKey / defaultOutputsFor / isPaddle / PADDLE_MASK`。
 - 语义：映射缺失键 = 用默认；空 outputs 显式禁用。
+- 摇杆：`PhysicalStickSettings(deadZone, reverseDeadZone, curve, mode, mouseSensitivity, directions)`：
+  - `PhysicalStickMode { FOUR_WAY, EIGHT_WAY, LEFT_STICK, RIGHT_STICK, MOUSE }`；`mode = null`
+    表示原生（左摇杆→左轴、右摇杆→右轴，旧预设行为不变）。
+  - `PhysicalStickDirection` 共 8 个（上/下/左/右 + 四个斜向），`ordinal` 即 `directions`
+    的存储索引；`PhysicalStickDirectionSettings(outputs, comboTiming, comboIntervalMs)`
+    让每个方向独立绑定组合键与时序。
+  - `mouseSensitivity`（10–300%，默认 100）只影响鼠标模式。
+  - `directions` 缺省索引按“未绑定”处理，末尾默认项在写入时裁掉。
 
 `GkViewModel.applyPhysicalMappings` 把 raw 输入映射成 output bits / 负键盘码 / 陀螺激活；
-`PHYSICAL_TRIGGER_MAP_THRESHOLD=128`、`PHYSICAL_STICK_GYRO_THRESHOLD=8000`。
+`PHYSICAL_TRIGGER_MAP_THRESHOLD=128`。摇杆映射在塑形之后生效：
+
+- **塑形与映射模式无关**：只要配置了死区/反死区/曲线，无论摇杆映射到轴、鼠标还是 4/8 向
+  按钮，都先套用同一套 `StickShaping`；只有塑形参数全为默认值时才原样透传。
+- `input/PhysicalStickRouting.kt` 负责纯路由：交叉到左/右摇杆、转鼠标（归一化速度 ×
+  各自的 `mouseSensitivityScale`），以及 4/8 向判定（阈值 `DIRECTION_THRESHOLD=0.5`；
+  4 向取主导轴，8 向两轴各自过阈值即斜向）。
+- 4/8 向模式不产生隐式 D-pad，而是把当前方向的方向输出交给 `physicalComboSequencer`
+  （每根摇杆一个 source：`stick:left` / `stick:right`）。方向切换时整体替换目标，因此
+  两个方向的输出有重叠也不会互相取消。
+- 鼠标模式在发送循环（`startPeriodicSendLoop` / `startSensorSendLoop`）里按时间积分，
+  因为 `onPhysicalControllerInput` 只在控制器状态变化时回调，摇杆保持不动时不会继续触发。
+  满偏转速度 `PHYSICAL_STICK_MOUSE_SPEED_PX_PER_SEC=2000`，累加器保留不足 1 px 的余量。
 
 ### 6.1 组合键时序
 
@@ -332,11 +352,14 @@ protobuf `GamepadInput`。要点：
 - `SIMULTANEOUS`：一次 `applyChanges(down, up)`，保持原有单报文同时按下。
 - 顺序模式：按下按映射列表顺序逐项发送，松开按相反顺序发送；每一步间隔由
   `ComboTiming.effectiveIntervalMs` 决定（分帧 16 ms / 自定义 1–100 ms）。
-- 每个来源（自定义按钮、按键盘区域、音量键、物理手柄整体）各有独立状态；持续更新的
-  物理映射用幂等 `setTarget`，目标不变时不会重启序列。
+- 每个来源（自定义按钮、按键盘区域、音量键、物理手柄整体、摇杆方向）各有独立状态；
+  持续更新的物理映射用幂等 `setTarget`，目标不变时不会重启序列。
+- 物理端有多个并发 source 时，`appliedOutputs()` 返回所有来源已应用输出的并集，
+  `GkViewModel.applyPhysicalComboChanges` 据此重建 bit 与键盘状态，释放一个来源不会
+  松开另一个来源仍按住的输出。
 
 `GkViewModel` 中 `phoneComboSequencer` 处理屏幕自定义控件与音量键，
-`physicalComboSequencer` 处理物理手柄映射。
+`physicalComboSequencer` 处理物理手柄映射与摇杆方向输出。
 
 ---
 

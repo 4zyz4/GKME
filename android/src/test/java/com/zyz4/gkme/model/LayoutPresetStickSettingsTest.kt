@@ -34,4 +34,56 @@ class LayoutPresetStickSettingsTest {
         val json = LayoutPreset(leftStickSettings = PhysicalStickSettings()).toJson()
         assertFalse(json.contains("leftStickSettings"))
     }
+
+    @Test
+    fun stickModeAndDirections_roundTrip() {
+        val left = PhysicalStickSettings(
+            mode = PhysicalStickMode.EIGHT_WAY,
+            mouseSensitivity = 150,
+            directions = listOf(
+                PhysicalStickDirectionSettings(listOf(GamepadState.DPAD_BIT_UP)),
+                PhysicalStickDirectionSettings(),
+                PhysicalStickDirectionSettings(
+                    outputs = listOf(-0x04, GamepadState.A),
+                    comboTiming = ComboTiming.CUSTOM_INTERVAL,
+                    comboIntervalMs = 25,
+                ),
+            ),
+        )
+        val restored = LayoutPreset.fromJson(LayoutPreset(leftStickSettings = left).toJson())
+        val settings = restored.leftStickSettings
+        assertNotNull(settings)
+        assertEquals(PhysicalStickMode.EIGHT_WAY, settings!!.mode)
+        assertEquals(150, settings.mouseSensitivity)
+        assertEquals(
+            listOf(GamepadState.DPAD_BIT_UP),
+            settings.directionAt(PhysicalStickDirection.UP).outputs,
+        )
+        // 未写入的索引回退为未绑定。
+        assertEquals(
+            emptyList<Int>(),
+            settings.directionAt(PhysicalStickDirection.DOWN).outputs,
+        )
+        val leftDirection = settings.directionAt(PhysicalStickDirection.LEFT)
+        assertEquals(listOf(-0x04, GamepadState.A), leftDirection.outputs)
+        assertEquals(ComboTiming.CUSTOM_INTERVAL, leftDirection.comboTiming)
+        assertEquals(25, leftDirection.comboIntervalMs)
+    }
+
+    @Test
+    fun withDirection_trimsTrailingDefaults() {
+        val settings = PhysicalStickSettings(mode = PhysicalStickMode.FOUR_WAY)
+            .withDirection(
+                PhysicalStickDirection.RIGHT,
+                PhysicalStickDirectionSettings(listOf(GamepadState.A)),
+            )
+        assertEquals(PhysicalStickDirection.RIGHT.ordinal + 1, settings.directions?.size)
+
+        val cleared = settings.withDirection(
+            PhysicalStickDirection.RIGHT,
+            PhysicalStickDirectionSettings(),
+        )
+        assertNull(cleared.directions)
+        assertFalse(cleared.isDefault()) // mode 仍然需要保存
+    }
 }

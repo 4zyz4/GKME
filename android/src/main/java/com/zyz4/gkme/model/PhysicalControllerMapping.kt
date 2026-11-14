@@ -40,19 +40,132 @@ data class PhysicalInputMapping(
 )
 
 /**
+ * 实体摇杆的映射模式。
+ *
+ * `null`（不写入预设）表示保持原生行为：左摇杆输出左摇杆、右摇杆输出右摇杆。
+ * 一旦选择某个模式，该摇杆的原始模拟量就不再隐式写入自己的轴，而是由模式决定去向。
+ */
+enum class PhysicalStickMode(@StringRes val labelRes: Int) {
+    /** 4 向按钮：按主导轴判定上/下/左/右，每个方向单独配置输出。 */
+    FOUR_WAY(R.string.i18n_4_way_buttons),
+
+    /** 8 向按钮：两根轴各自过阈值时判定斜向，每个方向单独配置输出。 */
+    EIGHT_WAY(R.string.i18n_8_way_buttons),
+
+    /** 无论插在哪一侧，都输出到左摇杆轴。 */
+    LEFT_STICK(R.string.i18n_left_stick),
+
+    /** 无论插在哪一侧，都输出到右摇杆轴。 */
+    RIGHT_STICK(R.string.i18n_right_stick),
+
+    /** 作为鼠标：按时间积分产生 `mouseDx/mouseDy`。 */
+    MOUSE(R.string.i18n_mouse);
+
+    /** True for [FOUR_WAY] / [EIGHT_WAY], which emit per-direction outputs instead of an axis. */
+    val isDirectional: Boolean get() = this == FOUR_WAY || this == EIGHT_WAY
+}
+
+/**
+ * 摇杆 4 / 8 向模式下的一个方向。
+ *
+ * [ordinal] 同时是 [PhysicalStickSettings.directions] 中的存储索引，因此新增方向只能
+ * 追加在末尾，不能调整顺序。
+ */
+enum class PhysicalStickDirection(@StringRes val labelRes: Int) {
+    UP(R.string.i18n_up_3f99c7),
+    DOWN(R.string.i18n_down_c761f5),
+    LEFT(R.string.i18n_left_3e0a82),
+    RIGHT(R.string.i18n_right_b45922),
+    UP_LEFT(R.string.i18n_top_left_07092c),
+    UP_RIGHT(R.string.i18n_top_right_a52f17),
+    DOWN_LEFT(R.string.i18n_bottom_left_a289e9),
+    DOWN_RIGHT(R.string.i18n_bottom_right_553067);
+
+    companion object {
+        /** 某个模式可编辑的方向；非方向模式返回空列表。 */
+        fun forMode(mode: PhysicalStickMode?): List<PhysicalStickDirection> = when (mode) {
+            PhysicalStickMode.FOUR_WAY -> listOf(UP, DOWN, LEFT, RIGHT)
+            PhysicalStickMode.EIGHT_WAY -> entries
+            else -> emptyList()
+        }
+    }
+}
+
+/**
+ * 一个方向的输出配置，语义与 [PhysicalInputMapping] 一致：非负值是手柄/鼠标位，
+ * 负值是键盘 scan code（`-code`）；[comboTiming] 控制同一方向内多个输出是同时按下
+ * 还是分帧按下。
+ */
+data class PhysicalStickDirectionSettings(
+    val outputs: List<Int> = emptyList(),
+    val comboTiming: ComboTiming = ComboTiming.SIMULTANEOUS,
+    val comboIntervalMs: Int = ComboTiming.DEFAULT_INTERVAL_MS,
+) {
+    /** True when the direction is unbound and uses the neutral timing. */
+    fun isDefault(): Boolean = outputs.isEmpty() &&
+        comboTiming == ComboTiming.SIMULTANEOUS &&
+        comboIntervalMs == ComboTiming.DEFAULT_INTERVAL_MS
+}
+
+/**
  * Per-layout analog shaping applied to a physical-controller joystick before it is merged with
  * the on-screen stick: a radial dead zone, an anti (reverse) dead zone and an optional
  * sensitivity curve. The same pipeline is used by the on-screen joystick and the gyro/accel
  * stick modes.
+ *
+ * [mode] / [directions] 是摇杆映射：塑形之后仍可把摇杆改作 4/8 向按钮、另一侧的摇杆或鼠标。
  */
 data class PhysicalStickSettings(
     val deadZone: Int = 0,
     val reverseDeadZone: Int = 0,
     /** Flat `[x0, y0, x1, y1, ...]` curve points in `[0, 1]`; null/empty = identity. */
     val curve: List<Float>? = null,
+    /** 摇杆映射模式；null = 原生（保持原有输出轴）。 */
+    val mode: PhysicalStickMode? = null,
+    /**
+     * 映射为鼠标时的灵敏度倍率（%）；100 = 1.0 倍。
+     *
+     * 与屏幕鼠标板的 `ButtonPosition.mouseSensitivity` 语义一致，只影响鼠标模式。
+     */
+    val mouseSensitivity: Int = DEFAULT_MOUSE_SENSITIVITY,
+    /**
+     * 方向输出，索引与 [PhysicalStickDirection.ordinal] 对应；缺失的索引按
+     * [PhysicalStickDirectionSettings] 默认值处理，因此旧预设无需迁移。
+     */
+    val directions: List<PhysicalStickDirectionSettings>? = null,
 ) {
     /** True when every field is at its neutral (no-op) value. */
-    fun isDefault(): Boolean = deadZone <= 0 && reverseDeadZone <= 0 && curve.isNullOrEmpty()
+    fun isDefault(): Boolean = deadZone <= 0 && reverseDeadZone <= 0 && curve.isNullOrEmpty() &&
+        mode == null && mouseSensitivity == DEFAULT_MOUSE_SENSITIVITY &&
+        directions.isNullOrEmpty()
+
+    /** 读取某个方向的输出；未配置时返回默认（未绑定）。 */
+    fun directionAt(direction: PhysicalStickDirection): PhysicalStickDirectionSettings =
+        directions?.getOrNull(direction.ordinal) ?: PhysicalStickDirectionSettings()
+
+    /** [mouseSensitivity] 换算成倍率，并限制在 UI 允许的范围内。 */
+    val mouseSensitivityScale: Float
+        get() = mouseSensitivity.coerceIn(MIN_MOUSE_SENSITIVITY, MAX_MOUSE_SENSITIVITY) / 100f
+
+    /** 写入某个方向的输出，同时裁掉末尾的默认项以避免 JSON 冗余。 */
+    fun withDirection(
+        direction: PhysicalStickDirection,
+        value: PhysicalStickDirectionSettings,
+    ): PhysicalStickSettings {
+        val list = MutableList(PhysicalStickDirection.entries.size) { index ->
+            directions?.getOrNull(index) ?: PhysicalStickDirectionSettings()
+        }
+        list[direction.ordinal] = value
+        while (list.isNotEmpty() && list.last().isDefault()) list.removeAt(list.lastIndex)
+        return copy(directions = list.ifEmpty { null })
+    }
+
+    companion object {
+        /** 鼠标灵敏度默认值（%）。 */
+        const val DEFAULT_MOUSE_SENSITIVITY = 100
+        const val MIN_MOUSE_SENSITIVITY = 10
+        const val MAX_MOUSE_SENSITIVITY = 300
+    }
 }
 
 /**

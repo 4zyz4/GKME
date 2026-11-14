@@ -237,6 +237,10 @@ internal fun MainActivity.createGlobalSettingsPanel(): LayoutGlobalSettingsPanel
                 a.viewModel.updatePresetButtons(a.gamepadLayout.getPreset())
             }
 
+            override fun onPickPhysicalStickOutputs(currentBits: List<Int>, onResult: (List<Int>) -> Unit) {
+                a.showOutputValuePicker(currentBits, onResult)
+            }
+
             override fun onGridSettingsChanged(useGrid: Boolean, density: Int) {
                 a.gamepadLayout.setGridSettings(useGrid, density)
                 a.viewModel.updatePresetButtons(a.gamepadLayout.getPreset())
