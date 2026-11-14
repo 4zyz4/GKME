@@ -132,6 +132,14 @@ flowchart TB
     `Listener.onPickPhysicalStickOutputs` 回调）。
   - 鼠标模式显示「鼠标灵敏度」滑块（10–300%，默认 100）。
   - 时序/灵敏度编辑不重建列表，避免拖动滑块时控件被替换。
+- 触摸板卡片额外调用 `LayoutGlobalSettingsPanel.appendTouchpadTuning`：
+  - 「触摸板映射」下拉：原生映射 / 鼠标。
+  - 鼠标模式展开手势配置：单击、双指点击、双击后滑动、单指滑动、双指滑动；
+    点击类动作复用 `MouseGestureAction.TAP_ACTIONS`，拖动/滑动分别使用
+    `DRAG_ACTIONS` / `SWIPE_ACTIONS`。
+  - 另有鼠标灵敏度、滚动灵敏度（10–300%）与横向/纵向滚动反转。
+  - 触摸板按压已作为实体按键映射，不在该卡片中重复配置；最多支持两指手势。
+  - 设置写入 `LayoutPreset.touchpadSettings`，默认值不落盘。
 
 ### 2.7 MainActivitySettings.kt（设置页，最大 partial）
 

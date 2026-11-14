@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
+import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.zyz4.gkme.data.LayoutRepository
@@ -12,6 +13,7 @@ import com.zyz4.gkme.i18n.AppText
 import com.zyz4.gkme.input.AccelSteeringMapper
 import com.zyz4.gkme.input.ComboSequencer
 import com.zyz4.gkme.input.PhysicalStickRouting
+import com.zyz4.gkme.input.PhysicalTouchpadGestureRecognizer
 import com.zyz4.gkme.input.SensitivityCurve
 import com.zyz4.gkme.input.SensorHandler
 import com.zyz4.gkme.input.StickShaping
@@ -36,9 +38,11 @@ import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.model.HapticEffect
 import com.zyz4.gkme.model.LayoutPreset
 import com.zyz4.gkme.model.LedAppearance
+import com.zyz4.gkme.model.MouseGestureAction
 import com.zyz4.gkme.model.PhysicalInputs
 import com.zyz4.gkme.model.PhysicalStickDirectionSettings
 import com.zyz4.gkme.model.PhysicalStickSettings
+import com.zyz4.gkme.model.PhysicalTouchpadSettings
 import com.zyz4.gkme.model.SettingsButtonAction
 import com.zyz4.gkme.model.SettingsButtonDirection
 import com.zyz4.gkme.model.TargetPlatform
@@ -127,6 +131,7 @@ class GkViewModel @Inject constructor(
 
     fun setPhysicalControllerConnected(connected: Boolean) {
         _physicalControllerConnected.value = connected
+        if (!connected) releasePhysicalTouchpadGestures()
     }
     private var _dpadBits = 0
     private var _physicalDpadBits = 0
@@ -152,6 +157,15 @@ class GkViewModel @Inject constructor(
     private var lastPhysicalStickMouseNanos = 0L
     /** 上一次写入键盘的物理端 scan code（用于按并集差异上报）。 */
     private var physicalComboAppliedKeys: Set<Int> = emptySet()
+
+    // ── 实体手柄触摸板手势 ──
+    private val physicalTouchpadGestures = PhysicalTouchpadGestureRecognizer()
+    /** 当前触摸板是否处于「鼠标」模式；用于在切回原生时释放手势键位。 */
+    private var physicalTouchpadMouseActive = false
+    /** 触摸板手势当前按住的拖拽键位（bit0=LMB, bit1=RMB, bit2=MMB）。 */
+    private var physicalTouchpadDragBit = 0
+    private var physicalTouchpadClickJob: Job? = null
+    private var physicalTouchpadClickBit = 0
     private var _keyboardModifier = 0u
     private var _keyboardKeys = UShortArray(6)
 
@@ -309,7 +323,13 @@ class GkViewModel @Inject constructor(
     }
 
     fun updatePresetButtons(preset: LayoutPreset) {
+        val wasTouchpadMouse = _currentPreset.value.touchpadSettings?.isMouse == true
         _currentPreset.value = preset
+        val isTouchpadMouse = preset.touchpadSettings?.isMouse == true
+        if (wasTouchpadMouse != isTouchpadMouse) {
+            releasePhysicalTouchpadGestures()
+            physicalTouchpadMouseActive = isTouchpadMouse
+        }
     }
 
     fun applyLayoutGyroSettings(preset: LayoutPreset) {
@@ -693,6 +713,8 @@ class GkViewModel @Inject constructor(
         val stickPreset = _currentPreset.value
         val leftSettings = stickPreset.leftStickSettings
         val rightSettings = stickPreset.rightStickSettings
+        val touchpadSettings = stickPreset.touchpadSettings
+        val touchpadMouse = touchpadSettings?.isMouse == true
         val (shapedLx, shapedLy) = shapePhysicalStick(leftSettings, leftStickX, leftStickY)
         val (shapedRx, shapedRy) = shapePhysicalStick(rightSettings, rightStickX, rightStickY)
         applyPhysicalMappings(
@@ -708,6 +730,14 @@ class GkViewModel @Inject constructor(
             rightSettings?.mouseSensitivityScale ?: 1f,
         )
         applyPhysicalStickDirections(leftSettings, shapedLx, shapedLy, rightSettings, shapedRx, shapedRy)
+        // 触摸板映射：原生模式原样透传坐标/触点；鼠标模式把手势转换成鼠标事件，
+        // 同时不再把原始触点写进 GamepadState（避免游戏同时收到触摸与鼠标）。
+        if (touchpadMouse) {
+            applyPhysicalTouchpadGestures(touchpadSettings!!, touches)
+        } else if (physicalTouchpadMouseActive) {
+            releasePhysicalTouchpadGestures()
+        }
+        physicalTouchpadMouseActive = touchpadMouse
         val mouseButtonsChanged = physicalMappedMouseButtons != previousPhysicalMouse
         val combinedMouseButtons =
             (_gamepadState.value.mouseButtons and previousPhysicalMouse.inv()) or physicalMappedMouseButtons
@@ -723,11 +753,27 @@ class GkViewModel @Inject constructor(
             leftTrigger = if (hasPhoneLT) maxOf(phoneLT.toInt(), physicalLeftTriggerAnalog) else physicalLeftTriggerAnalog,
             rightTrigger = if (hasPhoneRT) maxOf(phoneRT.toInt(), physicalRightTriggerAnalog) else physicalRightTriggerAnalog,
             dpad = hatValue,
-            touchpadX = if (hasPhoneTouch) _gamepadState.value.touchpadX else tx,
-            touchpadY = if (hasPhoneTouch) _gamepadState.value.touchpadY else ty,
-            touchpadTouch = if (hasPhoneTouch) _gamepadState.value.touchpadTouch else touchpadTouch,
+            touchpadX = when {
+                hasPhoneTouch -> _gamepadState.value.touchpadX
+                touchpadMouse -> 0
+                else -> tx
+            },
+            touchpadY = when {
+                hasPhoneTouch -> _gamepadState.value.touchpadY
+                touchpadMouse -> 0
+                else -> ty
+            },
+            touchpadTouch = when {
+                hasPhoneTouch -> _gamepadState.value.touchpadTouch
+                touchpadMouse -> false
+                else -> touchpadTouch
+            },
             touchpadClick = touchpadClick || hasPhoneTouch,
-            touches = if (hasPhoneTouch) phoneTouches else touches,
+            touches = when {
+                hasPhoneTouch -> phoneTouches
+                touchpadMouse -> emptyList()
+                else -> touches
+            },
         )
         physicalStickX = routed.leftX.toShort()
         physicalStickY = routed.leftY.toShort()
@@ -838,6 +884,131 @@ class GkViewModel @Inject constructor(
             mouseDx = (state.mouseDx.toInt() + dx).coerceIn(-32768, 32767).toShort(),
             mouseDy = (state.mouseDy.toInt() + dy).coerceIn(-32768, 32767).toShort(),
         )
+    }
+
+    /**
+     * 把触摸板快照交给手势识别器，并应用识别出的鼠标事件。
+     *
+     * 触摸板每帧只有一个稳定快照（最多两个触点），识别器内部按快照差分、时间和位移
+     * 判断点击 / 滑动 / 双击拖动。触摸板按压不在手势范围内，仍由按键映射处理。
+     */
+    private fun applyPhysicalTouchpadGestures(
+        touchpadSettings: PhysicalTouchpadSettings,
+        touches: List<TouchPoint>,
+    ) {
+        // 与屏幕鼠标板保持一致：WiFi/USB 的滚轮按 120 计数的高精度单位下发，
+        // 蓝牙 / 本机按传统“每单位一格”下发，因此后者的滚轮量要小得多。
+        val scrollFactor = when (settings.value.connectionMode) {
+            ConnectionMode.WIFI, ConnectionMode.USB -> 1f
+            else -> 1f / PHYSICAL_TOUCHPAD_TRADITIONAL_WHEEL_DIVISOR
+        }
+        val config = PhysicalTouchpadGestureRecognizer.Config(
+            mouseSensitivity = touchpadSettings.mouseSensitivityScale,
+            scrollSensitivity = touchpadSettings.scrollSensitivityScale * scrollFactor,
+            invertScrollV = touchpadSettings.invertScrollV,
+            invertScrollH = touchpadSettings.invertScrollH,
+            singleTapAction = touchpadSettings.singleTapAction,
+            twoFingerTapAction = touchpadSettings.twoFingerTapAction,
+            doubleTapDragAction = touchpadSettings.doubleTapDragAction,
+            oneFingerSwipeAction = touchpadSettings.oneFingerSwipeAction,
+            twoFingerSwipeAction = touchpadSettings.twoFingerSwipeAction,
+        )
+        val events = physicalTouchpadGestures.update(
+            touches,
+            SystemClock.elapsedRealtime(),
+            config,
+        )
+        for (event in events) applyPhysicalTouchpadEvent(event)
+    }
+
+    private fun applyPhysicalTouchpadEvent(event: PhysicalTouchpadGestureRecognizer.Event) {
+        when (event) {
+            is PhysicalTouchpadGestureRecognizer.Event.Move ->
+                addPhysicalTouchpadMouse(event.dx, event.dy, 0, 0)
+            is PhysicalTouchpadGestureRecognizer.Event.Scroll ->
+                addPhysicalTouchpadMouse(0, 0, event.vertical, event.horizontal)
+            is PhysicalTouchpadGestureRecognizer.Event.Tap -> applyPhysicalTouchpadTap(event.action)
+            is PhysicalTouchpadGestureRecognizer.Event.DragStart ->
+                applyPhysicalTouchpadDragStart(event.action)
+            is PhysicalTouchpadGestureRecognizer.Event.DragEnd ->
+                applyPhysicalTouchpadDragEnd(event.action)
+        }
+    }
+
+    private fun addPhysicalTouchpadMouse(dx: Int, dy: Int, wheel: Int, pan: Int) {
+        val state = _gamepadState.value
+        _gamepadState.value = state.copy(
+            mouseDx = (state.mouseDx.toInt() + dx).coerceIn(-32768, 32767).toShort(),
+            mouseDy = (state.mouseDy.toInt() + dy).coerceIn(-32768, 32767).toShort(),
+            mouseWheel = (state.mouseWheel.toInt() + wheel).coerceIn(-32768, 32767).toShort(),
+            mousePan = (state.mousePan.toInt() + pan).coerceIn(-32768, 32767).toShort(),
+        )
+    }
+
+    /**
+     * 轻点：立即按下，稍后释放。
+     *
+     * 第一次点击只按住很短时间，避免普通单击被双击判定拖慢；若第二击在释放前到达，
+     * [applyPhysicalTouchpadDragStart] 会取消这次释放并保持按键，无缝衔接拖拽。
+     */
+    private fun applyPhysicalTouchpadTap(action: MouseGestureAction) {
+        val bit = action.mouseButtonBit
+        if (bit == 0) return
+        cancelPhysicalTouchpadClick(releasePending = true)
+        physicalTouchpadClickBit = bit
+        onMouseGestureButton(bit, true)
+        physicalTouchpadClickJob = viewModelScope.launch {
+            delay(PHYSICAL_TOUCHPAD_CLICK_HOLD_MS)
+            if (physicalTouchpadClickBit == bit) {
+                physicalTouchpadClickBit = 0
+                physicalTouchpadClickJob = null
+                onMouseGestureButton(bit, false)
+            }
+        }
+    }
+
+    private fun applyPhysicalTouchpadDragStart(action: MouseGestureAction) {
+        val bit = action.mouseButtonBit
+        if (bit == 0) return
+        // 取消尚未执行的点击释放；若待释放键位与拖拽键位不同，先松开旧键。
+        val pendingBit = physicalTouchpadClickBit
+        physicalTouchpadClickJob?.cancel()
+        physicalTouchpadClickJob = null
+        physicalTouchpadClickBit = 0
+        if (pendingBit != 0 && pendingBit != bit) {
+            onMouseGestureButton(pendingBit, false)
+        }
+        if (physicalTouchpadDragBit != 0 && physicalTouchpadDragBit != bit) {
+            onMouseGestureButton(physicalTouchpadDragBit, false)
+        }
+        physicalTouchpadDragBit = bit
+        onMouseGestureButton(bit, true)
+    }
+
+    private fun applyPhysicalTouchpadDragEnd(action: MouseGestureAction) {
+        val bit = action.mouseButtonBit
+        if (physicalTouchpadDragBit == 0) return
+        if (bit != 0 && bit != physicalTouchpadDragBit) return
+        onMouseGestureButton(physicalTouchpadDragBit, false)
+        physicalTouchpadDragBit = 0
+    }
+
+    private fun cancelPhysicalTouchpadClick(releasePending: Boolean) {
+        physicalTouchpadClickJob?.cancel()
+        physicalTouchpadClickJob = null
+        val bit = physicalTouchpadClickBit
+        physicalTouchpadClickBit = 0
+        if (releasePending && bit != 0) onMouseGestureButton(bit, false)
+    }
+
+    /** 触摸板切回原生 / 手柄断开时释放手势键位，避免鼠标键卡住。 */
+    private fun releasePhysicalTouchpadGestures() {
+        for (event in physicalTouchpadGestures.reset()) applyPhysicalTouchpadEvent(event)
+        cancelPhysicalTouchpadClick(releasePending = true)
+        if (physicalTouchpadDragBit != 0) {
+            onMouseGestureButton(physicalTouchpadDragBit, false)
+            physicalTouchpadDragBit = 0
+        }
     }
 
     /**
@@ -1161,6 +1332,7 @@ class GkViewModel @Inject constructor(
     }
 
     fun stopServer() {
+        releasePhysicalTouchpadGestures()
         sendJob?.cancel()
         connectionManager.stopServer()
     }
@@ -1858,3 +2030,13 @@ private const val PHYSICAL_STICK_MOUSE_SPEED_PX_PER_SEC = 2000f
 
 /** Short-axis magnitude that maps to full deflection for physical stick shaping. */
 private const val PHYSICAL_STICK_FULL_SCALE = 32767f
+
+/** 触摸板轻点模拟按键的按住时长；第二击在此时间前到达会取消释放并衔接拖拽。 */
+private const val PHYSICAL_TOUCHPAD_CLICK_HOLD_MS = 40L
+
+/**
+ * 蓝牙 / 本机模式仍按传统滚轮单位（1 单位 = 1 格）下发，WiFi/USB 则是 120 计数
+ * 的高精度单位。触摸板手势以高精度单位计算，因此前者需要除以该系数。
+ * 与屏幕鼠标板 `doScroll` 的 `scrollFactor` 保持一致。
+ */
+private const val PHYSICAL_TOUCHPAD_TRADITIONAL_WHEEL_DIVISOR = 33f

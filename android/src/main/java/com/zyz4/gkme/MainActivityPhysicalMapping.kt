@@ -168,6 +168,8 @@ internal fun MainActivity.populatePhysicalMapping(container: LinearLayout) {
             // the gyro-activation checkbox; it also gates gyro activation (see GkViewModel).
             if (input.kind == PhysicalInputKind.JOYSTICK) {
                 a.layoutGlobalSettingsPanel?.appendStickTuning(card, input.key)
+            } else if (input.kind == PhysicalInputKind.TOUCHPAD) {
+                a.layoutGlobalSettingsPanel?.appendTouchpadTuning(card, input.key)
             }
         }
     }

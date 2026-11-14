@@ -328,6 +328,25 @@ protobuf `GamepadInput`。要点：
     让每个方向独立绑定组合键与时序。
   - `mouseSensitivity`（10–300%，默认 100）只影响鼠标模式。
   - `directions` 缺省索引按“未绑定”处理，末尾默认项在写入时裁掉。
+- 触摸板：`PhysicalTouchpadSettings(mode, mouseSensitivity, scrollSensitivity,
+  invertScrollV, invertScrollH, singleTapAction, twoFingerTapAction,
+  doubleTapDragAction, oneFingerSwipeAction, twoFingerSwipeAction)`：
+  - `PhysicalTouchpadMode { NATIVE, MOUSE }`。`NATIVE` 保持旧行为，原样透传
+    `touchpadX/Y/touchpadTouch/touches`；`MOUSE` 把这些原生触摸字段清空，改由手势产生
+    鼠标位移 / 滚轮 / 按键。
+  - 触摸板按压仍作为普通实体按键（`TOUCHPAD_CLICK`）走按键映射，不在触摸板页重复配置。
+  - 最多两指，因此手势只有单击 / 双指点击 / 双击后拖动 / 单指滑动 / 双指滑动；
+    手势动作复用 `MouseGestureAction`（点击类只能选点击动作，滑动类可选移动 / 拖拽 / 滚动）。
+  - `input/PhysicalTouchpadGesture.kt` 的 `PhysicalTouchpadGestureRecognizer` 是纯 JVM
+    手势识别：按触点快照差分计算平均位移，
+    位移超过 `MOVE_SLOP_UNITS=8` 才从点击转为滑动；短于 `TAP_TIMEOUT_MS=200ms`
+    且未移动才触发轻点。双击窗口 `DOUBLE_TAP_WINDOW_MS=250ms`。
+  - 鼠标灵敏度 100% = 1 个触摸板坐标单位映射 1 px；滚动灵敏度 100% =
+    1 个坐标单位产生 `SCROLL_UNITS_PER_TOUCHPAD_UNIT=0.5` 个滚轮单位，可反转横/纵向。
+    WiFi/USB 使用 120 计数的高精度滚轮；蓝牙 / 本机按传统单位下发，因此在
+    `GkViewModel` 中再除以 `33`（与屏幕鼠标板一致）。
+  - 轻点在 `GkViewModel` 中按下后延迟释放（40ms）；若第二击在释放前到达，
+    `DragStart` 会取消这次释放并保持按键，无缝衔接触摸板拖拽。
 
 `GkViewModel.applyPhysicalMappings` 把 raw 输入映射成 output bits / 负键盘码 / 陀螺激活；
 `PHYSICAL_TRIGGER_MAP_THRESHOLD=128`。摇杆映射在塑形之后生效：
@@ -361,13 +380,27 @@ protobuf `GamepadInput`。要点：
 `GkViewModel` 中 `phoneComboSequencer` 处理屏幕自定义控件与音量键，
 `physicalComboSequencer` 处理物理手柄映射与摇杆方向输出。
 
+### 6.2 实体触摸板手势
+
+`PhysicalTouchpadSettings.mode = MOUSE` 时，`onPhysicalControllerInput` 把后端给出的
+`touches`（最多两个稳定 slot）交给 `PhysicalTouchpadGestureRecognizer`，并把事件应用到：
+
+- `Move` → `GamepadState.mouseDx/Dy`
+- `Scroll` → `mouseWheel/mousePan`
+- `Tap` → `mouseGestureButtons`（与屏幕鼠标板共用，上报时与 `mouseButtons` 取并集）
+- `DragStart/DragEnd` → 按住 / 释放对应鼠标键
+
+手势只由触摸板快照驱动，因此不额外启动定时发送：发送循环会像处理屏幕鼠标板一样
+把累积的鼠标字段随下一帧发出。触摸板按压、陀螺仪激活等仍由原有物理按键映射处理。
+
 ---
 
 ## 7. 枚举
 
 | 文件 | 内容 |
 |------|------|
-| `model/MouseGestureAction.kt` | `NONE/MOVE_CURSOR/LEFT_CLICK/RIGHT_CLICK/MIDDLE_CLICK/LEFT_DRAG/RIGHT_DRAG/MIDDLE_DRAG/SCROLL`；`TAP_ACTIONS`/`SWIPE_ACTIONS` |
+| `model/MouseGestureAction.kt` | `NONE/MOVE_CURSOR/LEFT_CLICK/RIGHT_CLICK/MIDDLE_CLICK/LEFT_DRAG/RIGHT_DRAG/MIDDLE_DRAG/SCROLL`；`TAP_ACTIONS`/`SWIPE_ACTIONS`/`DRAG_ACTIONS`；`isDrag`/`mouseButtonBit` |
+| `PhysicalTouchpadMode`（同上文件） | `NATIVE/MOUSE`，实体手柄触摸板映射模式 |
 | `model/SlideDirection.kt` | `DOWN/UP/LEFT/RIGHT` + `jsonValue` |
 
 > `fromString/fromName` 未知值分别静默回退 `DOWN`/`NONE`。

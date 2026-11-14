@@ -169,6 +169,79 @@ data class PhysicalStickSettings(
 }
 
 /**
+ * 实体手柄触摸板的映射模式。
+ *
+ * [NATIVE] 保持原有行为：把触摸坐标 / 双指触点原样交给上层（虚拟触摸板）。
+ * [MOUSE] 把触摸板当作鼠标：单指移动光标、双指滚动，点击 / 滑动等手势可自定义。
+ *
+ * 触摸板按下（`TOUCHPAD_CLICK`）始终作为普通实体按键处理，因此这里不提供按压映射；
+ * 手势最多支持两指，三指手势不参与识别。
+ */
+enum class PhysicalTouchpadMode(@StringRes val labelRes: Int) {
+    /** 原生触摸板：坐标与触点原样透传。 */
+    NATIVE(R.string.i18n_native_mapping),
+
+    /** 作为鼠标：手势产生鼠标位移 / 滚轮 / 按键。 */
+    MOUSE(R.string.i18n_mouse),
+}
+
+/**
+ * 实体手柄触摸板映射为鼠标时的配置。
+ *
+ * 手势动作复用屏幕鼠标板的 [MouseGestureAction]：
+ * 点击类手势只能选点击动作，滑动类手势可选移动光标 / 拖拽 / 滚动。
+ * 触摸板最多两指，因此没有三指手势；触摸板按压已经由按键映射处理。
+ */
+data class PhysicalTouchpadSettings(
+    val mode: PhysicalTouchpadMode = PhysicalTouchpadMode.NATIVE,
+    /** 鼠标灵敏度倍率（%）；100 = 1 个触摸板坐标单位映射 1 px。 */
+    val mouseSensitivity: Int = DEFAULT_MOUSE_SENSITIVITY,
+    /** 滚动灵敏度倍率（%）；100 = 1 个触摸板坐标单位产生 0.5 个滚轮单位。 */
+    val scrollSensitivity: Int = DEFAULT_SCROLL_SENSITIVITY,
+    val invertScrollV: Boolean = false,
+    val invertScrollH: Boolean = false,
+    /** 单指轻点。 */
+    val singleTapAction: MouseGestureAction = MouseGestureAction.LEFT_CLICK,
+    /** 双指轻点。 */
+    val twoFingerTapAction: MouseGestureAction = MouseGestureAction.RIGHT_CLICK,
+    /** 双击后按住并滑动。 */
+    val doubleTapDragAction: MouseGestureAction = MouseGestureAction.LEFT_DRAG,
+    /** 单指滑动。 */
+    val oneFingerSwipeAction: MouseGestureAction = MouseGestureAction.MOVE_CURSOR,
+    /** 双指滑动。 */
+    val twoFingerSwipeAction: MouseGestureAction = MouseGestureAction.SCROLL,
+) {
+    /** True when the touchpad keeps its native behavior and every mouse option is neutral. */
+    fun isDefault(): Boolean = mode == PhysicalTouchpadMode.NATIVE &&
+        mouseSensitivity == DEFAULT_MOUSE_SENSITIVITY &&
+        scrollSensitivity == DEFAULT_SCROLL_SENSITIVITY &&
+        !invertScrollV && !invertScrollH &&
+        singleTapAction == MouseGestureAction.LEFT_CLICK &&
+        twoFingerTapAction == MouseGestureAction.RIGHT_CLICK &&
+        doubleTapDragAction == MouseGestureAction.LEFT_DRAG &&
+        oneFingerSwipeAction == MouseGestureAction.MOVE_CURSOR &&
+        twoFingerSwipeAction == MouseGestureAction.SCROLL
+
+    /** True when the touchpad is converted into a mouse. */
+    val isMouse: Boolean get() = mode == PhysicalTouchpadMode.MOUSE
+
+    /** [mouseSensitivity] 换算成倍率，并限制在 UI 允许的范围内。 */
+    val mouseSensitivityScale: Float
+        get() = mouseSensitivity.coerceIn(MIN_SENSITIVITY, MAX_SENSITIVITY) / 100f
+
+    /** [scrollSensitivity] 换算成倍率，并限制在 UI 允许的范围内。 */
+    val scrollSensitivityScale: Float
+        get() = scrollSensitivity.coerceIn(MIN_SENSITIVITY, MAX_SENSITIVITY) / 100f
+
+    companion object {
+        const val DEFAULT_MOUSE_SENSITIVITY = 100
+        const val DEFAULT_SCROLL_SENSITIVITY = 100
+        const val MIN_SENSITIVITY = 10
+        const val MAX_SENSITIVITY = 300
+    }
+}
+
+/**
  * Catalogue of every physical controller input the settings page can configure.
  *
  * The paddle bits live above the [GamepadState] output bits because paddles never map to a

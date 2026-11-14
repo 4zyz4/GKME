@@ -39,11 +39,14 @@ import com.zyz4.gkme.model.GyroCoordinateSystem
 import com.zyz4.gkme.model.GyroMode
 import com.zyz4.gkme.model.GyroOrientation
 import com.zyz4.gkme.model.LayoutPreset
+import com.zyz4.gkme.model.MouseGestureAction
 import com.zyz4.gkme.model.PhysicalInputs
 import com.zyz4.gkme.model.PhysicalStickDirection
 import com.zyz4.gkme.model.PhysicalStickDirectionSettings
 import com.zyz4.gkme.model.PhysicalStickMode
 import com.zyz4.gkme.model.PhysicalStickSettings
+import com.zyz4.gkme.model.PhysicalTouchpadMode
+import com.zyz4.gkme.model.PhysicalTouchpadSettings
 
 /**
  * Full-screen, per-layout "全局设置" page opened from the layout editor.
@@ -69,6 +72,8 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         fun onPopulatePhysicalMapping(container: LinearLayout)
         fun onPopulateVolumeMapping(container: LinearLayout)
         fun onPhysicalStickSettingsChanged(left: PhysicalStickSettings, right: PhysicalStickSettings)
+        /** 实体手柄触摸板映射（原生 / 鼠标手势）变化。 */
+        fun onPhysicalTouchpadSettingsChanged(settings: PhysicalTouchpadSettings)
         /** 打开输出选择器（摇杆方向输出），由 Activity 弹出通用选择对话框。 */
         fun onPickPhysicalStickOutputs(currentBits: List<Int>, onResult: (List<Int>) -> Unit)
         /** 布局级网格设置变化：开关 + 密度（30..240）。 */
@@ -97,6 +102,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
     private var gyroActivateMode = GyroActivateMode.ALWAYS
     private var physicalLeftStick = PhysicalStickSettings()
     private var physicalRightStick = PhysicalStickSettings()
+    private var physicalTouchpad = PhysicalTouchpadSettings()
 
     private var contentContainer: LinearLayout? = null
     private var physicalContainer: LinearLayout? = null
@@ -220,6 +226,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         gyroActivateMode = preset.gyroActivateMode ?: GyroActivateMode.ALWAYS
         physicalLeftStick = preset.leftStickSettings ?: PhysicalStickSettings()
         physicalRightStick = preset.rightStickSettings ?: PhysicalStickSettings()
+        physicalTouchpad = preset.touchpadSettings ?: PhysicalTouchpadSettings()
         gridUseGrid = preset.useGrid
         gridDensity = preset.gridDensity.coerceIn(
             LayoutPreset.MIN_GRID_DENSITY, LayoutPreset.MAX_GRID_DENSITY,
@@ -943,6 +950,170 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         buildCurveSection(container, density, get().curve, onChanged = { list ->
             set(get().copy(curve = list))
             notifyStickSettings()
+        })
+    }
+
+    /**
+     * Appends the physical-controller touchpad mapping to its card: native passthrough or mouse.
+     *
+     * 鼠标模式下列出可自定义的手势（点击 / 滑动 / 双击拖动）、灵敏度与滚动方向。
+     * 触摸板最多两指，因此只提供单指 / 双指手势；触摸板按压由按键映射处理，不在此配置。
+     */
+    fun appendTouchpadTuning(container: LinearLayout, key: String) {
+        if (key != PhysicalInputs.KEY_TOUCHPAD) return
+        val density = resources.displayMetrics.density
+        container.addView(sectionLabel(context.getString(R.string.i18n_touchpad_mapping), density))
+
+        val modeValues = PhysicalTouchpadMode.entries
+        val modeLabels = modeValues.map { context.getString(it.labelRes) }
+        val mouseOptions = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+
+        fun set(updated: PhysicalTouchpadSettings) {
+            physicalTouchpad = updated
+            listener?.onPhysicalTouchpadSettingsChanged(updated)
+        }
+
+        fun render() {
+            mouseOptions.visibility = if (physicalTouchpad.isMouse) View.VISIBLE else View.GONE
+        }
+
+        val modeSpinner = Spinner(context).apply {
+            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, modeLabels).also {
+                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+            setSelection(modeValues.indexOf(physicalTouchpad.mode).coerceAtLeast(0))
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                    val mode = modeValues.getOrNull(pos) ?: PhysicalTouchpadMode.NATIVE
+                    if (mode == physicalTouchpad.mode) return
+                    set(physicalTouchpad.copy(mode = mode))
+                    render()
+                }
+
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
+        }
+        container.addView(modeSpinner, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply {
+            topMargin = (4f * density).toInt()
+            bottomMargin = (2f * density).toInt()
+        })
+        container.addView(mouseOptions)
+
+        addMouseGestureActionSpinner(
+            mouseOptions,
+            context.getString(R.string.i18n_single_tap),
+            MouseGestureAction.TAP_ACTIONS,
+            physicalTouchpad.singleTapAction,
+        ) { set(physicalTouchpad.copy(singleTapAction = it)) }
+        addMouseGestureActionSpinner(
+            mouseOptions,
+            context.getString(R.string.i18n_two_finger_tap),
+            MouseGestureAction.TAP_ACTIONS,
+            physicalTouchpad.twoFingerTapAction,
+        ) { set(physicalTouchpad.copy(twoFingerTapAction = it)) }
+        addMouseGestureActionSpinner(
+            mouseOptions,
+            context.getString(R.string.i18n_double_tap_then_drag),
+            MouseGestureAction.DRAG_ACTIONS,
+            physicalTouchpad.doubleTapDragAction,
+        ) { set(physicalTouchpad.copy(doubleTapDragAction = it)) }
+        addMouseGestureActionSpinner(
+            mouseOptions,
+            context.getString(R.string.i18n_one_finger_swipe),
+            MouseGestureAction.SWIPE_ACTIONS,
+            physicalTouchpad.oneFingerSwipeAction,
+        ) { set(physicalTouchpad.copy(oneFingerSwipeAction = it)) }
+        addMouseGestureActionSpinner(
+            mouseOptions,
+            context.getString(R.string.i18n_two_finger_swipe),
+            MouseGestureAction.SWIPE_ACTIONS,
+            physicalTouchpad.twoFingerSwipeAction,
+        ) { set(physicalTouchpad.copy(twoFingerSwipeAction = it)) }
+
+        addSeekbar(
+            mouseOptions,
+            context.getString(R.string.i18n_mouse_sensitivity),
+            physicalTouchpad.mouseSensitivity,
+            PhysicalTouchpadSettings.MIN_SENSITIVITY,
+            PhysicalTouchpadSettings.MAX_SENSITIVITY,
+        ) { set(physicalTouchpad.copy(mouseSensitivity = it)) }
+        addSeekbar(
+            mouseOptions,
+            context.getString(R.string.i18n_scroll_sensitivity),
+            physicalTouchpad.scrollSensitivity,
+            PhysicalTouchpadSettings.MIN_SENSITIVITY,
+            PhysicalTouchpadSettings.MAX_SENSITIVITY,
+        ) { set(physicalTouchpad.copy(scrollSensitivity = it)) }
+
+        val invertV = CheckBox(context).apply {
+            text = context.getString(R.string.i18n_invert_vertical_scroll)
+            setTextColor(-0x444445)
+            textSize = 14f
+            isChecked = physicalTouchpad.invertScrollV
+            setPadding(0, (4f * density).toInt(), 0, 0)
+            setOnCheckedChangeListener { _, checked ->
+                set(physicalTouchpad.copy(invertScrollV = checked))
+            }
+        }
+        mouseOptions.addView(invertV, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+        ))
+        val invertH = CheckBox(context).apply {
+            text = context.getString(R.string.i18n_invert_horizontal_scroll)
+            setTextColor(-0x444445)
+            textSize = 14f
+            isChecked = physicalTouchpad.invertScrollH
+            setPadding(0, (4f * density).toInt(), 0, 0)
+            setOnCheckedChangeListener { _, checked ->
+                set(physicalTouchpad.copy(invertScrollH = checked))
+            }
+        }
+        mouseOptions.addView(invertH, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+        ))
+
+        render()
+    }
+
+    /** 触摸板手势动作下拉框：标签 + Spinner。 */
+    private fun addMouseGestureActionSpinner(
+        container: LinearLayout,
+        label: String,
+        actions: List<MouseGestureAction>,
+        current: MouseGestureAction,
+        onChange: (MouseGestureAction) -> Unit,
+    ) {
+        val density = resources.displayMetrics.density
+        val tv = TextView(context).apply {
+            text = label
+            setTextColor(-0x1)
+            textSize = 14f
+            setPadding(0, (8f * density).toInt(), 0, 0)
+        }
+        container.addView(tv, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+        ))
+        val items = actions.map { context.getString(it.displayNameRes) }
+        val spinner = Spinner(context).apply {
+            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, items).also {
+                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+            setSelection(actions.indexOf(current).coerceAtLeast(0))
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                    onChange(actions.getOrNull(pos) ?: return)
+                }
+
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
+        }
+        container.addView(spinner, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply {
+            topMargin = (4f * density).toInt()
+            bottomMargin = (4f * density).toInt()
         })
     }
 

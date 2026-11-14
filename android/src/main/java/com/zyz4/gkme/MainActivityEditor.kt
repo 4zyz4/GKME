@@ -25,6 +25,7 @@ import com.zyz4.gkme.model.GyroCoordinateSystem
 import com.zyz4.gkme.model.GyroMode
 import com.zyz4.gkme.model.GyroOrientation
 import com.zyz4.gkme.model.PhysicalStickSettings
+import com.zyz4.gkme.model.PhysicalTouchpadSettings
 import com.zyz4.gkme.view.FloatingEditorPanel
 import com.zyz4.gkme.view.LayoutGlobalSettingsPanel
 import com.zyz4.gkme.view.GamepadLayout
@@ -239,6 +240,11 @@ internal fun MainActivity.createGlobalSettingsPanel(): LayoutGlobalSettingsPanel
 
             override fun onPickPhysicalStickOutputs(currentBits: List<Int>, onResult: (List<Int>) -> Unit) {
                 a.showOutputValuePicker(currentBits, onResult)
+            }
+
+            override fun onPhysicalTouchpadSettingsChanged(settings: PhysicalTouchpadSettings) {
+                a.gamepadLayout.setPhysicalTouchpadSettings(settings)
+                a.viewModel.updatePresetButtons(a.gamepadLayout.getPreset())
             }
 
             override fun onGridSettingsChanged(useGrid: Boolean, density: Int) {

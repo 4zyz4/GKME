@@ -546,6 +546,7 @@
     <string name="i18n_touchpad" formatted="false">"觸控板"</string>
     <string name="i18n_touchpad_color" formatted="false">"觸控板顏色"</string>
     <string name="i18n_touchpad_gamepad" formatted="false">"觸控板（手掣）"</string>
+    <string name="i18n_touchpad_mapping" formatted="false">"觸控板映射"</string>
     <string name="i18n_touchpad_mode" formatted="false">"觸控板模式"</string>
     <string name="i18n_touchpad_mouse" formatted="false">"觸控板（滑鼠）"</string>
     <string name="i18n_touchpad_outline_width_0" formatted="true">"觸控板輪廓粗細: %1$d"</string>

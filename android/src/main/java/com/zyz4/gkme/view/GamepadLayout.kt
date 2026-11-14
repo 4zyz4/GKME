@@ -26,6 +26,7 @@ import com.zyz4.gkme.model.GyroOrientation
 import com.zyz4.gkme.model.LayoutPreset
 import com.zyz4.gkme.model.PhysicalInputMapping
 import com.zyz4.gkme.model.PhysicalStickSettings
+import com.zyz4.gkme.model.PhysicalTouchpadSettings
 import com.zyz4.gkme.view.JoystickView
 import com.zyz4.gkme.view.CustomKeypadView
 import com.zyz4.gkme.view.inputdispatcher.GamepadInputDispatcher
@@ -166,6 +167,8 @@ class GamepadLayout @JvmOverloads constructor(
     var currentLeftStickSettings: PhysicalStickSettings? = null
         private set
     var currentRightStickSettings: PhysicalStickSettings? = null
+        private set
+    var currentTouchpadSettings: PhysicalTouchpadSettings? = null
         private set
     var currentVolumeUpBits: List<Int> = emptyList()
         private set
@@ -975,6 +978,7 @@ class GamepadLayout @JvmOverloads constructor(
         currentPhysicalInputMappings = preset.physicalInputMappings
         currentLeftStickSettings = preset.leftStickSettings
         currentRightStickSettings = preset.rightStickSettings
+        currentTouchpadSettings = preset.touchpadSettings
         currentVolumeUpBits = preset.volumeUpBits
         currentVolumeDownBits = preset.volumeDownBits
         currentVolumeUpComboTiming = preset.volumeUpComboTiming
@@ -1204,6 +1208,7 @@ class GamepadLayout @JvmOverloads constructor(
             physicalInputMappings = currentPhysicalInputMappings,
             leftStickSettings = currentLeftStickSettings,
             rightStickSettings = currentRightStickSettings,
+            touchpadSettings = currentTouchpadSettings,
             volumeUpBits = currentVolumeUpBits,
             volumeDownBits = currentVolumeDownBits,
             volumeUpComboTiming = currentVolumeUpComboTiming,
@@ -1276,6 +1281,12 @@ class GamepadLayout @JvmOverloads constructor(
     fun setPhysicalStickSettings(left: PhysicalStickSettings?, right: PhysicalStickSettings?) {
         currentLeftStickSettings = if (left == null || left.isDefault()) null else left
         currentRightStickSettings = if (right == null || right.isDefault()) null else right
+        hasChanges = true
+    }
+
+    /** Replaces the physical-controller touchpad mapping of the layout being edited. */
+    fun setPhysicalTouchpadSettings(settings: PhysicalTouchpadSettings?) {
+        currentTouchpadSettings = if (settings == null || settings.isDefault()) null else settings
         hasChanges = true
     }
 

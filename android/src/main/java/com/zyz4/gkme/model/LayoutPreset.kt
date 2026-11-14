@@ -54,6 +54,8 @@ data class LayoutPreset(
     val leftStickSettings: PhysicalStickSettings? = null,
     /** Analog shaping (dead zone / anti dead zone / curve) for the right physical joystick. */
     val rightStickSettings: PhysicalStickSettings? = null,
+    /** Mapping of the physical-controller touchpad (native passthrough or mouse gestures). */
+    val touchpadSettings: PhysicalTouchpadSettings? = null,
     /** Per-layout output bits emitted by the volume-up key. */
     val volumeUpBits: List<Int> = emptyList(),
     /** Per-layout output bits emitted by the volume-down key. */
@@ -246,6 +248,9 @@ data class LayoutPreset(
             val rightStickSettings = root.get("rightStickSettings")?.let {
                 gsonInstance.fromJson(it, PhysicalStickSettings::class.java)
             }
+            val touchpadSettings = root.get("touchpadSettings")?.let {
+                gsonInstance.fromJson(it, PhysicalTouchpadSettings::class.java)
+            }
             val volumeUpBits = root.getAsJsonArray("volumeUpBits")?.map { it.asInt } ?: emptyList()
             val volumeDownBits = root.getAsJsonArray("volumeDownBits")?.map { it.asInt } ?: emptyList()
             val volumeUpComboTiming = ComboTiming.fromNameOrSimultaneous(
@@ -277,6 +282,7 @@ data class LayoutPreset(
                 physicalInputMappings = physicalInputMappings,
                 leftStickSettings = leftStickSettings,
                 rightStickSettings = rightStickSettings,
+                touchpadSettings = touchpadSettings,
                 volumeUpBits = volumeUpBits,
                 volumeDownBits = volumeDownBits,
                 volumeUpComboTiming = volumeUpComboTiming,
@@ -412,6 +418,7 @@ data class LayoutPreset(
         if (physicalInputMappings.isNotEmpty()) obj["physicalInputMappings"] = physicalInputMappings
         if (leftStickSettings != null && !leftStickSettings.isDefault()) obj["leftStickSettings"] = leftStickSettings
         if (rightStickSettings != null && !rightStickSettings.isDefault()) obj["rightStickSettings"] = rightStickSettings
+        if (touchpadSettings != null && !touchpadSettings.isDefault()) obj["touchpadSettings"] = touchpadSettings
         if (volumeUpBits.isNotEmpty()) obj["volumeUpBits"] = volumeUpBits
         if (volumeDownBits.isNotEmpty()) obj["volumeDownBits"] = volumeDownBits
         if (volumeUpComboTiming != ComboTiming.SIMULTANEOUS) {

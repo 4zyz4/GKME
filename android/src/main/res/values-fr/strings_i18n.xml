@@ -546,6 +546,7 @@
     <string name="i18n_touchpad" formatted="false">"Pavé tactile"</string>
     <string name="i18n_touchpad_color" formatted="false">"Couleur du pavé tactile"</string>
     <string name="i18n_touchpad_gamepad" formatted="false">"Pavé tactile (manette)"</string>
+    <string name="i18n_touchpad_mapping" formatted="false">"Mappage du pavé tactile"</string>
     <string name="i18n_touchpad_mode" formatted="false">"Mode pavé tactile"</string>
     <string name="i18n_touchpad_mouse" formatted="false">"Pavé tactile (souris)"</string>
     <string name="i18n_touchpad_outline_width_0" formatted="true">"Largeur du contour du pavé tactile : %1$d"</string>
