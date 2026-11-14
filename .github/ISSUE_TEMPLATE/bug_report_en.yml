@@ -36,8 +36,8 @@ body:
     id: app-version
     attributes:
       label: App version
-      description: The version shown in Settings, or the `versionName` (e.g. 4.9.0).
-      placeholder: "4.9.0"
+      description: The version shown in Settings, or the `versionName` (e.g. 4.9.1).
+      placeholder: "4.9.1"
     validations:
       required: true
 

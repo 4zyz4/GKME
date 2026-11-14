@@ -36,8 +36,8 @@ body:
     id: app-version
     attributes:
       label: 应用版本
-      description: 设置中显示的版本，或 `versionName`（例如 4.9.0）。
-      placeholder: "4.9.0"
+      description: 设置中显示的版本，或 `versionName`（例如 4.9.1）。
+      placeholder: "4.9.1"
     validations:
       required: true
 
