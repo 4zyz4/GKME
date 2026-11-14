@@ -39,3 +39,28 @@ add_library(gkme_uinput SHARED
 target_link_libraries(gkme_uinput PRIVATE
         android
         log)
+
+# Android 16+ PWLE 包络震动：把 PCM 转成 advanced PWLE 控制点。
+# 算法来自 Google android/haptics-tools（Apache-2.0），见 pwle/README.md。
+add_library(gkme_pwle SHARED
+        pwle/pwle_jni.cpp
+        pwle/pcm2pwle/beating_detection.cc
+        pwle/pcm2pwle/common_utils.cc
+        pwle/pcm2pwle/control_point_extraction.cc
+        pwle/pcm2pwle/converter.cc
+        pwle/pcm2pwle/dsp_utils.cc
+        pwle/pcm2pwle/frequency_amplitude_extraction.cc
+        pwle/pcm2pwle/preset_detection.cc)
+
+# pwle/ 同时提供 pcm2pwle/*、absl/* 最小兼容头与 pocketfft 单头文件。
+target_include_directories(gkme_pwle PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/pwle)
+
+target_link_libraries(gkme_pwle PRIVATE
+        android
+        log)
+
+# 上游 pcm2pwle 在 lambda 中捕获 structured binding（C++20 才标准化）。
+set_target_properties(gkme_pwle PROPERTIES
+        CXX_STANDARD 20
+        CXX_STANDARD_REQUIRED ON)

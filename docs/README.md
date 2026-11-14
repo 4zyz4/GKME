@@ -113,7 +113,7 @@ flowchart TB
 | [input.md](input.md) | 输入管线：`GamepadState`、触屏汇总、物理手柄（SDL/USB 两后端）、体感、自适应扳机、灵敏度曲线 |
 | [usb-drivers.md](usb-drivers.md) | `input/usb/*.java`：各厂商手柄 USB HID 解析、DualSense 音圈 PCM、Switch HD rumble |
 | [view-ui.md](view-ui.md) | `MainActivity` partial、`GkViewModel`、布局编辑/渲染/命中、`inputdispatcher` 策略层、外观、悬浮窗 |
-| [haptic.md](haptic.md) | RichTap 手机 HD 震动、PCM→HE 流式管线、仲裁、native DualSense 音频触觉（实验细节见 [richtap-hd-vibration.md](richtap-hd-vibration.md)） |
+| [haptic.md](haptic.md) | RichTap 手机 HD 震动、Android 16+ PWLE 包络震动（PCM2PWLE）、PCM→HE 流式管线、仲裁、native DualSense 音频触觉（实验细节见 [richtap-hd-vibration.md](richtap-hd-vibration.md)） |
 | [controlled-native.md](controlled-native.md) | 被控端模式、Shizuku UserService 绑定、`GamepadInjector`/`HapticInjector`、uinput/uhid 原生虚拟 HID、HID 描述符 |
 | [model-data.md](model-data.md) | 数据模型、`AppSettings`/`LayoutPreset`、DataStore 持久化、布局预设仓库、Hilt 注入 |
 | [richtap-hd-vibration.md](richtap-hd-vibration.md) | （实验档案）通过 adb `app_process` 驱动线性马达、HE 格式逆向、真机标定记录 |
@@ -127,11 +127,12 @@ flowchart TB
 android/src/main/
 ├── aidl/com/zyz4/gkme/controlled/    # IGamepadService.aidl
 ├── assets/richtap_prebaked.json     # RichTap 预置 HD 效果（HE 1.0）
-├── cpp/                             # native：SDL 桥、uinput/uhid、DualSense 音频触觉
+├── cpp/                             # native：SDL 桥、uinput/uhid、DualSense 音频触觉、PWLE
 │   ├── sdl_bridge.cpp / sdl/include # libgkme_sdl
 │   ├── haptic_native.c              # libgkme_sdl（DualSense isochronous）
 │   ├── uinput_gamepad.c             # libgkme_uinput（uinput + 键鼠）
 │   ├── uhid_input.c                 # libgkme_uinput（真实 HID 身份）
+│   ├── pwle/                        # libgkme_pwle（Google PCM2PWLE + JNI）
 │   └── gkme_hid_descriptors.h       # HID report descriptor（自动生成）
 ├── java/com/zyz4/gkme/
 │   ├── MainActivity*.kt             # 8 个 partial（外壳/外观/控件/编辑/订阅/映射/设置/USB）

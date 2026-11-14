@@ -321,7 +321,7 @@ val  version: String                       // RichTap core 版本
 fun  startPattern(heJson, loop, interval, amplitude, freq): Boolean
 fun  stop()
 fun  startEffect(heJson): Boolean          // 无参 start()，事件自带参数
-val  playerType: Int                       // 0 Google / 1 Tencent / 2 RichTap
+val  playerType: Int                       // 0 Google / 1 Tencent / 2 RichTap / 4 PWLE
 fun  supportsRealtimeAdjustment(): Boolean
 fun  updateParameter(intensity, frequency): Boolean
 ```

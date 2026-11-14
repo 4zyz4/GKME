@@ -4,9 +4,15 @@ import com.zyz4.gkme.controlled.HapticInjector
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
  * 把语音线圈 PCM 的逐帧音高/幅度编码成 **HE 1.0 多事件分块效果**，从手机马达“近乎无损”地还原。
+ *
+ * Android 16+ 的 type4 PWLE backend 不经过 HE：本对象改为累积原始 PCM 分块，
+ * 交给 Google PCM2PWLE（[PwleNative]）生成 advanced PWLE 控制点后直接下发；
+ * 其他 backend 仍走下面的 HE 分块编码。见 [submit] 的 `pcm` 参数。
  *
  * 背景（真机加速度计实测，见 docs/richtap-hd-vibration.md §13）：
  * - `stop()+start()` 分段投递在每次切换处掉幅，且 `stop()` 是**全局取消**（停旧会连新一起停）；
@@ -82,6 +88,12 @@ object HdPcmStreamer {
     /** 被更高优先级占用时最多保留缓冲的时长；超过则丢弃，避免解禁后补发陈旧音频。 */
     private const val HOLD_MAX_MS = 300L
 
+    /** 一个 PWLE 分块的时长（ms），与 HE 分块一致。 */
+    private const val PWLE_CHUNK_MS = EVENT_MS * EVENTS_PER_CHUNK
+
+    /** PWLE 转换所需的最短样本数（约 20ms），过短的尾块直接丢弃。 */
+    private const val PWLE_MIN_CHUNK_MS = 20
+
     /** 看门狗检查周期。 */
     private const val WATCHDOG_INTERVAL_MS = 50L
 
@@ -120,6 +132,15 @@ object HdPcmStreamer {
     private var pending = false
     private var heldSinceNs = 0L
 
+    // ── type4 PWLE：PCM 分块累积 → PCM2PWLE → WaveformEnvelopeBuilder ──
+    private var pwleBuffer = FloatArray(0)
+    private var pwleCount = 0
+    private var pwlePeak = 0f
+    private var pwleRate = 0
+    private var pwleTargetSamples = 0
+    @Volatile
+    private var lastPitchHz = 0.0
+
     /** 上一次有效输出（[amp] ≥ [AUDIO_ACTIVE_AMP]）的时间戳；看门狗据此释放优先级。 */
     @Volatile
     private var lastActiveNs = 0L
@@ -130,14 +151,32 @@ object HdPcmStreamer {
     }
 
     /**
-     * 提交一帧 PCM 的主导音高与左右幅度（0-255）。低于 [AUDIO_ACTIVE_AMP] 视为静音：
-     * 冲刷已累积的分块，但不刷新优先级租约。
+     * 提交一帧 PCM 的主导音高与左右幅度（0-255），并附带原始 PCM 供 PWLE 转换。
+     *
+     * - **type4 PWLE**（Android 16+）：从 [pcm] 的 ch2/ch3 取单声道包络，累积
+     *   [PWLE_CHUNK_MS] 后交给 Google PCM2PWLE（[PwleNative]）生成 advanced PWLE
+     *   控制点，再用 `WaveformEnvelopeBuilder` 下发；
+     * - 其他 backend：沿用逐帧 `(幅度, HE)` 的 HE 编码器。
+     *
+     * 低于 [AUDIO_ACTIVE_AMP] 视为静音：冲刷已累积的分块，但不刷新优先级租约。
+     * @param pcm 交错 S16LE 帧（ch0 未用、ch1 手柄音频、ch2 左音圈、ch3 右音圈）。
      * @return true 表示本次由 HD 处理（调用方无需回退普通震动）；false 表示 HD 不可用。
      */
-    fun submit(left: Int, right: Int, pitchHz: Double): Boolean {
+    fun submit(
+        left: Int,
+        right: Int,
+        pitchHz: Double,
+        pcm: ByteArray? = null,
+        channels: Int = 0,
+        sampleRate: Int = 0,
+    ): Boolean {
         if (!PhoneHdHaptics.enabled) return false
         if (!HapticInjector.isHapticReady()) return false
-        ensureEncoderMode()
+        val pwleMode = HapticInjector.envelopePwle &&
+            HapticInjector.pwleLimits != null &&
+            PwleNative.isAvailable &&
+            pcm != null && pcm.isNotEmpty() && sampleRate > 0
+        if (!pwleMode) ensureEncoderMode()
         ensureWatchdog()
 
         // 被更高优先级来源（自适应扳机）占用：暂停累积并保留缓冲，解禁后继续，
@@ -147,7 +186,15 @@ object HdPcmStreamer {
         if (!HapticInjector.canPlay(HapticSource.AUDIO)) {
             val nowNs = System.nanoTime()
             synchronized(lock) {
-                if (pending) {
+                if (pwleMode) {
+                    if (pwleCount > 0) {
+                        if (heldSinceNs == 0L) heldSinceNs = nowNs
+                        if (nowNs - heldSinceNs > HOLD_MAX_MS * 1_000_000L) {
+                            resetPwleLocked()
+                            heldSinceNs = 0L
+                        }
+                    }
+                } else if (pending) {
                     if (heldSinceNs == 0L) heldSinceNs = nowNs
                     if (nowNs - heldSinceNs > HOLD_MAX_MS * 1_000_000L) {
                         encoder.resetStream()
@@ -170,7 +217,9 @@ object HdPcmStreamer {
         // 这里会因冲刷尾音而重新获取优先级，导致无声流长期阻塞）。
         if (amp < AUDIO_ACTIVE_AMP) {
             synchronized(lock) {
-                if (pending) {
+                if (pwleMode) {
+                    flushPwleLocked()
+                } else if (pending) {
                     pending = false
                     val json = encoder.flush()
                     if (json != null) HapticInjector.startEffect(json, HapticSource.AUDIO)
@@ -185,6 +234,15 @@ object HdPcmStreamer {
         // 有效输出：刷新租约并（重新）获取 AUDIO 优先级。
         lastActiveNs = now
         if (!HapticInjector.acquire(HapticSource.AUDIO)) return true
+
+        if (pwleMode) {
+            lastPitchHz = pitchHz
+            val frame = pcm ?: return true
+            synchronized(lock) {
+                appendPwleLocked(frame, channels, sampleRate)
+            }
+            return true
+        }
 
         synchronized(lock) {
             if (lastNs == 0L) lastNs = now
@@ -205,6 +263,113 @@ object HdPcmStreamer {
         return true
     }
 
+    // ── PWLE：PCM 分块 → PCM2PWLE → 控制点 ──
+
+    /**
+     * 从交错 S16LE 帧中取 ch2/ch3 的较强一路，归一化后累积到 PWLE 分块。
+     * ch2/ch3 与 [AudioPlaybackService] 的语音线圈通道布局一致。
+     */
+    private fun appendPwleLocked(pcm: ByteArray, channels: Int, sampleRate: Int) {
+        if (pwleRate != sampleRate) {
+            pwleRate = sampleRate
+            pwleTargetSamples = (sampleRate.toLong() * PWLE_CHUNK_MS / 1000L)
+                .toInt()
+                .coerceAtLeast(1)
+            pwleCount = 0
+            pwlePeak = 0f
+            pwleBuffer = FloatArray(pwleTargetSamples)
+        }
+        if (pwleTargetSamples <= 0) return
+        val inputCh = maxOf(channels, 4)
+        val bytesPerFrame = inputCh * 2
+        if (bytesPerFrame <= 0 || pcm.size < bytesPerFrame) return
+        val leftOffset = 2 * 2
+        val rightOffset = 3 * 2
+        val frames = pcm.size / bytesPerFrame
+        for (i in 0 until frames) {
+            val base = i * bytesPerFrame
+            val l = if (base + leftOffset + 1 < pcm.size) readShortLe(pcm, base + leftOffset) else 0
+            val r = if (base + rightOffset + 1 < pcm.size) readShortLe(pcm, base + rightOffset) else 0
+            val v = if (abs(l) >= abs(r)) l else r
+            val f = (v / 32768f).coerceIn(-1f, 1f)
+            pwleBuffer[pwleCount++] = f
+            val a = abs(f)
+            if (a > pwlePeak) pwlePeak = a
+            if (pwleCount >= pwleTargetSamples) emitPwleLocked()
+        }
+    }
+
+    /** 把当前 PWLE 分块交给 PCM2PWLE；失败时退化为恒定幅度包络。 */
+    private fun emitPwleLocked(): Boolean {
+        val limits = HapticInjector.pwleLimits ?: run {
+            resetPwleLocked()
+            return false
+        }
+        val count = pwleCount
+        if (count < minPwleSamples()) {
+            resetPwleLocked()
+            return false
+        }
+        val samples = FloatArray(count)
+        System.arraycopy(pwleBuffer, 0, samples, 0, count)
+        val peak = pwlePeak
+        val rate = pwleRate
+        pwleCount = 0
+        pwlePeak = 0f
+
+        val points = PwleNative.convert(samples, rate, limits)
+        val ok = if (points != null) {
+            HapticInjector.startEnvelope(points, HapticSource.AUDIO)
+        } else {
+            playPwleFallbackLocked(peak, limits)
+        }
+        if (ok) lastActiveNs = System.nanoTime()
+        return ok
+    }
+
+    /** PCM2PWLE 不可用/被拒绝时，用分块峰值 + 主导音高构造一条简单包络。 */
+    private fun playPwleFallbackLocked(peak: Float, limits: PwleEncoder.Limits): Boolean {
+        val amp = (peak * 255f).roundToInt().coerceIn(0, 255)
+        if (amp < AUDIO_ACTIVE_AMP) return false
+        val he = if (lastPitchHz > 0.0) {
+            RichTapFrequency.hzToHe(RichTapFrequency.shiftIntoRange(lastPitchHz))
+        } else {
+            RichTapFrequency.HE_AT_RESONANCE
+        }
+        val hz = PwleEncoder.heToDeviceHz(he, limits)
+        val a = (amp / 255f).coerceIn(0f, 1f)
+        val minPoint = limits.minPointDurationMs.coerceAtLeast(1L)
+        val fade = maxOf(5L, minPoint)
+        val hold = (PWLE_CHUNK_MS - 2 * fade).coerceAtLeast(minPoint)
+        val points = listOf(
+            PwleEncoder.ControlPoint(0f, hz, 0L),
+            PwleEncoder.ControlPoint(a, hz, fade),
+            PwleEncoder.ControlPoint(a, hz, hold),
+            PwleEncoder.ControlPoint(0f, hz, fade),
+        )
+        return HapticInjector.startEnvelope(points, HapticSource.AUDIO)
+    }
+
+    /** 静音/停流时冲刷尾块（不足 [PWLE_MIN_CHUNK_MS] 则丢弃）。 */
+    private fun flushPwleLocked() {
+        if (pwleCount >= minPwleSamples()) emitPwleLocked()
+        resetPwleLocked()
+    }
+
+    private fun resetPwleLocked() {
+        pwleCount = 0
+        pwlePeak = 0f
+    }
+
+    private fun minPwleSamples(): Int =
+        maxOf(64, pwleRate * PWLE_MIN_CHUNK_MS / 1000)
+
+    private fun readShortLe(bytes: ByteArray, offset: Int): Int {
+        val lo = bytes[offset].toInt() and 0xFF
+        val hi = bytes[offset + 1].toInt()
+        return (hi shl 8) or lo
+    }
+
     /** 停止并清空缓冲（硬停止：仅当 AUDIO 持有优先级时才取消效果）。 */
     fun stop() {
         resetBuffer()
@@ -215,8 +380,10 @@ object HdPcmStreamer {
     private fun resetBuffer() {
         synchronized(lock) {
             encoder.resetStream()
+            resetPwleLocked()
             lastNs = 0L
             pending = false
+            heldSinceNs = 0L
         }
     }
 
@@ -239,7 +406,10 @@ object HdPcmStreamer {
             // 避免漏掉这一下；延后一个周期再释放优先级。
             var flushed = false
             synchronized(lock) {
-                if (pending) {
+                if (HapticInjector.envelopePwle) {
+                    if (pwleCount >= minPwleSamples()) flushed = emitPwleLocked()
+                    resetPwleLocked()
+                } else if (pending) {
                     pending = false
                     val json = encoder.flush()
                     if (json != null) {

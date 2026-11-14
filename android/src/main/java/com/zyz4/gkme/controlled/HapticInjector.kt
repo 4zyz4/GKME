@@ -4,20 +4,24 @@ import com.zyz4.gkme.R
 import com.zyz4.gkme.i18n.AppStrings
 import android.annotation.SuppressLint
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import com.zyz4.gkme.haptic.HapticArbiter
 import com.zyz4.gkme.haptic.HapticSource
+import com.zyz4.gkme.haptic.PwleEncoder
 import com.zyz4.gkme.haptic.RichTapEngine
 import com.zyz4.gkme.haptic.RichTapFrequency
 import com.zyz4.gkme.haptic.RichTapHe
 import com.zyz4.gkme.haptic.RichTapPrebaked
 
 /**
- * App 侧对 HD 震动（RichTap 隐藏 API）的封装。
+ * App 侧对 HD 震动（RichTap 隐藏 API / Android 16+ PWLE）的封装。
  *
- * 直接在 app 进程内实例化 [RemoteHapticService] 驱动 RichTap：调用方是前台 app 的 uid，
- * 不会被系统的“后台震动”策略丢弃，也不再依赖 Shizuku 授权。只有本机支持 RichTap 隐藏
- * API 时 [isHapticReady] 才为 true；否则调用方应回退到普通 Vibrator 通路。
+ * 直接在 app 进程内实例化 [RemoteHapticService] 驱动 RichTap；Android 16+ 且
+ * RichTap 不可用时，由同一个 service 自动回退到原生 PWLE 包络震动（type 4）。
+ * 调用方是前台 app 的 uid，不会被系统的“后台震动”策略丢弃，也不再依赖 Shizuku 授权。
+ * 只有本机支持其中一种 backend 时 [isHapticReady] 才为 true；否则调用方应回退到普通
+ * Vibrator 通路。
  */
 // 进程级单例，service 持有 Application Context，生命周期与进程一致。
 @SuppressLint("StaticFieldLeak")
@@ -51,9 +55,19 @@ object HapticInjector {
     var version: String = ""
         private set
 
-    /** 当前 backend 类型（对齐 SDK `PlayerType`）：0 无、1 TencentPerformer、2 RichTapPerformer。 */
+    /** 当前 backend 类型（对齐 SDK `PlayerType`）：0 无、1 TencentPerformer、2 RichTapPerformer、4 PWLE。 */
     @Volatile
     var playerType: Int = 0
+        private set
+
+    /** 当前 backend 是否为 Android 16+ 原生 PWLE（type 4）。 */
+    @Volatile
+    var envelopePwle: Boolean = false
+        private set
+
+    /** PWLE 设备频率/控制点约束；非 PWLE 为 null。 */
+    @Volatile
+    var pwleLimits: PwleEncoder.Limits? = null
         private set
 
     /** 是否支持 type 2 的实时调参（`createHapticParameter`）。 */
@@ -98,7 +112,7 @@ object HapticInjector {
             service = local
             local.swapVibrationIndex = swapVibrationIndex
             refreshCapabilities(local)
-            Log.i(TAG, "使用 app 进程内 RichTap: playerType=$playerType version=$version")
+            Log.i(TAG, "使用 app 进程内 HD: playerType=$playerType version=$version")
         }
         initialized = true
     }
@@ -130,6 +144,16 @@ object HapticInjector {
             svc.supportsNativeHe20()
         } catch (_: Throwable) {
             false
+        }
+        envelopePwle = try {
+            svc.supportsEnvelopeEffects()
+        } catch (_: Throwable) {
+            false
+        }
+        pwleLimits = try {
+            svc.envelopeLimits()
+        } catch (_: Throwable) {
+            null
         }
     }
 
@@ -202,6 +226,29 @@ object HapticInjector {
     }
 
     /**
+     * 直接下发一组 PWLE 控制点（PCM2PWLE / HE→PWLE 的输出）。
+     * 仅当当前 backend 是 type 4 时可用；失败时调用方应回退普通震动。
+     */
+    fun startEnvelope(
+        points: List<PwleEncoder.ControlPoint>,
+        source: HapticSource,
+        loop: Int = 1,
+    ): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.BAKLAVA) return false
+        val svc = service ?: return false
+        if (!available || !envelopePwle) return false
+        if (!acquire(source)) return false
+        val ok = try {
+            svc.startEnvelope(points, loop)
+        } catch (t: Throwable) {
+            Log.w(TAG, "startEnvelope 失败", t)
+            false
+        }
+        if (!ok) release(source)
+        return ok
+    }
+
+    /**
      * type 2 专用：实时调整当前效果的全局强度/频率（`createHapticParameter`），无需 stop+start。
      * [amplitude] 0-255 会换算成引擎的 0-100 强度。仅当 [realtimeAdjust] 为 true 时有效。
      */
@@ -228,7 +275,7 @@ object HapticInjector {
         source: HapticSource,
         compensate: Boolean = true,
     ): Boolean {
-        val amp = if (compensate) {
+        val amp = if (compensate && !envelopePwle) {
             RichTapEngine.compensate255(amplitude, frequency)
         } else {
             amplitude.coerceIn(0, 255)
@@ -240,11 +287,16 @@ object HapticInjector {
         )
     }
 
-    /** 播放短促点击（按键反馈）。[strength] 按频率做幅度-频率补偿后写入事件强度。 */
-    fun playClick(strength: Int, frequency: Int, source: HapticSource): Boolean = startPattern(
-        RichTapHe.click(RichTapEngine.compensate255(strength, frequency), frequency),
-        1, 0, 255, frequency.coerceIn(0, 100), source,
-    )
+    /** 播放短促点击（按键反馈）。[strength] 按频率做幅度-频率补偿后写入事件强度。
+     *  PWLE 的振幅是线性输出强度，不做 RichTap 的机型相关补偿。 */
+    fun playClick(strength: Int, frequency: Int, source: HapticSource): Boolean {
+        val s = if (envelopePwle) strength.coerceIn(0, 255)
+        else RichTapEngine.compensate255(strength, frequency)
+        return startPattern(
+            RichTapHe.click(s, frequency),
+            1, 0, 255, frequency.coerceIn(0, 100), source,
+        )
+    }
 
     /** 无条件停止当前效果（用户关闭 HD / 硬停止）。 */
     fun stop() {
@@ -268,6 +320,7 @@ object HapticInjector {
     fun statusText(): String {
         if (!available) return AppStrings.get(R.string.i18n_this_device_does_not_support_hd_vibratio)
         val type = when (playerType) {
+            4 -> "type4 PWLE"
             2 -> "type2 RichTap"
             1 -> "type1 Tencent"
             else -> "type?"
@@ -281,6 +334,8 @@ object HapticInjector {
         playerType = 0
         realtimeAdjust = false
         nativeHe20 = false
+        envelopePwle = false
+        pwleLimits = null
         initialized = false
     }
 }

@@ -863,7 +863,7 @@ class AudioPlaybackService @Inject constructor(
                 }
                 if (voiceCoilDevice.type == AudioDeviceType.PHONE_MOTOR) {
                     val pitchHz = phonePitchTracker.process(pcm, channels, sampleRate)?.freqHz ?: 0.0
-                    vibratePhoneMotors(leftAmp, rightAmp, voiceCoilSwap, pitchHz)
+                    vibratePhoneMotors(leftAmp, rightAmp, voiceCoilSwap, pitchHz, pcm, channels, sampleRate)
                 }
             }
             AudioDeviceType.CONTROLLER -> {
@@ -1031,13 +1031,22 @@ class AudioPlaybackService @Inject constructor(
     }
 
     /** Drives the phone motors from the voice-coil channels; motor0 = left, motor1 = right.
-     *  [pitchHz] 为 PCM 估计的主导音高（Hz），供 HD 震动映射使用；0 表示未知。 */
-    private fun vibratePhoneMotors(left: Int, right: Int, swap: Boolean, pitchHz: Double = 0.0) {
+     *  [pitchHz] 为 PCM 估计的主导音高（Hz），供 HD 震动映射使用；0 表示未知。
+     *  [pcm]/[channels]/[sampleRate] 原始 PCM 交给 type4 PWLE（PCM2PWLE）使用。 */
+    private fun vibratePhoneMotors(
+        left: Int,
+        right: Int,
+        swap: Boolean,
+        pitchHz: Double = 0.0,
+        pcm: ByteArray? = null,
+        channels: Int = 0,
+        sampleRate: Int = 0,
+    ) {
         val m0 = (if (swap) right else left).coerceIn(0, 255)
         val m1 = (if (swap) left else right).coerceIn(0, 255)
         // HD 路径自行处理静音（冲刷已缓冲的分块 + 延迟停止），因此静音也交给它，
         // 避免“刚投递就被停止”。它返回 true 表示 HD 已接管（含静音）。
-        if (HdPcmStreamer.submit(m0, m1, pitchHz)) return
+        if (HdPcmStreamer.submit(m0, m1, pitchHz, pcm, channels, sampleRate)) return
         if (m0 <= 1 && m1 <= 1) return
         val now = System.currentTimeMillis()
         if (now - lastVibrateTime < MOTOR_VIBRATE_DURATION_MS) return

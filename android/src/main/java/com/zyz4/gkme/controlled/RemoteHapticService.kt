@@ -2,13 +2,16 @@ package com.zyz4.gkme.controlled
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.os.Build
 import android.os.Process
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.Log
+import androidx.annotation.RequiresApi
 import com.zyz4.gkme.haptic.He2Converter
 import com.zyz4.gkme.haptic.He2Json
 import com.zyz4.gkme.haptic.HeDocument
+import com.zyz4.gkme.haptic.PwleEncoder
 import com.zyz4.gkme.haptic.RichTapRawCodec
 import java.lang.reflect.Field
 import java.lang.reflect.Method
@@ -19,11 +22,15 @@ import java.lang.reflect.Method
  * 普通 Kotlin 类（非 Binder/Shizuku 用户服务）：由 [HapticInjector] 在 app 进程内直接实例化，
  * 以**前台 app 的 uid** 反射调用框架隐藏类（manifest 声明 `richtap-api` 共享库后可用），
  * 从而不被系统“后台震动”策略丢弃。
- * 按优先级选 backend（对齐 RichTap ASDK `RichTapUtils.init`）：
+ * 按优先级选 backend（对齐 RichTap ASDK `RichTapUtils.init`，并新增 Android 16 PWLE）：
  * - **type 2 `RichTapPerformer`**：`richtap.os.PhonyVibrationEffect` / `android.os.RichTapVibrationEffect`
  *   的 `createPatternHeWithParam(int[])`，支持实时调参（`createHapticParameter`）。
  * - **type 1 `TencentPerformer`**：`android.os.DynamicEffect` + `android.os.HapticPlayer`。
- * - 两者都不可用时 `available=false`，由调用方回退普通 `Vibrator`。
+ * - **type 4 `PWLE`**：Android 16+ 原生 `VibrationEffect.WaveformEnvelopeBuilder`
+ *   （Piece-Wise Linear Envelope）。不依赖 RichTap / 厂商 hidden API，只要设备
+ *   `Vibrator.areEnvelopeEffectsSupported()` 为 true 即可用；HE 由 [PwleEncoder] 转成
+ *   `(amplitude, frequencyHz, duration)` 控制点。
+ * - 三者都不可用时 `available=false`，由调用方回退普通 `Vibrator`。
  *
  * type 2 的 raw int[] 编码见 [RichTapRawCodec]（逆向自 SDK `base.b.a`）。
  */
@@ -40,6 +47,9 @@ class RemoteHapticService @JvmOverloads constructor(
         const val PLAYER_NONE = 0
         const val PLAYER_TENCENT = 1
         const val PLAYER_RICHTAP = 2
+
+        /** Android 16+ 原生 PWLE 包络震动（不依赖 RichTap hidden API）。 */
+        const val PLAYER_PWLE = 4
 
         /** type 2 实时调参（createHapticParameter）的发送者组 id。 */
         private const val SENDER_GID = 1
@@ -91,6 +101,15 @@ class RemoteHapticService @JvmOverloads constructor(
     private var coreMajor = -1
     private var coreMinor = -1
 
+    // ── type 4 资源（Android 16 PWLE，只缓存原始数值，避免 API 36 类型泄漏到低版本） ──
+    private var pwleMinHz = Float.NaN
+    private var pwleMaxHz = Float.NaN
+    private var pwleResonantHz = Float.NaN
+    private var pwleMinPointMs = 1L
+    private var pwleMaxPointMs = 10_000L
+    private var pwleMaxDurationMs = 60_000L
+    private var pwleMaxPoints = 0
+
     private val pid = Process.myPid()
     private var senderSeq = 0
 
@@ -103,7 +122,11 @@ class RemoteHapticService @JvmOverloads constructor(
                 null
             }
             if (!tryInitType2()) {
-                tryInitType1()
+                if (!tryInitType1()) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
+                        tryInitType4()
+                    }
+                }
             }
             Log.i(TAG, "init: playerType=$playerType available=$available version=$version pkg=$packageName")
         }
@@ -117,6 +140,23 @@ class RemoteHapticService @JvmOverloads constructor(
     /** 是否支持原生 HE2.0 raw（type 2 且 core ≥ 24）。 */
     fun supportsNativeHe20(): Boolean = playerType == PLAYER_RICHTAP && coreMajor >= 24
 
+    /** 当前 backend 是否为 Android 16+ 原生 PWLE 包络震动（type 4）。 */
+    fun supportsEnvelopeEffects(): Boolean = playerType == PLAYER_PWLE
+
+    /** 当前 PWLE 设备约束；非 PWLE backend 返回 null。 */
+    fun envelopeLimits(): PwleEncoder.Limits? {
+        if (playerType != PLAYER_PWLE) return null
+        return PwleEncoder.Limits(
+            minFrequencyHz = pwleMinHz,
+            maxFrequencyHz = pwleMaxHz,
+            resonanceHz = pwleResonantHz,
+            minPointDurationMs = pwleMinPointMs,
+            maxPointDurationMs = pwleMaxPointMs,
+            maxDurationMs = pwleMaxDurationMs,
+            maxPoints = pwleMaxPoints,
+        )
+    }
+
     // ── 效果下发 ──
 
     fun startPattern(
@@ -128,23 +168,36 @@ class RemoteHapticService @JvmOverloads constructor(
     ): Boolean {
         if (!available) return false
         val document = He2Json.parse(heJson)
-        return if (playerType == PLAYER_RICHTAP) {
-            val doc = document ?: return false
-            startRichtap(doc, loop, interval, amplitude, freq)
-        } else {
-            startTencent(toHe10Json(heJson, document), loop, interval, amplitude, freq)
+        return when (playerType) {
+            PLAYER_RICHTAP -> {
+                val doc = document ?: return false
+                startRichtap(doc, loop, interval, amplitude, freq)
+            }
+            PLAYER_PWLE -> {
+                val doc = document ?: return false
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.BAKLAVA) return false
+                startPwle(doc, loop, amplitude)
+            }
+            else -> startTencent(toHe10Json(heJson, document), loop, interval, amplitude, freq)
         }
     }
 
     fun startEffect(heJson: String): Boolean {
         if (!available) return false
         val document = He2Json.parse(heJson)
-        return if (playerType == PLAYER_RICHTAP) {
-            val doc = document ?: return false
-            // 事件自带参数：无全局覆盖（对齐 SDK start() 的 1,0,gain,0）。
-            startRichtap(doc, 1, 0, 255, 0)
-        } else {
-            startTencentEffect(toHe10Json(heJson, document))
+        return when (playerType) {
+            PLAYER_RICHTAP -> {
+                val doc = document ?: return false
+                // 事件自带参数：无全局覆盖（对齐 SDK start() 的 1,0,gain,0）。
+                startRichtap(doc, 1, 0, 255, 0)
+            }
+            PLAYER_PWLE -> {
+                val doc = document ?: return false
+                // 事件自带幅度/频率，全局 gain 取满。
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.BAKLAVA) return false
+                startPwle(doc, 1, 255)
+            }
+            else -> startTencentEffect(toHe10Json(heJson, document))
         }
     }
 
@@ -190,6 +243,7 @@ class RemoteHapticService @JvmOverloads constructor(
             when (playerType) {
                 PLAYER_RICHTAP -> stopRichtapLocked()
                 PLAYER_TENCENT -> stopTencentLocked()
+                PLAYER_PWLE -> stopPwleLocked()
                 else -> Unit
             }
         }
@@ -292,10 +346,143 @@ class RemoteHapticService @JvmOverloads constructor(
         }
     }
 
+    // ── type 4：Android 16+ 原生 PWLE 包络震动 ──
+
+    /**
+     * 探测 Android 16+ 的 PWLE 能力：
+     * - `Vibrator.areEnvelopeEffectsSupported()` 必须为 true；
+     * - `Vibrator.getFrequencyProfile()` 必须给出有效且非 NaN 的频率上下限
+     *   （PWLE 使用真实 Hz，频率越界会导致整条效果不播放）；
+     * - `Vibrator.getEnvelopeEffectInfo()` 给出控制点数量/时长约束。
+     */
+    @RequiresApi(Build.VERSION_CODES.BAKLAVA)
+    private fun tryInitType4(): Boolean {
+        val vib = vibrator ?: return false
+        return try {
+            if (!vib.areEnvelopeEffectsSupported()) {
+                Log.i(TAG, "PWLE: areEnvelopeEffectsSupported=false")
+                return false
+            }
+            val profile = vib.getFrequencyProfile() ?: run {
+                Log.i(TAG, "PWLE: getFrequencyProfile()=null")
+                return false
+            }
+            val minHz = profile.minFrequencyHz
+            val maxHz = profile.maxFrequencyHz
+            if (!minHz.isFinite() || !maxHz.isFinite() || minHz <= 0f || maxHz <= minHz) {
+                Log.i(TAG, "PWLE: 无有效频率范围 min=$minHz max=$maxHz")
+                return false
+            }
+            val info = vib.getEnvelopeEffectInfo() ?: run {
+                Log.i(TAG, "PWLE: getEnvelopeEffectInfo()=null")
+                return false
+            }
+            pwleMinHz = minHz
+            pwleMaxHz = maxHz
+            pwleResonantHz = try {
+                vib.resonantFrequency
+            } catch (_: Throwable) {
+                Float.NaN
+            }
+            pwleMinPointMs = info.minControlPointDurationMillis.coerceAtLeast(1L)
+            pwleMaxPointMs = info.maxControlPointDurationMillis.coerceAtLeast(pwleMinPointMs)
+            pwleMaxDurationMs = info.maxDurationMillis
+            pwleMaxPoints = info.maxSize
+            playerType = PLAYER_PWLE
+            available = true
+            version = "PWLE (Android ${Build.VERSION.RELEASE})"
+            Log.i(
+                TAG,
+                "PWLE 就绪: freq=$minHz..$maxHz res=$pwleResonantHz " +
+                    "point=$pwleMinPointMs..$pwleMaxPointMs maxDur=$pwleMaxDurationMs " +
+                    "maxPoints=$pwleMaxPoints",
+            )
+            true
+        } catch (t: Throwable) {
+            Log.w(TAG, "初始化 PWLE 失败: ${t.message}")
+            false
+        }
+    }
+
+    /**
+     * 用 `VibrationEffect.WaveformEnvelopeBuilder` 下发一条 PWLE 效果。
+     *
+     * @param gainAmplitude 全局幅度 0-255（对应 `startPattern` 的 amplitude）；事件自身曲线
+     *                      已包含相对幅度，这里只做整体缩放。
+     */
+    @RequiresApi(Build.VERSION_CODES.BAKLAVA)
+    private fun startPwle(document: HeDocument, loop: Int, gainAmplitude: Int): Boolean {
+        val points = PwleEncoder.encode(
+            document = document,
+            limits = envelopeLimits() ?: return false,
+            gain = gainAmplitude.coerceIn(0, 255) / 255f,
+        )
+        if (points.isEmpty()) {
+            Log.w(TAG, "startPwle 没有可用控制点: events=${document.events().size}")
+            return false
+        }
+        return playPwle(points, loop)
+    }
+
+    /**
+     * 直接播放一组 PWLE 控制点（PCM2PWLE 的输出，或 [PwleEncoder] 的转换结果）。
+     *
+     * 约定：第一个点 `durationMs == 0` 表示“初始状态”，只取它的频率作为
+     * `setInitialFrequencyHz`，不交给 `addControlPoint`（Android 要求时长 > 0）。
+     */
+    @RequiresApi(Build.VERSION_CODES.BAKLAVA)
+    fun startEnvelope(points: List<PwleEncoder.ControlPoint>, loop: Int = 1): Boolean {
+        if (playerType != PLAYER_PWLE) return false
+        return playPwle(points, loop)
+    }
+
+    @RequiresApi(Build.VERSION_CODES.BAKLAVA)
+    private fun playPwle(points: List<PwleEncoder.ControlPoint>, loop: Int): Boolean {
+        val vib = vibrator ?: return false
+        if (points.isEmpty()) return false
+        val initialFrequency = points.first().frequencyHz
+        val body = if (points.first().durationMs <= 0L) points.drop(1) else points
+        if (body.isEmpty()) return false
+        synchronized(lock) {
+            return try {
+                val builder = VibrationEffect.WaveformEnvelopeBuilder()
+                    .setInitialFrequencyHz(initialFrequency)
+                for (p in body) {
+                    val duration = p.durationMs.coerceIn(pwleMinPointMs, pwleMaxPointMs)
+                    builder.addControlPoint(
+                        p.amplitude.coerceIn(0f, 1f),
+                        p.frequencyHz,
+                        duration,
+                    )
+                }
+                val effect = builder.build()
+                // PWLE 没有可靠的“无 stop 链接”，每次新效果直接接管；loop<0 用系统循环。
+                val toPlay = if (loop < 0) VibrationEffect.createRepeatingEffect(effect) else effect
+                vib.vibrate(toPlay)
+                Log.d(
+                    TAG,
+                    "playPwle points=${body.size} dur=${body.sumOf { it.durationMs }}ms loop=$loop",
+                )
+                true
+            } catch (t: Throwable) {
+                Log.e(TAG, "playPwle 失败", t)
+                false
+            }
+        }
+    }
+
+    private fun stopPwleLocked() {
+        try {
+            vibrator?.cancel()
+        } catch (t: Throwable) {
+            Log.w(TAG, "stopPwle 失败: ${t.message}")
+        }
+    }
+
     // ── type 1：DynamicEffect + HapticPlayer ──
 
-    private fun tryInitType1() {
-        try {
+    private fun tryInitType1(): Boolean {
+        return try {
             val hp = Class.forName("android.os.HapticPlayer")
             val hpAvailable = try {
                 hp.getMethod("isAvailable").invoke(null) as? Boolean ?: false
@@ -306,7 +493,7 @@ class RemoteHapticService @JvmOverloads constructor(
             if (!hpAvailable) {
                 available = false
                 playerType = PLAYER_NONE
-                return
+                return false
             }
             dynamicEffectClass = Class.forName("android.os.DynamicEffect")
             startMethod = hp.getMethod(
@@ -333,10 +520,12 @@ class RemoteHapticService @JvmOverloads constructor(
             } catch (_: Throwable) {
                 ""
             }
+            true
         } catch (t: Throwable) {
             available = false
             playerType = PLAYER_NONE
             Log.w(TAG, "隐藏 API 不可用: ${t.message}")
+            false
         }
     }
 

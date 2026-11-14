@@ -42,3 +42,6 @@
 
 # 音频：AudioNative 的 native 方法按 JNI 静态命名解析，类名与方法名必须保留。
 -keep class com.zyz4.gkme.audio.AudioNative { *; }
+
+# PWLE: PwleNative's native method is resolved by its JNI static name.
+-keep class com.zyz4.gkme.haptic.PwleNative { *; }

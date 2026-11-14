@@ -169,9 +169,11 @@ object PhoneHdHaptics {
         val s = strength.coerceIn(0, CLICK_STRENGTH_MAX)
         val dur = durationMs.coerceAtLeast(1)
         val freq = frequencyHe.coerceIn(0, 100)
+        val eventIntensity = if (HapticInjector.envelopePwle) s
+        else RichTapEngine.compensate255(s, freq)
         return HapticInjector.startPattern(
             RichTapHe.continuous(freq, dur), 1, 0,
-            RichTapEngine.compensate255(s, freq), freq, HapticSource.BUTTON,
+            eventIntensity, freq, HapticSource.BUTTON,
         )
     }
 

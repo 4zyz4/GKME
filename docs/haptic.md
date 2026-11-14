@@ -16,6 +16,7 @@
 | 通路 | 执行器 | 载体 | 相关代码 |
 |------|--------|------|----------|
 | **RichTap 手机 HD 震动** | 手机 LRA | HE 1.0 JSON → 反射 hidden API（**app 进程内**） | `haptic/*`、`HapticInjector`、`RemoteHapticService` |
+| **Android 16+ PWLE 包络震动（type 4）** | 手机 LRA | PCM2PWLE → `(amplitude, frequencyHz, duration)` → `WaveformEnvelopeBuilder` | `PwleNative`、`cpp/pwle/*`、`RemoteHapticService` |
 | **DualSense USB 音频触觉** | DS5 语音线圈 | isochronous PCM（4ch/48k）→ native | `cpp/haptic_native.c`、`HapticNative.java`、`DualSenseHapticSender` |
 | **Switch HD rumble** | Joy-Con / Pro 手柄 | Nintendo 专有线格式 | `HdRumbleCodec.java`、`PcmHdRumbleAnalyzer.kt`、`input/usb/*Controller` |
 
@@ -40,6 +41,8 @@ flowchart TB
     HDS --> INJ["HapticInjector (Arbiter)"]
     INJ --> RHS["RemoteHapticService<br/>app 进程(优先) / shell 进程(回退)"]
     RHS --> HW["android.os.HapticPlayer<br/>hidden API"]
+    INJ -->|type4| PWLE["PwleNative<br/>PCM2PWLE"]
+    PWLE --> VB["Vibrator<br/>WaveformEnvelopeBuilder"]
 
     AUD --> ANA["PcmHdRumbleAnalyzer"]
     ANA --> HDR["onHdRumble → Switch 手柄"]
@@ -153,6 +156,10 @@ type 2 + core ≥ 24 上会保留全部特性：
 - `MAX_DT_MS=40` 必须小于 `EVENT_MS`，否则一帧迟到会跳过事件。
 - `submit(left,right,pitchHz)`：前置检查 `PhoneHdHaptics.enabled` 与 `HapticInjector.isHapticReady()`；
   被更高优先级占用时 `resetBuffer()` 静默返回。
+- **type4 PWLE 模式**：`submit(..., pcm, channels, sampleRate)` 额外接收原始 PCM；从 ch2/ch3
+  取较强一路，按采样数累积 200ms，调用 `PwleNative.convert()`（PCM2PWLE）后经
+  `HapticInjector.startEnvelope()` 下发。失败时退化为分块峰值 + `lastPitchHz` 的简单包络。
+  该模式不使用 HE 编码器，静音/停流时冲刷不足 20ms 的尾块直接丢弃。
 - 静音判定 `amp < AUDIO_ACTIVE_AMP=4`：不刷新租约，`flush()` 投递已累积的分块。
 - 有效输出：刷新 `lastActiveNs`、`acquire(AUDIO)`、`shiftIntoRange` → `hzToHe`、`addSample`，
   满块后 `startEffect(json, AUDIO)`。
@@ -231,7 +238,8 @@ type 2 + core ≥ 24 上会保留全部特性：
 `controlled/RemoteHapticService.kt`。反射调用 hidden API；由 app 进程内直接实例化
 （调用方 uid = app）。
 
-- `init`：优先 `tryInitType2()`，失败回退 `tryInitType1()`。
+- `init`：优先 `tryInitType2()`，失败回退 `tryInitType1()`，再失败且系统 ≥ Android 16
+  时回退 `tryInitType4()`（PWLE）。
 - **type2 RichTapPerformer**：`richtap.os.PhonyVibrationEffect` / `android.os.RichTapVibrationEffect`；
   `checkIfRichTapSupport` 解版本；反射 `createPatternHeWithParam/createHapticParameter/createPatternHeParameter`。
   - `startPattern/startEffect` 统一走 `He2Json.parse`：core ≥ 24 用 `RichTapRawCodec.encode(document)`
@@ -245,11 +253,41 @@ type 2 + core ≥ 24 上会保留全部特性：
   - `mPackageName` 反射补值：`app_process` 下为 null 必须补，否则 `start()` NPE；**app 进程内该字段是
     hidden API `blocked`（`getDeclaredField` 直接抛异常）**，因此读取失败时置 `packageField=null` 跳过，
     厂商构造函数会用当前包名自动填好。
+- **type4 PWLE**：Android 16+ 公共 API，不依赖 RichTap/厂商 hidden API；见 §3.4。
 - `updateParameter`：`PARAM_TAG=256/513/514`，senderId 组 1。
 - `swapVibrationIndex` 暂未接入设置，保留与 SDK 对齐。
 
 > HE 格式逆向、HE 2.0→1.0 转换、`encapsulate()` 等细节见
 > [richtap-hd-vibration.md §3、§4](richtap-hd-vibration.md)。
+
+### 3.4 type4 PWLE（Android 16+ 包络震动）
+
+`RemoteHapticService.PLAYER_PWLE = 4`。归属“高清震动（HD）”设置，无需独立开关。
+
+- **探测**：`Vibrator.areEnvelopeEffectsSupported()` 为 true，且
+  `Vibrator.getFrequencyProfile()` 给出有效的 `min/max` 频率（NaN 视为不支持）；
+  `Vibrator.getEnvelopeEffectInfo()` 提供控制点数/最短/最长控制点/总时长上限。
+- **优先级**：type2 RichTap → type1 Tencent → type4 PWLE。前两者不可用时才启用，
+  因此已有 RichTap 机型不会改变现有手感；无 `richtap-api` 的 Android 16 设备
+  也能获得带频率的 HD 震动。
+- **非 PCM 路径**（游戏 rumble、按键、预置效果）：HE JSON 经
+  `haptic/PwleEncoder.kt` 转成 advanced PWLE 控制点。频率按设备
+  `min/resonant/max` 重新映射（HE 56 = 谐振点），振幅按引擎强度律反变换；
+  事件间空隙插 0 幅度点，收尾淡出。
+- **PCM 路径**（电脑音频 → 手机马达）：`HdPcmStreamer` 在 PWLE 模式下从交错
+  PCM 的 ch2/ch3 取较强一路，累积 200ms 后调用 **Google PCM2PWLE**
+  （`cpp/pwle/`，Apache-2.0，JNI 见 `PwleNative`）生成 advanced PWLE 控制点，
+  再通过 `HapticInjector.startEnvelope()` 下发。转换失败时退化为
+  “分块峰值 + 主导音高”的简单包络。
+- **为什么用 PCM2PWLE**：它包含滤波 → 希尔伯特幅度/频率包络 → RDP 控制点
+  提取 → JND/最短时长约束，比逐帧幅度+单一音高更接近原始 PCM 的包络与音高。
+  上游默认会把瞬态替换成 preset primitive 并在 PCM 中静音；本集成只消费 PWLE，
+  因此在 JNI 中关闭 preset 检测（`ampRatioThreshold=2.0`），保留瞬态在包络里。
+- **限制**：
+  - 上游按分块归一化；JNI 用分块峰值还原绝对幅度，跨分块仍可能有轻微电平起伏。
+  - `WaveformEnvelopeBuilder` 每次播放新效果会替换旧效果，没有 RichTap 的“无 stop
+    链接”；分块之间可能有极短切换间隙。
+  - 需要真机（支持 PWLE 的 Android 16 设备）验证频率映射与包络手感。
 
 ---
 
@@ -315,6 +353,7 @@ native 模式下空闲补 10ms 静音帧（见 [usb-drivers.md §4](usb-drivers.
 | `RichTapEngine/He/RawCodec/LowFreq/Frequency` | 无状态/常量表，JVM 单测友好 |
 | `PcmHeEncoder` | 由调用线程串行；`HdPcmStreamer` 用 `synchronized(lock)` 保护 encoder |
 | `HdPcmStreamer` | `submit/stop` 调用线程；独立 `GkmeAudioHdWatchdog`（50ms）持 `lastActiveNs` |
+| `PwleNative` (PCM2PWLE) | 由 `HdPcmStreamer.submit` 在音频线程调用；每 200ms 分块一次 |
 | `PhoneHdHaptics` | `want*` 用 `@Volatile`；单线程调度器 `GkmeHdUpdate`（100ms）应用参数 |
 | `HapticArbiter` | 单 `lock`，短临界区 |
 | `RemoteHapticService` | Binder 线程池；所有下发/停止在 `synchronized(lock)` |
@@ -344,6 +383,8 @@ native 模式下空闲补 10ms 静音帧（见 [usb-drivers.md §4](usb-drivers.
 | 连续效果时长 | 1000ms |
 | 量化 | amp 16 级 / HE 4 级 |
 | type2 头部 tag | 256/513/514 |
+| PWLE 分块 / 最短尾块 | 200ms / 20ms |
+| PWLE 控制点 | 设备 `min/max` 与最短/最长时长约束；HE 56 = 谐振 |
 | DS5 通道/上采样/ISO | 4ch / ×16 / 10×392B |
 | DS5 管线深度 | 3 |
 | Switch HD 频段 | 40–1252Hz，18 候选 |
@@ -374,6 +415,10 @@ native 模式下空闲补 10ms 静音帧（见 [usb-drivers.md §4](usb-drivers.
 8. 预置效果资源加载 `RichTapPrebaked` + `richtap_prebaked.json`。
 9. Switch HD rumble 与 DualSense 音频触觉两个独立子系统。
 10. type2 PCM 编码：`HdPcmStreamer` 在 `nativeHe20` 时切到 16 点/HE2.0，否则保持 4 点/HE1.0。
+11. **Android 16+ PWLE（type 4）**：`cpp/pwle/`（Google PCM2PWLE 核心 + JNI）、
+    `haptic/PwleNative.kt`、`haptic/PwleEncoder.kt`（HE→PWLE）、`RemoteHapticService.PLAYER_PWLE`、
+    `HdPcmStreamer` 的 PCM 分块模式、`HapticInjector.startEnvelope()`。PCM 路径直接使用
+    PCM2PWLE；rumble/按键/预置效果走 HE→PWLE 适配。
 
 ### 8.3 文档与代码的过时差异（需注意）
 
@@ -403,6 +448,10 @@ native 模式下空闲补 10ms 静音帧（见 [usb-drivers.md §4](usb-drivers.
 | [已修复] `EVENT_MS=50` 时 LRA 未起振、主频被拉向共振（真机加速度计：HE56 实测 ~179Hz）；改为 100ms 后 170Hz | `HdPcmStreamer.kt:38-52` |
 | `Q`、`MAX_FREQ_COMPENSATION`、`EDGE_POINT_MS`、`START_OVERSHOOT` 建议按真机手感标定 | 各文件 |
 | `HdPcmStreamer`/`PhoneHdHaptics`/`RemoteHapticService`/`haptic_native.c` 无 JVM 测试 | 依赖设备/USB |
+| PWLE 无真机：本机（manet）`dumpsys` 显示 `primitives=[]`、`envelope -a` 为 `ignored_unsupported`，无法验证频率映射/包络手感；需在支持 PWLE 的 Android 16 设备上复核 | `dumpsys vibrator_manager`、`PwleEncoderTest`（JVM） |
+| PCM2PWLE 逐分块归一化，JNI 用分块峰值还原绝对幅度；跨分块可能有轻微电平起伏 | `pwle_jni.cpp` |
+| PWLE 效果替换没有 RichTap 的“无 stop 链接”，每 200ms 分块间可能有极短切换间隙 | `RemoteHapticService.playPwle` |
+| 上游瞬态 preset（CLICK/THUD）未接入；JNI 关闭 preset 检测以保留瞬态在包络内 | `pwle_jni.cpp` |
 
 ### 9.1 HyperOS 后台震动策略与 app 进程内 RichTap（已修复）
 
@@ -431,6 +480,7 @@ dumpsys vibrator_manager → effect | ignored_background | usage: MEDIA | com.an
 ## 10. 相关文档
 
 - 实验档案与真机标定：[richtap-hd-vibration.md](richtap-hd-vibration.md)
+- PCM2PWLE 来源、版本与许可：[`../android/src/main/cpp/pwle/README.md`](../android/src/main/cpp/pwle/README.md)
 - 被控端 Shizuku 用户服务：[controlled-native.md](controlled-native.md)
 - DualSense 输出报文与音圈端点：[usb-drivers.md](usb-drivers.md)
 - 音频下行来源与路由：[service-transport.md](service-transport.md)
