@@ -91,6 +91,8 @@ export const KB_CAPTIONS = {
   [Kb.Backslash]: "\\", [Kb.Semicolon]: ";", [Kb.Apostrophe]: "'", [Kb.Grave]: "`",
   [Kb.Comma]: ",", [Kb.Dot]: ".", [Kb.Slash]: "/",
   [Kb.ArrowUp]: "↑", [Kb.ArrowDown]: "↓", [Kb.ArrowLeft]: "←", [Kb.ArrowRight]: "→",
+  [Kb.Insert]: "Ins", [Kb.Home]: "Home", [Kb.End]: "End",
+  [Kb.PageUp]: "PgUp", [Kb.PageDown]: "PgDn",
 };
 
 // Scan code → shifted key cap.
@@ -316,6 +318,8 @@ export const BIT_NAME_KEYS = {
 };
 
 export function bitName(bit) {
+  // Negative values are HID keyboard scan codes (mirrors BitNameMapper.getBitName).
+  if (bit < 0) return keyboardCaption(-bit, false);
   const key = BIT_NAME_KEYS[bit];
   return key ? t(key) : t("control.bit", bit);
 }

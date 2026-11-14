@@ -389,12 +389,200 @@ html.force-landscape body {
 }
 
 /* ── About page (mirrors android pageAbout) ── */
-.aboutpage { display: flex; flex-direction: column; align-items: center; text-align: center; }
-.abouticon { width: 72px; height: 72px; margin-top: 24px; }
-.aboutname { margin-top: 12px; font-size: 20px; font-weight: 500; color: var(--text); }
-.aboutver { margin-top: 4px; font-size: 13px; color: var(--text-dim); }
-.aboutdesc { margin-top: 20px; font-size: 14px; line-height: 1.7; color: var(--text-dim); white-space: pre-line; }
-.aboutsponsor { margin-top: 28px; height: 44px; padding: 0 24px; font-size: 14px; }
+.aboutpage {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+  padding-bottom: 24px;
+}
+.abouthero { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.abouticon { width: 80px; height: 80px; margin-top: 8px; }
+.aboutname {
+  margin-top: 12px;
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+.abouttagline1 {
+  margin-top: 6px;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  font-weight: 500;
+  color: var(--text-dim);
+  text-align: center;
+}
+.abouttagline2 { margin-top: 2px; font-size: 11px; color: var(--text-dim); text-align: center; }
+.aboutver { margin-top: 10px; font-size: 12px; color: var(--text-dim); }
+.aboutbadges { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; }
+.aboutbadge { height: 32px; padding: 0 12px; font-size: 12px; }
+.aboutbadge.selected { background: var(--chip-selected); }
+.aboutdesc {
+  margin-top: 16px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-dim);
+  text-align: center;
+  white-space: pre-line;
+}
+.aboutsectionheader { display: flex; align-items: center; gap: 8px; margin: 24px 0 10px; }
+.aboutsectionbar { width: 3px; height: 16px; background: var(--accent); flex: 0 0 auto; }
+.aboutsectiontitle { font-size: 16px; font-weight: 500; letter-spacing: 0.04em; color: var(--text); }
+.aboutcard { background: var(--surface); padding: 0 12px; }
+.aboutprojects { padding: 0; }
+.aboutrow { padding: 10px 0; }
+.aboutrowtitle { font-size: 14px; font-weight: 500; color: var(--text); }
+.aboutrowdesc { margin-top: 2px; font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+.aboutdivider { height: 1px; background: var(--surface-2); }
+.aboutintro { margin-bottom: 12px; font-size: 12px; line-height: 1.6; color: var(--text-dim); }
+.aboutsubtitle { margin: 0 0 8px; font-size: 13px; font-weight: 500; color: var(--text); }
+.aboutproject { padding: 10px 12px; background: var(--surface); cursor: pointer; }
+.aboutproject:active { background: var(--surface-2); }
+.aboutprojecttitle { display: flex; align-items: center; gap: 8px; }
+.aboutprojectname {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.aboutprojectarrow { font-size: 13px; color: var(--text-dim); }
+.aboutprojectdesc { margin-top: 2px; font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+.aboutauthorcard { background: var(--surface); padding: 12px; }
+.aboutauthor { font-size: 13px; line-height: 1.6; color: var(--text); white-space: pre-wrap; }
+.aboutsmall { margin-top: 8px; font-size: 12px; line-height: 1.6; color: var(--text-dim); white-space: pre-line; }
+.aboutsponsor { margin: 16px auto 0; height: 44px; padding: 0 24px; font-size: 14px; }
+
+/* License text dialog (android showGplLicenseDialog). */
+.licensetext {
+  max-height: 60vh;
+  overflow-y: auto;
+  margin: 12px 0 8px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+  text-align: left;
+  user-select: text;
+  -webkit-user-select: text;
+  touch-action: pan-y;
+}
+
+/* ── Layout global settings (LayoutGlobalSettingsPanel) ── */
+#globalsettings {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  display: flex;
+  flex-direction: row;
+  background: rgba(0, 0, 0, 0.8);
+}
+#globalsettings.hidden { display: none; }
+
+#gsNav {
+  width: 120px;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  background: rgba(18, 18, 18, 0.8);
+  padding: max(16px, env(safe-area-inset-top)) 0 0;
+  overflow: hidden;
+}
+#gsNavList { flex: 1; overflow-y: auto; scrollbar-width: thin; }
+
+#gsMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+#gsBody { flex: 1; position: relative; overflow: hidden; min-height: 0; }
+
+.gssectiontitle {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  padding: 8px 0 4px;
+}
+
+.gridpreview { display: block; width: 100%; height: 150px; margin: 8px 0 4px; }
+
+.gscheck {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0 4px;
+}
+.gschecklabel { font-size: 14px; color: #BBBBBB; }
+
+.gsseek { margin-bottom: 6px; }
+
+.gsselect {
+  width: 100%;
+  height: 36px;
+  padding: 0 8px;
+  margin: 4px 0 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  border: none;
+  border-radius: 0;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.gsgroupheader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 0 2px;
+  cursor: pointer;
+}
+.gschev { width: 18px; text-align: center; color: var(--text-dim); font-size: 14px; flex: 0 0 auto; }
+.gsgrouptitle { flex: 1; font-size: 13px; color: var(--text); }
+.gsgroupcount { font-size: 12px; color: var(--text-dim); }
+
+.gscard { background: var(--surface); padding: 1px 8px; margin-bottom: 4px; }
+.gsrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 2px 0;
+  cursor: pointer;
+}
+.gsrowlabel { width: 92px; flex: 0 0 auto; font-size: 13px; color: var(--text); line-height: 1.3; }
+.gssummary {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gsrowchev { margin-left: 2px; }
+.gschips { flex: 1; display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.gshint { font-size: 12px; color: var(--text-dim); }
+.gsaddchip { width: 30px; text-align: center; padding: 2px 0; font-size: 16px; }
+.gsdetails { padding-bottom: 6px; }
+.gsactions { display: flex; gap: 4px; margin: 4px 0 6px; }
+.gsactions .btn { height: 32px; }
+.gscombo { margin: 2px 0 6px; }
+.gscombo .gsseek { margin: 4px 0 0; }
+.gsdirection { margin-top: 6px; }
+.gsdirectionlabel { font-size: 13px; color: var(--text); margin-bottom: 4px; }
+.gsdirectionrow { display: flex; align-items: center; gap: 4px; }
+.gsdirectionrow .chip { flex: 0 0 auto; height: 32px; display: inline-flex; align-items: center; }
+.gsdirectionrow .gschips { flex: 1; }
+.gsdirectionrow .gsaddchip { flex: 0 0 auto; }
+.gslabel { font-size: 13px; color: var(--text); padding: 4px 0 0; }
 
 /* ── Sponsor dialog (android showSponsorDialog) ── */
 .sponsorimg { display: block; width: 100%; max-width: min(70%, 260px); margin: 0 auto; }
@@ -455,17 +643,20 @@ html.force-landscape body {
 }
 #editpanel.collapsed #editScroll { display: none; }
 
-#editActions { display: flex; gap: 4px; }
+#editActions { display: flex; gap: 4px; flex-wrap: wrap; }
 #editActions button {
-  flex: 1;
+  flex: 1 1 60px;
   height: 34px;
-  padding: 0 4px;
+  padding: 0 2px;
   background: var(--btn-flat);
   color: var(--text);
   border: none;
   border-radius: 0;
-  font-size: 13px;
+  font-size: 12px;
   font-family: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 #editActions button:active { background: var(--btn-flat-pressed); }
 
@@ -575,6 +766,7 @@ html.force-landscape body {
   color: var(--text);
   border-radius: 0;
   font-size: 11px;
+  white-space: nowrap;
 }
 .chip:active { background: var(--chip-selected); }
 

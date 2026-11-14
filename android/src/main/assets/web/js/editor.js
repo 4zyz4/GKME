@@ -1,15 +1,16 @@
 // GKME-Web — layout editor floating panel.
 //
 // Re-implements the UI of com.zyz4.gkme.view.FloatingEditorPanel: a draggable,
-// collapsible panel with 保存 / 放弃 / 添加 actions and a scrollable area of
-// per-control parameters. Android-only features (gyro, global settings page,
-// sensitivity-curve editor) are intentionally omitted.
+// collapsible panel with 保存 / 放弃 / 添加 / 全局设置 actions and a scrollable
+// area of per-control parameters. Android's per-layout global settings page is
+// reachable from here (see js/global-settings.js).
 
 import { el } from "./dom.js";
 import { viewportToLocal, elementLocalRect, localViewport } from "./orientation.js";
 import { showConfirm } from "./dialog.js";
+import { showOutputPicker } from "./picker.js";
 import {
-  baseId, getControl, isKeypadId, bitName, OUTPUT_PICKER_GROUPS,
+  baseId, getControl, isKeypadId, bitName,
   controlDisplayName, isButtonId, isSettingsId, DOUBLE_CLICK_IDS, JOYSTICK_IDS,
   MOUSE_TAP_ACTIONS, MOUSE_SWIPE_ACTIONS, mouseActionLabel, CUSTOM_BUTTON_DEFAULT_TEXT,
 } from "./controls.js";
@@ -82,7 +83,10 @@ export class LayoutEditor {
   }
 
   close() {
-    this.app.layout.exitEditMode();
+    const layout = this.app.layout;
+    layout.blockSelection = false;
+    if (this.app.globalSettings) this.app.globalSettings.hide();
+    layout.exitEditMode();
     this._adjusting = false;
     this._updateActions();
     this._current = null;
@@ -111,7 +115,12 @@ export class LayoutEditor {
     this.btnSave = mk(t("editor.save"), () => this._onSave());
     this.btnDiscard = mk(t("editor.discard"), () => this._onDiscard());
     this.btnAdd = mk(t("editor.add"), () => this.app._showAddControl());
+    this.btnGlobalSettings = mk(t("global.settings"), () => {
+      if (this._adjusting) this.setAdjusting(false);
+      else this.app._openLayoutGlobalSettings();
+    });
     this.btnBack = mk(t("editor.back"), () => this.setAdjusting(false));
+    this.btnGlobalSettings.textContent = this._adjusting ? t("editor.back") : t("global.settings");
     this._updateActions();
   }
 
@@ -237,6 +246,7 @@ export class LayoutEditor {
     this._adjusting = on;
     if (on) layout.enterFollowAreaAdjust(this._current ? this._current.id : layout.selectedId);
     else layout.exitFollowAreaAdjust();
+    if (this.btnGlobalSettings) this.btnGlobalSettings.textContent = on ? t("editor.back") : t("global.settings");
     this._updateActions();
     if (this._current) this.showParams(this._current);
   }
@@ -338,7 +348,7 @@ export class LayoutEditor {
       }
     }
     const row = this._btnRow([
-      [t("editor.addChip"), () => this._showOutputPicker(bits, (newBits) => onChanged(newBits))],
+      [t("editor.addChip"), () => showOutputPicker(bits, (newBits) => onChanged(newBits))],
       [t("editor.clearChip"), () => onChanged([])],
     ]);
     const wrap = el("div", {});
@@ -378,32 +388,6 @@ export class LayoutEditor {
     const box = el("div", {});
     box.append(spinner, seekWrap);
     return box;
-  }
-
-  _showOutputPicker(currentBits, onResult) {
-    const overlay = el("div", { class: "modal" });
-    const box = el("div", { class: "modalbox" });
-    box.append(el("div", { class: "modaltitle", text: t("editor.mappedKeys") }));
-    const grid = el("div", { class: "pickergrid" });
-    const sel = new Set(currentBits || []);
-    for (const group of OUTPUT_PICKER_GROUPS) {
-      grid.append(el("div", { class: "pickergrouptitle", text: t(group.titleKey) }));
-      for (const bit of group.bits) {
-        const c = el("span", { class: "pickerchip" + (sel.has(bit) ? " on" : ""), text: bitName(bit) });
-        c.addEventListener("click", () => {
-          if (sel.has(bit)) { sel.delete(bit); c.classList.remove("on"); }
-          else { sel.add(bit); c.classList.add("on"); }
-        });
-        grid.append(c);
-      }
-    }
-    box.append(grid);
-    const ok = el("button", { class: "modalclose", type: "button", text: t("common.ok") });
-    ok.addEventListener("click", () => { onResult(Array.from(sel)); overlay.remove(); });
-    box.append(ok);
-    overlay.append(box);
-    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
-    document.body.appendChild(overlay);
   }
 
   // ── parameter list ──

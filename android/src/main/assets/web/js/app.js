@@ -6,9 +6,13 @@
 import { Connection, getDeviceName, setDeviceName } from "./protocol.js";
 import { GamepadLayout, DEFAULT_APPEARANCE, normalizeButton, onScreenGridSize } from "./layout.js";
 import {
-  BIT, DPAD, Kb, KB_MODIFIER_CODES, MODIFIER_BITS, CONTROLS, getControl,
+  BIT, Kb, KB_MODIFIER_CODES, MODIFIER_BITS, CONTROLS, getControl,
   DISPLAY_MODES, defaultSizeFor, controlDisplayName, CUSTOM_BUTTON_DEFAULT_TEXT,
 } from "./controls.js";
+import {
+  PHYSICAL_BUTTONS, mappingOutputs, mappingTiming, shapeStick, routeSticks,
+  directionOf, directionAt, splitOutputs, dpadFromBits,
+} from "./physical.js";
 import {
   loadSettings, saveSettings, ensurePresets, savePresets, getActivePresetName,
   setActivePresetName, InputState, DEFAULT_SETTINGS,
@@ -17,6 +21,7 @@ import { Haptics } from "./haptics.js";
 import { PAGES } from "./settings-pages.js";
 import { BUILTIN_PRESETS, BUILTIN_PRESET_ORDER } from "./presets.js";
 import { LayoutEditor } from "./editor.js";
+import { GlobalSettingsPanel } from "./global-settings.js";
 import { showConfirm, showInput, showIosFullscreenHint } from "./dialog.js";
 import { setForceLandscape } from "./orientation.js";
 import { t, applyStaticTranslations, keypadDefaultTexts } from "./i18n.js";
@@ -56,6 +61,17 @@ class App {
 
     this.physicalButtons = 0;
     this.physicalEnabled = false;
+    // Physical-controller mapped outputs (mirrors GkViewModel.applyPhysicalMappings).
+    this.mappedKbKeys = new Set();
+    this.mappedKbModifiers = 0;
+    // Keyboard scan codes produced by on-screen custom buttons / keypads.
+    this.customKbKeys = new Set();
+    this.customKbModifiers = 0;
+    this._physSources = new Map();
+    this._physMouseVec = { x: 0, y: 0 };
+    this._physMouseAccumX = 0;
+    this._physMouseAccumY = 0;
+    this._physMouseLast = 0;
 
     // Per-source chord state for mapped custom bits / keypad regions.
     this._comboStates = new Map();
@@ -73,6 +89,7 @@ class App {
     this.layout.resize();
     this._buildSettings();
     this.editor = new LayoutEditor(this);
+    this.globalSettings = new GlobalSettingsPanel(this);
     this._startLoops();
     // First connection is manual: wait for the user to tap 连接.
     this._updateStatus("disconnected");
@@ -290,7 +307,15 @@ class App {
     const up = Array.from(st.applied).filter((bit) => !target.includes(bit)).reverse();
     const press = target.filter((bit) => !st.applied.has(bit));
     const apply = (list, isDown) => {
-      for (const bit of list) {
+      for (const value of list) {
+        const bit = Number(value) | 0;
+        if (bit < 0) {
+          // Negative outputs are keyboard scan codes; the union is recomputed
+          // below so overlapping sources never release each other's keys.
+          if (isDown) st.applied.add(bit);
+          else st.applied.delete(bit);
+          continue;
+        }
         if (isDown) {
           this.state._customBits = (this.state._customBits | bit) >>> 0;
           st.applied.add(bit);
@@ -299,6 +324,7 @@ class App {
           st.applied.delete(bit);
         }
       }
+      this._syncCustomKeyboard();
       this._sendFrame();
     };
 
@@ -322,6 +348,17 @@ class App {
     // onButtonDown/Up, so fire the button pulse here too (skip empty mappings
     // to avoid double pulses when sliding across an unconfigured keypad).
     if (bits && bits.length) this.haptics.buttonPulse(down);
+  }
+
+  /** Recomputes the keyboard union produced by every on-screen chord source. */
+  _syncCustomKeyboard() {
+    const union = [];
+    for (const state of this._comboStates.values()) {
+      for (const value of state.applied) union.push(value);
+    }
+    const { modifiers, keys } = splitOutputs(union);
+    this.customKbKeys = keys;
+    this.customKbModifiers = modifiers >>> 0;
   }
 
   _onKey(code, down) {
@@ -467,6 +504,7 @@ class App {
   _startLoops() {
     const loop = () => {
       this._pollPhysicalGamepad();
+      this._applyPhysicalStickMouse();
       this.layout.setPressedBits(this.state.buttons);
       this.layout.render();
       this._raf = requestAnimationFrame(loop);
@@ -489,9 +527,14 @@ class App {
       st.clearMouseDeltas();
       return;
     }
-    // Fold keyboard state into the snapshot.
-    st.kbKeys = this.kbKeys;
-    st.kbModifiers = this.kbModifiers;
+    // Fold keyboard state into the snapshot. Mapped physical-controller keys are
+    // unioned with the on-screen keyboard so releasing one source never releases
+    // a key still held by the other.
+    const keys = new Set(this.kbKeys);
+    for (const code of this.mappedKbKeys) keys.add(code);
+    for (const code of this.customKbKeys) keys.add(code);
+    st.kbKeys = keys;
+    st.kbModifiers = (this.kbModifiers | this.mappedKbModifiers | this.customKbModifiers) >>> 0;
     const input = st.toInput();
     this.conn.sendGamepadInput(input);
     // Mouse deltas are one-shot; periodic frames must not repeat them.
@@ -499,61 +542,211 @@ class App {
   }
 
   // ── Physical controller forwarding (Gamepad API) ──
+  //
+  // Mirrors GkViewModel.onPhysicalControllerInput: raw inputs are resolved
+  // through the layout's physicalInputMappings, shaped/routed with the layout's
+  // stick settings, then applied as a union of the active chord sources.
   _pollPhysicalGamepad() {
     if (!navigator.getGamepads) return;
+    const layout = this.layout;
+    const mappings = layout.physicalInputMappings || {};
+    const clearAll = () => {
+      this._setPhysicalSource("buttons", [], "SIMULTANEOUS", 16);
+      this._setPhysicalSource("leftStick", [], "SIMULTANEOUS", 16);
+      this._setPhysicalSource("rightStick", [], "SIMULTANEOUS", 16);
+      this._physMouseVec = { x: 0, y: 0 };
+    };
     if (!this.settings.physical.forward) {
-      this.state._physicalButtons = 0;
-      this.state._physicalDpad = 0;
+      clearAll();
       return;
     }
-    const pads = navigator.getGamepads();
-    let buttons = 0;
-    let lx = 0, ly = 0, rx = 0, ry = 0, lt = 0, rt = 0, dpad = 0;
-    let any = false;
-    for (const p of pads) {
-      if (!p || !p.connected) continue;
-      any = true;
-      const b = (i) => p.buttons[i] && p.buttons[i].pressed;
-      const v = (i) => (p.buttons[i] ? p.buttons[i].value : 0);
-      if (b(0)) buttons |= BIT.A;
-      if (b(1)) buttons |= BIT.B;
-      if (b(2)) buttons |= BIT.X;
-      if (b(3)) buttons |= BIT.Y;
-      if (b(4)) buttons |= BIT.LB;
-      if (b(5)) buttons |= BIT.RB;
-      if (b(8)) buttons |= BIT.SELECT;
-      if (b(9)) buttons |= BIT.START;
-      if (b(10)) buttons |= BIT.L3;
-      if (b(11)) buttons |= BIT.R3;
-      if (b(16)) buttons |= BIT.HOME;
-      if (b(12)) dpad |= DPAD.UP;
-      if (b(13)) dpad |= DPAD.DOWN;
-      if (b(14)) dpad |= DPAD.LEFT;
-      if (b(15)) dpad |= DPAD.RIGHT;
-      if (v(6) > 0.02) lt = Math.max(lt, Math.round(v(6) * 255));
-      if (v(7) > 0.02) rt = Math.max(rt, Math.round(v(7) * 255));
-      lx = p.axes[0] || 0;
-      ly = p.axes[1] || 0;
-      rx = p.axes[2] || 0;
-      ry = p.axes[3] || 0;
-      if (dpad & (DPAD.UP | DPAD.DOWN)) buttons |= 0;
+
+    const pads = [];
+    for (const p of navigator.getGamepads()) if (p && p.connected) pads.push(p);
+    this.physicalPresent = pads.length > 0;
+    if (!pads.length) {
+      clearAll();
+      return;
     }
-    this.physicalPresent = any;
-    this.state._physicalButtons = buttons >>> 0;
-    this.state._physicalDpad = dpad >>> 0;
-    if (any) {
-      // Physical sticks only override the virtual ones when the touch stick is idle.
-      if (!this.layout.controlActive.get("leftJoystick")) {
-        this.state.leftStickX = Math.round(lx * 32767);
-        this.state.leftStickY = Math.round(ly * 32767);
+
+    const pressed = new Set();
+    let leftRaw = 0;
+    let rightRaw = 0;
+    let lx = 0;
+    let ly = 0;
+    let rx = 0;
+    let ry = 0;
+    for (const pad of pads) {
+      for (const input of PHYSICAL_BUTTONS) {
+        const index = input.gamepadButton;
+        if (index == null) continue;
+        const button = pad.buttons[index];
+        if (!button) continue;
+        const value = Number(button.value) || 0;
+        const down = button.pressed || value > 0.5;
+        if (input.trigger === "left") {
+          // Analog triggers are forwarded continuously (like Android's
+          // physicalLeftTriggerAnalog), even below the digital threshold.
+          leftRaw = Math.max(leftRaw, Math.round(value * 255));
+          if (down) pressed.add(input.key);
+        } else if (input.trigger === "right") {
+          rightRaw = Math.max(rightRaw, Math.round(value * 255));
+          if (down) pressed.add(input.key);
+        } else if (down) {
+          pressed.add(input.key);
+        }
       }
-      if (!this.layout.controlActive.get("rightJoystick")) {
-        this.state.rightStickX = Math.round(rx * 32767);
-        this.state.rightStickY = Math.round(ry * 32767);
-      }
-      if (!this.layout.controlActive.get("btnLT")) this.state.leftTrigger = lt;
-      if (!this.layout.controlActive.get("btnRT")) this.state.rightTrigger = rt;
+      const axes = pad.axes || [];
+      lx = Math.round((Number(axes[0]) || 0) * 32767);
+      ly = Math.round((Number(axes[1]) || 0) * 32767);
+      rx = Math.round((Number(axes[2]) || 0) * 32767);
+      ry = Math.round((Number(axes[3]) || 0) * 32767);
     }
+
+    // ── Digital mapping ──
+    const outputs = new Set();
+    let timing = "SIMULTANEOUS";
+    let intervalMs = 16;
+    for (const key of pressed) {
+      const mapping = mappingTiming(mappings, key);
+      const outs = mappingOutputs(mappings, key);
+      if (outs.length && mapping.comboTiming !== "SIMULTANEOUS" && timing === "SIMULTANEOUS") {
+        timing = mapping.comboTiming;
+        intervalMs = mapping.comboIntervalMs;
+      }
+      for (const out of outs) outputs.add(out);
+    }
+    this._setPhysicalSource("buttons", Array.from(outputs), timing, intervalMs);
+    // A trigger only drives the analog axis it is mapped to; remapping it away
+    // from LT/RT stops its own axis from moving.
+    const leftAnalog = mappingOutputs(mappings, "LT").includes(BIT.LT) ? leftRaw : 0;
+    const rightAnalog = mappingOutputs(mappings, "RT").includes(BIT.RT) ? rightRaw : 0;
+
+    // ── Analog sticks ──
+    const leftSettings = layout.leftStickSettings;
+    const rightSettings = layout.rightStickSettings;
+    const [shapedLx, shapedLy] = shapeStick(leftSettings, lx, ly);
+    const [shapedRx, shapedRy] = shapeStick(rightSettings, rx, ry);
+    const routed = routeSticks(leftSettings, shapedLx, shapedLy, rightSettings, shapedRx, shapedRy);
+    this._setStickDirectionSource("leftStick", leftSettings, shapedLx, shapedLy);
+    this._setStickDirectionSource("rightStick", rightSettings, shapedRx, shapedRy);
+    this._physMouseVec = { x: routed.mouseX, y: routed.mouseY };
+
+    // Physical sticks only override the virtual ones when the touch stick is idle.
+    if (!layout.controlActive.get("leftJoystick")) {
+      this.state.leftStickX = routed.leftX;
+      this.state.leftStickY = routed.leftY;
+    }
+    if (!layout.controlActive.get("rightJoystick")) {
+      this.state.rightStickX = routed.rightX;
+      this.state.rightStickY = routed.rightY;
+    }
+    // The analog trigger axis is driven by the mapping: a trigger remapped away
+    // from LT/RT no longer moves its own axis (mirrors applyPhysicalMappings).
+    if (!layout.controlActive.get("btnLT")) this.state.leftTrigger = leftAnalog;
+    if (!layout.controlActive.get("btnRT")) this.state.rightTrigger = rightAnalog;
+  }
+
+  /** Sets one 4/8-way stick direction source from the shaped stick vector. */
+  _setStickDirectionSource(name, settings, x, y) {
+    const direction = directionOf(settings && settings.mode, x, y);
+    if (!direction) {
+      this._setPhysicalSource(name, [], "SIMULTANEOUS", 16);
+      return;
+    }
+    const target = directionAt(settings, direction);
+    this._setPhysicalSource(name, target.outputs, target.comboTiming, target.comboIntervalMs);
+  }
+
+  /**
+   * One chord source: applies output transitions (simultaneous or frame-by-frame)
+   * and keeps a per-source applied set. The union of all sources is finally
+   * written into the input snapshot.
+   */
+  _setPhysicalSource(name, outputs, timing, intervalMs) {
+    const target = Array.from(new Set((outputs || []).map((v) => Number(v) | 0)));
+    let state = this._physSources.get(name);
+    if (!state) {
+      state = { target: [], applied: new Set(), timers: [] };
+      this._physSources.set(name, state);
+    }
+    if (state.target.length === target.length && state.target.every((v, i) => v === target[i])) return;
+    state.target = target;
+    for (const timer of state.timers) clearTimeout(timer);
+    state.timers = [];
+
+    const up = Array.from(state.applied).filter((v) => !target.includes(v)).reverse();
+    const press = target.filter((v) => !state.applied.has(v));
+    let stepMs = 0;
+    if (timing === "FRAME_BY_FRAME") stepMs = 16;
+    else if (timing === "CUSTOM_INTERVAL") stepMs = Math.max(1, Math.min(100, Number(intervalMs) || 16));
+
+    const apply = (list, down) => {
+      for (const value of list) {
+        if (down) state.applied.add(value);
+        else state.applied.delete(value);
+      }
+      this._syncPhysicalOutputs();
+    };
+
+    if (stepMs <= 0) {
+      if (up.length) apply(up, false);
+      if (press.length) apply(press, true);
+      return;
+    }
+    let delay = 0;
+    const schedule = (list, down) => {
+      for (const value of list) {
+        if (delay === 0) apply([value], down);
+        else state.timers.push(setTimeout(() => apply([value], down), delay));
+        delay += stepMs;
+      }
+    };
+    schedule(up, false);
+    schedule(press, true);
+  }
+
+  /** Rebuilds the physical output union from every chord source. */
+  _syncPhysicalOutputs() {
+    const union = new Set();
+    for (const state of this._physSources.values()) {
+      for (const value of state.applied) union.add(value);
+    }
+    const { bits, modifiers, keys } = splitOutputs(Array.from(union));
+    this.state._physicalButtons = bits >>> 0;
+    this.state._physicalDpad = dpadFromBits(bits);
+    this.mappedKbKeys = keys;
+    this.mappedKbModifiers = modifiers >>> 0;
+    this._sendFrame();
+  }
+
+  /**
+   * Integrates the mouse-mode stick velocity into per-frame deltas. Runs from the
+   * animation loop because the physical poll only reports state changes.
+   */
+  _applyPhysicalStickMouse() {
+    const now = performance.now();
+    const dt = this._physMouseLast ? Math.min(0.05, (now - this._physMouseLast) / 1000) : 0;
+    this._physMouseLast = now;
+    const vec = this._physMouseVec || { x: 0, y: 0 };
+    if (!vec.x && !vec.y) {
+      this._physMouseAccumX = 0;
+      this._physMouseAccumY = 0;
+      return;
+    }
+    if (!(dt > 0)) return;
+    const speed = 2000; // GkViewModel.PHYSICAL_STICK_MOUSE_SPEED_PX_PER_SEC
+    this._physMouseAccumX += vec.x * speed * dt;
+    this._physMouseAccumY += vec.y * speed * dt;
+    const dx = Math.max(-127, Math.min(127, Math.trunc(this._physMouseAccumX)));
+    const dy = Math.max(-127, Math.min(127, Math.trunc(this._physMouseAccumY)));
+    this._physMouseAccumX -= dx;
+    this._physMouseAccumY -= dy;
+    if (!dx && !dy) return;
+    const st = this.state;
+    st.mouseDx = Math.max(-32768, Math.min(32767, st.mouseDx + dx));
+    st.mouseDy = Math.max(-32768, Math.min(32767, st.mouseDy + dy));
+    this._sendFrame();
   }
 
   // ── Settings UI ──
@@ -737,6 +930,7 @@ class App {
 
   /** Rebuild pages whose device list depends on the connected gamepads. */
   _onGamepadsChanged() {
+    if (this.globalSettings) this.globalSettings.refreshCurrentTab();
     if (this.settingsPanel.classList.contains("hidden")) return;
     if (this._category === "vibration" || this._category === "physical") {
       this._selectCategory(this._category);
@@ -754,6 +948,7 @@ class App {
     this._updateStatus(this._connState);
     this._selectCategory(this._category || "misc", false);
     if (this.editor) this.editor.refreshLanguage();
+    if (this.globalSettings) this.globalSettings.refreshLanguage();
     this._positionStatus();
   }
 
@@ -762,6 +957,26 @@ class App {
     if (this.editor.isOpen) return;
     this.closeSettings();
     this.editor.open();
+  }
+
+  /** Opens the per-layout global settings page (LayoutGlobalSettingsPanel). */
+  _openLayoutGlobalSettings() {
+    if (!this.editor || !this.editor.isOpen) return;
+    this.layout.blockSelection = true;
+    this.layout.selectedId = null;
+    this.layout.render();
+    this.editor.clearParams();
+    this.editor.panel.classList.add("hidden");
+    if (this.globalSettings) this.globalSettings.show();
+  }
+
+  /** Returns from the global settings page to the floating editor. */
+  _closeLayoutGlobalSettings() {
+    this.layout.blockSelection = false;
+    if (this.globalSettings) this.globalSettings.hide();
+    if (this.editor && this.editor.isOpen) {
+      this.editor.panel.classList.remove("hidden");
+    }
   }
 
   // ── Preset management (used by the 布局预设 settings page) ──
@@ -929,7 +1144,11 @@ class App {
   }
 
   async _addControl(baseId) {
-    const [w, h] = defaultSizeFor(baseId);
+    const [baseW, baseH] = defaultSizeFor(baseId);
+    // Default sizes are defined in the legacy 120-column system.
+    const scale = this.layout.cols / 120;
+    const w = Math.max(1, Math.round(baseW * scale));
+    const h = Math.max(1, Math.round(baseH * scale));
     let id = baseId;
     let n = 1;
     while (this.layout.buttons.some((b) => b.id === id)) id = baseId + "_" + n++;
@@ -962,12 +1181,16 @@ class App {
         return x < b.x + bw && x + w > b.x && y < b.y + bh && y + h > b.y;
       });
     const rows = this.layout._layout.rows || 53;
-    for (let y = 1; y + h <= rows; y += 1) {
-      for (let x = 1; x + w <= 120; x += 1) {
+    const cols = this.layout.cols || 120;
+    // In free mode coordinates are pixels; scan in small steps so the search
+    // stays cheap even on a large viewport.
+    const step = this.layout.useGrid ? 1 : 4;
+    for (let y = 1; y + h <= rows; y += step) {
+      for (let x = 1; x + w <= cols; x += step) {
         if (!occupied(x, y)) return { x, y };
       }
     }
-    return { x: 40, y: 20 };
+    return { x: Math.round(cols * 0.33), y: Math.round(rows * 0.38) };
   }
 
   _applyAppearanceToLayout() {

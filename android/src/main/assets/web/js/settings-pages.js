@@ -1,7 +1,7 @@
 // GKME-Web — settings page builders (mirrors the 9 Android settings pages).
 
 import { el, row, section, toggle, slider, select, button, colorInput } from "./dom.js";
-import { showConfirm, showSponsorDialog } from "./dialog.js";
+import { showConfirm, showSponsorDialog, showLicenseDialog } from "./dialog.js";
 import { DISPLAY_MODES } from "./controls.js";
 import { DEFAULT_APPEARANCE, normalizeButton } from "./layout.js";
 import { DEFAULT_SETTINGS, savePresets, APP_VERSION } from "./state.js";
@@ -252,20 +252,117 @@ export const PAGES = {
   },
 
   about(app, root) {
-    root.appendChild(
-      el("div", { class: "aboutpage" }, [
+    // Mirrors android content_settings.xml pageAbout + MainActivityAbout.kt.
+    const sectionHeader = (labelKey) =>
+      el("div", { class: "aboutsectionheader" }, [
+        el("div", { class: "aboutsectionbar" }),
+        el("div", { class: "aboutsectiontitle", text: t(labelKey) }),
+      ]);
+
+    const listCard = (rows) => {
+      const card = el("div", { class: "aboutcard" });
+      rows.forEach((row, index) => {
+        if (index > 0) card.appendChild(el("div", { class: "aboutdivider" }));
+        card.appendChild(
+          el("div", { class: "aboutrow" }, [
+            el("div", { class: "aboutrowtitle", text: row.title }),
+            el("div", { class: "aboutrowdesc", text: row.description }),
+          ])
+        );
+      });
+      return card;
+    };
+
+    const projectCard = (projects) => {
+      const card = el("div", { class: "aboutcard aboutprojects" });
+      projects.forEach((project, index) => {
+        if (index > 0) card.appendChild(el("div", { class: "aboutdivider" }));
+        const item = el("div", { class: "aboutproject" }, [
+          el("div", { class: "aboutprojecttitle" }, [
+            el("span", { class: "aboutprojectname", text: project.name }),
+            el("span", { class: "aboutprojectarrow", text: "↗" }),
+          ]),
+          el("div", { class: "aboutprojectdesc", text: t(project.descriptionKey) }),
+        ]);
+        item.addEventListener("click", () => openExternal(app, project.url));
+        card.appendChild(item);
+      });
+      return card;
+    };
+
+    const page = el("div", { class: "aboutpage" });
+    page.appendChild(
+      el("div", { class: "abouthero" }, [
         el("img", { class: "abouticon", src: "assets/icon.png", alt: t("common.appIcon") }),
         el("div", { class: "aboutname", text: "GKME" }),
+        el("div", { class: "abouttagline1", text: "GAMEPAD KEYBOARD MOUSE EMULATOR" }),
+        el("div", { class: "abouttagline2", text: "General Key Mapping Engine" }),
         el("div", { class: "aboutver", text: t("about.version", APP_VERSION) }),
-        el("div", {
-          class: "aboutdesc",
-          text: t("about.description"),
-        }),
-        button(t("dialog.sponsorTitle"), () => showSponsorDialog(), "aboutsponsor"),
+        el("div", { class: "aboutbadges" }, [
+          button("GitHub", () => openExternal(app, GKME_SOURCE_URL), "aboutbadge"),
+          button("GPLv3", () => showLicenseDialog(t("about.licenseTitle")), "aboutbadge selected"),
+        ]),
+        el("div", { class: "aboutdesc", text: t("about.description") }),
       ])
     );
+
+    page.appendChild(sectionHeader("about.sectionConnections"));
+    page.appendChild(
+      listCard([
+        { title: t("about.connection.wifi"), description: t("about.connection.wifiDesc") },
+        { title: t("about.connection.usb"), description: t("about.connection.usbDesc") },
+        { title: t("about.connection.bt"), description: t("about.connection.btDesc") },
+        { title: t("about.connection.dsu"), description: t("about.connection.dsuDesc") },
+        { title: t("about.connection.local"), description: t("about.connection.localDesc") },
+      ])
+    );
+
+    page.appendChild(sectionHeader("about.sectionOpenSource"));
+    page.appendChild(el("div", { class: "aboutintro", text: t("about.openSourceIntro") }));
+    page.appendChild(el("div", { class: "aboutsubtitle", text: t("about.referenced") }));
+    page.appendChild(
+      projectCard([
+        { name: "HIDMaestro", descriptionKey: "about.project.hidmaestro", url: "https://github.com/hifihedgehog/HIDMaestro" },
+        { name: "usbip-win2", descriptionKey: "about.project.usbip", url: "https://github.com/vadimgrn/usbip-win2" },
+        { name: "Moonlight", descriptionKey: "about.project.moonlight", url: "https://github.com/moonlight-stream/moonlight-android" },
+        { name: "Axixi2233/moonlight-android", descriptionKey: "about.project.axixi", url: "https://github.com/Axixi2233/moonlight-android" },
+        { name: "qiin2333/moonlight-vplus", descriptionKey: "about.project.vplus", url: "https://github.com/qiin2333/moonlight-vplus" },
+      ])
+    );
+    page.appendChild(el("div", { class: "aboutsubtitle", text: t("about.libraries"), style: { marginTop: "16px" } }));
+    page.appendChild(
+      projectCard([
+        { name: "SDL3 / HIDAPI", descriptionKey: "about.project.sdl3", url: "https://libsdl.org/" },
+        { name: "Dagger Hilt", descriptionKey: "about.project.hilt", url: "https://dagger.dev/hilt/" },
+        { name: "Shizuku", descriptionKey: "about.project.shizuku", url: "https://shizuku.rikka.app/" },
+      ])
+    );
+
+    page.appendChild(sectionHeader("about.sectionAuthor"));
+    page.appendChild(
+      el("div", { class: "aboutauthorcard" }, [
+        el("div", { class: "aboutauthor", text: t("about.author").trim() }),
+        el("div", { class: "aboutsmall", text: t("about.licenseNotice") }),
+        el("div", { class: "aboutsmall", text: t("about.emotionNote") }),
+      ])
+    );
+
+    page.appendChild(button(t("dialog.sponsorTitle"), () => showSponsorDialog(), "aboutsponsor"));
+    root.appendChild(page);
   },
 };
+
+const GKME_SOURCE_URL = "https://github.com/4zyz4/gkme";
+
+/** Opens an external link; a blocked popup is reported instead of failing silently. */
+function openExternal(app, url) {
+  let opened = null;
+  try {
+    opened = window.open(url, "_blank");
+    if (opened) opened.opener = null;
+  } catch {}
+  if (!opened) app._toast(t("about.unableToOpenLink"));
+}
 
 function save(app) {
   savePresets(app.presets);

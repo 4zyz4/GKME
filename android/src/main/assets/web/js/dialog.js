@@ -7,6 +7,7 @@
 
 import { el } from "./dom.js";
 import { t } from "./i18n.js";
+import { GPL3_TEXT } from "./license.js";
 
 function openDialog() {
   const overlay = el("div", { class: "dlgov" });
@@ -53,6 +54,16 @@ export function showSponsorDialog() {
   box.appendChild(el("div", { class: "dlgtitle", text: t("dialog.sponsorTitle") }));
   box.appendChild(el("div", { class: "dlgmsg", text: t("dialog.sponsorThanks") }));
   box.appendChild(el("img", { class: "sponsorimg", src: "assets/reward.png", alt: t("dialog.sponsorQrAlt") }));
+  box.appendChild(btnRow(t("common.close"), null, () => close(), null));
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+}
+
+/** Android showGplLicenseDialog — scrollable monospace licence text.
+ *  The GPLv3 text is bundled in js/license.js, like Android's asset copy. */
+export function showLicenseDialog(title) {
+  const { overlay, box, close } = openDialog();
+  box.appendChild(el("div", { class: "dlgtitle", text: title }));
+  box.appendChild(el("pre", { class: "licensetext", text: GPL3_TEXT || t("about.licenseUnavailable") }));
   box.appendChild(btnRow(t("common.close"), null, () => close(), null));
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
 }

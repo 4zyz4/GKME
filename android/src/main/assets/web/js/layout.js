@@ -17,6 +17,16 @@ import { viewportToLocal } from "./orientation.js";
 
 export const GRID_COLS = 120;
 
+// Layout-level grid settings (LayoutPreset.MIN/MAX/DEFAULT_GRID_DENSITY).
+export const MIN_GRID_DENSITY = 30;
+export const MAX_GRID_DENSITY = 240;
+export const DEFAULT_GRID_DENSITY = 120;
+
+export function clampGridDensity(value) {
+  const n = Math.round(Number(value) || DEFAULT_GRID_DENSITY);
+  return Math.max(MIN_GRID_DENSITY, Math.min(MAX_GRID_DENSITY, n));
+}
+
 // sans-serif-medium (Android) ≈ weight 500 of the platform UI font.
 const UI_FONT = '"Segoe UI", Roboto, system-ui, -apple-system, "Microsoft YaHei", sans-serif';
 
@@ -308,6 +318,19 @@ export class GamepadLayout {
     this.cb = callbacks || {};
     this.preset = { buttons: [] };
     this.buttons = [];
+    // Internal coordinate grid: 120 columns by default, or the layout's grid
+    // density. 关闭网格时 1 单位 = 1 px，拖动不再吸附到整格。
+    this.useGrid = true;
+    this.gridDensity = GRID_COLS;
+    this.cols = GRID_COLS;
+    // Per-layout physical-controller settings (see js/physical.js).
+    this.physicalInputMappings = {};
+    this.leftStickSettings = null;
+    this.rightStickSettings = null;
+    this.touchpadSettings = null;
+    // Set while the layout global settings page is open (mirrors
+    // GamepadLayout.blockSelectionForGlobalSettings).
+    this.blockSelection = false;
     this.displayMode = "XBOX";
     this.appearance = JSON.parse(JSON.stringify(DEFAULT_APPEARANCE));
     this.editMode = false;
@@ -325,6 +348,8 @@ export class GamepadLayout {
     // It only fades in while a control is being dragged/resized in edit mode.
     this._gridAlpha = 0;
     this._gridAnim = null;
+    this._gridBaseline = null;
+    this._gridBaselineCols = GRID_COLS;
 
     this._bind();
     this.resize();
@@ -342,15 +367,50 @@ export class GamepadLayout {
     this.cssW = cssW;
     this.cssH = cssH;
 
-    const cell = cssW / GRID_COLS;
+    // Free mode (grid disabled) uses 1 unit = 1 px, so the column count follows
+    // the viewport; rescale the geometry to keep the layout proportional.
+    if (!this.useGrid) {
+      const nextCols = Math.max(1, Math.round(cssW));
+      if (nextCols !== this.cols && this.buttons.length) {
+        this.buttons = this._scaleButtons(this.buttons, nextCols / this.cols);
+      }
+      this.cols = nextCols;
+    }
+
+    const cell = cssW / Math.max(1, this.cols);
     const rows = cssH / cell;
     this._layout = {
       cell,
       rows,
+      cols: this.cols,
       originX: 0,
       originY: 0,
     };
     this.render();
+  }
+
+  /** Internal grid columns (1 unit = cssW / cols px). */
+  gridCols() {
+    return this.cols;
+  }
+
+  /** Returns scaled copies of the given controls (used by grid resizing). */
+  _scaleButtons(list, scale) {
+    if (scale === 1) return list.map((b) => ({ ...b }));
+    const s = (value, min = 0) => Math.max(min, Math.round((Number(value) || 0) * scale));
+    return list.map((b) => {
+      const c = { ...b };
+      c.x = s(c.x);
+      c.y = s(c.y);
+      c.w = s(c.w, 1);
+      c.h = s(c.h, 1);
+      c.followAreaX = s(c.followAreaX);
+      c.followAreaY = s(c.followAreaY);
+      c.followAreaW = s(c.followAreaW);
+      c.followAreaH = s(c.followAreaH);
+      c.travelDistance = s(c.travelDistance || 10, 1);
+      return c;
+    });
   }
 
   cellPx() {
@@ -372,13 +432,23 @@ export class GamepadLayout {
     this.preset = preset || { buttons: [] };
     // Mirrors GamepadLayout.loadPreset: every layout always carries a settings
     // button, appended when the preset (e.g. a freshly created one) lacks it.
+    this.useGrid = this.preset.useGrid !== false;
+    this.gridDensity = clampGridDensity(this.preset.gridDensity);
+    this.cols = this.useGrid ? this.gridDensity : Math.max(1, Math.round(this.cssW || GRID_COLS));
+    this.physicalInputMappings = this.preset.physicalInputMappings || {};
+    this.leftStickSettings = this.preset.leftStickSettings || null;
+    this.rightStickSettings = this.preset.rightStickSettings || null;
+    this.touchpadSettings = this.preset.touchpadSettings || null;
     const raw = (this.preset.buttons || []).slice();
     if (!raw.some((b) => baseId(b.id) === "btnSettings")) {
       raw.push({ id: "btnSettings", x: (GRID_COLS - 6) / 2, y: 0, w: 6, h: 6, lockAspect: true });
     }
-    this.buttons = raw.map(normalizeButton);
+    // Persisted geometry is always in the legacy 120-column system; convert it
+    // to the active internal grid (density columns, or 1 unit = 1 px).
+    const normalized = raw.map(normalizeButton);
+    this.buttons = this._scaleButtons(normalized, this.cols / GRID_COLS);
     this.selectedId = null;
-    this.render();
+    this.resize();
   }
 
   getButton(id) {
@@ -409,13 +479,15 @@ export class GamepadLayout {
     const DOUBLE = new Set(["leftJoystick", "rightJoystick", "touchpad"]);
     const JOY = new Set(["leftJoystick", "rightJoystick"]);
     const AREA = new Set(["leftJoystick", "rightJoystick", "touchpad", "dpadPad", "customKeypad"]);
-    const useGrid = this.preset.useGrid !== false;
-    const gridDensity = Math.max(30, Math.min(240, Math.round(this.preset.gridDensity || 120)));
-    return {
+    const useGrid = this.useGrid !== false;
+    const gridDensity = clampGridDensity(this.gridDensity);
+    // Persist in the legacy 120-column system (mirrors GamepadLayout.withFreeGeometry).
+    const persisted = this._scaleButtons(this.buttons, GRID_COLS / Math.max(1, this.cols));
+    const out = {
       version: this.preset.version || 1,
       useGrid,
       gridDensity,
-      buttons: this.buttons.map((b) => {
+      buttons: persisted.map((b) => {
         const base = baseId(b.id);
         const o = { id: b.id, x: b.x, y: b.y, width: b.w, height: b.h, rotation: b.rotation || 0 };
         if (!b.visible) o.visible = false;
@@ -491,6 +563,59 @@ export class GamepadLayout {
         return o;
       }),
     };
+    const mappings = this.physicalInputMappings || {};
+    if (Object.keys(mappings).length) out.physicalInputMappings = JSON.parse(JSON.stringify(mappings));
+    if (this.leftStickSettings) out.leftStickSettings = JSON.parse(JSON.stringify(this.leftStickSettings));
+    if (this.rightStickSettings) out.rightStickSettings = JSON.parse(JSON.stringify(this.rightStickSettings));
+    if (this.touchpadSettings) out.touchpadSettings = JSON.parse(JSON.stringify(this.touchpadSettings));
+    return out;
+  }
+
+  /**
+   * Switches the grid / density. Coordinates are rescaled by the column ratio so
+   * the on-screen geometry stays put (mirrors GamepadLayout.setGridSettings).
+   */
+  setGridSettings(useGrid, density) {
+    const nextDensity = clampGridDensity(density);
+    const nextCols = useGrid ? nextDensity : Math.max(1, Math.round(this.cssW || GRID_COLS));
+    if (useGrid === this.useGrid && nextDensity === this.gridDensity && nextCols === this.cols) return;
+    const baseline = useGrid === this.useGrid ? this._gridBaseline : null;
+    const baseCols = baseline ? this._gridBaselineCols : this.cols;
+    const scale = nextCols / Math.max(1, baseCols);
+    this.buttons = this._scaleButtons(baseline || this.buttons, scale);
+    if (useGrid !== this.useGrid) this._gridBaseline = null;
+    this.useGrid = useGrid;
+    this.gridDensity = nextDensity;
+    this.cols = nextCols;
+    if (!useGrid) this._resetGrid();
+    this.resize();
+  }
+
+  /** Grid density slider drag start: remember the baseline geometry. */
+  beginGridSettingsDrag() {
+    this._gridBaselineCols = this.cols;
+    this._gridBaseline = this.buttons.map((b) => ({ ...b }));
+  }
+
+  /** Grid density slider drag end. */
+  endGridSettingsDrag() {
+    this._gridBaseline = null;
+  }
+
+  /** Replaces the physical-controller remapping of the edited layout. */
+  setPhysicalInputMappings(mappings) {
+    this.physicalInputMappings = mappings || {};
+  }
+
+  /** Replaces the analog stick shaping / routing of the edited layout. */
+  setPhysicalStickSettings(left, right) {
+    this.leftStickSettings = left || null;
+    this.rightStickSettings = right || null;
+  }
+
+  /** Replaces the physical-controller touchpad mapping of the edited layout. */
+  setPhysicalTouchpadSettings(settings) {
+    this.touchpadSettings = settings || null;
   }
 
   // ── edit-mode lifecycle ──
@@ -615,14 +740,14 @@ export class GamepadLayout {
   // GamepadRenderer.drawGrid — 1px #787878 lines at gridAlpha (170/255), the
   // overlay only visible while dragging/resizing (see _animateGridTo).
   _drawGrid() {
-    if (this._gridAlpha <= 0) return;
+    if (!this.useGrid || this._gridAlpha <= 0) return;
     const ctx = this.ctx;
     const { cell } = this._layout;
     ctx.save();
     ctx.globalAlpha *= this._gridAlpha * 0.667;
     ctx.strokeStyle = "rgb(120,120,120)";
     ctx.lineWidth = 1;
-    for (let x = 0; x <= GRID_COLS; x++) {
+    for (let x = 0; x <= this.cols; x++) {
       ctx.beginPath();
       ctx.moveTo(x * cell, 0);
       ctx.lineTo(x * cell, this.cssH);
@@ -2659,6 +2784,7 @@ export class GamepadLayout {
 
   // ── edit mode ──
   _editDown(e, px, py) {
+    if (this.blockSelection) return;
     try { this.canvas.setPointerCapture(e.pointerId); } catch {}
     // Follow-area adjust session: drag/resize the extended-range rectangle.
     if (this._adjustingFollowArea && this.selectedId) {
@@ -2702,14 +2828,17 @@ export class GamepadLayout {
     const { loc } = { loc: this._layout };
     const cell = loc.cell;
     const { px, py } = this._pos(e);
-    const dgx = Math.round((px - this._edit.gx) / cell);
-    const dgy = Math.round((py - this._edit.gy) / cell);
+    const rawDx = (px - this._edit.gx) / cell;
+    const rawDy = (py - this._edit.gy) / cell;
+    // 关闭网格时不吸附到整格（网格只影响显示与吸附）。
+    const dgx = this.useGrid ? Math.round(rawDx) : rawDx;
+    const dgy = this.useGrid ? Math.round(rawDy) : rawDy;
     const b = this._edit.b;
     if (this._edit.mode === "move") {
       const nx = this._edit.start.x + dgx;
       const ny = this._edit.start.y + dgy;
       const [vw] = onScreenGridSize(b);
-      b.x = Math.max(0, Math.min(GRID_COLS - vw, nx));
+      b.x = Math.max(0, Math.min(this.cols - vw, nx));
       b.y = Math.max(0, ny);
     } else if (this._edit.mode === "fareamove") {
       b.followAreaX = Math.max(0, this._edit.start.x + dgx);
