@@ -629,4 +629,13 @@
     <string name="i18n_native_mapping" formatted="false">"原生映射"</string>
     <string name="i18n_4_way_buttons" formatted="false">"4向按鈕"</string>
     <string name="i18n_8_way_buttons" formatted="false">"8向按鈕"</string>
+    <string name="i18n_group_face_buttons" formatted="false">"正面按鍵"</string>
+    <string name="i18n_group_shoulder_buttons" formatted="false">"肩鍵與扳機"</string>
+    <string name="i18n_group_stick_dpad" formatted="false">"搖桿按鍵與方向鍵"</string>
+    <string name="i18n_group_function_buttons" formatted="false">"功能鍵"</string>
+    <string name="i18n_group_paddles" formatted="false">"背鍵"</string>
+    <string name="i18n_group_sticks_touchpad" formatted="false">"搖桿與觸控板"</string>
+    <string name="i18n_other" formatted="false">"其他"</string>
+    <string name="i18n_expand" formatted="false">"展開"</string>
+    <string name="i18n_collapse" formatted="false">"收起"</string>
 </resources>

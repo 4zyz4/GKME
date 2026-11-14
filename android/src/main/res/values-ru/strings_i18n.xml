@@ -629,4 +629,13 @@
     <string name="i18n_native_mapping" formatted="false">"Нативное сопоставление"</string>
     <string name="i18n_4_way_buttons" formatted="false">"4 направления кнопками"</string>
     <string name="i18n_8_way_buttons" formatted="false">"8 направлений кнопками"</string>
+    <string name="i18n_group_face_buttons" formatted="false">"Лицевые кнопки"</string>
+    <string name="i18n_group_shoulder_buttons" formatted="false">"Бамперы и триггеры"</string>
+    <string name="i18n_group_stick_dpad" formatted="false">"Нажатия стиков и D-pad"</string>
+    <string name="i18n_group_function_buttons" formatted="false">"Функциональные кнопки"</string>
+    <string name="i18n_group_paddles" formatted="false">"Задние кнопки"</string>
+    <string name="i18n_group_sticks_touchpad" formatted="false">"Стики и тачпад"</string>
+    <string name="i18n_other" formatted="false">"Другое"</string>
+    <string name="i18n_expand" formatted="false">"Развернуть"</string>
+    <string name="i18n_collapse" formatted="false">"Свернуть"</string>
 </resources>

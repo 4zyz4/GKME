@@ -104,6 +104,10 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
     private var physicalRightStick = PhysicalStickSettings()
     private var physicalTouchpad = PhysicalTouchpadSettings()
 
+    /** 用户展开的按键分组（按组 key）与展开详情的按键（按输入 key）。 */
+    internal val physicalMappingExpandedGroups = mutableSetOf<String>()
+    internal val physicalMappingExpandedInputs = mutableSetOf<String>()
+
     private var contentContainer: LinearLayout? = null
     private var physicalContainer: LinearLayout? = null
     private var volumeContainer: LinearLayout? = null
@@ -227,6 +231,8 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         physicalLeftStick = preset.leftStickSettings ?: PhysicalStickSettings()
         physicalRightStick = preset.rightStickSettings ?: PhysicalStickSettings()
         physicalTouchpad = preset.touchpadSettings ?: PhysicalTouchpadSettings()
+        physicalMappingExpandedGroups.clear()
+        physicalMappingExpandedInputs.clear()
         gridUseGrid = preset.useGrid
         gridDensity = preset.gridDensity.coerceIn(
             LayoutPreset.MIN_GRID_DENSITY, LayoutPreset.MAX_GRID_DENSITY,
@@ -871,7 +877,11 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
      * Also adds the stick mapping selector (4/8-way buttons, left/right stick, mouse) and, for the
      * two button modes, one independent output editor per direction.
      */
-    fun appendStickTuning(container: LinearLayout, key: String) {
+    fun appendStickTuning(
+        container: LinearLayout,
+        key: String,
+        onModeChanged: (() -> Unit)? = null,
+    ) {
         val density = resources.displayMetrics.density
         val isLeft = key == PhysicalInputs.KEY_LEFT_JOYSTICK
         val get: () -> PhysicalStickSettings = if (isLeft) ({ physicalLeftStick }) else ({ physicalRightStick })
@@ -924,6 +934,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
                     set(get().copy(mode = mode))
                     notifyStickSettings()
                     renderDirections()
+                    onModeChanged?.invoke()
                 }
 
                 override fun onNothingSelected(parent: AdapterView<*>?) {}
@@ -959,7 +970,11 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
      * 鼠标模式下列出可自定义的手势（点击 / 滑动 / 双击拖动）、灵敏度与滚动方向。
      * 触摸板最多两指，因此只提供单指 / 双指手势；触摸板按压由按键映射处理，不在此配置。
      */
-    fun appendTouchpadTuning(container: LinearLayout, key: String) {
+    fun appendTouchpadTuning(
+        container: LinearLayout,
+        key: String,
+        onModeChanged: (() -> Unit)? = null,
+    ) {
         if (key != PhysicalInputs.KEY_TOUCHPAD) return
         val density = resources.displayMetrics.density
         container.addView(sectionLabel(context.getString(R.string.i18n_touchpad_mapping), density))
@@ -988,6 +1003,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
                     if (mode == physicalTouchpad.mode) return
                     set(physicalTouchpad.copy(mode = mode))
                     render()
+                    onModeChanged?.invoke()
                 }
 
                 override fun onNothingSelected(parent: AdapterView<*>?) {}

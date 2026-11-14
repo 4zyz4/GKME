@@ -629,4 +629,13 @@
     <string name="i18n_native_mapping" formatted="false">"Mappage natif"</string>
     <string name="i18n_4_way_buttons" formatted="false">"Boutons 4 directions"</string>
     <string name="i18n_8_way_buttons" formatted="false">"Boutons 8 directions"</string>
+    <string name="i18n_group_face_buttons" formatted="false">"Boutons face"</string>
+    <string name="i18n_group_shoulder_buttons" formatted="false">"Boutons d'épaule et gâchettes"</string>
+    <string name="i18n_group_stick_dpad" formatted="false">"Clics de stick et croix directionnelle"</string>
+    <string name="i18n_group_function_buttons" formatted="false">"Boutons de fonction"</string>
+    <string name="i18n_group_paddles" formatted="false">"Boutons arrière"</string>
+    <string name="i18n_group_sticks_touchpad" formatted="false">"Sticks et pavé tactile"</string>
+    <string name="i18n_other" formatted="false">"Autre"</string>
+    <string name="i18n_expand" formatted="false">"Développer"</string>
+    <string name="i18n_collapse" formatted="false">"Réduire"</string>
 </resources>

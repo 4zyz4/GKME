@@ -629,4 +629,13 @@
     <string name="i18n_native_mapping" formatted="false">"Native mapping"</string>
     <string name="i18n_4_way_buttons" formatted="false">"4-way buttons"</string>
     <string name="i18n_8_way_buttons" formatted="false">"8-way buttons"</string>
+    <string name="i18n_group_face_buttons" formatted="false">"Face buttons"</string>
+    <string name="i18n_group_shoulder_buttons" formatted="false">"Bumpers &amp; triggers"</string>
+    <string name="i18n_group_stick_dpad" formatted="false">"Stick clicks &amp; D-pad"</string>
+    <string name="i18n_group_function_buttons" formatted="false">"Function buttons"</string>
+    <string name="i18n_group_paddles" formatted="false">"Back paddles"</string>
+    <string name="i18n_group_sticks_touchpad" formatted="false">"Sticks &amp; touchpad"</string>
+    <string name="i18n_other" formatted="false">"Other"</string>
+    <string name="i18n_expand" formatted="false">"Expand"</string>
+    <string name="i18n_collapse" formatted="false">"Collapse"</string>
 </resources>
