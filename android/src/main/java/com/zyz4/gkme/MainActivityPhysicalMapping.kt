@@ -132,11 +132,13 @@ internal fun MainActivity.populatePhysicalMapping(container: LinearLayout) {
                 a.buildPhysicalMappingRow(input, outputs, density, ::refresh),
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
             )
-            card.addComboTimingControls(
-                mapping?.comboTiming ?: ComboTiming.SIMULTANEOUS,
-                mapping?.comboIntervalMs ?: ComboTiming.DEFAULT_INTERVAL_MS,
-            ) { timing, intervalMs ->
-                a.updatePhysicalMappingTiming(input.key, timing, intervalMs)
+            if (outputs.isNotEmpty()) {
+                card.addComboTimingControls(
+                    mapping?.comboTiming ?: ComboTiming.SIMULTANEOUS,
+                    mapping?.comboIntervalMs ?: ComboTiming.DEFAULT_INTERVAL_MS,
+                ) { timing, intervalMs ->
+                    a.updatePhysicalMappingTiming(input.key, timing, intervalMs)
+                }
             }
             card.addView(
                 a.buildPhysicalGyroCheckbox(input, gyroChecked, density, ::refresh),

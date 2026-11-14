@@ -963,7 +963,9 @@ internal fun performHaptic(isPress: Boolean) {
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
                 ),
             )
-            card.addComboTimingControls(timing, intervalMs, onTimingChanged)
+            if (bits.isNotEmpty()) {
+                card.addComboTimingControls(timing, intervalMs, onTimingChanged)
+            }
             return card
         }
 

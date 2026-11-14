@@ -20,12 +20,15 @@ private const val COLOR_TEXT_SECONDARY = 0xFF888888.toInt()
  *
  * The seekbar is only visible for [ComboTiming.CUSTOM_INTERVAL]; [onChange] is called whenever the
  * mode or the 1-100 ms interval changes.
+ *
+ * The controls are wrapped in one container so callers can hide them when the mapping has no
+ * keys at all. The returned view is that container.
  */
 internal fun LinearLayout.addComboTimingControls(
     timing: ComboTiming,
     intervalMs: Int,
     onChange: (ComboTiming, Int) -> Unit,
-) {
+): View {
     val density = resources.displayMetrics.density
     fun dp(v: Int) = (v * density).toInt()
 
@@ -35,7 +38,9 @@ internal fun LinearLayout.addComboTimingControls(
         ComboTiming.MIN_INTERVAL_MS, ComboTiming.MAX_INTERVAL_MS
     )
 
-    addView(
+    val container = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+
+    container.addView(
         TextView(context).apply {
             text = context.getString(R.string.i18n_combo_timing)
             setTextColor(COLOR_TEXT_PRIMARY)
@@ -74,7 +79,7 @@ internal fun LinearLayout.addComboTimingControls(
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
     }
-    addView(
+    container.addView(
         spinner,
         LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
@@ -133,10 +138,18 @@ internal fun LinearLayout.addComboTimingControls(
         ),
     )
 
-    addView(
+    container.addView(
         intervalRow,
         LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
         ).apply { bottomMargin = dp(4) },
     )
+
+    addView(
+        container,
+        LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ),
+    )
+    return container
 }

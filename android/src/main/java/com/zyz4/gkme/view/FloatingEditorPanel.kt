@@ -1539,12 +1539,14 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             btnOutputRow.addView(btnClearOutput, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             buttonParamsInner.addView(btnOutputRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (12f * density).toInt() })
 
-            buttonParamsInner.addComboTimingControls(button.comboTiming, button.comboIntervalMs) { newTiming, newInterval ->
-                currentButton = currentButton?.copy(
-                    comboTiming = newTiming,
-                    comboIntervalMs = newInterval,
-                )
-                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+            if (bits.isNotEmpty()) {
+                buttonParamsInner.addComboTimingControls(button.comboTiming, button.comboIntervalMs) { newTiming, newInterval ->
+                    currentButton = currentButton?.copy(
+                        comboTiming = newTiming,
+                        comboIntervalMs = newInterval,
+                    )
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                }
             }
         }
 
@@ -1769,6 +1771,12 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     ) {
         val bitsContainer = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
         val currentBitsRef = object { var bits: List<Int> = initialBits.toList() }
+        var timingControls: View? = null
+
+        /** Chord timing only makes sense once this region has at least one mapped key. */
+        fun updateTimingVisibility() {
+            timingControls?.visibility = if (currentBitsRef.bits.isEmpty()) View.GONE else View.VISIBLE
+        }
 
         fun renderChips() {
             bitsContainer.removeAllViews()
@@ -1798,6 +1806,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                     bitsContainer.addView(row)
                 }
             }
+            updateTimingVisibility()
         }
 
         renderChips()
@@ -1832,7 +1841,10 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         row2.addView(btnClear, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         buttonParamsInner.addView(row2, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
 
-        buttonParamsInner.addComboTimingControls(initialTiming, initialIntervalMs, onTimingChanged)
+        timingControls = buttonParamsInner.addComboTimingControls(
+            initialTiming, initialIntervalMs, onTimingChanged
+        )
+        updateTimingVisibility()
     }
 
     private fun addRotationButtons(container: LinearLayout, buttonId: String, density: Float, hide: Boolean = false) {

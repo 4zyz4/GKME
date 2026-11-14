@@ -805,7 +805,9 @@ export class LayoutEditor {
             this.showParams(this._current);
           })
         );
-        this.params.append(this._keypadTimingEditor(button, idx));
+        if (regionBits.length) {
+          this.params.append(this._keypadTimingEditor(button, idx));
+        }
       }
     }
     this.params.append(
@@ -816,7 +818,9 @@ export class LayoutEditor {
         this.showParams(this._current);
       })
     );
-    this.params.append(this._keypadTimingEditor(button, 4));
+    if (bits[4].length) {
+      this.params.append(this._keypadTimingEditor(button, 4));
+    }
   }
 
   /** Combo timing for one keypad region; timing arrays are stored per region. */
@@ -889,8 +893,10 @@ export class LayoutEditor {
         this.showParams(this._current);
       })
     );
-    this.params.append(
-      this._comboTimingEditor(button.comboTiming, button.comboIntervalMs, (props) => this._update(id, props))
-    );
+    if ((button.customBits || []).length) {
+      this.params.append(
+        this._comboTimingEditor(button.comboTiming, button.comboIntervalMs, (props) => this._update(id, props))
+      );
+    }
   }
 }
