@@ -137,7 +137,8 @@ Select "Local" as the connection method and tap "Start service"; the app will cr
 
 - On first use, install and start [Shizuku](https://shizuku.rikka.app/); the connection page guides you through authorization, and if not ready it keeps polling and continues starting automatically after authorization.
 - While the service is running, minimizing the app always returns to floating mode.
-- Local mode does not create a virtual mouse (to avoid conflicts with screen touch) and does not expose haptics (to avoid a feedback loop between phone vibration and the virtual gamepad).
+- Local mode creates a virtual mouse, so a physical gamepad mapped to the mouse (or stick/gyro-to-mouse) works normally; movement from the on-screen touchpad is still not injected, avoiding conflicts with screen touch.
+- Local mode does not expose haptics data (to avoid a feedback loop between phone vibration and the virtual gamepad); the FF capability is still exposed to the system.
 
 ### Controlled Device Mode
 

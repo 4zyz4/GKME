@@ -345,7 +345,7 @@ flowchart TB
 
 | 问题 | 证据 |
 |------|------|
-| `ensureReady` 默认 `rumble=true, mouse=true`；仅本机模式显式关闭，改动需留意 | `GamepadInjector.kt:141-146`；`MainActivitySettings.kt:1668` |
+| `ensureReady` 默认 `rumble=true, mouse=true`；本机模式只关闭 `rumble`，鼠标照常创建（实体手柄映射鼠标需要） | `GamepadInjector.kt:145-150`；`MainActivitySettings.kt:1836-1839` |
 | [已修复] 震动数值范围注释不一致（AIDL/注释已统一为 0..65535） | `IGamepadService.aidl:27`；`ControlledHostManager.kt:483-484` |
 | `configure()` 重建沿用旧 `rumbleEnabled`，未重新同步 `mouseEnabled` | `GamepadInjector.kt:113` |
 | [已修复] `swapVibrationIndex` 未接入设置（已删除未接线的字段） | `RemoteHapticService.kt:78-80` |

@@ -1834,8 +1834,9 @@ internal fun MainActivity.tryStartLocalVirtualDevice(): Boolean {
     val a = this
     if (!a.localStartPending) return false
     // 本机模式：仍暴露 FF（系统/游戏视其为带震动的设备），但忽略震动数据（避免手机
-    // 震动 ↔ 虚拟手柄死循环），也不创建虚拟鼠标（避免与屏幕触摸冲突）。
-    if (!GamepadInjector.ensureReady(rumble = false, mouse = false)) {
+    // 震动 ↔ 虚拟手柄死循环）。虚拟鼠标照常创建：实体手柄映射到鼠标后可正常使用，
+    // 屏幕触摸板仍不注入鼠标（sendMouseReport 的 LOCAL 分支为空）以避免与屏幕触摸冲突。
+    if (!GamepadInjector.ensureReady(rumble = false, mouse = true)) {
         a.updateShizukuEntry()
         if (GamepadInjector.permissionDenied) {
             // 授权只自动尝试一次；被拒绝后停止轮询并把失败显示在服务状态上，避免反复弹窗。
