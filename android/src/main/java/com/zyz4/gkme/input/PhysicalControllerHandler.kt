@@ -168,6 +168,7 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
             ControllerDriver.DUALSENSE_BLUETOOTH -> DualSenseBluetoothPhysicalControllerBackend(context)
             // AUTO is resolved above; the default keeps the exhaustive when well-formed.
             ControllerDriver.AUTO -> SdlPhysicalControllerBackend(context)
+            ControllerDriver.JOY_CON_PAIR -> JoyConPairPhysicalControllerBackend(context)
         }
         newBackend.controllerGyroEnabled = storedControllerGyroEnabled
         newBackend.inputControllerIndex = storedInputControllerIndex
@@ -365,7 +366,27 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
 
     override fun handleKeyEvent(event: KeyEvent): Boolean = backend?.handleKeyEvent(event) ?: false
 
-    override fun handleMotionEvent(event: MotionEvent): Boolean = backend?.handleMotionEvent(event) ?: false
+    internal fun handleJoyConKeyEvent(event: KeyEvent, stage: String): Boolean {
+        val trace = JoyConDiagnostics.recording
+        if (trace) JoyConDiagnostics.key(event, stage)
+        return (backend as? JoyConPairPhysicalControllerBackend)?.handleKeyEvent(event, trace) ?: false
+    }
+
+    internal fun describeJoyConBindings() {
+        (backend as? JoyConPairPhysicalControllerBackend)?.describeJoyConBindings()
+    }
+
+    fun releaseJoyConInput() {
+        (backend as? JoyConPairPhysicalControllerBackend)?.releaseInput()
+    }
+
+    override fun handleMotionEvent(event: MotionEvent): Boolean {
+        val active = backend
+        if (JoyConDiagnostics.recording && active !is JoyConPairPhysicalControllerBackend) {
+            JoyConDiagnostics.motion(event) { "MAP driver=${activeDriver.value.name}" }
+        }
+        return active?.handleMotionEvent(event) ?: false
+    }
 
     override fun setCapturedTouchpadState(
         normalizedX: Float, normalizedY: Float,

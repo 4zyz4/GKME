@@ -48,10 +48,11 @@ enum class ControllerDriver(@StringRes val displayNameRes: Int) {
      * USB 驱动 → DualSense 蓝牙 → InputManager → SDL3 兜底。
      * 手柄带背键时，SDL3 与 InputManager 的顺序对调（只有 SDL3 能上报背键）。
      *
-     * 注意：持久化按 ordinal 写入，因此 [AUTO] 必须保持在末尾，避免旧存档被重新解释。
+     * 注意：持久化按 ordinal 写入，因此 已有条目的位置必须保持，避免旧存档被重新解释。
      * 设置页的显示顺序由 `MainActivity.controllerDriverEntries` 单独控制。
      */
     AUTO(R.string.i18n_auto),
+    JOY_CON_PAIR(R.string.i18n_joy_con_pair),
 }
 
 enum class VibrationType { NONE, VIEW, VIBRATION_EFFECT }

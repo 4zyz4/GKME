@@ -14,10 +14,18 @@ import com.zyz4.gkme.input.AccelSteeringMapper
 import com.zyz4.gkme.input.ComboSequencer
 import com.zyz4.gkme.input.PhysicalStickRouting
 import com.zyz4.gkme.input.PhysicalTouchpadGestureRecognizer
+import com.zyz4.gkme.input.ExternalKeyboardPassthrough
+import com.zyz4.gkme.input.ExternalMousePassthrough
+import com.zyz4.gkme.input.InputReportQueue
+import com.zyz4.gkme.input.MouseReport
+import com.zyz4.gkme.input.MouseReportSource
+import com.zyz4.gkme.input.KeyboardSource
+import com.zyz4.gkme.input.KeyboardState
 import com.zyz4.gkme.input.SensitivityCurve
 import com.zyz4.gkme.input.SensorHandler
 import com.zyz4.gkme.input.StickShaping
 import com.zyz4.gkme.input.toProto
+import com.zyz4.gkme.input.withExternalInput
 import com.zyz4.gkme.model.AudioDevice
 import com.zyz4.gkme.model.AppSettings
 import com.zyz4.gkme.model.ComboTiming
@@ -53,13 +61,13 @@ import com.zyz4.gkme.model.VibrationType
 import com.zyz4.gkme.service.ConnectionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -166,8 +174,26 @@ class GkViewModel @Inject constructor(
     private var physicalTouchpadDragBit = 0
     private var physicalTouchpadClickJob: Job? = null
     private var physicalTouchpadClickBit = 0
-    private var _keyboardModifier = 0u
-    private var _keyboardKeys = UShortArray(6)
+    private val keyboardState = KeyboardState()
+    private val inputReports = InputReportQueue()
+    @Volatile private var keyboardFrameAttempts = 0L
+
+    internal fun externalKeyboardTransportDiagnostics(): String =
+        "keyboard-active frames handed to transport=$keyboardFrameAttempts (not host acknowledgements)"
+    internal val externalKeyboard = ExternalKeyboardPassthrough(
+        onKeyDown = { code, source -> onKeyDown(code, source) },
+        onKeyUp = { code, source -> onKeyUp(code, source) },
+    )
+    internal val externalMouse = ExternalMousePassthrough { report ->
+        if (connectionManager.canForwardExternalInput) {
+            for (chunk in report.chunks()) {
+                connectionManager.sendMouseReport(chunk.buttons.toByte(), chunk.dx.toShort(), chunk.dy.toShort(),
+                    chunk.wheel.toShort(), chunk.pan.toShort(), MouseReportSource.EXTERNAL)
+            }
+        } else {
+            inputReports.reset(keyboardState.snapshot())
+        }
+    }
 
     // ── Physical-controller remapping ──
     /** Output bits produced by the current physical button mappings. */
@@ -200,6 +226,19 @@ class GkViewModel @Inject constructor(
     var onHapticFeedbackRelease: (() -> Unit)? = null
 
     init {
+        // Keep this collector alive independently of the Activity's STARTED state.
+        viewModelScope.launch {
+            var previousMode = settings.value.connectionMode
+            combine(connectionState, settings) { state, config -> state to config }.collect { (_, config) ->
+                if (!connectionManager.canForwardExternalInput || config.connectionMode != previousMode) {
+                    externalKeyboard.releaseAll()
+                    externalMouse.releaseAll()
+                    keyboardState.discardPendingReports()
+                    inputReports.reset(keyboardState.snapshot())
+                }
+                previousMode = config.connectionMode
+            }
+        }
         // ConnectionManager 异步加载持久化设置；在加载完成前 settings 仍是默认值，
         // 若此时初始化会把默认设置写回持久化，覆盖用户配置。故等待加载完成再初始化。
         viewModelScope.launch {
@@ -375,6 +414,10 @@ class GkViewModel @Inject constructor(
     }
 
     fun updateConnectionMode(mode: ConnectionMode) {
+        externalKeyboard.releaseAll()
+        externalMouse.releaseAll()
+        keyboardState.discardPendingReports()
+        inputReports.reset(keyboardState.snapshot())
         connectionManager.updateSettings(settings.value.copy(connectionMode = mode))
     }
 
@@ -1134,7 +1177,7 @@ class GkViewModel @Inject constructor(
         val kbUp = physicalComboAppliedKeys - keys
         physicalComboAppliedKeys = keys
         if (kbDown.isNotEmpty() || kbUp.isNotEmpty()) {
-            applyKeyboardChanges(down = kbDown, up = kbUp)
+            applyKeyboardChanges(down = kbDown, up = kbUp, source = KeyboardSource.GAMEPAD)
         }
 
         // Keep the live state in sync between physical frames (the sequencer may finish a
@@ -1226,14 +1269,20 @@ class GkViewModel @Inject constructor(
     private var accelMapperKey: String? = null
 
     fun startServer() {
+        sendJob?.cancel()
+        sendJob = null
+        resetSessionInput()
+        connectionManager.onInputSessionReset = ::releaseExternalInput
         connectionManager.startServer(viewModelScope)
-        connectionManager.onMouseReport = { _, dx, dy, wheel, hWheel ->
+        connectionManager.onMouseReport = { buttons, dx, dy, wheel, hWheel, source ->
             // 累加值不再截断到 ±127：快速滑动会在一个发送周期内累计出上百像素，
             // 旧的 ±127 截断会丢弃溢出部分，导致“滑得越快转得越少”。协议字段是
             // sint32，按 Short 范围保留即可，由每个发送周期整体下发。
             // 注意：这里不再写入 mouseButtons，鼠标键位只由 onButtonDown/onButtonUp
             // 与 onMouseGestureButton 维护，避免移动/滚轮包覆盖按住的键。
-            _gamepadState.value = _gamepadState.value.copy(
+            if (source == MouseReportSource.EXTERNAL) {
+                inputReports.mouse(MouseReport(buttons, dx, dy, wheel, hWheel))
+            } else _gamepadState.value = _gamepadState.value.copy(
                 mouseDx = (dx.toInt() + _gamepadState.value.mouseDx.toInt()).coerceIn(-32768, 32767).toShort(),
                 mouseDy = (dy.toInt() + _gamepadState.value.mouseDy.toInt()).coerceIn(-32768, 32767).toShort(),
                 mouseWheel = (wheel.toInt() + _gamepadState.value.mouseWheel.toInt()).coerceIn(-32768, 32767).toShort(),
@@ -1275,9 +1324,9 @@ class GkViewModel @Inject constructor(
         sendJob?.cancel()
         lastPhysicalStickMouseNanos = 0L
         var lastBatteryRead = 0L
-        sendJob = CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+        sendJob = viewModelScope.launch(Dispatchers.IO) {
             var nextSendTime = System.currentTimeMillis()
-            while (true) {
+            while (isActive) {
                 if (System.currentTimeMillis() - lastBatteryRead > 2000) {
                     readBattery()
                     lastBatteryRead = System.currentTimeMillis()
@@ -1293,11 +1342,8 @@ class GkViewModel @Inject constructor(
                     leftStickY = combinedLy,
                     rightStickX = combinedRx,
                     rightStickY = combinedRy,
-                ).toProto(
-                    keyboardModifier = _keyboardModifier,
-                    keyboardKeys = _keyboardKeys.filter { it != 0u.toUShort() }.map { it.toUInt() }
-                )
-                connectionManager.sendGamepadState(input)
+                ).toProto()
+                sendInputWithExternalDevices(input)
                 val pMx = _gamepadState.value.mouseDx
                 val pMy = _gamepadState.value.mouseDy
                 val pMw = _gamepadState.value.mouseWheel
@@ -1334,7 +1380,53 @@ class GkViewModel @Inject constructor(
     fun stopServer() {
         releasePhysicalTouchpadGestures()
         sendJob?.cancel()
+        sendJob = null
+        resetSessionInput()
+        connectionManager.onMouseReport = null
+        connectionManager.onInputSessionReset = null
         connectionManager.stopServer()
+    }
+
+    override fun onCleared() {
+        stopServer()
+        stopSensorDisplay()
+        onHapticFeedbackPress = null
+        onHapticFeedbackRelease = null
+        super.onCleared()
+    }
+
+    /** A focus loss keeps the connection, but must not replay queued physical input. */
+    internal fun releaseExternalInput() {
+        connectionManager.invalidatePendingInput()
+        externalKeyboard.releaseAll()
+        externalMouse.releaseAll()
+        keyboardState.discardPendingReports()
+        inputReports.reset(keyboardState.snapshot())
+    }
+
+    private fun resetSessionInput() {
+        phoneComboSequencer.releaseAll()
+        physicalComboSequencer.releaseAll()
+        releaseExternalInput()
+        keyboardState.clear()
+        keyboardState.discardPendingReports()
+        inputReports.reset(keyboardState.snapshot())
+        physicalComboAppliedKeys = emptySet()
+        phoneButtons = 0u
+        phoneTouches = emptyList()
+        phoneStickX = 0; phoneStickY = 0; phoneRStickX = 0; phoneRStickY = 0
+        phoneLT = 0; phoneRT = 0
+        physicalStickX = 0; physicalStickY = 0; physicalRStickX = 0; physicalRStickY = 0
+        physicalMappedButtonBits = 0u
+        physicalMappedMouseButtons = 0
+        physicalLeftTriggerAnalog = 0; physicalRightTriggerAnalog = 0
+        _dpadBits = 0; _physicalDpadBits = 0
+        _gyroActivateCount = 0
+        physicalGyroActive = false
+        gyroMouseAccumX = 0f; gyroMouseAccumY = 0f
+        _gamepadState.value = GamepadState()
+        updateKeyboardShiftState()
+        updateGyroOverrideFromCount()
     }
 
     /** 更新服务未运行时的状态栏文案（本机模式 Shizuku 授权进度 / 失败）。 */
@@ -1365,10 +1457,10 @@ class GkViewModel @Inject constructor(
         sendJob?.cancel()
         lastPhysicalStickMouseNanos = 0L
         var lastBatteryRead = 0L
-        sendJob = CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+        sendJob = viewModelScope.launch(Dispatchers.IO) {
             var nextSendTime = System.currentTimeMillis()
             var lastAccelNanos = System.nanoTime()
-            while (true) {
+            while (isActive) {
                 if (System.currentTimeMillis() - lastBatteryRead > 2000) {
                     readBattery()
                     lastBatteryRead = System.currentTimeMillis()
@@ -1612,11 +1704,8 @@ class GkViewModel @Inject constructor(
                     leftStickY = combinedLy,
                     rightStickX = combinedRx,
                     rightStickY = combinedRy,
-                ).toProto(
-                    keyboardModifier = _keyboardModifier,
-                    keyboardKeys = _keyboardKeys.filter { it != 0u.toUShort() }.map { it.toUInt() }
-                )
-                connectionManager.sendGamepadState(input)
+                ).toProto()
+                sendInputWithExternalDevices(input)
                 val mDx = _gamepadState.value.mouseDx
                 val mDy = _gamepadState.value.mouseDy
                 val mWheel = _gamepadState.value.mouseWheel
@@ -1897,109 +1986,65 @@ class GkViewModel @Inject constructor(
         _gamepadState.value = _gamepadState.value.copy(rightTrigger = value)
     }
 
-    fun onKeyDown(code: Int) {
-        applyKeyboardChanges(down = listOf(code), up = emptyList())
+    fun onKeyDown(code: Int, source: Any = KeyboardSource.VIRTUAL) {
+        applyKeyboardChanges(down = listOf(code), up = emptyList(), source = source)
     }
 
-    fun onKeyUp(code: Int) {
-        applyKeyboardChanges(down = emptyList(), up = listOf(code))
+    fun onKeyUp(code: Int, source: Any = KeyboardSource.VIRTUAL) {
+        applyKeyboardChanges(down = emptyList(), up = listOf(code), source = source)
     }
 
-    /**
-     * Applies a batch of keyboard scan-code transitions and emits exactly one HID report.
-     *
-     * Batching is what makes mapped combinations (Ctrl+C, Shift+F1, ...) truly simultaneous:
-     * the HID report carries the modifier byte and all keycodes together, so the host never
-     * sees an intermediate state such as "Ctrl pressed alone" or "C pressed after Ctrl was
-     * released".
-     */
-    private fun applyKeyboardChanges(down: Collection<Int>, up: Collection<Int>) {
-        for (code in up) setKeyboardCode(code, pressed = false)
-        for (code in down) setKeyboardCode(code, pressed = true)
+    /** Emits a single HID report for a mapped chord, including the modifier keys. */
+    private fun applyKeyboardChanges(
+        down: Collection<Int>,
+        up: Collection<Int>,
+        source: Any = KeyboardSource.VIRTUAL,
+    ) {
+        if (!keyboardState.applyChanges(down, up, source)) return
         updateKeyboardShiftState()
         sendKeyboardReport()
     }
 
-    /** Updates the local modifier/key state for one scan code without sending a report. */
-    private fun setKeyboardCode(code: Int, pressed: Boolean) {
-        when (code) {
-            in 0xE0..0xE7 -> {
-                val mask = 1u shl (code - 0xE0)
-                _keyboardModifier = if (pressed) {
-                    _keyboardModifier or mask
-                } else {
-                    _keyboardModifier and mask.inv()
-                }
-            }
-            0xE8 -> {
-                _keyboardModifier = if (pressed) {
-                    _keyboardModifier or 0x10u
-                } else {
-                    _keyboardModifier and 0x10u.inv()
-                }
-            }
-            0xE9 -> {
-                _keyboardModifier = if (pressed) {
-                    _keyboardModifier or 0x20u
-                } else {
-                    _keyboardModifier and 0x20u.inv()
-                }
-            }
-            0xEA -> {
-                _keyboardModifier = if (pressed) {
-                    _keyboardModifier or 0x40u
-                } else {
-                    _keyboardModifier and 0x40u.inv()
-                }
-            }
-            0xEB -> {
-                _keyboardModifier = if (pressed) {
-                    _keyboardModifier or 0x80u
-                } else {
-                    _keyboardModifier and 0x80u.inv()
-                }
-            }
-            else -> {
-                if (pressed) {
-                    for (i in _keyboardKeys.indices) {
-                        if (_keyboardKeys[i].toInt() == 0) {
-                            _keyboardKeys[i] = code.toUShort()
-                            break
-                        }
-                    }
-                } else {
-                    for (i in _keyboardKeys.indices) {
-                        if (_keyboardKeys[i].toInt() == code) {
-                            _keyboardKeys[i] = 0u
-                            break
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     private fun updateKeyboardShiftState() {
-        val shift = (_keyboardModifier and 0x02u) != 0u || (_keyboardModifier and 0x20u) != 0u
-        _keyboardShiftActive.value = shift
+        _keyboardShiftActive.value = keyboardState.snapshot().modifier and 0x22 != 0
     }
 
     fun clearAllKeyboardKeys() {
-        _keyboardModifier = 0u
-        _keyboardKeys = UShortArray(6)
+        externalKeyboard.releaseAll()
+        keyboardState.clear()
         updateKeyboardShiftState()
         sendKeyboardReport()
     }
 
     private fun sendKeyboardReport() {
-        if (settings.value.connectionMode != ConnectionMode.BLUETOOTH) return
-        val modifier = _keyboardModifier.toByte()
-        val keys = ByteArray(6)
-        for (i in _keyboardKeys.indices) {
-            keys[i] = _keyboardKeys[i].toByte()
+        // WiFi/USB drain the queued snapshots in sendInputWithExternalDevices. A keyboard-only
+        // GamepadInput would overwrite the host's gamepad/mouse fields with zeroes.
+        if (settings.value.connectionMode != ConnectionMode.BLUETOOTH) {
+            if (!connectionState.value.connected) {
+                keyboardState.discardPendingReports()
+                inputReports.reset(keyboardState.snapshot())
+            } else {
+                for (report in keyboardState.drainReports()) inputReports.keyboard(report)
+            }
+            return
         }
+        val report = keyboardState.snapshot()
+        keyboardState.discardPendingReports()
+        inputReports.reset(report)
+        val keys = ByteArray(6)
+        report.keys.forEachIndexed { index, key -> keys[index] = key.toByte() }
         viewModelScope.launch {
-            connectionManager.sendKeyboardReport(modifier, keys)
+            connectionManager.sendKeyboardReport(report.modifier.toByte(), keys)
+        }
+    }
+
+    private suspend fun sendInputWithExternalDevices(input: com.zyz4.gkme.proto.GamepadInput) {
+        val generation = connectionManager.inputGeneration
+        val reports = inputReports.drain()
+        for ((index, report) in reports.withIndex()) {
+            if (connectionManager.canForwardExternalInput &&
+                (report.keyboard.modifier != 0 || report.keyboard.keys.isNotEmpty())) keyboardFrameAttempts++
+            connectionManager.sendGamepadState(input.withExternalInput(report, includeMouseDelta = index == 0), generation)
         }
     }
 

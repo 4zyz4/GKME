@@ -35,6 +35,7 @@ internal fun MainActivity.observeState() {
                 var lastRestartToken = 0
                 var wasConnected = false
                 a.viewModel.connectionState.collect { st ->
+                    a.externalMouseController.updateCapture()
                     for (label in a.touchpadLabels) label.text = st.statusText
                     for (label in a.mousepadLabels) label.text = st.statusText
                     if (a.settingsInflated) {
@@ -97,6 +98,7 @@ internal fun MainActivity.observeState() {
             }
             launch {
                 a.viewModel.settings.collect { s ->
+                    a.externalMouseController.updateCapture()
                     a.controlViews["touchpad"]?.visibility = View.VISIBLE
                     if (a.settingsInflated) {
                         a.updatePairedDeviceVisibility(a.viewModel.pairedDeviceName.value)

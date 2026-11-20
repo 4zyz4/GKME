@@ -18,10 +18,11 @@ import java.lang.reflect.Method
  * Output-only access to Android's hidden Bluetooth HID Host profile.
  *
  * Android remains responsible for pairing and for exposing the controller as an InputDevice.
- * This transport only writes DualSense output reports to the already connected HID device.
+ * Writes output reports to already connected HID devices.
  */
 internal class AndroidBluetoothHidHostTransport(
     context: Context,
+    private val minimumSdk: Int = Build.VERSION_CODES.S,
     private val onReady: () -> Unit = {}
 ) : Closeable {
     private enum class SendKind { SEND_DATA_RAW, SEND_DATA_HEX, SET_REPORT_RAW, SET_REPORT_HEX }
@@ -59,7 +60,7 @@ internal class AndroidBluetoothHidHostTransport(
                 deviceSelections.clear()
                 resolveMethods(proxy)
             }
-            LimeLog.info("Direct DualSense Bluetooth HID host is ready")
+            LimeLog.info("Bluetooth HID host is ready")
             runCatching(onReady)
         }
 
@@ -71,13 +72,13 @@ internal class AndroidBluetoothHidHostTransport(
                 preferredSendKind = null
                 deviceSelections.clear()
             }
-            LimeLog.warning("Direct DualSense Bluetooth HID host disconnected")
+            LimeLog.warning("Bluetooth HID host disconnected")
         }
     }
 
     @SuppressLint("MissingPermission")
     fun start(): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || !hasPermission()) return false
+        if (Build.VERSION.SDK_INT < minimumSdk || !hasPermission()) return false
         val adapter = bluetoothAdapter ?: return false
         synchronized(lock) {
             if (closed) return false
@@ -89,14 +90,14 @@ internal class AndroidBluetoothHidHostTransport(
                     "Landroid/bluetooth/BluetoothDevice;"
                 )
             }.getOrElse {
-                LimeLog.warning("Direct DualSense hidden API setup failed: ${it.message}")
+                LimeLog.warning("Bluetooth HID host hidden API setup failed: ${it.message}")
                 false
             }
             if (!bypassReady) return false
             proxyRequested = runCatching {
                 adapter.getProfileProxy(appContext, serviceListener, HID_HOST_PROFILE)
             }.getOrElse {
-                LimeLog.warning("Direct DualSense HID host binding failed: ${it.message}")
+                LimeLog.warning("Bluetooth HID host binding failed: ${it.message}")
                 false
             }
             return proxyRequested
@@ -119,20 +120,35 @@ internal class AndroidBluetoothHidHostTransport(
                 return false
             }
             val device = findDualSense(proxy, preferredAddress) ?: return false
-            val order = buildList {
-                preferredSendKind?.let(::add)
-                DEFAULT_SEND_ORDER.forEach { if (it !in this) add(it) }
+            return sendReport(proxy, device, report).also { sent ->
+                if (!sent) deviceSelections.remove(selectionKey(preferredAddress))
             }
-            for (kind in order) {
-                if (invoke(kind, proxy, device, report)) {
-                    preferredSendKind = kind
-                    return true
-                }
-            }
-            preferredSendKind = null
-            deviceSelections.remove(selectionKey(preferredAddress))
-            return false
         }
+    }
+
+    @SuppressLint("MissingPermission")
+    fun sendToNamedDevice(name: String, report: ByteArray): Boolean = synchronized(lock) {
+        if (closed || !hasPermission()) return@synchronized false
+        val proxy = profileProxy ?: return@synchronized false
+        val device = runCatching {
+            proxy.connectedDevices.singleOrNull { it.name.equals(name, ignoreCase = true) }
+        }.getOrNull() ?: return@synchronized false
+        sendReport(proxy, device, report)
+    }
+
+    private fun sendReport(proxy: BluetoothProfile, device: BluetoothDevice, report: ByteArray): Boolean {
+        val order = buildList {
+            preferredSendKind?.let(::add)
+            DEFAULT_SEND_ORDER.forEach { if (it !in this) add(it) }
+        }
+        for (kind in order) {
+            if (invoke(kind, proxy, device, report)) {
+                preferredSendKind = kind
+                return true
+            }
+        }
+        preferredSendKind = null
+        return false
     }
 
     override fun close() {

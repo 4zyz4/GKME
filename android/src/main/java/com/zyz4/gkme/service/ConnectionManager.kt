@@ -4,6 +4,8 @@ import com.zyz4.gkme.R
 import com.zyz4.gkme.i18n.AppStrings
 import com.zyz4.gkme.i18n.AppText
 import android.annotation.SuppressLint
+import com.zyz4.gkme.input.JoyConDiagnostics
+
 import android.content.Context
 import android.os.Build
 import android.os.Vibrator
@@ -16,6 +18,8 @@ import com.zyz4.gkme.data.SettingsRepository
 import com.zyz4.gkme.haptic.HdPcmStreamer
 import com.zyz4.gkme.haptic.PhoneHdHaptics
 import com.zyz4.gkme.model.AppSettings
+import com.zyz4.gkme.input.MouseReportSource
+import com.zyz4.gkme.input.InputSession
 import com.zyz4.gkme.model.ConnectionMode
 import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.model.TargetPlatform
@@ -44,6 +48,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
+import kotlinx.coroutines.withContext
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
@@ -102,6 +107,14 @@ class ConnectionManager @Inject constructor(
     private var watchdogJob: Job? = null
     private var reconnectJob: Job? = null
     private var localRumbleJob: Job? = null
+    private var teardownJob: Job? = null
+    private var runningMode: ConnectionMode? = null
+    @Volatile private var transportGeneration = 0L
+    private val inputSession = InputSession()
+    internal val inputGeneration: Long get() = inputSession.generation
+
+    internal fun invalidatePendingInput() = inputSession.invalidate()
+    internal var onInputSessionReset: (() -> Unit)? = null
 
     /**
      * 当前生效的传输协议。WiFi(UDP) 与 Emotion(DSU) 在设计上互斥（只有一个生效），
@@ -115,12 +128,22 @@ class ConnectionManager @Inject constructor(
     // 因此在每次发送普通状态包时注入当前真实电平。
     // 鼠标状态更新回调 —— sendMouseReport 通过它把鼠标字段写入 ViewModel 的
     // _gamepadState，使鼠标数据跟普通手柄数据合并到同一个 UDP 包里发送。
-    var onMouseReport: ((button: Int, dx: Int, dy: Int, wheel: Int, hWheel: Int) -> Unit)? = null
+    var onMouseReport: ((button: Int, dx: Int, dy: Int, wheel: Int, hWheel: Int, source: MouseReportSource) -> Unit)? = null
 
     private var _lastMouseButtonsBt = 0
 
     private val _connectionState = MutableStateFlow(ConnectionState())
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
+
+    /** DSU/Emotion and the controlled-device role do not carry keyboard input. */
+    val canForwardExternalInput: Boolean
+        get() = _connectionState.value.connected &&
+            _settings.value.controlType == com.zyz4.gkme.model.ControlType.CONTROLLER &&
+            when (_settings.value.connectionMode) {
+                ConnectionMode.WIFI -> activeProtocol == ActiveProtocol.WIFI && udpService.pcAddress != null
+                ConnectionMode.USB -> activeProtocol == ActiveProtocol.USB && usbService.peerConnected
+                else -> false
+            }
 
     private val _settings = MutableStateFlow(AppSettings())
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
@@ -280,38 +303,43 @@ class ConnectionManager @Inject constructor(
         }
     }
 
-    fun startServer(scope: CoroutineScope) {
+    fun startServer(ownerScope: CoroutineScope) {
         val s = _settings.value
-        activeProtocol = ActiveProtocol.NONE
-            _connectionState.value = _connectionState.value.copy(status = AppText.Res(R.string.i18n_starting_service))
-        when (s.connectionMode) {
-            ConnectionMode.WIFI -> {
-                serverJob = scope.launch {
+        // The application-scoped teardown survives Activity/ViewModel destruction.
+        // Reopening must wait for the old sockets to release their ports first.
+        stopServer()
+        val pendingTeardown = teardownJob
+        val generation = transportGeneration
+        _connectionState.value = ConnectionState(status = AppText.Res(R.string.i18n_starting_service), phase = ConnectionPhase.LISTENING)
+        serverJob = ownerScope.launch {
+            pendingTeardown?.join()
+            if (generation != transportGeneration) return@launch
+            runningMode = s.connectionMode
+            when (s.connectionMode) {
+                ConnectionMode.WIFI -> {
                     // Start both WiFi UDP and DSU servers simultaneously for auto-detection
-                    startWifiServer(s)
-                    startDsuServer(s)
+                    startWifiServer(s, generation)
+                    startDsuServer(s, generation)
                     watchdogJob = launch { watchdogLoop() }
                 }
-            }
-            ConnectionMode.BLUETOOTH -> {
-                startBluetooth(scope, s)
-            }
-            ConnectionMode.USB -> {
-                serverJob = scope.launch {
-                    startUsbServer()
+                ConnectionMode.BLUETOOTH -> {
+                    startBluetooth(ownerScope, s)
+                }
+                ConnectionMode.USB -> {
+                    startUsbServer(generation)
                     watchdogJob = launch { watchdogLoop() }
                 }
-            }
-            ConnectionMode.LOCAL -> {
-                // 本机模式：虚拟手柄由 GamepadInjector（Shizuku + uinput）创建，
-                // 输入直接在本机注入，不经过网络传输；震动从虚拟手柄读回后按
-                // 振动器设置转发给手机/实体手柄。
-                startLocalRumblePump()
-                _connectionState.value = _connectionState.value.copy(
-                    connected = true,
-                    phase = ConnectionPhase.CONNECTED,
-                    status = AppText.Res(R.string.i18n_local_virtual_gamepad_is_ready),
-                )
+                ConnectionMode.LOCAL -> {
+                    // 本机模式：虚拟手柄由 GamepadInjector（Shizuku + uinput）创建，
+                    // 输入直接在本机注入，不经过网络传输；震动从虚拟手柄读回后按
+                    // 振动器设置转发给手机/实体手柄。
+                    startLocalRumblePump()
+                    _connectionState.value = _connectionState.value.copy(
+                        connected = true,
+                        phase = ConnectionPhase.CONNECTED,
+                        status = AppText.Res(R.string.i18n_local_virtual_gamepad_is_ready),
+                    )
+                }
             }
         }
     }
@@ -384,7 +412,7 @@ class ConnectionManager @Inject constructor(
         }
     }
 
-    private suspend fun startWifiServer(settings: AppSettings) {
+    private suspend fun startWifiServer(settings: AppSettings, generation: Long) {
         try {
             val ip = getServerIp()
             if (ip.isEmpty()) {
@@ -397,7 +425,7 @@ class ConnectionManager @Inject constructor(
                 return
             }
             udpService.start(getRealDeviceName(), getDeviceId()) { msg ->
-                handleServerToClient(msg)
+                if (generation == transportGeneration) handleServerToClient(msg)
             }
             if (udpService.portInUse) {
                 _connectionState.value = _connectionState.value.copy(
@@ -423,7 +451,7 @@ class ConnectionManager @Inject constructor(
         }
     }
 
-    private suspend fun startDsuServer(settings: AppSettings) {
+    private suspend fun startDsuServer(settings: AppSettings, generation: Long) {
         try {
             val ip = getServerIp()
             if (ip.isEmpty()) return
@@ -441,6 +469,7 @@ class ConnectionManager @Inject constructor(
                     }
                 },
                 onConnected = {
+                    if (generation != transportGeneration) return@DsuService
                     activeProtocol = ActiveProtocol.EMOTION
                     _connectionState.value = _connectionState.value.copy(
                         connected = true,
@@ -456,11 +485,11 @@ class ConnectionManager @Inject constructor(
         }
     }
 
-    private suspend fun startUsbServer() {
+    private suspend fun startUsbServer(generation: Long) {
         val ok = usbService.start(
-            onMessage = { msg -> handleUsbServerToClient(msg) },
+            onMessage = { msg -> if (generation == transportGeneration) handleUsbServerToClient(msg) },
             onPeerClosed = {
-                if (activeProtocol == ActiveProtocol.USB) {
+                if (generation == transportGeneration && activeProtocol == ActiveProtocol.USB) {
                     activeProtocol = ActiveProtocol.NONE
                     _connectionState.value = _connectionState.value.copy(
                         connected = false, phase = ConnectionPhase.LISTENING,
@@ -539,6 +568,13 @@ class ConnectionManager @Inject constructor(
     }
 
     fun stopServer() {
+        val oldProtocol = activeProtocol
+        val oldMode = runningMode
+        transportGeneration++
+        inputSession.invalidate(primeWithNeutral = true)
+        activeProtocol = ActiveProtocol.NONE
+        runningMode = null
+        _connectionState.value = ConnectionState()
         serverJob?.cancel()
         serverJob = null
         watchdogJob?.cancel()
@@ -548,18 +584,42 @@ class ConnectionManager @Inject constructor(
         localRumbleJob?.cancel()
         localRumbleJob = null
         stopAutoReconnect()
-        udpService.stop()
-        usbService.stop()
-        stopBluetooth()
         dsuService?.stop()
         dsuService = null
         vibrator.cancel()
         audioPlaybackService.stop()
-        activeProtocol = ActiveProtocol.NONE
-        _connectionState.value = ConnectionState()
         clearTriggerEffects()
-        if (_settings.value.connectionMode == ConnectionMode.LOCAL) {
-            GamepadInjector.release()
+        val previousTeardown = teardownJob
+        teardownJob = scope.launch {
+            previousTeardown?.join()
+            try {
+                inputSession.finish(release = {
+                    // Complete any in-flight write, then hand a full release to the old
+                    // transport before closing it. UDP cannot acknowledge delivery.
+                    withContext(Dispatchers.IO) {
+                        val neutral = GamepadInput.getDefaultInstance()
+                        when {
+                            oldProtocol == ActiveProtocol.WIFI ||
+                                (oldProtocol == ActiveProtocol.NONE && oldMode == ConnectionMode.WIFI) ->
+                                udpService.sendGamepadInput(neutral)
+                            oldMode == ConnectionMode.USB -> usbService.sendGamepadInput(neutral)
+                            oldMode == ConnectionMode.BLUETOOTH -> {
+                                bluetoothService?.sendKeyboardReport(0, ByteArray(6))
+                                bluetoothService?.sendMouseReport(0, 0, 0, 0, 0)
+                                bluetoothService?.sendReport(GamepadStateMapper.map(neutral, _settings.value.targetPlatform))
+                            }
+                        }
+                    }
+                }, close = {
+                    udpService.stop()
+                    usbService.stop()
+                    stopBluetooth()
+                    if (oldMode == ConnectionMode.LOCAL) GamepadInjector.release()
+                })
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                android.util.Log.w("ConnectionManager", "Input release/transport teardown failed", e)
+            }
         }
     }
 
@@ -632,6 +692,18 @@ class ConnectionManager @Inject constructor(
     }
 
     private fun handleServerToClient(msg: ServerToClient) {
+        if (msg.payloadCase == ServerToClient.PayloadCase.DISCONNECT || activeProtocol != ActiveProtocol.WIFI) {
+            val generation = transportGeneration
+            scope.launch {
+                if (generation == transportGeneration) handleWifiControlMessage(msg)
+            }
+        } else {
+            processServerToClientPayload(msg)
+        }
+    }
+
+    /** Connection boundaries are processed in order on Main, including the input reset. */
+    private fun handleWifiControlMessage(msg: ServerToClient) {
         // 电脑发来 Hello（或任何非断开消息）而手机尚未进入 WiFi 协议时，手机再次
         // 发送带设备名和 MAC 的 Hello 完成握手；手动输入 IP 连接时电脑端就是从
         // 这里读取设备名和 MAC。已连接后不再回应，避免与电脑的 Hello 应答形成循环。
@@ -653,6 +725,17 @@ class ConnectionManager @Inject constructor(
     }
 
     private fun handleUsbServerToClient(msg: ServerToClient) {
+        if (msg.payloadCase == ServerToClient.PayloadCase.DISCONNECT || activeProtocol != ActiveProtocol.USB) {
+            val generation = transportGeneration
+            scope.launch {
+                if (generation == transportGeneration) handleUsbControlMessage(msg)
+            }
+        } else {
+            processServerToClientPayload(msg)
+        }
+    }
+
+    private fun handleUsbControlMessage(msg: ServerToClient) {
         if (msg.payloadCase != ServerToClient.PayloadCase.DISCONNECT &&
             activeProtocol != ActiveProtocol.USB
         ) {
@@ -801,6 +884,9 @@ class ConnectionManager @Inject constructor(
     }
 
     private fun doReconnect() {
+        // Reset physical holds on the UI thread before enabling the new channel.
+        onInputSessionReset?.invoke()
+        inputSession.invalidate(primeWithNeutral = true)
         activeProtocol = ActiveProtocol.WIFI
         udpService.setConnected(true)
         stopAutoReconnect()
@@ -812,6 +898,8 @@ class ConnectionManager @Inject constructor(
     }
 
     private fun doUsbConnect() {
+        onInputSessionReset?.invoke()
+        inputSession.invalidate(primeWithNeutral = true)
         activeProtocol = ActiveProtocol.USB
         _connectionState.value = _connectionState.value.copy(
             connected = true, phase = ConnectionPhase.CONNECTED,
@@ -824,14 +912,16 @@ class ConnectionManager @Inject constructor(
      *  the PC's Hello establishes the connection (handshake) and on auto-reconnect,
      *  so the PC can learn the phone identity even for manual IP connections. */
     private fun sendDeviceHello() {
-        CoroutineScope(Dispatchers.IO).launch {
-            udpService.sendClientToServer(buildDeviceHello())
+        val generation = transportGeneration
+        scope.launch(Dispatchers.IO) {
+            if (generation == transportGeneration) udpService.sendClientToServer(buildDeviceHello())
         }
     }
 
     private fun sendDeviceHelloUsb() {
-        CoroutineScope(Dispatchers.IO).launch {
-            usbService.sendClientToServer(buildDeviceHello())
+        val generation = transportGeneration
+        scope.launch(Dispatchers.IO) {
+            if (generation == transportGeneration) usbService.sendClientToServer(buildDeviceHello())
         }
     }
 
@@ -885,6 +975,14 @@ class ConnectionManager @Inject constructor(
     private var triggerEffectStopped = true
 
     suspend fun sendGamepadState(state: GamepadInput) {
+        sendGamepadState(state, inputGeneration)
+    }
+
+    internal suspend fun sendGamepadState(state: GamepadInput, generation: Long) {
+        inputSession.send(generation, state, ::sendGamepadStateOrdered)
+    }
+
+    private suspend fun sendGamepadStateOrdered(state: GamepadInput) {
         when (_settings.value.connectionMode) {
             ConnectionMode.WIFI -> {
                 when (activeProtocol) {
@@ -920,6 +1018,9 @@ class ConnectionManager @Inject constructor(
                         if (state.pressedScanCodesCount > 0 || state.keyboardModifiers != 0) {
                             android.util.Log.d("ConnectionManager", "sendGamepadState: keyboard pressed=${state.pressedScanCodesList}, mod=${state.keyboardModifiers}")
                         }
+                        if (JoyConDiagnostics.recording) {
+                            JoyConDiagnostics.outbound("WIFI", state)
+                        }
                         udpService.sendGamepadInput(state)
                     }
                 }
@@ -930,11 +1031,19 @@ class ConnectionManager @Inject constructor(
                 val target = _settings.value.targetPlatform
                 if (target == TargetPlatform.UNIVERSAL_KM) return
                 val report = GamepadStateMapper.map(state, target)
-                bluetoothService?.sendReport(report)
+                bluetoothService?.let { service ->
+                    if (JoyConDiagnostics.recording) {
+                        JoyConDiagnostics.outbound("BLUETOOTH/$target", state)
+                    }
+                    service.sendReport(report)
+                }
             }
             ConnectionMode.USB -> {
                 if (activeProtocol != ActiveProtocol.USB) return
                 if (!usbService.peerConnected) return
+                if (JoyConDiagnostics.recording) {
+                    JoyConDiagnostics.outbound("USB", state)
+                }
                 usbService.sendGamepadInput(state)
             }
             ConnectionMode.LOCAL -> {
@@ -945,7 +1054,8 @@ class ConnectionManager @Inject constructor(
 
     /** Send a mouse report for WiFi/UDP or USB mode. */
     fun sendMouseReport(
-        button: Byte, dx: Short, dy: Short, wheel: Short, hWheel: Short = 0
+        button: Byte, dx: Short, dy: Short, wheel: Short, hWheel: Short = 0,
+        source: MouseReportSource = MouseReportSource.VIRTUAL,
     ) {
         when (_settings.value.connectionMode) {
             ConnectionMode.BLUETOOTH -> {
@@ -964,13 +1074,13 @@ class ConnectionManager @Inject constructor(
                 // 普通手柄循环包（每 ~10ms）自动带上最新的鼠标字段，合并为一个包。
                 if (activeProtocol != ActiveProtocol.WIFI) return
                 onMouseReport?.invoke(
-                    button.toInt(), dx.toInt(), dy.toInt(), wheel.toInt(), hWheel.toInt()
+                    button.toInt(), dx.toInt(), dy.toInt(), wheel.toInt(), hWheel.toInt(), source
                 )
             }
             ConnectionMode.USB -> {
                 if (activeProtocol != ActiveProtocol.USB) return
                 onMouseReport?.invoke(
-                    button.toInt(), dx.toInt(), dy.toInt(), wheel.toInt(), hWheel.toInt()
+                    button.toInt(), dx.toInt(), dy.toInt(), wheel.toInt(), hWheel.toInt(), source
                 )
             }
             // 本机模式的虚拟鼠标只接收 GamepadInput 帧内的鼠标字段（实体手柄映射 /

@@ -298,6 +298,8 @@ class GamepadLayout @JvmOverloads constructor(
     var oldButtonState = 0
 
     override fun onCapturedPointerEvent(event: MotionEvent): Boolean {
+        if (onExternalMouseEvent?.invoke(event) == true) return true
+
         // ── Mouse mode via pointer capture ──
         // NOTE: Mousepad now uses touch events via setupMousepadView() instead of
         // pointer capture.  This pointer capture path is used for touchpad input
@@ -852,7 +854,16 @@ class GamepadLayout @JvmOverloads constructor(
         )
     }
 
-    /** Callback for mouse-mode: convert a MouseResult into a Bluetooth HID report. */
+    /** Real mouse events are routed before the legacy controller touchpad decoder. */
+    internal var onExternalMouseEvent: ((MotionEvent) -> Boolean)? = null
+    internal var onExternalMouseCaptureChanged: ((Boolean) -> Unit)? = null
+
+    override fun onPointerCaptureChange(hasCapture: Boolean) {
+        super.onPointerCaptureChange(hasCapture)
+        onExternalMouseCaptureChanged?.invoke(hasCapture)
+    }
+
+    /** Callback for legacy mouse-mode: convert a MouseResult into a Bluetooth HID report. */
     var onCapturedMouseReport: ((
         dx: Short, dy: Short,
         wheelV: Short, wheelH: Short,

@@ -3,6 +3,8 @@ package com.zyz4.gkme
 import com.zyz4.gkme.R
 import com.zyz4.gkme.i18n.AppLocale
 import com.zyz4.gkme.i18n.AppText
+import com.zyz4.gkme.input.JoyConDiagnostics
+
 import android.Manifest
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
@@ -142,6 +144,8 @@ internal fun MainActivity.showSettings() {
     if (a.gamepadLayout.isEditModeActive()) return
     a.ensureSettingsInflated()
     a.inSettings = true
+    a.viewModel.externalKeyboard.releaseAll()
+    a.externalMouseController.updateCapture()
     val gamepad = a.findViewById<View>(R.id.gamepadPanel)
     val panel = a.findViewById<View>(R.id.settingsPanel)
     a.settingsRevealAnimator?.cancel()
@@ -172,6 +176,7 @@ internal fun MainActivity.hideSettings() {
     panel.visibility = View.VISIBLE
     a.animateSettingsClose(panel) {
         panel.visibility = View.GONE
+        a.externalMouseController.updateCapture()
     }
     if (a.currentSettingsCategory == 2) {
         val gl = a.gamepadLayout
@@ -386,6 +391,20 @@ private fun MainActivity.animateSidebarItem(button: Button, selected: Boolean, a
 
 internal fun MainActivity.setupSettings() {
     val a = this
+    if (BuildConfig.DEBUG) {
+        a.findViewById<TextView>(R.id.tvConnectionStatus).setOnLongClickListener {
+            val diagnostics = a.externalKeyboardDiagnostics.render() +
+                "mode=${a.viewModel.settings.value.connectionMode} connected=${a.viewModel.connectionState.value.connected} " +
+                "canForward=${a.viewModel.connectionManager.canForwardExternalInput}\n" +
+                a.viewModel.externalKeyboardTransportDiagnostics() + "\n" +
+                a.externalMouseController.renderDiagnostics() + "\n" +
+                a.physicalControllerDiagnostics.render(a.physicalControllerHandler)
+            val clipboard = a.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("GKME input diagnostics", diagnostics))
+            a.showToast("已复制键盘、鼠标和手柄诊断信息")
+            true
+        }
+    }
     a.findViewById<Button>(R.id.btnSettingsBack).setOnClickListener { a.hideSettings() }
 
     // Category switching
@@ -860,6 +879,9 @@ internal fun MainActivity.setupSettings() {
                 if (driver == a.viewModel.settings.value.controllerDriver) return
                 a.viewModel.updateControllerDriver(driver)
                 a.physicalControllerHandler.setDriver(driver)
+                if (driver == com.zyz4.gkme.model.ControllerDriver.JOY_CON_PAIR) {
+                    a.requestJoyConLightPermission()
+                }
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {
                 a.controllerDriverUserSelecting = false
@@ -868,8 +890,13 @@ internal fun MainActivity.setupSettings() {
     }
 
     a.findViewById<Button>(R.id.btnRedetectController).setOnClickListener {
+        if (BuildConfig.DEBUG) a.physicalControllerDiagnostics.record("manual controller redetect")
         a.physicalControllerHandler.reconnect()
+        if (a.physicalControllerHandler.driver == com.zyz4.gkme.model.ControllerDriver.JOY_CON_PAIR) {
+            a.requestJoyConLightPermission()
+        }
     }
+    if (BuildConfig.DEBUG) a.setupJoyConLogControls()
 
     a.findViewById<Spinner>(R.id.spinnerPhysicalController).apply {
         setOnTouchListener { _, _ ->
@@ -1168,6 +1195,42 @@ internal fun MainActivity.syncControllerDriverUI() {
     val pos = a.controllerDriverEntries.indexOf(a.viewModel.settings.value.controllerDriver)
         .let { if (it >= 0) it else 0 }
     spinner.setSelection(pos)
+}
+
+private fun MainActivity.setupJoyConLogControls() {
+    findViewById<View>(R.id.joyConLogControls).visibility = View.VISIBLE
+    val start = findViewById<Button>(R.id.btnStartJoyConLog)
+    val export = findViewById<Button>(R.id.btnExportJoyConLog)
+
+    fun updateButtons() {
+        start.isEnabled = !JoyConDiagnostics.recording
+        start.text = if (JoyConDiagnostics.recording) "Joy-Con 记录中" else "开始 Joy-Con 记录"
+        export.isEnabled = JoyConDiagnostics.recording || JoyConDiagnostics.report != null
+        export.text = if (JoyConDiagnostics.recording) "停止并导出" else "导出日志"
+    }
+
+    fun diagnosticContext(): String =
+        "driver=${physicalControllerHandler.activeDriver.value.name} " +
+            "input-index=${physicalControllerHandler.inputControllerIndex} " +
+            "mode=${viewModel.settings.value.connectionMode} " +
+            "host-connected=${viewModel.connectionState.value.connected}"
+
+    start.setOnClickListener {
+        JoyConDiagnostics.start(diagnosticContext())
+        physicalControllerHandler.describeJoyConBindings()
+        val preset = viewModel.currentPreset.value
+        JoyConDiagnostics.note("PRESET custom-inputs=${preset.physicalInputMappings.keys.sorted()} " +
+            "left-stick=${preset.leftStickSettings} right-stick=${preset.rightStickSettings}")
+        updateButtons()
+        hideSettings()
+        showToast("Joy-Con 正在记录，测试后回到此页导出")
+    }
+    export.setOnClickListener {
+        JoyConDiagnostics.stop(diagnosticContext())
+        updateButtons()
+        exportJoyConLogLauncher.launch("GKME-JoyCon-${System.currentTimeMillis()}.txt")
+    }
+    updateButtons()
 }
 
 internal fun MainActivity.syncPhysicalControllerUI() {
