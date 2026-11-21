@@ -548,6 +548,10 @@ class GkViewModel @Inject constructor(
         connectionManager.updateSettings(settings.value.copy(floatingKeepAlive = enabled))
     }
 
+    fun updateAutoEnterFloating(enabled: Boolean) {
+        connectionManager.updateSettings(settings.value.copy(autoEnterFloating = enabled))
+    }
+
     fun updateSettingsButtonFourWay(fourWay: Boolean) {
         if (settings.value.settingsButtonFourWay == fourWay) return
         connectionManager.updateSettings(settings.value.copy(settingsButtonFourWay = fourWay))

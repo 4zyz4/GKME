@@ -1766,6 +1766,10 @@ internal fun MainActivity.setupConnectionPage() {
         a.viewModel.updateAutoStartEnabled(isChecked)
     }
 
+    a.findViewById<Switch>(R.id.switchAutoEnterFloating).setOnCheckedChangeListener { _, isChecked ->
+        a.viewModel.updateAutoEnterFloating(isChecked)
+    }
+
     // Polling Rate Spinner
     val pollingRateOptions = listOf(30, 45, 60, 90, 100, 120, 200, 250, 300, 500, 750, 1000)
     val pollingRateNames = pollingRateOptions.map { "$it Hz" }.toTypedArray()
@@ -1823,7 +1827,9 @@ internal fun MainActivity.tryStartLocalVirtualDevice(): Boolean {
     a.localStartPending = false
     a.stopShizukuPolling()
     a.viewModel.startServer()
-    a.enterFloatingMode()
+    if (a.viewModel.settings.value.autoEnterFloating) {
+        a.enterFloatingMode()
+    }
     return true
 }
 
@@ -2140,6 +2146,8 @@ internal fun MainActivity.updateSettingsVisibility(mode: ConnectionMode) {
     // 被控端的手柄类型改到被控 activity 内选择，主设置页仅在本地模式显示。
     a.findViewById<View>(R.id.sectionVirtualGamepad).visibility =
         if (isLocal) View.VISIBLE else View.GONE
+    a.findViewById<View>(R.id.rowAutoFloating).visibility =
+        if (isLocal) View.VISIBLE else View.GONE
     if (isLocal) {
         a.startShizukuPolling()
     } else {
@@ -2221,6 +2229,7 @@ internal fun MainActivity.syncSettingsUI() {
     a.updateSettingsVisibility(s.connectionMode)
 
     a.findViewById<Switch>(R.id.switchAutoStart).isChecked = s.autoStartEnabled
+    a.findViewById<Switch>(R.id.switchAutoEnterFloating).isChecked = s.autoEnterFloating
     a.syncGyroSourceUI()
     val effectiveOrientation = a.viewModel.currentPreset.value.gyroOrientation ?: s.gyroOrientation
     a.selectChipGroup(listOf(R.id.btnGyroOriLandscape, R.id.btnGyroOriPortrait, R.id.btnGyroOriPortraitInverted),

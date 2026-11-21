@@ -62,7 +62,8 @@ flowchart TB
   → `autoStartService()` → SDL 初始化 → `physicalControllerHandler.start()`。
 - 返回优先级：屏幕关闭 → 预览放大 → 曲线放大 → 布局全局设置 → 全局设置 → 编辑模式确认 → 设置页。
 - 悬浮模式：`enterFloatingMode` / `continueEnterFloating` / `startFloatingMode` / `exitFloatingMode`；
-  自动悬浮 `onUserLeaveHint → maybeAutoEnterFloating`（仅 LOCAL 且服务已启动、非编辑、已有悬浮权限）。
+  自动悬浮 `onUserLeaveHint → maybeAutoEnterFloating`（仅 LOCAL、已开启「自动进入悬浮模式」
+  且服务已启动、非编辑、已有悬浮权限）。
 - 屏幕关闭模式：`enterScreenOffMode` / `exitScreenOffMode`（`R.id.screenOffOverlay` 纯黑 + KEEP_SCREEN_ON）。
 - 物理手柄桥接：`dispatchKeyEvent` / `onKeyDown` / `onKeyUp`（含音量键映射）、
   `dispatchGenericMotionEvent`、`dispatchTouchEvent`（仅 Sony vendorId `0x054c` 走手柄分发）、
@@ -150,7 +151,9 @@ flowchart TB
   第 6 页启动音频指示轮询。
 - `setupSettings` 绑定各页；大量 `sync*`/`build*` 辅助。
 - 本机模式（Shizuku）：`startLocalMode` / `tryStartLocalVirtualDevice`（rumble=true、mouse=true）/
-  `startShizukuPolling`；创建后经 Shizuku 读取 `vibrate_input_devices` 决定是否转发震动。
+  `startShizukuPolling`；创建后按 `autoEnterFloating`（设置页「自动进入悬浮模式」，默认开）决定是否
+  调用 `enterFloatingMode`；关闭后启动服务与离开应用都不再自动创建悬浮窗。创建后经 Shizuku 读取
+  `vibrate_input_devices` 决定是否转发震动。
 - 预设管理：`refreshPresetList` + `PresetGridAdapter`、新建/导入/导出/重命名/复制。
 - 连接页 `setupConnectionPage`：启动/停止服务、蓝牙权限、USB adb 检查、轮询率选项
   `[30,45,60,90,100,120,200,250,300,500,750,1000]`。

@@ -406,6 +406,7 @@ class MainActivity : ComponentActivity() {
         // 协议门槛尚未通过时主界面还没构建，此时不要初始化 ViewModel 或触碰手柄布局。
         if (!::gamepadLayout.isInitialized) return
         if (viewModel.settings.value.connectionMode != ConnectionMode.LOCAL) return
+        if (!viewModel.settings.value.autoEnterFloating) return
         if (viewModel.connectionState.value.phase == ConnectionPhase.IDLE) return
         if (!::floatingController.isInitialized || floatingController.isActive) return
         // 悬浮启动的权限流程进行中时不再重复触发，避免权限对话框反复弹出。
