@@ -137,10 +137,23 @@ jobs:
 
       - name: Assemble release APK
         run: |
-          chmod +x gradlew
-          ./gradlew --stacktrace assembleRelease
+          set -euo pipefail
+          # 版本名 = 基准版本 + 日期后缀，便于在系统设置里区分夜间包与正式版。
+          # versionCode 保持不变，否则夜间包会挡住之后安装更高的正式版。
+          BASE_VERSION="$(sed -n 's/^val baseVersionName = "\([^"]*\)".*/\1/p' android/build.gradle.kts | head -n1)"
+          if [ -z "$BASE_VERSION" ]; then
+            echo "::error::无法从 android/build.gradle.kts 解析 baseVersionName。"
+            exit 1
+          fi
+          NIGHTLY_VERSION="${BASE_VERSION}-nightly.$(date -u +%Y%m%d)"
+          echo "nightly versionName: $NIGHTLY_VERSION"
+          echo "NIGHTLY_VERSION=$NIGHTLY_VERSION" >> "$GITHUB_ENV"
 
-      # 用 apksigner 校验产物确实被签名，避免因配置漂移发出 unsigned 包。
+          chmod +x gradlew
+          ./gradlew --stacktrace -Pgkme.versionName="$NIGHTLY_VERSION" assembleRelease
+
+      # 用 apksigner 校验产物确实被签名，并回读 APK 里的实际版本号，
+      # 避免因配置漂移发出 unsigned 包或没打上夜间版本号的包。
       - name: Verify signature and collect artifacts
         id: apk
         run: |
@@ -152,6 +165,17 @@ jobs:
           fi
           BUILD_TOOLS="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -n1)"
           "${BUILD_TOOLS}apksigner" verify --print-certs "$APK"
+
+          BADGING="$("${BUILD_TOOLS}aapt2" dump badging "$APK" | head -n1)"
+          VERSION_NAME="$(sed -n "s/.*versionName='\([^']*\)'.*/\1/p" <<< "$BADGING")"
+          VERSION_CODE="$(sed -n "s/.*versionCode='\([^']*\)'.*/\1/p" <<< "$BADGING")"
+          echo "versionName=$VERSION_NAME"
+          echo "versionCode=$VERSION_CODE"
+          if [ "$VERSION_NAME" != "$NIGHTLY_VERSION" ]; then
+            echo "::warning::APK 内的 versionName ($VERSION_NAME) 与预期 ($NIGHTLY_VERSION) 不一致。"
+          fi
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
 
           # 固定文件名，配合 gh release upload --clobber 实现滚动更新
           mkdir -p dist
@@ -172,17 +196,25 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           COMMIT_COUNT: ${{ needs.check.outputs.count }}
+          VERSION_NAME: ${{ steps.apk.outputs.version_name }}
+          VERSION_CODE: ${{ steps.apk.outputs.version_code }}
         run: |
           set -euo pipefail
           TAG=nightly
           TITLE="Nightly $(date -u +'%Y-%m-%d')"
           {
-            echo "自动生成的夜间构建，正式签名，可直接覆盖安装同签名的正式版。"
+            echo "> ⚠️ **测试版（Nightly）：这是自动构建的测试版本，可能包含 bug、未完成的功能或与正式版不兼容的行为。**"
+            echo "> 请勿作为日常主力版本使用；升级前建议先备份应用数据，反馈问题时请附上下面的版本号。"
             echo
-            echo "- 构建时间（UTC）：$(date -u +'%Y-%m-%d %H:%M')"
-            echo "- master HEAD：\`$(git rev-parse --short=7 HEAD)\` $(git log -1 --pretty=%s)"
-            echo "- 近 24 小时提交数：${COMMIT_COUNT}"
-            echo "- 下载：\`gkme-nightly.apk\`（R8 混淆映射：\`mapping-nightly.txt\`）"
+            echo "| 项目 | 值 |"
+            echo "| --- | --- |"
+            echo "| 版本 | \`${VERSION_NAME}\`（versionCode ${VERSION_CODE}） |"
+            echo "| 类型 | 夜间测试版（Pre-release，滚动覆盖） |"
+            echo "| 签名 | 与正式版相同的密钥，可直接覆盖安装 |"
+            echo "| 构建时间（UTC） | $(date -u +'%Y-%m-%d %H:%M') |"
+            echo "| master HEAD | \`$(git rev-parse --short=7 HEAD)\` $(git log -1 --pretty=%s | sed 's/|/\\|/g') |"
+            echo "| 近 24 小时提交数 | ${COMMIT_COUNT} |"
+            echo "| 下载 | \`gkme-nightly.apk\`（R8 混淆映射：\`mapping-nightly.txt\`） |"
             echo
             echo "### 近 24 小时内的提交"
             echo

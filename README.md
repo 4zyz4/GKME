@@ -171,6 +171,10 @@ Connect an Android-compatible gamepad to the phone via an OTG cable or Bluetooth
 
 Go to [GitHub Releases](https://github.com/4zyz4/GKME/releases) to download the latest version.
 
+### Nightly Builds
+
+Nightly builds are produced automatically from the latest `master` commits and published to the [`nightly` pre-release](https://github.com/4zyz4/GKME/releases/tag/nightly). They are **test builds that may contain bugs or incomplete features** — please don't use them as your daily driver, and back up your data before upgrading.
+
 ### Build from Source
 
 ```bash

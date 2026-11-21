@@ -171,6 +171,10 @@ GKME 围绕两个维度组织功能：**连接方式**决定输入如何送达�
 
 前往 [GitHub Releases](https://github.com/4zyz4/GKME/releases) 下载最新版本。
 
+### 夜间构建
+
+夜间构建由 `master` 最新提交自动生成，发布在 [`nightly` 预发布](https://github.com/4zyz4/GKME/releases/tag/nightly)。它是**测试版本，可能包含 bug 或未完成的功能**，请不要当作日常主力版本，升级前请先备份数据。
+
 ### 自行构建
 
 ```bash
