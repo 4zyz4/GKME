@@ -2838,6 +2838,28 @@
                         android:text="@string/i18n_detect" />
                 </LinearLayout>
 
+                <LinearLayout
+                    android:id="@+id/joyConLogControls"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:visibility="gone">
+
+                    <Button
+                        android:id="@+id/btnStartJoyConLog"
+                        style="@style/GamepadChip"
+                        android:background="@drawable/bg_chip_selected"
+                        android:text="@string/i18n_joy_con_start_log" />
+
+                    <Button
+                        android:id="@+id/btnExportJoyConLog"
+                        style="@style/GamepadChip"
+                        android:layout_marginStart="8dp"
+                        android:background="@drawable/bg_chip_selected"
+                        android:text="@string/i18n_joy_con_export_log" />
+                </LinearLayout>
+
             </LinearLayout>
         </ScrollView>
 

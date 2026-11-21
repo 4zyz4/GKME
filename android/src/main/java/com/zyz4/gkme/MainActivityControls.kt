@@ -130,6 +130,19 @@ internal object Kb {
     const val ArrowUp = 0x52
     // Menu
     const val Menu = 0x65
+    const val PrintScreen = 0x46
+    const val ScrollLock = 0x47
+    const val Pause = 0x48
+    const val NumLock = 0x53
+    const val NumpadDivide = 0x54
+    const val NumpadMultiply = 0x55
+    const val NumpadSubtract = 0x56
+    const val NumpadAdd = 0x57
+    const val NumpadEnter = 0x58
+    const val Numpad1 = 0x59
+    const val Numpad0 = 0x62
+    const val NumpadDot = 0x63
+    const val NumpadEqual = 0x67
 }
 
 internal object BitNameMapper {
@@ -510,6 +523,8 @@ internal fun MainActivity.setupGamepadLayoutListener() {
         }
 
         override fun onEditModeChanged(isEditMode: Boolean) {
+            if (isEditMode) a.viewModel.externalKeyboard.releaseAll()
+            a.externalMouseController.updateCapture()
             if (isEditMode) {
                 a.floatingEditor.showAnimated()
                 a.floatingEditor.restoreFromSettings(a.viewModel.settings.value)
@@ -538,7 +553,7 @@ internal fun MainActivity.setupGamepadLayoutListener() {
         val needCapture = enabled
         a.pointerCaptureNeeded = needCapture
         a.physicalControllerHandler.isPointerCaptureActive = enabled
-        a.gamepadLayout.setTouchpadCaptureMode(needCapture)
+        a.externalMouseController.updateCapture()
     }
 
     // Set up mouse mode: when mousepad control exists in the layout, route captured pointer events

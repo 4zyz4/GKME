@@ -2,11 +2,14 @@ package com.zyz4.gkme
 
 import com.zyz4.gkme.i18n.AppLocale
 import com.zyz4.gkme.R
+import androidx.lifecycle.lifecycleScope
+
 import android.annotation.SuppressLint
 import android.app.Dialog
 import android.content.Context
 import android.content.Intent
 import android.hardware.display.DisplayManager
+import android.hardware.input.InputManager
 import android.view.Display
 import android.media.session.MediaSession
 import android.os.Build
@@ -56,17 +59,22 @@ import com.zyz4.gkme.service.FloatingOverlayService
 import com.zyz4.gkme.service.SessionKeepAliveService
 import com.zyz4.gkme.view.FloatingEditorPanel
 import com.zyz4.gkme.view.GamepadLayout
+import com.zyz4.gkme.view.ExternalInputFrameLayout
 import com.zyz4.gkme.view.LayoutGlobalSettingsPanel
 import com.zyz4.gkme.view.SettingsButtonWheelView
 import com.zyz4.gkme.view.addComboTimingControls
 import com.zyz4.gkme.input.AdaptiveTriggerHandler
+import com.zyz4.gkme.input.ExternalKeyboardPassthrough
+import com.zyz4.gkme.input.JoyConDiagnostics
 import com.zyz4.gkme.input.PhysicalControllerHandler
 import com.zyz4.gkme.input.SdlPlatform
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-
     internal val viewModel: GkViewModel by viewModels()
     internal lateinit var gamepadLayout: GamepadLayout
     internal lateinit var floatingController: FloatingModeController
@@ -105,6 +113,25 @@ class MainActivity : ComponentActivity() {
 
     private var mediaSession: MediaSession? = null
 
+    private val keyboardInputManager by lazy { getSystemService(InputManager::class.java) }
+    internal val externalMouseController by lazy { ExternalMouseController(this) }
+    internal val externalKeyboardDiagnostics = ExternalKeyboardDiagnostics()
+    internal val physicalControllerDiagnostics by lazy { PhysicalControllerDiagnostics(this) }
+    private val keyboardDeviceListener = object : InputManager.InputDeviceListener {
+        override fun onInputDeviceAdded(deviceId: Int) = externalMouseController.updateCapture()
+        override fun onInputDeviceRemoved(deviceId: Int) {
+            viewModel.externalKeyboard.releaseDevice(deviceId)
+            viewModel.externalMouse.releaseDevice(deviceId)
+            externalMouseController.updateCapture()
+        }
+        // A changed layout/source must not leave the previous usages held.
+        override fun onInputDeviceChanged(deviceId: Int) {
+            viewModel.externalKeyboard.releaseDevice(deviceId)
+            viewModel.externalMouse.releaseDevice(deviceId)
+            externalMouseController.updateCapture()
+        }
+    }
+
     /** 自适应扳机的手机马达是否已被 HD 通路接管。 */
     private var phoneHdAdaptiveOwned = false
 
@@ -130,6 +157,22 @@ class MainActivity : ComponentActivity() {
         } else {
             pendingBluetoothStart = false
             showToast(getString(R.string.i18n_bluetooth_permission_is_required_for_blu))
+        }
+    }
+
+    private val joyConLightPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted && physicalControllerHandler.driver == com.zyz4.gkme.model.ControllerDriver.JOY_CON_PAIR) {
+            physicalControllerHandler.reconnect()
+        }
+    }
+
+    internal fun requestJoyConLightPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        val permission = android.Manifest.permission.BLUETOOTH_CONNECT
+        if (ContextCompat.checkSelfPermission(this, permission) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            joyConLightPermissionLauncher.launch(permission)
         }
     }
 
@@ -189,6 +232,23 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
         uri?.let { exportPresetToUri(it) }
+    }
+
+    internal val exportJoyConLogLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri ->
+        val report = JoyConDiagnostics.report
+        if (uri != null && report != null) {
+            lifecycleScope.launch {
+                val saved = withContext(Dispatchers.IO) {
+                    runCatching {
+                        val stream = checkNotNull(contentResolver.openOutputStream(uri, "wt"))
+                        stream.bufferedWriter(Charsets.UTF_8).use { it.write(report) }
+                    }.isSuccess
+                }
+                showToast(if (saved) "Joy-Con 日志已保存" else "保存失败，可重新导出")
+            }
+        }
     }
 
     internal val exportAppearanceLauncher = registerForActivityResult(
@@ -277,16 +337,25 @@ class MainActivity : ComponentActivity() {
     private fun startMainContent() {
         setContentView(R.layout.activity_main)
         gamepadLayout = findViewById(R.id.gamepadLayout)
+        findViewById<ExternalInputFrameLayout>(R.id.externalInputRoot).onExternalKeyPreIme = { event ->
+            dispatchJoyConKeyEvent(event, "pre_ime") || dispatchExternalKeyboardEvent(event, "pre_ime")
+        }
         floatingController = FloatingModeController(this)
         physicalControllerHandler = PhysicalControllerHandler(this)
         // 后台 evdev 源不经过 Activity 的 dispatch，状态变化后主动同步给 ViewModel。
         physicalControllerHandler.onStateChanged = { syncPhysicalControllerState() }
+        if (BuildConfig.DEBUG) {
+            physicalControllerDiagnostics.start(lifecycleScope, physicalControllerHandler, viewModel.connectionState)
+        }
         setupMediaSession()
+        keyboardInputManager.registerInputDeviceListener(keyboardDeviceListener, Handler(Looper.getMainLooper()))
         setupGamepadLayoutListener()
+        externalMouseController.install()
         viewModel.onHapticFeedbackPress = { performHaptic(isPress = true) }
         viewModel.onHapticFeedbackRelease = { performHaptic(isPress = false) }
         gamepadLayout.applyAppearance(viewModel.settings.value)
         Handler(Looper.getMainLooper()).postDelayed({
+            if (isFinishing || isDestroyed) return@postDelayed
             // 首帧之后再初始化 Shizuku 监听与 RichTap 预置资源，避免拖慢启动。
             // 注册 Shizuku 监听（本机模式使用），以便连接页正确显示授权条目状态。
             GamepadInjector.init(this)
@@ -371,25 +440,33 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        if (::floatingController.isInitialized && floatingController.isActive) {
-            runCatching { floatingController.exit() }
-            stopService(Intent(this, FloatingOverlayService::class.java))
+        if (::gamepadLayout.isInitialized) {
+            if (BuildConfig.DEBUG) physicalControllerDiagnostics.stop()
+            viewModel.releaseExternalInput()
+            externalMouseController.updateCapture(paused = true)
+            keyboardInputManager.unregisterInputDeviceListener(keyboardDeviceListener)
+            if (floatingController.isActive) {
+                runCatching { floatingController.exit() }
+                stopService(Intent(this, FloatingOverlayService::class.java))
+            }
+            physicalControllerHandler.stop()
+            mediaSession?.release()
+            displayManager.unregisterDisplayListener(displayListener)
         }
-        if (::physicalControllerHandler.isInitialized) physicalControllerHandler.stop()
         // 只有用户真正结束页面时才停止保活；系统回收/配置变化导致的 onDestroy
         // 不应把前台服务一起停掉，否则进程会立刻退回 cached 状态。
         if (isFinishing) SessionKeepAliveService.stop(this)
-        mediaSession?.release()
-        displayManager.unregisterDisplayListener(displayListener)
         super.onDestroy()
     }
 
     override fun onResume() {
         super.onResume()
+        if (!::gamepadLayout.isInitialized) return
         // 回到前台：Activity 的 dispatch 会重新驱动手柄状态，交还输入。
         if (::physicalControllerHandler.isInitialized) {
             physicalControllerHandler.setBackgroundInputActive(false)
         }
+        gamepadLayout.post { externalMouseController.updateCapture() }
         if (::floatingController.isInitialized && floatingController.isActive &&
             android.os.SystemClock.elapsedRealtime() - floatingStartedAt > FLOATING_RESUME_GUARD_MS
         ) {
@@ -407,9 +484,14 @@ class MainActivity : ComponentActivity() {
         if (::physicalControllerHandler.isInitialized) {
             physicalControllerHandler.setBackgroundInputActive(true)
         }
-        // 没有悬浮窗时要靠前台服务把进程保持在 FOREGROUND_SERVICE 优先级，
-        // 否则系统会把它当成 cached 进程回收，输入转发随之中断。
-        syncSessionKeepAlive()
+        if (::gamepadLayout.isInitialized) {
+            viewModel.releaseExternalInput()
+            physicalControllerHandler.releaseJoyConInput()
+            externalMouseController.updateCapture(paused = true)
+            // 没有悬浮窗时要靠前台服务把进程保持在 FOREGROUND_SERVICE 优先级，
+            // 否则系统会把它当成 cached 进程回收，输入转发随之中断。
+            syncSessionKeepAlive()
+        }
         super.onPause()
     }
 
@@ -524,11 +606,18 @@ class MainActivity : ComponentActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
+        if (!::gamepadLayout.isInitialized) return
+        if (JoyConDiagnostics.recording) JoyConDiagnostics.note("FOCUS active=$hasFocus")
+        if (!hasFocus) {
+            viewModel.releaseExternalInput()
+            if (::physicalControllerHandler.isInitialized) physicalControllerHandler.releaseJoyConInput()
+        }
+        externalMouseController.updateCapture(paused = !hasFocus)
         if (hasFocus) {
             hideSystemBars()
             if (pointerCaptureNeeded) {
                 Handler(Looper.getMainLooper()).postDelayed({
-                    gamepadLayout.setTouchpadCaptureMode(true)
+                    externalMouseController.updateCapture()
                 }, 500)
             }
         }
@@ -639,10 +728,22 @@ class MainActivity : ComponentActivity() {
             device.sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK
     }
 
+    private fun dispatchJoyConKeyEvent(event: KeyEvent, stage: String): Boolean {
+        // A Joy-Con direction key can reach Android as KEYCODE_UNKNOWN with a Linux scan code.
+        if (!::physicalControllerHandler.isInitialized || !physicalControllerHandler.handleJoyConKeyEvent(event, stage)) return false
+        syncPhysicalControllerState()
+        return true
+    }
+
     // AppCompatActivity/ComponentActivity 将该方法标记为 RestrictTo，但自定义物理手柄按键
     // 分发（含 screen-off 模式下吞掉手柄 BACK）必须在 Activity 层拦截，重写是唯一入口。
     @SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // Before accepting the license, let the agreement page handle its own keys.
+        if (!::gamepadLayout.isInitialized) return super.dispatchKeyEvent(event)
+        if (dispatchJoyConKeyEvent(event, "activity")) return true
+        if (externalMouseController.consumeSideButtonKey(event)) return true
+        if (dispatchExternalKeyboardEvent(event, "activity")) return true
         // In screen-off mode the gamepad is meant for gameplay: swallow controller
         // BACK events (e.g. the B button) so only the real back key/gesture exits.
         if (isScreenOff && isGamepadBackEvent(event)) return true
@@ -654,6 +755,20 @@ class MainActivity : ComponentActivity() {
             return true
         }
         return super.dispatchKeyEvent(event)
+    }
+
+    private fun dispatchExternalKeyboardEvent(event: KeyEvent, stage: String): Boolean {
+        val device = event.device
+        val reason = if (device == null) "missing_device" else ExternalKeyboardPassthrough.rejectionReason(
+            event.source, device.sources, device.isExternalKeyboardDevice(), device.isVirtual, event.flags,
+            device.keyboardType, event.keyCode,
+        )
+        val enabled = hasWindowFocus() && !inSettings && !gamepadLayout.isEditModeActive() &&
+            viewModel.connectionManager.canForwardExternalInput
+        val handled = viewModel.externalKeyboard.handle(event.deviceId, event.keyCode, event.action,
+            event.repeatCount, reason == null, enabled)
+        if (BuildConfig.DEBUG) externalKeyboardDiagnostics.record(stage, event, device, enabled, reason, handled)
+        return handled
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
@@ -730,6 +845,9 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun dispatchGenericMotionEvent(event: MotionEvent?): Boolean {
+        if (event != null && ::gamepadLayout.isInitialized &&
+            externalMouseController.onUncapturedEvent(event)
+        ) return true
         if (event != null && ::physicalControllerHandler.isInitialized &&
             physicalControllerHandler.handleMotionEvent(event)
         ) {
@@ -740,6 +858,9 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun dispatchTouchEvent(event: MotionEvent?): Boolean {
+        if (event != null && ::gamepadLayout.isInitialized &&
+            externalMouseController.onUncapturedEvent(event)
+        ) return true
         if (event != null && ::physicalControllerHandler.isInitialized &&
             event.device?.vendorId == 0x054c &&
             physicalControllerHandler.handleMotionEvent(event)

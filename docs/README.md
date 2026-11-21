@@ -111,6 +111,8 @@ flowchart TB
 | [protocol.md](protocol.md) | protobuf 报文、UDP/USB 帧、发现握手、DSU、经典蓝牙 HID 报告、AIDL 接口 |
 | [service-transport.md](service-transport.md) | `ConnectionManager` 及 `service/` 下 UDP/USB/蓝牙/DSU 传输、音频下行、状态机与重连 |
 | [input.md](input.md) | 输入管线：`GamepadState`、触屏汇总、物理手柄（SDL/USB 两后端）、体感、自适应扳机、灵敏度曲线 |
+| [external-keyboard.md](external-keyboard.md) | Android 控制端的外接实体键盘直通、诊断与回归验证 |
+| [external-mouse.md](external-mouse.md) | Android 控制端的外接实体鼠标捕获、直通与回归验证 |
 | [usb-drivers.md](usb-drivers.md) | `input/usb/*.java`：各厂商手柄 USB HID 解析、DualSense 音圈 PCM、Switch HD rumble |
 | [view-ui.md](view-ui.md) | `MainActivity` partial、`GkViewModel`、布局编辑/渲染/命中、`inputdispatcher` 策略层、外观、悬浮窗 |
 | [haptic.md](haptic.md) | RichTap 手机 HD 震动、Android 16+ PWLE 包络震动（PCM2PWLE）、PCM→HE 流式管线、仲裁、native DualSense 音频触觉（实验细节见 [richtap-hd-vibration.md](richtap-hd-vibration.md)） |

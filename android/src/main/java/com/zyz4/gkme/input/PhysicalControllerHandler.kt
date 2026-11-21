@@ -213,6 +213,7 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
             ControllerDriver.DUALSENSE_BLUETOOTH -> DualSenseBluetoothPhysicalControllerBackend(context)
             // AUTO is resolved above; the default keeps the exhaustive when well-formed.
             ControllerDriver.AUTO -> SdlPhysicalControllerBackend(context)
+            ControllerDriver.JOY_CON_PAIR -> JoyConPairPhysicalControllerBackend(context)
         }
         newBackend.controllerGyroEnabled = storedControllerGyroEnabled
         newBackend.inputControllerIndex = storedInputControllerIndex
@@ -426,6 +427,8 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
         // SDL3 的 ControllerInfo.id 是 SDL instance id，且 HIDAPI 的 USB 路径后台可用；
         // P1 先不接管，避免背键/陀螺仪能力回退。
         ControllerDriver.SDL3 -> false
+        // Joy-Con 双手柄走蓝牙 HID 主机通道，事件由 Activity 分发；P1 不做 evdev 兜底。
+        ControllerDriver.JOY_CON_PAIR -> false
         ControllerDriver.INPUT_MANAGER, ControllerDriver.DUALSENSE_BLUETOOTH -> true
         ControllerDriver.AUTO -> false
     }
@@ -547,7 +550,27 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
 
     override fun handleKeyEvent(event: KeyEvent): Boolean = backend?.handleKeyEvent(event) ?: false
 
-    override fun handleMotionEvent(event: MotionEvent): Boolean = backend?.handleMotionEvent(event) ?: false
+    internal fun handleJoyConKeyEvent(event: KeyEvent, stage: String): Boolean {
+        val trace = JoyConDiagnostics.recording
+        if (trace) JoyConDiagnostics.key(event, stage)
+        return (backend as? JoyConPairPhysicalControllerBackend)?.handleKeyEvent(event, trace) ?: false
+    }
+
+    internal fun describeJoyConBindings() {
+        (backend as? JoyConPairPhysicalControllerBackend)?.describeJoyConBindings()
+    }
+
+    fun releaseJoyConInput() {
+        (backend as? JoyConPairPhysicalControllerBackend)?.releaseInput()
+    }
+
+    override fun handleMotionEvent(event: MotionEvent): Boolean {
+        val active = backend
+        if (JoyConDiagnostics.recording && active !is JoyConPairPhysicalControllerBackend) {
+            JoyConDiagnostics.motion(event) { "MAP driver=${activeDriver.value.name}" }
+        }
+        return active?.handleMotionEvent(event) ?: false
+    }
 
     override fun setCapturedTouchpadState(
         normalizedX: Float, normalizedY: Float,

@@ -3,6 +3,25 @@ package com.zyz4.gkme.input
 import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.proto.GamepadInput
 
+internal fun GamepadInput.withExternalInput(report: InputReport, includeMouseDelta: Boolean): GamepadInput =
+    withKeyboard(report.keyboard, includeMouseDelta).toBuilder()
+        .setMouseButtons(mouseButtons or report.mouse.buttons)
+        .setMouseDx((if (includeMouseDelta) mouseDx else 0) + report.mouse.dx)
+        .setMouseDy((if (includeMouseDelta) mouseDy else 0) + report.mouse.dy)
+        .setMouseWheel((if (includeMouseDelta) mouseWheel else 0) + report.mouse.wheel)
+        .setMousePan((if (includeMouseDelta) mousePan else 0) + report.mouse.pan)
+        .build()
+
+/** Merge keyboard transitions into a complete input frame without repeating relative mouse deltas. */
+internal fun GamepadInput.withKeyboard(report: KeyboardReport, includeMouseDelta: Boolean): GamepadInput {
+    val builder = toBuilder()
+        .setKeyboardModifiers(report.modifier)
+        .clearPressedScanCodes()
+        .addAllPressedScanCodes(report.keys)
+    if (!includeMouseDelta) builder.setMouseDx(0).setMouseDy(0).setMouseWheel(0).setMousePan(0)
+    return builder.build()
+}
+
 fun GamepadState.toProto(
     keyboardModifier: UInt = 0u,
     keyboardKeys: List<UInt> = emptyList(),

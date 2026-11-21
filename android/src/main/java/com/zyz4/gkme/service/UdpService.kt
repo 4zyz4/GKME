@@ -35,6 +35,7 @@ class UdpService {
     private var sockets = mutableListOf<DatagramSocket>()
     private var broadcastJobs = mutableListOf<Job>()
     private var receiveJobs = mutableListOf<Job>()
+    @Volatile private var generation = 0L
     @Volatile var pcAddress: InetSocketAddress? = null
         private set
     @Volatile var lastReceiveTime: Long = 0
@@ -97,6 +98,7 @@ class UdpService {
     ) {
         val savedPc = pcAddress
         stop()
+        portInUse = false
         this.onMessage = onMessage
         this.broadcastName = deviceName
         this.broadcastMac = macAddress
@@ -136,6 +138,8 @@ class UdpService {
     }
 
     fun stop() {
+        generation++
+        connected = false
         broadcastJobs.forEach { it.cancel() }
         broadcastJobs.clear()
         receiveJobs.forEach { it.cancel() }
@@ -145,6 +149,7 @@ class UdpService {
         }
         sockets.clear()
         pcAddress = null
+        lastReceiveTime = 0
     }
 
     suspend fun sendGamepadInput(input: GamepadInput) {
@@ -233,6 +238,8 @@ class UdpService {
     }
 
     private fun startReceiveLoopForSocket(socket: DatagramSocket) {
+        val socketGeneration = generation
+        val callback = onMessage
         val job = CoroutineScope(Dispatchers.IO).launch {
             // The receive loop blocks on socket.receive(), so it only consumes CPU when
             // a packet arrives. Running it at audio priority keeps it from being starved
@@ -245,6 +252,7 @@ class UdpService {
                 try {
                     val dp = DatagramPacket(buf, buf.size)
                     socket.receive(dp)
+                    if (socketGeneration != generation) break
                     lastReceiveTime = System.currentTimeMillis()
                     val len = dp.length
                     if (len < 1) continue
@@ -254,7 +262,7 @@ class UdpService {
                         TYPE_SERVER_TO_CLIENT -> {
                             pcAddress = InetSocketAddress(dp.address, PORT)
                             val msg = ServerToClient.parseFrom(payload)
-                            onMessage?.invoke(msg)
+                            callback?.invoke(msg)
                         }
                     }
                 } catch (_: Exception) {

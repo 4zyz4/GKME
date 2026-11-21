@@ -54,7 +54,7 @@ open class InputManagerPhysicalControllerBackend(private val context: Context) :
     private val _isConnected = MutableStateFlow(false)
     override val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
 
-    private val _controllerState = MutableStateFlow(PhysicalControllerState())
+    protected val _controllerState = MutableStateFlow(PhysicalControllerState())
     override val controllerState: StateFlow<PhysicalControllerState> = _controllerState.asStateFlow()
 
     private val _connectedControllers = MutableStateFlow<List<ControllerInfo>>(emptyList())
@@ -221,6 +221,9 @@ open class InputManagerPhysicalControllerBackend(private val context: Context) :
     /** Called after the attached-device list changed, before [ControllerInfo] is rebuilt. */
     protected open fun onDevicesChanged(devices: List<InputDevice>) {}
 
+    protected open fun describeControllers(devices: List<InputDevice>): List<ControllerInfo> =
+        devices.map { toInfo(it) }
+
     private fun refreshDevices() {
         val list = ArrayList<InputDevice>()
         try {
@@ -237,7 +240,7 @@ open class InputManagerPhysicalControllerBackend(private val context: Context) :
         axisMaps.clear()
         onDevicesChanged(list)
         inputDeviceId = list.getOrNull(inputControllerIndex)?.id ?: -1
-        _connectedControllers.value = list.map { toInfo(it) }
+        _connectedControllers.value = describeControllers(list)
         _isConnected.value = list.isNotEmpty()
         controllerHasGyro = list.getOrNull(gyroControllerIndex)?.let { hasGyroSensor(it) } ?: false
         // A device change can swap the sensor source under the same index; re-resolve.
@@ -610,7 +613,7 @@ open class InputManagerPhysicalControllerBackend(private val context: Context) :
             rightStickY = rightStickY.toShort(),
             leftTrigger = leftTrigger,
             rightTrigger = rightTrigger,
-            dpad = dpadHatValue(),
+            dpad = dpadHatValue(dpadBits),
             touchpadX = localTouchX,
             touchpadY = localTouchY,
             touchpadTouch = localTouchActive,
@@ -619,7 +622,7 @@ open class InputManagerPhysicalControllerBackend(private val context: Context) :
         )
     }
 
-    private fun resetInputState() {
+    protected open fun resetInputState() {
         keyBits = 0
         dpadBits = 0
         leftTrigger = 0
@@ -636,18 +639,7 @@ open class InputManagerPhysicalControllerBackend(private val context: Context) :
         _controllerState.value = PhysicalControllerState()
     }
 
-    private fun dpadHatValue(): Int {
-        val up = dpadBits and GamepadState.DPAD_BIT_UP != 0
-        val down = dpadBits and GamepadState.DPAD_BIT_DOWN != 0
-        val left = dpadBits and GamepadState.DPAD_BIT_LEFT != 0
-        val right = dpadBits and GamepadState.DPAD_BIT_RIGHT != 0
-        return (if (up) GamepadState.DPAD_UP else 0) or
-            (if (down) GamepadState.DPAD_DOWN else 0) or
-            (if (left) GamepadState.DPAD_LEFT else 0) or
-            (if (right) GamepadState.DPAD_RIGHT else 0)
-    }
-
-    private fun keyCodeToBit(keyCode: Int): Int = when (keyCode) {
+    protected fun keyCodeToBit(keyCode: Int): Int = when (keyCode) {
         KeyEvent.KEYCODE_BUTTON_A -> GamepadState.A
         KeyEvent.KEYCODE_BUTTON_B -> GamepadState.B
         KeyEvent.KEYCODE_BUTTON_X -> GamepadState.X
@@ -669,7 +661,7 @@ open class InputManagerPhysicalControllerBackend(private val context: Context) :
         else -> 0
     }
 
-    private fun hatToBits(hatX: Float, hatY: Float): Int {
+    protected fun hatToBits(hatX: Float, hatY: Float): Int {
         var bits = 0
         if (hatY < -HAT_THRESHOLD) bits = bits or GamepadState.DPAD_BIT_UP
         if (hatY > HAT_THRESHOLD) bits = bits or GamepadState.DPAD_BIT_DOWN
@@ -694,7 +686,7 @@ open class InputManagerPhysicalControllerBackend(private val context: Context) :
     private fun axisValue(event: MotionEvent, axis: Int): Float =
         if (axis < 0) 0f else event.getAxisValue(axis)
 
-    private fun motionRangeForJoystickAxis(device: InputDevice, axis: Int): InputDevice.MotionRange? =
+    protected fun motionRangeForJoystickAxis(device: InputDevice, axis: Int): InputDevice.MotionRange? =
         try {
             device.getMotionRange(axis, InputDevice.SOURCE_JOYSTICK)
                 ?: device.getMotionRange(axis, InputDevice.SOURCE_GAMEPAD)
@@ -781,7 +773,7 @@ open class InputManagerPhysicalControllerBackend(private val context: Context) :
     }
 
     /** Maps an axis to the signed 16-bit stick range used by the rest of the app. */
-    private fun normalizedStick(device: InputDevice, axis: Int, value: Float): Int {
+    protected fun normalizedStick(device: InputDevice, axis: Int, value: Float): Int {
         if (axis < 0) return 0
         val range = motionRangeForJoystickAxis(device, axis)
         val min = range?.min ?: -1f
@@ -790,7 +782,7 @@ open class InputManagerPhysicalControllerBackend(private val context: Context) :
         return (normalized.coerceIn(-1f, 1f) * 32767f).toInt()
     }
 
-    private fun normalizedTrigger(device: InputDevice, axis: Int, value: Float): Int {
+    protected fun normalizedTrigger(device: InputDevice, axis: Int, value: Float): Int {
         if (axis < 0) return 0
         val range = motionRangeForJoystickAxis(device, axis)
         val min = range?.min ?: 0f

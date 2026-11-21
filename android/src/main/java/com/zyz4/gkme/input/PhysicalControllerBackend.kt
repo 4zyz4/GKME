@@ -2,9 +2,21 @@ package com.zyz4.gkme.input
 
 import android.view.KeyEvent
 import android.view.MotionEvent
+import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.model.TouchPoint
 import com.zyz4.gkme.model.VibrationDevice
 import kotlinx.coroutines.flow.StateFlow
+
+internal fun dpadHatValue(bits: Int): Int {
+    val up = bits and GamepadState.DPAD_BIT_UP != 0
+    val down = bits and GamepadState.DPAD_BIT_DOWN != 0
+    val left = bits and GamepadState.DPAD_BIT_LEFT != 0
+    val right = bits and GamepadState.DPAD_BIT_RIGHT != 0
+    return (if (up) GamepadState.DPAD_UP else 0) or
+        (if (down) GamepadState.DPAD_DOWN else 0) or
+        (if (left) GamepadState.DPAD_LEFT else 0) or
+        (if (right) GamepadState.DPAD_RIGHT else 0)
+}
 
 /** A connected physical gamepad that can receive game rumble. */
 data class ControllerInfo(
