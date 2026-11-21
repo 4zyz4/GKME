@@ -88,6 +88,9 @@ android {
             signingConfigs.findByName("releaseSigned")?.let { signingConfig = it }
         }
         release {
+            // 存在可用密钥时（本地 local.properties 或 CI 注入）产出可直接安装的签名 APK；
+            // 否则保持 unsigned，仅用于构建验证。
+            signingConfigs.findByName("releaseSigned")?.let { signingConfig = it }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
