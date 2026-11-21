@@ -41,6 +41,26 @@ class GamepadRenderer(
         strokeWidth = 3f * density
     }
 
+    private val multiSelectionPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFF00E5FF.toInt()
+        style = Paint.Style.STROKE
+        strokeWidth = 2f * density
+        pathEffect = android.graphics.DashPathEffect(
+            floatArrayOf(8f * density, 6f * density), 0f,
+        )
+    }
+
+    private val marqueeFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0x3300E5FF
+        style = Paint.Style.FILL
+    }
+
+    private val marqueeStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFF00E5FF.toInt()
+        style = Paint.Style.STROKE
+        strokeWidth = 1.5f * density
+    }
+
     private val handlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = -0x1
         style = Paint.Style.FILL
@@ -131,6 +151,9 @@ class GamepadRenderer(
         isEditMode: Boolean,
         adjustingFollowAreaId: String?,
         isAdjustingFollowArea: Boolean,
+        selectedButtonIds: Set<String> = emptySet(),
+        marqueeRect: android.graphics.RectF? = null,
+        marqueeSelectionIds: Set<String> = emptySet(),
     ) {
         if (cellW <= 0 || cellH <= 0) return
 
@@ -212,7 +235,11 @@ class GamepadRenderer(
         if (!isEditMode) return
 
         drawGrid(canvas, height, cellW, cellH)
-        drawSelectionOverlay(canvas, selectedButtonId, buttons, cellW, cellH, adjustingFollowAreaId, isAdjustingFollowArea)
+        drawSelectionOverlay(
+            canvas, selectedButtonId, selectedButtonIds, buttons, cellW, cellH,
+            adjustingFollowAreaId, isAdjustingFollowArea, marqueeSelectionIds,
+        )
+        drawMarquee(canvas, marqueeRect)
     }
 
     // ── Internal helpers ─────────────────────────────────────
@@ -236,12 +263,37 @@ class GamepadRenderer(
     private fun drawSelectionOverlay(
         canvas: Canvas,
         selectedButtonId: String?,
+        selectedButtonIds: Set<String>,
         buttons: List<ButtonPosition>,
         cellW: Float,
         cellH: Float,
         adjustingFollowAreaId: String?,
         isAdjustingFollowArea: Boolean,
+        marqueeSelectionIds: Set<String>,
     ) {
+        val ids = when {
+            selectedButtonIds.isNotEmpty() -> selectedButtonIds
+            selectedButtonId != null -> setOf(selectedButtonId)
+            else -> emptySet()
+        }
+        if (ids.isEmpty() && marqueeSelectionIds.isEmpty()) return
+
+        // 多选项 / 框选命中的控件：虚线框。
+        val multiIds = buildSet {
+            addAll(ids)
+            selectedButtonId?.let { remove(it) }
+            addAll(marqueeSelectionIds)
+        }
+        for (id in multiIds) {
+            val pos = buttons.find { it.id == id } ?: continue
+            val vb = visualBounds(pos)
+            val vl = vb[0] * cellW
+            val vt = vb[1] * cellH
+            val vbw = vb[2] * cellW
+            val vbh = vb[3] * cellH
+            canvas.drawRect(vl, vt, vl + vbw, vt + vbh, multiSelectionPaint)
+        }
+
         val selId = selectedButtonId ?: return
         val pos = buttons.find { it.id == selId } ?: return
 
@@ -275,6 +327,12 @@ class GamepadRenderer(
                 drawText(AppStrings.get(R.string.i18n_up), markX, markY, markPaint)
             }
         }
+    }
+
+    private fun drawMarquee(canvas: Canvas, rect: android.graphics.RectF?) {
+        if (rect == null || rect.width() <= 0f || rect.height() <= 0f) return
+        canvas.drawRect(rect, marqueeFillPaint)
+        canvas.drawRect(rect, marqueeStrokePaint)
     }
 
     private fun visualBounds(pos: ButtonPosition): FloatArray {

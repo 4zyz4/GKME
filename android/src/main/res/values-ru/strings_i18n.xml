@@ -77,6 +77,7 @@
     <string name="i18n_center_size" formatted="false">"Размер центральной зоны (%)"</string>
     <string name="i18n_circle" formatted="false">"Круг"</string>
     <string name="i18n_clear" formatted="false">"Очистить"</string>
+    <string name="i18n_clear_selection" formatted="false">"Снять выделение"</string>
     <string name="i18n_clockwise" formatted="false">"По часовой стрелке"</string>
     <string name="i18n_close" formatted="false">"Закрыть"</string>
     <string name="i18n_collapse_expand_panel" formatted="false">"Свернуть/развернуть панель"</string>
@@ -136,8 +137,10 @@
     <string name="i18n_delayed" formatted="false">"С задержкой"</string>
     <string name="i18n_delete" formatted="false">"Удалить"</string>
     <string name="i18n_delete_0" formatted="true">"Удалить \"%1$s\"?"</string>
+    <string name="i18n_delete_all_selected" formatted="false">"Удалить все"</string>
     <string name="i18n_delete_control" formatted="false">"Удалить элемент"</string>
     <string name="i18n_delete_preset" formatted="false">"Удалить пресет"</string>
+    <string name="i18n_delete_selected_controls" formatted="true">"Удалить выбранные элементы (%1$d)?"</string>
     <string name="i18n_delete_selected_point" formatted="false">"Удалить выбранную точку"</string>
     <string name="i18n_delete_this_control" formatted="false">"Удалить этот элемент?"</string>
     <string name="i18n_detect" formatted="false">"Определить"</string>
@@ -512,6 +515,7 @@
     <string name="i18n_select_network_interface" formatted="false">"Выбрать сетевой интерфейс"</string>
     <string name="i18n_select_stick_cap_image" formatted="false">"Выбрать изображение накладки стика"</string>
     <string name="i18n_select_touchpad_image" formatted="false">"Выбрать изображение тачпада"</string>
+    <string name="i18n_selected_controls_count" formatted="true">"Выбрано элементов: %1$d"</string>
     <string name="i18n_sensitivity" formatted="false">"Чувствительность"</string>
     <string name="i18n_sensitivity_a072e4" formatted="false">"Чувствительность (%)"</string>
     <string name="i18n_sensitivity_curve" formatted="false">"Кривая чувствительности"</string>

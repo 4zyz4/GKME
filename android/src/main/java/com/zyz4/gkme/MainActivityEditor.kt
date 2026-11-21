@@ -76,6 +76,32 @@ internal fun MainActivity.createFloatingEditor(): FloatingEditorPanel {
                     })
             }
 
+            override fun onClearSelection() {
+                a.gamepadLayout.deselectButton()
+            }
+
+            override fun onDeleteSelected() {
+                // settings 按钮不可删除，批量删除时跳过。
+                val ids = a.gamepadLayout.selectedButtonIds
+                    .filter { it != GamepadLayout.SETTINGS_BUTTON_ID }
+                if (ids.isEmpty()) {
+                    a.gamepadLayout.deselectButton()
+                    a.floatingEditor.clearParameters()
+                    return
+                }
+                CustomDialog.showConfirm(
+                    a,
+                    getString(R.string.i18n_delete_control),
+                    getString(R.string.i18n_delete_selected_controls, ids.size),
+                    positiveText = getString(R.string.i18n_delete),
+                    onPositive = {
+                        ids.forEach { a.gamepadLayout.removeButtonPosition(it) }
+                        a.gamepadLayout.deselectButton()
+                        a.floatingEditor.clearParameters()
+                    },
+                )
+            }
+
             override fun onButtonUpdated(buttonId: String, updated: ButtonPosition) {
                 val current = a.gamepadLayout.currentButtons.find { it.id == buttonId }
                 val merged = current?.let { cur ->

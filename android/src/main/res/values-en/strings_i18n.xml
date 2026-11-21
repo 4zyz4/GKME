@@ -77,6 +77,7 @@
     <string name="i18n_center_size" formatted="false">"Center area size (%)"</string>
     <string name="i18n_circle" formatted="false">"Circle"</string>
     <string name="i18n_clear" formatted="false">"Clear"</string>
+    <string name="i18n_clear_selection" formatted="false">"Clear selection"</string>
     <string name="i18n_clockwise" formatted="false">"Clockwise"</string>
     <string name="i18n_close" formatted="false">"Close"</string>
     <string name="i18n_collapse_expand_panel" formatted="false">"Collapse/expand panel"</string>
@@ -136,8 +137,10 @@
     <string name="i18n_delayed" formatted="false">"Delayed"</string>
     <string name="i18n_delete" formatted="false">"Delete"</string>
     <string name="i18n_delete_0" formatted="true">"Delete \"%1$s\"?"</string>
+    <string name="i18n_delete_all_selected" formatted="false">"Delete all"</string>
     <string name="i18n_delete_control" formatted="false">"Delete control"</string>
     <string name="i18n_delete_preset" formatted="false">"Delete preset"</string>
+    <string name="i18n_delete_selected_controls" formatted="true">"Delete the %1$d selected controls?"</string>
     <string name="i18n_delete_selected_point" formatted="false">"Delete selected point"</string>
     <string name="i18n_delete_this_control" formatted="false">"Delete this control?"</string>
     <string name="i18n_detect" formatted="false">"Detect"</string>
@@ -512,6 +515,7 @@
     <string name="i18n_select_network_interface" formatted="false">"Select network interface"</string>
     <string name="i18n_select_stick_cap_image" formatted="false">"Select stick cap image"</string>
     <string name="i18n_select_touchpad_image" formatted="false">"Select touchpad image"</string>
+    <string name="i18n_selected_controls_count" formatted="true">"%1$d controls selected"</string>
     <string name="i18n_sensitivity" formatted="false">"Sensitivity"</string>
     <string name="i18n_sensitivity_a072e4" formatted="false">"Sensitivity (%)"</string>
     <string name="i18n_sensitivity_curve" formatted="false">"Sensitivity curve"</string>

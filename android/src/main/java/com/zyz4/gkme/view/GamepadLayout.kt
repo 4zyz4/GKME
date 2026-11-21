@@ -185,8 +185,28 @@ class GamepadLayout @JvmOverloads constructor(
     val currentGyroPreset: com.zyz4.gkme.model.LayoutPreset
         get() = getPreset()
     private var isEditMode = false
+    private val _selectedButtonIds = mutableSetOf<String>()
+
+    /**
+     * 编辑模式下当前选中的控件集合；单选时只包含一个元素。
+     * 面板参数仍以 [selectedButtonId]（主选中项）为准。
+     */
+    val selectedButtonIds: Set<String>
+        get() = _selectedButtonIds
+
     var selectedButtonId: String? = null
-        private set
+        private set(value) {
+            field = value
+            when {
+                value == null -> _selectedButtonIds.clear()
+                // 多选由 selectButtons() 维护，主选中项变化时保留其余成员。
+                _selectedButtonIds.size > 1 && value in _selectedButtonIds -> Unit
+                else -> {
+                    _selectedButtonIds.clear()
+                    _selectedButtonIds.add(value)
+                }
+            }
+        }
     private var editSnapshot: LayoutPreset? = null
     var hasChanges = false
         private set
@@ -216,6 +236,14 @@ class GamepadLayout @JvmOverloads constructor(
     private var draggingChild: View? = null
     private var dragOffsetX = 0f
     private var dragOffsetY = 0f
+    private var isGroupDragging = false
+    private var groupDragDownX = 0f
+    private var groupDragDownY = 0f
+    private var groupDragMoved = false
+
+    // 框选（marquee）视觉状态
+    private var marqueeRect: android.graphics.RectF? = null
+    private var marqueeSelectionIds: Set<String> = emptySet()
 
     private var resizingChild: View? = null
     private var resizeStartW = 0
@@ -1328,6 +1356,9 @@ class GamepadLayout @JvmOverloads constructor(
 
     fun enterEditMode() {
         gamepadEditGesture.reset()
+        marqueeRect = null
+        marqueeSelectionIds = emptySet()
+        isGroupDragging = false
         editSnapshot = getPreset()
         isEditMode = true
         hasChanges = false
@@ -1341,9 +1372,13 @@ class GamepadLayout @JvmOverloads constructor(
 
     fun exitEditMode() {
         gamepadEditGesture.reset()
+        marqueeRect = null
+        marqueeSelectionIds = emptySet()
+        isGroupDragging = false
         isEditMode = false
         blockSelectionForGlobalSettings = false
         selectedButtonId = null
+        _selectedButtonIds.clear()
         isAdjustingFollowArea = false
         adjustingFollowAreaId = null
         syncJoystickSelection()
@@ -1464,6 +1499,8 @@ class GamepadLayout @JvmOverloads constructor(
         if (selectedButtonId == id) {
             selectedButtonId = null
             syncJoystickSelection()
+        } else if (_selectedButtonIds.remove(id)) {
+            invalidate()
         }
         hasChanges = true
         refreshSwipeTriggers()
@@ -1477,7 +1514,7 @@ class GamepadLayout @JvmOverloads constructor(
         }
         // Prevent selection during global gyro settings
         if (blockSelectionForGlobalSettings) return
-        if (selectedButtonId != id) {
+        if (selectedButtonId != id || _selectedButtonIds.size > 1) {
             selectedButtonId = id
             syncJoystickSelection()
             listener?.onButtonSelected(id)
@@ -1485,13 +1522,38 @@ class GamepadLayout @JvmOverloads constructor(
         }
     }
 
-    fun deselectButton() {
-        selectedButtonId?.let { _ ->
-            selectedButtonId = null
-            syncJoystickSelection()
-            listener?.onButtonSelected(null)
-            invalidate()
+    /**
+     * 批量选中控件（框选/多选）。空集合等价于取消选择。
+     * 主选中项取当前布局顺序中的第一个控件，供参数面板使用。
+     */
+    fun selectButtons(ids: Collection<String>) {
+        if (blockSelectionForGlobalSettings) return
+        val valid = currentButtons
+            .filter { it.visible && it.id in ids }
+            .map { it.id }
+        if (valid.isEmpty()) {
+            deselectButton()
+            return
         }
+        _selectedButtonIds.clear()
+        _selectedButtonIds.addAll(valid)
+        // 先填充集合再设置主选中，setter 会保留多选成员。
+        selectedButtonId = valid.first()
+        isGroupDragging = false
+        marqueeRect = null
+        marqueeSelectionIds = emptySet()
+        syncJoystickSelection()
+        listener?.onButtonSelected(selectedButtonId)
+        invalidate()
+    }
+
+    fun deselectButton() {
+        if (selectedButtonId == null && _selectedButtonIds.isEmpty()) return
+        selectedButtonId = null
+        _selectedButtonIds.clear()
+        syncJoystickSelection()
+        listener?.onButtonSelected(null)
+        invalidate()
     }
 
     private fun syncJoystickSelection() {
@@ -1723,9 +1785,12 @@ class GamepadLayout @JvmOverloads constructor(
             cellH = cellH,
             buttons = currentButtons,
             selectedButtonId = selectedButtonId,
+            selectedButtonIds = selectedButtonIds,
             isEditMode = isEditMode,
             adjustingFollowAreaId = adjustingFollowAreaId,
             isAdjustingFollowArea = isAdjustingFollowArea,
+            marqueeRect = marqueeRect,
+            marqueeSelectionIds = marqueeSelectionIds,
         )
     }
 
@@ -1746,6 +1811,8 @@ class GamepadLayout @JvmOverloads constructor(
             if (id != null) {
                 val pos = currentButtons.find { it.id == id }
                 if (pos != null) {
+                    // 隐藏控件不参与编辑模式下的点击/框选。
+                    if (!pos.visible) continue
                     val vb = visualBounds(pos)
                     val gx = vb[0] * cellW
                     val gy = vb[1] * cellH
@@ -1798,12 +1865,42 @@ class GamepadLayout @JvmOverloads constructor(
             density = density,
             dispatcher = dispatcher,
             findChildAt = ::findChildAt,
+            selectedButtonId = selectedButtonId,
+            selectedButtonIds = selectedButtonIds,
         )
+
+        // 框选：独立于拖拽/缩放路径，直接消费事件。
+        if (output.marqueeActive || output.marqueeFinished) {
+            if (output.marqueeActive && event.actionMasked == MotionEvent.ACTION_DOWN) {
+                showGridOverlayIfEnabled()
+            }
+            marqueeRect = output.marqueeRect
+            marqueeSelectionIds = output.marqueeSelection
+            if (output.marqueeSelectionChanged) {
+                selectButtons(output.marqueeSelection)
+            }
+            if (output.marqueeFinished) {
+                marqueeRect = null
+                marqueeSelectionIds = emptySet()
+                isGroupDragging = false
+                animateGridTo(0f)
+            }
+            invalidate()
+            return true
+        }
 
         // Sync edit-mode state from gesture output
         isAdjustingFollowArea = output.syncIsAdjustingFollowArea
         adjustingFollowAreaId = output.syncAdjustingFollowAreaId
         val previousDragging = draggingChild
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+            isGroupDragging = output.groupDragging
+            if (isGroupDragging) {
+                groupDragDownX = event.x
+                groupDragDownY = event.y
+                groupDragMoved = false
+            }
+        }
         if (event.actionMasked == MotionEvent.ACTION_DOWN || event.actionMasked == MotionEvent.ACTION_MOVE) {
             draggingChild = output.syncDraggingChild
             resizingChild = output.syncResizingChild
@@ -1842,6 +1939,12 @@ class GamepadLayout @JvmOverloads constructor(
         // Apply all commands on move
         if (event.actionMasked == MotionEvent.ACTION_MOVE) {
             applyEditCommands(output.commands)
+            if (isGroupDragging && !groupDragMoved) {
+                val slop = 8f * density
+                if (kotlin.math.hypot(event.x - groupDragDownX, event.y - groupDragDownY) > slop) {
+                    groupDragMoved = true
+                }
+            }
             // Ensure draggingChild stays consistent with the dispatcher's state.
             // If the dispatcher started dragging a different button (e.g. the selected one
             // was moved externally), update draggingChild accordingly.
@@ -1857,7 +1960,7 @@ class GamepadLayout @JvmOverloads constructor(
                     }
                 }
             }
-            if (draggingChild != null) {
+            if (draggingChild != null && !isGroupDragging) {
                 val id = getButtonId(draggingChild!!)
                 if (id != null) {
                     setSelectedButton(id)
@@ -1891,13 +1994,23 @@ class GamepadLayout @JvmOverloads constructor(
             }
             if (draggingChild != null) {
                 val id = getButtonId(draggingChild!!)
-                if (id != null) {
+                if (id != null && isGroupDragging) {
+                    if (groupDragMoved) {
+                        // 多选批量拖拽结束：保持多选集合，只刷新参数面板的主选中项。
+                        listener?.onButtonSelected(id)
+                    } else {
+                        // 轻点多选中的控件：收缩为单选。
+                        setSelectedButton(id)
+                    }
+                } else if (id != null) {
                     setSelectedButton(id)
                 }
                 draggingChild = null
             }
             draggingFollowArea = false
             resizingFollowArea = false
+            isGroupDragging = false
+            groupDragMoved = false
             animateGridTo(0f)
         }
 

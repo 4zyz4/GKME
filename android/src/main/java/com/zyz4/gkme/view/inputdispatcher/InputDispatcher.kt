@@ -179,6 +179,10 @@ data class ChildDragStart(
     val buttonId: String,
     val offsetX: Float,
     val offsetY: Float,
+    /**
+     * 多选批量拖拽时的起始网格坐标（含主拖拽控件）。仅一个元素时按普通单控件拖拽处理。
+     */
+    val groupStartGrid: Map<String, Pair<Int, Int>> = emptyMap(),
 )
 
 data class ChildResizeStart(
@@ -236,5 +240,6 @@ interface InputDispatcher {
         cellH: Float,
         density: Float = 1f,
         selectedButtonId: String? = null,
+        selectedButtonIds: Set<String> = emptySet(),
     ): EditDispatchResult
 }

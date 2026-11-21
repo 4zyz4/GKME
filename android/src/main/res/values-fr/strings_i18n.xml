@@ -77,6 +77,7 @@
     <string name="i18n_center_size" formatted="false">"Taille de la zone centrale (%)"</string>
     <string name="i18n_circle" formatted="false">"Cercle"</string>
     <string name="i18n_clear" formatted="false">"Effacer"</string>
+    <string name="i18n_clear_selection" formatted="false">"Désélectionner"</string>
     <string name="i18n_clockwise" formatted="false">"Sens horaire"</string>
     <string name="i18n_close" formatted="false">"Fermer"</string>
     <string name="i18n_collapse_expand_panel" formatted="false">"Réduire/développer le panneau"</string>
@@ -136,8 +137,10 @@
     <string name="i18n_delayed" formatted="false">"Différé"</string>
     <string name="i18n_delete" formatted="false">"Supprimer"</string>
     <string name="i18n_delete_0" formatted="true">"Supprimer \"%1$s\" ?"</string>
+    <string name="i18n_delete_all_selected" formatted="false">"Tout supprimer"</string>
     <string name="i18n_delete_control" formatted="false">"Supprimer le contrôle"</string>
     <string name="i18n_delete_preset" formatted="false">"Supprimer le préréglage"</string>
+    <string name="i18n_delete_selected_controls" formatted="true">"Supprimer les %1$d contrôles sélectionnés ?"</string>
     <string name="i18n_delete_selected_point" formatted="false">"Supprimer le point sélectionné"</string>
     <string name="i18n_delete_this_control" formatted="false">"Supprimer ce contrôle ?"</string>
     <string name="i18n_detect" formatted="false">"Détecter"</string>
@@ -512,6 +515,7 @@
     <string name="i18n_select_network_interface" formatted="false">"Sélectionner l'interface réseau"</string>
     <string name="i18n_select_stick_cap_image" formatted="false">"Sélectionner l'image du capuchon de stick"</string>
     <string name="i18n_select_touchpad_image" formatted="false">"Sélectionner l'image du pavé tactile"</string>
+    <string name="i18n_selected_controls_count" formatted="true">"%1$d contrôles sélectionnés"</string>
     <string name="i18n_sensitivity" formatted="false">"Sensibilité"</string>
     <string name="i18n_sensitivity_a072e4" formatted="false">"Sensibilité (%)"</string>
     <string name="i18n_sensitivity_curve" formatted="false">"Courbe de sensibilité"</string>

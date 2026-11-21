@@ -144,6 +144,7 @@ override fun dispatchEdit(
         cellH: Float,
         density: Float,
         selectedButtonId: String?,
+        selectedButtonIds: Set<String>,
     ): EditDispatchResult {
 
         val action = event.action
@@ -153,7 +154,7 @@ override fun dispatchEdit(
 
         return when (action) {
             android.view.MotionEvent.ACTION_DOWN -> {
-                handleDown(x, y, buttons, currentButtonBounds, children, currentState, cellW, cellH, density, selectedButtonId)
+                handleDown(x, y, buttons, currentButtonBounds, children, currentState, cellW, cellH, density, selectedButtonId, selectedButtonIds)
             }
             android.view.MotionEvent.ACTION_MOVE -> {
                 handleMove(x, y, buttons, currentButtonBounds, children, currentState, cellW, cellH, density, selectedButtonId)
@@ -186,6 +187,7 @@ override fun dispatchEdit(
         cellH: Float,
         densityPx: Float,
         selectedButtonId: String? = null,
+        selectedButtonIds: Set<String> = emptySet(),
     ): EditDispatchResult {
         val commands = mutableListOf<EditCommand>()
         val handleHitPx = 16f * densityPx
@@ -229,42 +231,46 @@ override fun dispatchEdit(
             }
         }
 
-        // 1) Try to select the currently selected button (it may have been moved externally)
+        // 1) 命中测试：优先保持多选组内的控件，其次顶层的控件。
+        //    注意：按在空白区域时不再拖动“当前选中”的控件——空白按下用于框选。
         val allHitIds = hitResolver.resolve(x, y, buttons, bounds)
-        
-        var hitId: String? = null
-        
-        if (selectedButtonId != null && selectedButtonId in allHitIds) {
-            // Selected button is under finger — drag it
-            hitId = selectedButtonId
-        } else if (selectedButtonId != null && allHitIds.isEmpty()) {
-            // Selected button is NOT under finger (e.g. moved externally, or user tapped empty space)
-            // Still drag the selected button — find its pixel bounds for offset calculation
-            val selPos = buttons.find { it.id == selectedButtonId }
-            if (selPos != null) {
-                hitId = selectedButtonId
-            }
-        } else if (hitId == null) {
-            // No relevant selection — pick topmost hit button
-            hitId = allHitIds.firstOrNull()
-        }
+
+        val hitId: String? = allHitIds.firstOrNull { it in selectedButtonIds }
+            ?: allHitIds.firstOrNull()
         
         if (hitId != null) {
             val rect = bounds[hitId]
             val pos = buttons.find { it.id == hitId }
             
             if (rect != null && pos != null) {
-                // Normal case: button has valid bounds
+                // 多选拖拽：若按下的控件属于多选集合，整组一起移动。
+                val groupIds = if (hitId in selectedButtonIds && selectedButtonIds.size > 1) {
+                    selectedButtonIds.filter { id -> buttons.any { it.id == id && it.visible } }
+                } else {
+                    emptyList()
+                }
+                val groupStartGrid = if (groupIds.size > 1) {
+                    groupIds.mapNotNull { id ->
+                        buttons.find { it.id == id }?.let { id to (it.x to it.y) }
+                    }.toMap()
+                } else {
+                    emptyMap()
+                }
+
                 commands += MoveButton(hitId, pos.x, pos.y)
-                val isUnselectedDrag = selectedButtonId == null || selectedButtonId != hitId
+                val isUnselectedDrag = groupStartGrid.isEmpty() && selectedButtonId != hitId
                 return EditDispatchResult(commands, if (isUnselectedDrag) {
                     state.copy(
-                        childDragStart = ChildDragStart(hitId, x - rect.left.toFloat(), y - rect.top.toFloat()),
+                        childDragStart = ChildDragStart(
+                            hitId, x - rect.left.toFloat(), y - rect.top.toFloat(), groupStartGrid,
+                        ),
                         unselectedDragDownGrid = Pair((x / cellW).toInt(), (y / cellH).toInt()),
                     )
                 } else {
                     state.copy(
-                        childDragStart = ChildDragStart(hitId, x - rect.left.toFloat(), y - rect.top.toFloat()),
+                        childDragStart = ChildDragStart(
+                            hitId, x - rect.left.toFloat(), y - rect.top.toFloat(), groupStartGrid,
+                        ),
                     )
                 })
             } else if (hitId == selectedButtonId && pos != null) {
@@ -363,6 +369,34 @@ override fun dispatchEdit(
             var gridX = ((x - ds.offsetX) / cellW).toInt().coerceIn(0, gridCols - 1)
             var gridY = ((y - ds.offsetY) / cellH).toInt().coerceAtLeast(0)
             val pos = buttons.find { it.id == ds.buttonId } ?: return EditDispatchResult(commands, state)
+
+            // 多选批量拖拽：以主控件位移为准，整组保持相对位置一起移动。
+            val groupStart = ds.groupStartGrid
+            if (groupStart.size > 1) {
+                val primaryStart = groupStart[ds.buttonId]
+                if (primaryStart != null) {
+                    val deltaX = (gridX - primaryStart.first).toInt()
+                    val deltaY = (gridY - primaryStart.second).toInt()
+                    if (deltaX == 0 && deltaY == 0) {
+                        return EditDispatchResult(commands, state)
+                    }
+                    for ((id, start) in groupStart) {
+                        val target = buttons.find { it.id == id } ?: continue
+                        val newX = (start.first + deltaX).coerceIn(0, (gridCols - 1).coerceAtLeast(0))
+                        val newY = (start.second + deltaY).coerceAtLeast(0)
+                        commands += MoveButton(id, newX, newY)
+                        if (isTouchpadId(id) && target.followAreaEnabled) {
+                            commands += MoveFollowArea(
+                                id,
+                                target.followAreaX + (newX - target.x),
+                                target.followAreaY + (newY - target.y),
+                            )
+                        }
+                    }
+                    return EditDispatchResult(commands, state)
+                }
+            }
+
             if (state.unselectedDragDownGrid != null) {
                 val (downGx, downGy) = state.unselectedDragDownGrid
                 val dx = kotlin.math.abs(gridX - downGx)

@@ -77,6 +77,7 @@
     <string name="i18n_center_size" formatted="false">"中心區域大小（%）"</string>
     <string name="i18n_circle" formatted="false">"圓形"</string>
     <string name="i18n_clear" formatted="false">"清空"</string>
+    <string name="i18n_clear_selection" formatted="false">"取消選取"</string>
     <string name="i18n_clockwise" formatted="false">"順時針"</string>
     <string name="i18n_close" formatted="false">"關閉"</string>
     <string name="i18n_collapse_expand_panel" formatted="false">"收起/展開面板"</string>
@@ -136,8 +137,10 @@
     <string name="i18n_delayed" formatted="false">"延遲"</string>
     <string name="i18n_delete" formatted="false">"刪除"</string>
     <string name="i18n_delete_0" formatted="true">"確定刪除「%1$s」？"</string>
+    <string name="i18n_delete_all_selected" formatted="false">"全部刪除"</string>
     <string name="i18n_delete_control" formatted="false">"刪除控制元件"</string>
     <string name="i18n_delete_preset" formatted="false">"刪除預設"</string>
+    <string name="i18n_delete_selected_controls" formatted="true">"確定刪除選取的 %1$d 個控制元件？"</string>
     <string name="i18n_delete_selected_point" formatted="false">"刪除選中點"</string>
     <string name="i18n_delete_this_control" formatted="false">"確定刪除該控制元件？"</string>
     <string name="i18n_detect" formatted="false">"偵測"</string>
@@ -512,6 +515,7 @@
     <string name="i18n_select_network_interface" formatted="false">"選擇網路卡"</string>
     <string name="i18n_select_stick_cap_image" formatted="false">"選擇搖桿帽圖片"</string>
     <string name="i18n_select_touchpad_image" formatted="false">"選擇觸控板圖片"</string>
+    <string name="i18n_selected_controls_count" formatted="true">"已選擇 %1$d 個控制元件"</string>
     <string name="i18n_sensitivity" formatted="false">"靈敏度"</string>
     <string name="i18n_sensitivity_a072e4" formatted="false">"靈敏度(%)"</string>
     <string name="i18n_sensitivity_curve" formatted="false">"靈敏度曲線"</string>

@@ -57,6 +57,10 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         fun onEnterGlobalGyroSettings()
         fun onExitGlobalGyroSettings()
         fun onEnlargeCurve(curve: List<Float>?, onChanged: (List<Float>?) -> Unit)
+        /** 多选浮窗：取消当前多选。 */
+        fun onClearSelection()
+        /** 多选浮窗：删除所有选中的控件。 */
+        fun onDeleteSelected()
     }
 
     var editorListener: EditorListener? = null
@@ -108,6 +112,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     )
 
     private var currentButton: ButtonPosition? = null
+    /** 面板当前展示的多选数量；-1 表示未展示多选内容。 */
+    private var shownMultiSelectionCount = -1
     var isAdjustingFollowArea: Boolean = false
         set(value) {
             field = value
@@ -623,6 +629,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     }
 
     fun clearParameters() {
+        shownMultiSelectionCount = -1
         swapToEmptyParameters()
     }
 
@@ -636,6 +643,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
     /** Slides the parameters area up and fades it out. Used on deselect. */
     fun clearParametersAnimated() {
+        shownMultiSelectionCount = -1
         val old = buttonParamsInner
         val fresh = createParamsContent()
         buttonParamsInner = fresh
@@ -656,6 +664,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 
     /** Slides the old parameters up/out and the new ones up/in at the same time. Used when switching control. */
     fun showParametersAnimated(buttonId: String, button: ButtonPosition) {
+        shownMultiSelectionCount = -1
         val old = buttonParamsInner
         val fresh = createParamsContent()
         buttonParamsInner = fresh
@@ -687,12 +696,84 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
     }
 
     fun showParameters(buttonId: String, button: ButtonPosition) {
+        shownMultiSelectionCount = -1
         val old = buttonParamsInner
         val fresh = createParamsContent()
         buttonParamsInner = fresh
         buttonParamsHost.addView(fresh)
         populateParameterViews(buttonId, button)
         if (old !== fresh && old.parent === buttonParamsHost) buttonParamsHost.removeView(old)
+    }
+
+    /**
+     * 多选浮窗内容：显示选中数量，并提供「取消选中」「全部删除」两个批量操作。
+     * 仅在多选（count > 1）时调用。
+     */
+    fun showMultiSelection(count: Int) {
+        if (count <= 1) return
+        if (shownMultiSelectionCount == count) return
+        shownMultiSelectionCount = count
+
+        val density = context.resources.displayMetrics.density
+        val old = buttonParamsInner
+        val fresh = createParamsContent()
+        buttonParamsInner = fresh
+        buttonParamsHost.addView(fresh)
+
+        val title = TextView(context).apply {
+            text = context.getString(R.string.i18n_selected_controls_count, count)
+            setTextColor(-0x1)
+            textSize = 16f
+        }
+        fresh.addView(
+            title,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            ).apply { bottomMargin = (10f * density).toInt() },
+        )
+
+        val spacing = (4f * density).toInt()
+        val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
+        val btnClear = EditorButton(context).apply {
+            text = context.getString(R.string.i18n_clear_selection)
+            setTextColor(-0x1)
+            textSize = 13f
+            setBackgroundResource(R.drawable.button_flat)
+            setOnClickListener { editorListener?.onClearSelection() }
+        }
+        val btnDelete = EditorButton(context).apply {
+            text = context.getString(R.string.i18n_delete_all_selected)
+            setTextColor(-0x1)
+            textSize = 13f
+            setBackgroundResource(R.drawable.button_flat)
+            setOnClickListener { editorListener?.onDeleteSelected() }
+        }
+        row.addView(btnClear, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = spacing })
+        row.addView(btnDelete, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        fresh.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        val offset = CONTENT_SLIDE_DP * density
+        if (old.isNotEmpty()) buttonParamsHost.bringChildToFront(old)
+        fresh.translationY = offset
+        fresh.alpha = 0f
+        fresh.animate()
+            .translationY(0f)
+            .alpha(1f)
+            .setDuration(CONTENT_FADE_MS)
+            .setInterpolator(easeOutQuint())
+            .start()
+        if (old.isEmpty()) {
+            buttonParamsHost.removeView(old)
+        } else {
+            old.animate()
+                .translationY(-offset)
+                .alpha(0f)
+                .setDuration(CONTENT_FADE_MS)
+                .setInterpolator(easeOutQuint())
+                .withEndAction { if (old.parent === buttonParamsHost) buttonParamsHost.removeView(old) }
+                .start()
+        }
     }
 
     private fun populateParameterViews(buttonId: String, button: ButtonPosition) {

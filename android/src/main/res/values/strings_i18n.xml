@@ -77,6 +77,7 @@
     <string name="i18n_center_size" formatted="false">"中心区域大小（%）"</string>
     <string name="i18n_circle" formatted="false">"圆形"</string>
     <string name="i18n_clear" formatted="false">"清空"</string>
+    <string name="i18n_clear_selection" formatted="false">"取消选中"</string>
     <string name="i18n_clockwise" formatted="false">"顺时针"</string>
     <string name="i18n_close" formatted="false">"关闭"</string>
     <string name="i18n_collapse_expand_panel" formatted="false">"收起/展开面板"</string>
@@ -136,8 +137,10 @@
     <string name="i18n_delayed" formatted="false">"延时"</string>
     <string name="i18n_delete" formatted="false">"删除"</string>
     <string name="i18n_delete_0" formatted="true">"确定删除「%1$s」？"</string>
+    <string name="i18n_delete_all_selected" formatted="false">"全部删除"</string>
     <string name="i18n_delete_control" formatted="false">"删除控件"</string>
     <string name="i18n_delete_preset" formatted="false">"删除预设"</string>
+    <string name="i18n_delete_selected_controls" formatted="true">"确定删除选中的 %1$d 个控件？"</string>
     <string name="i18n_delete_selected_point" formatted="false">"删除选中点"</string>
     <string name="i18n_delete_this_control" formatted="false">"确定删除该控件？"</string>
     <string name="i18n_detect" formatted="false">"检测"</string>
@@ -512,6 +515,7 @@
     <string name="i18n_select_network_interface" formatted="false">"选择网卡"</string>
     <string name="i18n_select_stick_cap_image" formatted="false">"选择摇杆帽图片"</string>
     <string name="i18n_select_touchpad_image" formatted="false">"选择触摸板图片"</string>
+    <string name="i18n_selected_controls_count" formatted="true">"已选择 %1$d 个控件"</string>
     <string name="i18n_sensitivity" formatted="false">"灵敏度"</string>
     <string name="i18n_sensitivity_a072e4" formatted="false">"灵敏度(%)"</string>
     <string name="i18n_sensitivity_curve" formatted="false">"灵敏度曲线"</string>

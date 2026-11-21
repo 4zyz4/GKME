@@ -241,7 +241,9 @@ Activity **不直接改 ViewModel 内部状态**：
   - follow-area / touchpad-area / dpadPad-area 描边矩形；
   - `LinearTriggerView` 行程线框；
   - 编辑模式网格；
-  - 选中框 + resize handle + 旋转方向标记。
+  - 选中框 + resize handle + 旋转方向标记；
+  - 多选控件的青色虚线框；
+  - 框选矩形的半透明填充与描边。
 - 各控件外观由自身 `onDraw`：`JoystickView`（含死区黄环、反死区蓝环）、`DpadPadView`（9 区域）、
   `CustomKeypadView`（4/8 方向楔形或 3×3）。
 
@@ -265,6 +267,13 @@ Activity **不直接改 ViewModel 内部状态**：
 - 命令是纯数据 `EditCommand`：`MoveButton`、`ResizeButton`、`MoveFollowArea`、`ResizeFollowArea`；
   `applyTo` 返回新列表，无副作用。
 - 未选中按钮拖动按约 8dp 触摸容差（换算为当前坐标单位，保底 1 格）才进入拖动，避免误触。
+- 空白区域按下并滑动进入**框选**：`GamepadEditGesture` 维护 marquee 矩形，实时高亮相交控件，
+  抬手后把命中集合提交给 `GamepadLayout.selectButtons()`；轻点空白取消选择。
+- **多选批量拖拽**：选中集合保存在 `GamepadLayout.selectedButtonIds`，`GamepadInputDispatcher`
+  在按下任何已选控件时把整组起始网格坐标写入 `ChildDragStart.groupStartGrid`，移动中按主控件
+  位移统一生成 `MoveButton`（touchpad 同时联动 `MoveFollowArea`），保持组内相对位置。
+- 多选时浮动面板切换为多选卡片：显示「已选择 N 个控件」，并提供「取消选中」与「全部删除」
+  （确认后逐个 `removeButtonPosition`，settings 按钮跳过）。
 - settings 按钮置顶用 `translationZ`（Material elevation 会导致 `bringChildToFront` 无效）。
 
 ---

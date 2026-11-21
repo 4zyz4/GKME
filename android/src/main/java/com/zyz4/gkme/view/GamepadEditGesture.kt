@@ -38,6 +38,20 @@ class GamepadEditGesture {
     var resizingFollowArea = false
         private set
 
+    /** 多选批量拖拽中（按下点属于多选集合且集合大小大于 1）。 */
+    var isGroupDragging = false
+        private set
+
+    // ── 框选（marquee）状态 ─────────────────────────────────
+    private var marqueeActive = false
+    private var marqueeMoved = false
+    private var marqueeStartX = 0f
+    private var marqueeStartY = 0f
+    private var marqueeCurrentX = 0f
+    private var marqueeCurrentY = 0f
+    private var marqueeRectInternal: android.graphics.RectF? = null
+    private var marqueeSelectionInternal: Set<String> = emptySet()
+
     private var _editState = EditModeState()
     private var _lastSelectedButtonId: String? = null
 
@@ -76,6 +90,18 @@ class GamepadEditGesture {
         val selectedButton: String?,
         val selectDraggingChild: String?,
         val selectResizingChild: String?,
+        /** 框选进行中（本次事件开始/延续框选）。 */
+        val marqueeActive: Boolean = false,
+        /** 当前框选矩形（px），null 表示尚未越过起始阈值。 */
+        val marqueeRect: android.graphics.RectF? = null,
+        /** 框选过程中实时命中的控件集合。 */
+        val marqueeSelection: Set<String> = emptySet(),
+        /** 框选结束且选择结果需要提交。 */
+        val marqueeSelectionChanged: Boolean = false,
+        /** 本次事件结束了框选。 */
+        val marqueeFinished: Boolean = false,
+        /** 本次事件开始了多选批量拖拽。 */
+        val groupDragging: Boolean = false,
     ) {
         companion object {
             fun empty(): DispatchOutput = DispatchOutput(
@@ -122,22 +148,146 @@ class GamepadEditGesture {
         density: Float,
         dispatcher: GamepadInputDispatcher,
         findChildAt: (x: Float, y: Float) -> android.view.View?,
+        selectedButtonId: String? = null,
+        selectedButtonIds: Set<String> = emptySet(),
     ): DispatchOutput {
         val action = event.actionMasked
-        val currentSelected = _lastSelectedButtonId
+        val currentSelected = selectedButtonId ?: _lastSelectedButtonId
+
+        // 框选进行中：事件不再交给拖拽/缩放逻辑。
+        if (marqueeActive && action != MotionEvent.ACTION_DOWN) {
+            return handleMarquee(event, buttons, buttonBounds, density)
+        }
 
         return when (action) {
-            MotionEvent.ACTION_DOWN -> handleDown(
+            MotionEvent.ACTION_DOWN -> {
+                val output = handleDown(
+                    event, raw, buttons, buttonBounds, allChildren,
+                    cellW, cellH, density, dispatcher, findChildAt,
+                    currentSelected, selectedButtonIds,
+                )
+                if (shouldStartMarquee(output)) {
+                    startMarquee(event)
+                    return output.copy(marqueeActive = true)
+                }
+                output
+            }
+            MotionEvent.ACTION_MOVE -> handleMove(
                 event, raw, buttons, buttonBounds, allChildren,
-                cellW, cellH, density, dispatcher, findChildAt,
+                cellW, cellH, density, dispatcher, currentSelected, selectedButtonIds,
             )
-            MotionEvent.ACTION_MOVE -> handleMove(event, raw, buttons, buttonBounds, allChildren, cellW, cellH, density, dispatcher)
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> handleUp(
                 event, raw, buttons, buttonBounds, allChildren,
-                cellW, cellH, density, dispatcher, currentSelected,
+                cellW, cellH, density, dispatcher, currentSelected, selectedButtonIds,
             )
             else -> DispatchOutput.empty()
         }
+    }
+
+    // ── 框选（marquee） ──────────────────────────────────────
+
+    /** 按下点没有命中任何可交互目标时进入框选。 */
+    private fun shouldStartMarquee(output: DispatchOutput): Boolean {
+        if (isAdjustingFollowArea) return false
+        return output.syncDraggingChild == null &&
+            output.syncResizingChild == null &&
+            !output.syncDraggingFollowArea &&
+            !output.syncResizingFollowArea
+    }
+
+    private fun startMarquee(event: MotionEvent) {
+        marqueeActive = true
+        marqueeMoved = false
+        marqueeStartX = event.x
+        marqueeStartY = event.y
+        marqueeCurrentX = event.x
+        marqueeCurrentY = event.y
+        marqueeRectInternal = null
+        marqueeSelectionInternal = emptySet()
+        draggingChild = null
+        resizingChild = null
+        isGroupDragging = false
+    }
+
+    private fun handleMarquee(
+        event: MotionEvent,
+        buttons: List<ButtonPosition>,
+        buttonBounds: Map<String, Rect>,
+        density: Float,
+    ): DispatchOutput {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_MOVE -> {
+                marqueeCurrentX = event.x
+                marqueeCurrentY = event.y
+                if (!marqueeMoved) {
+                    val dx = marqueeCurrentX - marqueeStartX
+                    val dy = marqueeCurrentY - marqueeStartY
+                    if (kotlin.math.hypot(dx, dy) < 8f * density) {
+                        return DispatchOutput.empty().copy(marqueeActive = true)
+                    }
+                    marqueeMoved = true
+                }
+
+                val rect = normalizedMarqueeRect()
+                marqueeRectInternal = rect
+                marqueeSelectionInternal = hitIdsInRect(rect, buttons, buttonBounds)
+                return DispatchOutput.empty().copy(
+                    marqueeActive = true,
+                    marqueeRect = rect,
+                    marqueeSelection = marqueeSelectionInternal,
+                )
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                val isUp = event.actionMasked == MotionEvent.ACTION_UP
+                val selection = if (isUp && marqueeMoved) marqueeSelectionInternal else emptySet()
+                marqueeActive = false
+                marqueeMoved = false
+                marqueeRectInternal = null
+                marqueeSelectionInternal = emptySet()
+                _editState = _editState.copy(
+                    childDragStart = null,
+                    childResizeStart = null,
+                    followAreaDragStart = null,
+                    followAreaResizeStart = null,
+                    unselectedDragDownGrid = null,
+                )
+                return DispatchOutput.empty().copy(
+                    marqueeSelection = selection,
+                    marqueeSelectionChanged = isUp,
+                    marqueeFinished = true,
+                )
+            }
+            else -> Unit
+        }
+        return DispatchOutput.empty()
+    }
+
+    private fun normalizedMarqueeRect(): android.graphics.RectF {
+        return android.graphics.RectF(
+            minOf(marqueeStartX, marqueeCurrentX),
+            minOf(marqueeStartY, marqueeCurrentY),
+            maxOf(marqueeStartX, marqueeCurrentX),
+            maxOf(marqueeStartY, marqueeCurrentY),
+        )
+    }
+
+    private fun hitIdsInRect(
+        rect: android.graphics.RectF,
+        buttons: List<ButtonPosition>,
+        buttonBounds: Map<String, Rect>,
+    ): Set<String> {
+        val result = mutableSetOf<String>()
+        for (pos in buttons) {
+            if (!pos.visible) continue
+            val r = buttonBounds[pos.id] ?: continue
+            if (r.width() <= 0 || r.height() <= 0) continue
+            if (r.left < rect.right && r.right > rect.left &&
+                r.top < rect.bottom && r.bottom > rect.top
+            ) {
+                result.add(pos.id)
+            }
+        }
+        return result
     }
 
     fun updateStateFromEditState(newState: EditModeState) {
@@ -155,6 +305,11 @@ class GamepadEditGesture {
         _lastSelectedButtonId = null
         isAdjustingFollowArea = false
         adjustingFollowAreaId = null
+        isGroupDragging = false
+        marqueeActive = false
+        marqueeMoved = false
+        marqueeRectInternal = null
+        marqueeSelectionInternal = emptySet()
     }
 
     // ── Internal handlers ──────────────────────────────────
@@ -170,10 +325,19 @@ class GamepadEditGesture {
         density: Float,
         dispatcher: GamepadInputDispatcher,
         findChildAt: (x: Float, y: Float) -> android.view.View?,
+        selectedButtonId: String? = null,
+        selectedButtonIds: Set<String> = emptySet(),
     ): DispatchOutput {
+        // 每个新手势开始前清理上一次的拖拽目标，避免空白按下时残留旧状态。
+        draggingChild = null
+        resizingChild = null
+        draggingFollowArea = false
+        resizingFollowArea = false
+        isGroupDragging = false
+
         val result = dispatcher.dispatchEdit(
             raw, buttons, buttonBounds, allChildren,
-            _editState, cellW, cellH, density, _lastSelectedButtonId,
+            _editState, cellW, cellH, density, selectedButtonId, selectedButtonIds,
         )
         _editState = result.newState
         isAdjustingFollowArea = _editState.isAdjustingFollowArea
@@ -218,6 +382,8 @@ class GamepadEditGesture {
             resizingFollowArea = _editState.followAreaResizeStart != null
         }
 
+        isGroupDragging = (_editState.childDragStart?.groupStartGrid?.size ?: 0) > 1
+
         return DispatchOutput(
             commands = result.commands,
             commandsNoMove = result.commands.filter { cmd ->
@@ -232,6 +398,7 @@ class GamepadEditGesture {
             selectedButton = _lastSelectedButtonId,
             selectDraggingChild = selectDragging,
             selectResizingChild = selectResizing,
+            groupDragging = isGroupDragging,
         )
     }
 
@@ -245,10 +412,12 @@ class GamepadEditGesture {
         cellH: Float,
         density: Float,
         dispatcher: GamepadInputDispatcher,
+        selectedButtonId: String? = null,
+        selectedButtonIds: Set<String> = emptySet(),
     ): DispatchOutput {
         val result = dispatcher.dispatchEdit(
             raw, buttons, buttonBounds, allChildren,
-            _editState, cellW, cellH, density, _lastSelectedButtonId,
+            _editState, cellW, cellH, density, selectedButtonId, selectedButtonIds,
         )
         _editState = result.newState
         isAdjustingFollowArea = _editState.isAdjustingFollowArea
@@ -282,10 +451,11 @@ class GamepadEditGesture {
         density: Float,
         dispatcher: GamepadInputDispatcher,
         lastSelectedButton: String?,
+        selectedButtonIds: Set<String> = emptySet(),
     ): DispatchOutput {
         val result = dispatcher.dispatchEdit(
             raw, buttons, buttonBounds, allChildren,
-            _editState, cellW, cellH, density, _lastSelectedButtonId,
+            _editState, cellW, cellH, density, lastSelectedButton, selectedButtonIds,
         )
         _editState = result.newState
         // Keep the follow-area adjust session alive across gestures: lifting the finger
@@ -322,6 +492,7 @@ class GamepadEditGesture {
             selectedButton = selectDragging,
             selectDraggingChild = selectDragging,
             selectResizingChild = selectResizing,
+            groupDragging = isGroupDragging,
         )
     }
 
