@@ -376,8 +376,9 @@ class MainActivity : ComponentActivity() {
             stopService(Intent(this, FloatingOverlayService::class.java))
         }
         if (::physicalControllerHandler.isInitialized) physicalControllerHandler.stop()
-        // Activity 销毁后输入转发也随之停止，保活服务没有继续存在的意义。
-        SessionKeepAliveService.stop(this)
+        // 只有用户真正结束页面时才停止保活；系统回收/配置变化导致的 onDestroy
+        // 不应把前台服务一起停掉，否则进程会立刻退回 cached 状态。
+        if (isFinishing) SessionKeepAliveService.stop(this)
         mediaSession?.release()
         displayManager.unregisterDisplayListener(displayListener)
         super.onDestroy()

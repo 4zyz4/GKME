@@ -9,7 +9,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
@@ -39,13 +41,72 @@ class SessionKeepAliveService : Service() {
         private const val CHANNEL_ID = "session_keepalive"
         private const val NOTIFICATION_ID = 4103
 
-        @Volatile
-        var isRunning: Boolean = false
-            private set
+        private const val STATE_IDLE = 0
+        private const val STATE_STARTING = 1
+        private const val STATE_RUNNING = 2
+
+        /**
+         * RUNNING -> stop 的去抖时间。Activity 生命周期抖动（onDestroy/onResume、
+         * 进出悬浮模式）会在几毫秒内 stop 后又 start；如果立刻调用 stopService，
+         * 它可能在新的 startForegroundService 之后才生效，把新记录一起带下去，
+         * 5 秒后触发 ForegroundServiceDidNotStartInTimeException。
+         */
+        private const val STOP_DELAY_MS = 500L
+
+        /** 保护 [state] 与 [stopAfterStart] 的锁。 */
+        private val stateLock = Any()
+
+        private var state = STATE_IDLE
+
+        private val mainHandler = Handler(Looper.getMainLooper())
+
+        /** 去抖期间保存 application context，避免持有 Activity。 */
+        private var pendingStopContext: Context? = null
+
+        private val stopRunnable = Runnable {
+            val context = pendingStopContext
+            pendingStopContext = null
+            val shouldStop = synchronized(stateLock) {
+                if (state != STATE_RUNNING) {
+                    false
+                } else {
+                    state = STATE_IDLE
+                    true
+                }
+            }
+            if (shouldStop && context != null) {
+                try {
+                    context.stopService(Intent(context, SessionKeepAliveService::class.java))
+                    Log.i(TAG, "请求停止会话保活服务")
+                } catch (t: Throwable) {
+                    Log.w(TAG, "停止保活服务失败: ${t.message}")
+                }
+            }
+        }
+
+        /**
+         * 在 [STATE_STARTING] 期间收到 stop 时置位：等服务进入前台后再自行停止。
+         *
+         * 不能在 `startForegroundService()` 之后、`startForeground()` 之前调用
+         * `stopService()`：系统会销毁 ServiceRecord，但 5 秒后仍抛
+         * `ForegroundServiceDidNotStartInTimeException` 让应用崩溃。
+         */
+        private var stopAfterStart = false
 
         /** 启动（或确认）会话保活前台服务；重复调用无副作用。 */
         fun start(context: Context) {
-            if (isRunning) return
+            // 取消尚未执行的延迟停止：服务还在，不需要重新 start。
+            mainHandler.removeCallbacks(stopRunnable)
+            pendingStopContext = null
+            synchronized(stateLock) {
+                if (state != STATE_IDLE) {
+                    // 已经在运行/启动中：取消可能存在的延迟停止请求。
+                    stopAfterStart = false
+                    return
+                }
+                state = STATE_STARTING
+                stopAfterStart = false
+            }
             try {
                 ContextCompat.startForegroundService(
                     context,
@@ -55,18 +116,36 @@ class SessionKeepAliveService : Service() {
             } catch (t: Throwable) {
                 // Android 12+ 在后台启动前台服务可能被拒绝；此时保持原状，
                 // 等下一次回到前台或 onPause 时再尝试。
+                synchronized(stateLock) {
+                    state = STATE_IDLE
+                    stopAfterStart = false
+                }
                 Log.w(TAG, "启动保活服务失败: ${t.message}")
             }
         }
 
         fun stop(context: Context) {
-            // 不能因为 isRunning=false 就提前返回：onPause 启动后如果立刻 onResume，
-            // stopService 可能早于 Service.onCreate 执行，跳过会留下一个前台服务。
-            try {
-                context.stopService(Intent(context, SessionKeepAliveService::class.java))
-                Log.i(TAG, "请求停止会话保活服务")
-            } catch (t: Throwable) {
-                Log.w(TAG, "停止保活服务失败: ${t.message}")
+            var delayed = false
+            synchronized(stateLock) {
+                when (state) {
+                    STATE_RUNNING -> {
+                        // 去抖：给紧随其后的 start 一个取消机会，避免 stopService
+                        // 落在新的 startForegroundService 之后。
+                        pendingStopContext = context.applicationContext
+                        mainHandler.removeCallbacks(stopRunnable)
+                        mainHandler.postDelayed(stopRunnable, STOP_DELAY_MS)
+                        Log.i(TAG, "会话保活服务将在 ${STOP_DELAY_MS}ms 后停止")
+                    }
+                    STATE_STARTING -> {
+                        // 关键：启动请求已发出，不能立刻 stopService。
+                        stopAfterStart = true
+                        delayed = true
+                    }
+                    else -> Unit
+                }
+            }
+            if (delayed) {
+                Log.i(TAG, "会话保活服务启动中，延后停止")
             }
         }
     }
@@ -79,7 +158,10 @@ class SessionKeepAliveService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        isRunning = true
+        synchronized(stateLock) {
+            // 正常路径下 state 已是 STARTING；系统重建时兜底。
+            if (state == STATE_IDLE) state = STATE_STARTING
+        }
         createNotificationChannel()
     }
 
@@ -89,20 +171,43 @@ class SessionKeepAliveService : Service() {
         } else {
             0
         }
-        return try {
+        try {
             ServiceCompat.startForeground(this, NOTIFICATION_ID, buildNotification(), type)
-            Log.i(TAG, "会话保活服务已进入前台")
-            START_NOT_STICKY
         } catch (t: Throwable) {
             // 少数 ROM 会在后台拒绝 startForeground；不要留下一个没有通知的服务。
+            synchronized(stateLock) {
+                state = STATE_IDLE
+                stopAfterStart = false
+            }
             Log.w(TAG, "进入前台失败: ${t.message}")
             stopSelf()
-            START_NOT_STICKY
+            return START_NOT_STICKY
         }
+        val stopNow = synchronized(stateLock) {
+            if (stopAfterStart) {
+                stopAfterStart = false
+                true
+            } else {
+                state = STATE_RUNNING
+                false
+            }
+        }
+        if (stopNow) {
+            Log.i(TAG, "启动后收到停止请求，立即停止")
+            stopSelf()
+        } else {
+            Log.i(TAG, "会话保活服务已进入前台")
+        }
+        return START_NOT_STICKY
     }
 
     override fun onDestroy() {
-        isRunning = false
+        mainHandler.removeCallbacks(stopRunnable)
+        pendingStopContext = null
+        synchronized(stateLock) {
+            state = STATE_IDLE
+            stopAfterStart = false
+        }
         super.onDestroy()
     }
 

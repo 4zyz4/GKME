@@ -346,6 +346,11 @@ flowchart LR
   本身就是前台服务，此时不再启动 `SessionKeepAliveService`，避免两条常驻通知。
 - **通知**：channel `session_keepalive`、id `4103`，`IMPORTANCE_LOW` + silent，
   点击回到 `MainActivity`；`START_NOT_STICKY`，进程被杀后不会留下没有功能的空通知。
+- **启动/停止竞态**：服务内部维护 `IDLE / STARTING / RUNNING` 状态。`STARTING` 期间收到
+  停止只置 `stopAfterStart`，等 `startForeground()` 成功后再 `stopSelf()`；`RUNNING` 的
+  停止延迟 500 ms，期间重新 `start` 会取消。否则 `stopService()` 可能落在新的
+  `startForegroundService()` 之后，系统销毁 ServiceRecord 后仍抛
+  `ForegroundServiceDidNotStartInTimeException`，把应用打崩。
 - **效果**（Xiaomi 23117RK66C / Android 16 实测）：按 Home 后进程从
   `cch/top-sleeping` 变为 `FGS`（`oom cur=50`），`adb shell am kill` 不会回收；
   去掉前台服务后同样的命令会立刻杀掉进程。
