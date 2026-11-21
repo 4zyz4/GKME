@@ -272,6 +272,11 @@ Activity **不直接改 ViewModel 内部状态**：
 - **多选批量拖拽**：选中集合保存在 `GamepadLayout.selectedButtonIds`，`GamepadInputDispatcher`
   在按下任何已选控件时把整组起始网格坐标写入 `ChildDragStart.groupStartGrid`，移动中按主控件
   位移统一生成 `MoveButton`（touchpad 同时联动 `MoveFollowArea`），保持组内相对位置。
+- **双指缩放**：编辑模式下第二根手指落下即进入缩放（优先于拖拽/缩放柄/框选），目标优先取
+  正在拖拽/缩放的控件，其次取手指命中的控件（命中多选成员时整组缩放），空白处则缩放当前选中集合。
+  等比控件（`lockAspect=true`）按两指距离等比缩放；矩形控件按屏幕 x/y 轴向指距**分别修改宽度和高度**
+  （旋转 90/270 时自动映射到存储的宽高）。缩放按“初始触摸帧 → 当前触摸帧”同步平移控件，
+  手指按住的控件位置始终跟随手指。三指及以上抬起一根时按剩余两指重新锚定，缩放不中断。
 - 多选时浮动面板切换为多选卡片：显示「已选择 N 个控件」，并提供「取消选中」与「全部删除」
   （确认后逐个 `removeButtonPosition`，settings 按钮跳过）。
 - settings 按钮置顶用 `translationZ`（Material elevation 会导致 `bringChildToFront` 无效）。

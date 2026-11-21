@@ -18,11 +18,14 @@ import com.zyz4.gkme.view.inputdispatcher.InteractionResult
 import com.zyz4.gkme.view.inputdispatcher.InputDispatcher
 import com.zyz4.gkme.view.inputdispatcher.LayoutEngine
 import com.zyz4.gkme.view.inputdispatcher.OldSlotState
+import com.zyz4.gkme.view.inputdispatcher.PinchResizeStart
+import com.zyz4.gkme.view.inputdispatcher.PinchResizeTarget
 import com.zyz4.gkme.view.inputdispatcher.Pointer
 import com.zyz4.gkme.view.inputdispatcher.RawTouchEvent
 import com.zyz4.gkme.view.inputdispatcher.SlotMatcher.SlotResult
 import com.zyz4.gkme.view.inputdispatcher.SwipeTriggerStrategy
 import com.zyz4.gkme.view.inputdispatcher.TouchpadClickDetector
+import kotlin.math.roundToInt
 
 /**
  * The composition root of the input dispatcher.
@@ -150,14 +153,19 @@ override fun dispatchEdit(
         val action = event.action
         val x = event.pointers.getOrElse(0) { Pointer(-1, 0f, 0f) }.x
         val y = event.pointers.getOrElse(0) { Pointer(-1, 0f, 0f) }.y
-        val handleHitPx = 16f * density
 
         return when (action) {
             android.view.MotionEvent.ACTION_DOWN -> {
-                handleDown(x, y, buttons, currentButtonBounds, children, currentState, cellW, cellH, density, selectedButtonId, selectedButtonIds)
+                handleDown(x, y, buttons, currentButtonBounds, children, currentState.copy(pinchResizeStart = null), cellW, cellH, density, selectedButtonId, selectedButtonIds)
+            }
+            android.view.MotionEvent.ACTION_POINTER_DOWN -> {
+                handlePointerDown(event.pointers, buttons, currentButtonBounds, currentState, selectedButtonIds)
             }
             android.view.MotionEvent.ACTION_MOVE -> {
-                handleMove(x, y, buttons, currentButtonBounds, children, currentState, cellW, cellH, density, selectedButtonId)
+                handleMove(x, y, event.pointers, buttons, currentButtonBounds, children, currentState, cellW, cellH, density, selectedButtonId)
+            }
+            android.view.MotionEvent.ACTION_POINTER_UP -> {
+                handlePointerUp(event.actionIndex, event.pointers, buttons, currentState)
             }
             android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
                 EditDispatchResult(
@@ -168,6 +176,7 @@ override fun dispatchEdit(
                         childDragStart = null,
                         childResizeStart = null,
                         unselectedDragDownGrid = null,
+                        pinchResizeStart = null,
                     ),
                 )
             }
@@ -296,6 +305,7 @@ override fun dispatchEdit(
 
     private fun handleMove(
         x: Float, y: Float,
+        pointers: List<Pointer>,
         buttons: List<com.zyz4.gkme.model.ButtonPosition>,
         bounds: Map<String, android.graphics.Rect>,
         children: List<android.view.View>,
@@ -307,6 +317,11 @@ override fun dispatchEdit(
     ): EditDispatchResult {
         val handleHitPx = 16f * densityPx
         val commands = mutableListOf<EditCommand>()
+
+        // 双指缩放优先：矩形控件按 x/y 轴向指距独立缩放，其余控件等比缩放。
+        state.pinchResizeStart?.let { start ->
+            return handlePinchMove(pointers, buttons, state, start, cellW, cellH, densityPx)
+        }
 
         if (state.followAreaResizeStart != null) {
             val fs = state.followAreaResizeStart
@@ -423,6 +438,271 @@ override fun dispatchEdit(
         }
 
         return EditDispatchResult(commands, state)
+    }
+
+    // ──────── 双指缩放 ────────
+
+    private fun handlePointerDown(
+        pointers: List<Pointer>,
+        buttons: List<com.zyz4.gkme.model.ButtonPosition>,
+        bounds: Map<String, android.graphics.Rect>,
+        state: EditModeState,
+        selectedButtonIds: Set<String>,
+    ): EditDispatchResult {
+        // 调整扩展区域时双指缩放不参与，避免抢走跟随区手柄。
+        if (state.isAdjustingFollowArea || state.pinchResizeStart != null) {
+            return EditDispatchResult(emptyList(), state)
+        }
+        val distance = pinchDistance(pointers)
+        if (distance < 1f) return EditDispatchResult(emptyList(), state)
+
+        val targetIds = resolvePinchTargetIds(pointers, buttons, bounds, state, selectedButtonIds)
+        if (targetIds.isEmpty()) return EditDispatchResult(emptyList(), state)
+
+        val targets = targetIds.mapNotNull { id ->
+            buttons.find { it.id == id }?.let {
+                PinchResizeTarget(id, it.x, it.y, it.width, it.height)
+            }
+        }
+        if (targets.isEmpty()) return EditDispatchResult(emptyList(), state)
+
+        return EditDispatchResult(
+            commands = emptyList(),
+            newState = state.copy(
+                pinchResizeStart = PinchResizeStart(
+                    targets = targets,
+                    startDistance = distance,
+                    startSpanX = pinchSpanX(pointers),
+                    startSpanY = pinchSpanY(pointers),
+                    startFocusX = pinchFocusX(pointers),
+                    startFocusY = pinchFocusY(pointers),
+                ),
+                childDragStart = null,
+                childResizeStart = null,
+                followAreaDragStart = null,
+                followAreaResizeStart = null,
+                unselectedDragDownGrid = null,
+            ),
+        )
+    }
+
+    /**
+     * 第二根手指落下时选择缩放目标：
+     * 1. 已有多选批量拖拽 → 整组；
+     * 2. 正在拖拽/缩放的控件 → 该控件；
+     * 3. 手指（或两指中点）命中的控件 → 该控件；若它属于多选则整组；
+     * 4. 空白处 → 当前选中集合。
+     */
+    private fun resolvePinchTargetIds(
+        pointers: List<Pointer>,
+        buttons: List<com.zyz4.gkme.model.ButtonPosition>,
+        bounds: Map<String, android.graphics.Rect>,
+        state: EditModeState,
+        selectedButtonIds: Set<String>,
+    ): List<String> {
+        val visibleIds = buttons.asSequence().filter { it.visible }.map { it.id }.toSet()
+        val activeGroup = state.childDragStart?.groupStartGrid?.keys
+            ?.filter { it in visibleIds }
+            .orEmpty()
+        if (activeGroup.size > 1) return activeGroup
+
+        state.childDragStart?.buttonId?.takeIf { it in visibleIds }?.let { return listOf(it) }
+        state.childResizeStart?.buttonId?.takeIf { it in visibleIds }?.let { return listOf(it) }
+
+        val hitPoints = buildList {
+            if (pointers.size >= 2) {
+                add(pointers[0].x + (pointers[1].x - pointers[0].x) / 2f to
+                    pointers[0].y + (pointers[1].y - pointers[0].y) / 2f)
+            }
+            pointers.forEach { add(it.x to it.y) }
+        }
+        val hitId = hitPoints.firstNotNullOfOrNull { (px, py) ->
+            hitResolver.resolve(px, py, buttons, bounds)
+                .firstOrNull { it in visibleIds }
+        }
+        val selected = selectedButtonIds.filter { it in visibleIds }
+        if (hitId != null) {
+            return if (hitId in selected && selected.size > 1) selected else listOf(hitId)
+        }
+        return selected
+    }
+
+    private fun handlePinchMove(
+        pointers: List<Pointer>,
+        buttons: List<com.zyz4.gkme.model.ButtonPosition>,
+        state: EditModeState,
+        start: PinchResizeStart,
+        cellW: Float,
+        cellH: Float,
+        density: Float,
+    ): EditDispatchResult {
+        if (pointers.size < 2 || start.startDistance <= 0f) {
+            return EditDispatchResult(emptyList(), state)
+        }
+        val currentDistance = pinchDistance(pointers)
+        val uniformScale = (currentDistance / start.startDistance).coerceIn(0.05f, 20f)
+        val currentSpanX = pinchSpanX(pointers)
+        val currentSpanY = pinchSpanY(pointers)
+        val currentFocusX = pinchFocusX(pointers)
+        val currentFocusY = pinchFocusY(pointers)
+        // 初始指距太小（两指几乎在同一条轴线上）时，用控件该方向尺寸做基准，
+        // 让手指沿另一条轴线张开的位移也能改变对应尺寸，避免比例爆炸。
+        val minSpanPx = 8f * density
+        val commands = mutableListOf<EditCommand>()
+
+        for (target in start.targets) {
+            val pos = buttons.find { it.id == target.buttonId } ?: continue
+            val swapped = !pos.lockAspect && (pos.rotation % 360 == 90 || pos.rotation % 360 == 270)
+            val startVisualLeft = target.startX * cellW
+            val startVisualTop = target.startY * cellH
+            val startVisualW = (if (swapped) target.startHeight else target.startWidth) * cellW
+            val startVisualH = (if (swapped) target.startWidth else target.startHeight) * cellH
+
+            val scaleX = if (pos.lockAspect) {
+                uniformScale
+            } else {
+                axisScale(start.startSpanX, currentSpanX, startVisualW, minSpanPx)
+            }
+            val scaleY = if (pos.lockAspect) {
+                uniformScale
+            } else {
+                axisScale(start.startSpanY, currentSpanY, startVisualH, minSpanPx)
+            }
+
+            // 把控件放在“初始触摸帧 → 当前触摸帧”的缩放/平移变换里：
+            // 手指最初按住的控件位置会随手指一起移动，缩放时始终跟手。
+            val newVisualLeft = currentFocusX - (start.startFocusX - startVisualLeft) * scaleX
+            val newVisualTop = currentFocusY - (start.startFocusY - startVisualTop) * scaleY
+            val newVisualW = startVisualW * scaleX
+            val newVisualH = startVisualH * scaleY
+
+            var newX = (newVisualLeft / cellW).roundToInt()
+                .coerceIn(0, (gridCols - 1).coerceAtLeast(0))
+            var newY = (newVisualTop / cellH).roundToInt().coerceAtLeast(0)
+            var newW = if (swapped) {
+                (newVisualH / cellH).roundToInt()
+            } else {
+                (newVisualW / cellW).roundToInt()
+            }.coerceAtLeast(1)
+            var newH = if (swapped) {
+                (newVisualW / cellW).roundToInt()
+            } else {
+                (newVisualH / cellH).roundToInt()
+            }.coerceAtLeast(1)
+
+            if (pos.id == SETTINGS_BUTTON_ID) {
+                newX = newX.coerceIn(0, (gridCols - 1).coerceAtLeast(0))
+                newY = newY.coerceAtLeast(0)
+                newW = newW.coerceAtMost((gridCols - newX).coerceAtLeast(1))
+                newH = newH.coerceAtMost((gridRows - newY).coerceAtLeast(1))
+                if (pos.lockAspect) {
+                    val side = minOf(newW, newH)
+                    newW = side
+                    newH = side
+                }
+            }
+
+            if (newX != pos.x || newY != pos.y) {
+                commands += MoveButton(target.buttonId, newX, newY)
+                if (isTouchpadId(target.buttonId) && pos.followAreaEnabled) {
+                    commands += MoveFollowArea(
+                        target.buttonId,
+                        pos.followAreaX + (newX - pos.x),
+                        pos.followAreaY + (newY - pos.y),
+                    )
+                }
+            }
+            if (newW != pos.width || newH != pos.height) {
+                commands += ResizeButton(target.buttonId, newW, newH)
+            }
+        }
+        return EditDispatchResult(commands, state)
+    }
+
+    /**
+     * 单轴缩放比例。初始指距足够大时按“当前间距 / 起始间距”计算；
+     * 否则退化为“1 + 位移 / 控件该方向尺寸”，保证从 0 间距开始也能缩放。
+     */
+    private fun axisScale(
+        startSpan: Float,
+        currentSpan: Float,
+        startSizePx: Float,
+        minSpanPx: Float,
+    ): Float {
+        val scale = if (startSpan >= minSpanPx) {
+            currentSpan / startSpan
+        } else {
+            val base = startSizePx.coerceAtLeast(minSpanPx)
+            1f + (currentSpan - startSpan) / base
+        }
+        return scale.coerceIn(0.05f, 20f)
+    }
+
+    private fun handlePointerUp(
+        actionIndex: Int,
+        pointers: List<Pointer>,
+        buttons: List<com.zyz4.gkme.model.ButtonPosition>,
+        state: EditModeState,
+    ): EditDispatchResult {
+        val start = state.pinchResizeStart ?: return EditDispatchResult(emptyList(), state)
+        // 三指及以上：抬起一根后按剩余两指重新锚定，缩放不中断。
+        val remaining = pointers.filterIndexed { index, _ -> index != actionIndex }
+        val distance = pinchDistance(remaining)
+        if (remaining.size >= 2 && distance >= 1f) {
+            val targets = start.targets.mapNotNull { target ->
+                buttons.find { it.id == target.buttonId }?.let {
+                    target.copy(
+                        startX = it.x,
+                        startY = it.y,
+                        startWidth = it.width,
+                        startHeight = it.height,
+                    )
+                }
+            }
+            if (targets.isNotEmpty()) {
+                return EditDispatchResult(
+                    emptyList(),
+                    state.copy(
+                        pinchResizeStart = PinchResizeStart(
+                            targets = targets,
+                            startDistance = distance,
+                            startSpanX = pinchSpanX(remaining),
+                            startSpanY = pinchSpanY(remaining),
+                            startFocusX = pinchFocusX(remaining),
+                            startFocusY = pinchFocusY(remaining),
+                        ),
+                    ),
+                )
+            }
+        }
+        return EditDispatchResult(emptyList(), state.copy(pinchResizeStart = null))
+    }
+
+    private fun pinchDistance(pointers: List<Pointer>): Float {
+        if (pointers.size < 2) return 0f
+        val dx = pointers[0].x - pointers[1].x
+        val dy = pointers[0].y - pointers[1].y
+        return kotlin.math.hypot(dx, dy)
+    }
+
+    private fun pinchSpanX(pointers: List<Pointer>): Float {
+        if (pointers.size < 2) return 0f
+        return kotlin.math.abs(pointers[0].x - pointers[1].x)
+    }
+
+    private fun pinchSpanY(pointers: List<Pointer>): Float {
+        if (pointers.size < 2) return 0f
+        return kotlin.math.abs(pointers[0].y - pointers[1].y)
+    }
+
+    private fun pinchFocusX(pointers: List<Pointer>): Float {
+        if (pointers.size < 2) return pointers.firstOrNull()?.x ?: 0f
+        return (pointers[0].x + pointers[1].x) / 2f
+    }
+
+    private fun pinchFocusY(pointers: List<Pointer>): Float {
+        if (pointers.size < 2) return pointers.firstOrNull()?.y ?: 0f
+        return (pointers[0].y + pointers[1].y) / 2f
     }
 
     // ──────── Geometry helpers ────────

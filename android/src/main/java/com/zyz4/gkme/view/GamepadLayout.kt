@@ -1524,9 +1524,9 @@ class GamepadLayout @JvmOverloads constructor(
 
     /**
      * 批量选中控件（框选/多选）。空集合等价于取消选择。
-     * 主选中项取当前布局顺序中的第一个控件，供参数面板使用。
+     * 主选中项优先使用 [primaryId]（须在集合内），否则取布局顺序中的第一个控件。
      */
-    fun selectButtons(ids: Collection<String>) {
+    fun selectButtons(ids: Collection<String>, primaryId: String? = null) {
         if (blockSelectionForGlobalSettings) return
         val valid = currentButtons
             .filter { it.visible && it.id in ids }
@@ -1538,7 +1538,7 @@ class GamepadLayout @JvmOverloads constructor(
         _selectedButtonIds.clear()
         _selectedButtonIds.addAll(valid)
         // 先填充集合再设置主选中，setter 会保留多选成员。
-        selectedButtonId = valid.first()
+        selectedButtonId = primaryId?.takeIf { it in valid } ?: valid.first()
         isGroupDragging = false
         marqueeRect = null
         marqueeSelectionIds = emptySet()
@@ -1868,6 +1868,33 @@ class GamepadLayout @JvmOverloads constructor(
             selectedButtonId = selectedButtonId,
             selectedButtonIds = selectedButtonIds,
         )
+
+        // 双指缩放：独立于拖拽/框选路径，直接消费事件。
+        if (output.pinchStarted || output.pinchActive || output.pinchFinished) {
+            if (output.pinchStarted) {
+                // 缩放接管手势：取消框选与残留的拖拽状态。
+                marqueeRect = null
+                marqueeSelectionIds = emptySet()
+                draggingChild = null
+                resizingChild = null
+                draggingFollowArea = false
+                resizingFollowArea = false
+                isGroupDragging = false
+                groupDragMoved = false
+                if (output.pinchTargetIds.isNotEmpty()) {
+                    selectButtons(output.pinchTargetIds, output.pinchPrimaryId)
+                }
+                showGridOverlayIfEnabled()
+            }
+            applyEditCommands(output.commands)
+            if (output.pinchFinished) {
+                val id = output.pinchPrimaryId ?: selectedButtonId
+                if (id != null) listener?.onButtonSelected(id)
+                animateGridTo(0f)
+            }
+            invalidate()
+            return true
+        }
 
         // 框选：独立于拖拽/缩放路径，直接消费事件。
         if (output.marqueeActive || output.marqueeFinished) {

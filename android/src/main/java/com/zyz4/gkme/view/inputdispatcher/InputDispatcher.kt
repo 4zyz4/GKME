@@ -157,6 +157,31 @@ data class EditModeState(
     val childDragStart: ChildDragStart? = null,
     val childResizeStart: ChildResizeStart? = null,
     val unselectedDragDownGrid: Pair<Int, Int>? = null,
+    /** 双指缩放中；非 null 表示当前手势正在按指距比例改变控件尺寸。 */
+    val pinchResizeStart: PinchResizeStart? = null,
+)
+
+/** 双指缩放中的单个控件及其起始几何。 */
+data class PinchResizeTarget(
+    val buttonId: String,
+    val startX: Int,
+    val startY: Int,
+    val startWidth: Int,
+    val startHeight: Int,
+)
+
+/** 双指缩放的起始状态：目标控件集合、两指距离、轴向指距与两指中点。 */
+data class PinchResizeStart(
+    val targets: List<PinchResizeTarget>,
+    val startDistance: Float,
+    /** 起始两指在屏幕 x 轴向的间距（绝对值，px）。 */
+    val startSpanX: Float,
+    /** 起始两指在屏幕 y 轴向的间距（绝对值，px）。 */
+    val startSpanY: Float,
+    /** 起始两指中点 x（px）。 */
+    val startFocusX: Float,
+    /** 起始两指中点 y（px）。 */
+    val startFocusY: Float,
 )
 
 data class FollowAreaDragStart(

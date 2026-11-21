@@ -42,6 +42,13 @@ class GamepadEditGesture {
     var isGroupDragging = false
         private set
 
+    /** 双指缩放进行中。 */
+    var isPinching = false
+        private set
+
+    private var pinchingTargetIds: Set<String> = emptySet()
+    private var pinchingPrimaryId: String? = null
+
     // ── 框选（marquee）状态 ─────────────────────────────────
     private var marqueeActive = false
     private var marqueeMoved = false
@@ -102,6 +109,16 @@ class GamepadEditGesture {
         val marqueeFinished: Boolean = false,
         /** 本次事件开始了多选批量拖拽。 */
         val groupDragging: Boolean = false,
+        /** 本次事件开始了双指缩放。 */
+        val pinchStarted: Boolean = false,
+        /** 双指缩放进行中（本次事件仍在缩放）。 */
+        val pinchActive: Boolean = false,
+        /** 本次事件结束了双指缩放。 */
+        val pinchFinished: Boolean = false,
+        /** 双指缩放的目标控件集合。 */
+        val pinchTargetIds: Set<String> = emptySet(),
+        /** 双指缩放的主控件（用于刷新参数面板）。 */
+        val pinchPrimaryId: String? = null,
     ) {
         companion object {
             fun empty(): DispatchOutput = DispatchOutput(
@@ -153,6 +170,21 @@ class GamepadEditGesture {
     ): DispatchOutput {
         val action = event.actionMasked
         val currentSelected = selectedButtonId ?: _lastSelectedButtonId
+
+        // 第二根手指落下 → 立即切换为双指缩放，优先于拖拽、缩放柄和框选。
+        if (action == MotionEvent.ACTION_POINTER_DOWN && event.pointerCount >= 2 && !isPinching) {
+            return handlePinchStart(
+                raw, buttons, buttonBounds, allChildren,
+                cellW, cellH, density, dispatcher, currentSelected, selectedButtonIds,
+            )
+        }
+        // 缩放过程中所有后续事件都由双指路径消费，避免第一根手指继续拖拽。
+        if (isPinching) {
+            return handlePinch(
+                raw, buttons, buttonBounds, allChildren,
+                cellW, cellH, density, dispatcher, currentSelected, selectedButtonIds,
+            )
+        }
 
         // 框选进行中：事件不再交给拖拽/缩放逻辑。
         if (marqueeActive && action != MotionEvent.ACTION_DOWN) {
@@ -290,6 +322,134 @@ class GamepadEditGesture {
         return result
     }
 
+    // ── 双指缩放（pinch） ───────────────────────────────────
+
+    private fun handlePinchStart(
+        raw: RawTouchEvent,
+        buttons: List<ButtonPosition>,
+        buttonBounds: Map<String, Rect>,
+        allChildren: List<android.view.View>,
+        cellW: Float,
+        cellH: Float,
+        density: Float,
+        dispatcher: GamepadInputDispatcher,
+        currentSelected: String?,
+        selectedButtonIds: Set<String>,
+    ): DispatchOutput {
+        val wasMarqueeActive = marqueeActive
+        // 第二根手指加入时取消框选，避免框选矩形与缩放同时生效。
+        marqueeActive = false
+        marqueeMoved = false
+        marqueeRectInternal = null
+        marqueeSelectionInternal = emptySet()
+
+        val result = dispatcher.dispatchEdit(
+            raw, buttons, buttonBounds, allChildren,
+            _editState, cellW, cellH, density, currentSelected, selectedButtonIds,
+        )
+        _editState = result.newState
+        syncFromEditState()
+
+        val start = result.newState.pinchResizeStart
+        if (start == null) {
+            return DispatchOutput.empty().copy(marqueeFinished = wasMarqueeActive)
+        }
+
+        // 缩放接管手势，清掉第一根手指可能已进入的拖拽/尺寸调整状态。
+        draggingChild = null
+        resizingChild = null
+        draggingFollowArea = false
+        resizingFollowArea = false
+        isGroupDragging = false
+
+        val targets = start.targets.map { it.buttonId }.toSet()
+        pinchingTargetIds = targets
+        pinchingPrimaryId = currentSelected?.takeIf { it in targets } ?: targets.firstOrNull()
+        isPinching = true
+
+        return DispatchOutput(
+            commands = result.commands,
+            commandsNoMove = result.commands,
+            syncIsAdjustingFollowArea = isAdjustingFollowArea,
+            syncAdjustingFollowAreaId = adjustingFollowAreaId,
+            syncDraggingChild = null,
+            syncResizingChild = null,
+            syncDraggingFollowArea = false,
+            syncResizingFollowArea = false,
+            selectedButton = pinchingPrimaryId,
+            selectDraggingChild = null,
+            selectResizingChild = null,
+            pinchStarted = true,
+            pinchTargetIds = targets,
+            pinchPrimaryId = pinchingPrimaryId,
+        )
+    }
+
+    private fun handlePinch(
+        raw: RawTouchEvent,
+        buttons: List<ButtonPosition>,
+        buttonBounds: Map<String, Rect>,
+        allChildren: List<android.view.View>,
+        cellW: Float,
+        cellH: Float,
+        density: Float,
+        dispatcher: GamepadInputDispatcher,
+        currentSelected: String?,
+        selectedButtonIds: Set<String>,
+    ): DispatchOutput {
+        val result = dispatcher.dispatchEdit(
+            raw, buttons, buttonBounds, allChildren,
+            _editState, cellW, cellH, density, currentSelected, selectedButtonIds,
+        )
+        _editState = result.newState
+        syncFromEditState()
+
+        if (result.newState.pinchResizeStart == null) {
+            val finishedPrimary = pinchingPrimaryId
+            isPinching = false
+            pinchingTargetIds = emptySet()
+            pinchingPrimaryId = null
+            draggingChild = null
+            resizingChild = null
+            draggingFollowArea = false
+            resizingFollowArea = false
+            isGroupDragging = false
+            return DispatchOutput(
+                commands = result.commands,
+                commandsNoMove = result.commands,
+                syncIsAdjustingFollowArea = isAdjustingFollowArea,
+                syncAdjustingFollowAreaId = adjustingFollowAreaId,
+                syncDraggingChild = null,
+                syncResizingChild = null,
+                syncDraggingFollowArea = false,
+                syncResizingFollowArea = false,
+                selectedButton = null,
+                selectDraggingChild = null,
+                selectResizingChild = null,
+                pinchFinished = true,
+                pinchTargetIds = emptySet(),
+                pinchPrimaryId = finishedPrimary,
+            )
+        }
+
+        return DispatchOutput(
+            commands = result.commands,
+            commandsNoMove = result.commands,
+            syncIsAdjustingFollowArea = isAdjustingFollowArea,
+            syncAdjustingFollowAreaId = adjustingFollowAreaId,
+            syncDraggingChild = null,
+            syncResizingChild = null,
+            syncDraggingFollowArea = false,
+            syncResizingFollowArea = false,
+            selectedButton = null,
+            selectDraggingChild = null,
+            selectResizingChild = null,
+            pinchActive = true,
+            pinchTargetIds = pinchingTargetIds,
+            pinchPrimaryId = pinchingPrimaryId,
+        )
+    }
+
     fun updateStateFromEditState(newState: EditModeState) {
         _editState = newState
         isAdjustingFollowArea = newState.isAdjustingFollowArea
@@ -310,6 +470,9 @@ class GamepadEditGesture {
         marqueeMoved = false
         marqueeRectInternal = null
         marqueeSelectionInternal = emptySet()
+        isPinching = false
+        pinchingTargetIds = emptySet()
+        pinchingPrimaryId = null
     }
 
     // ── Internal handlers ──────────────────────────────────
@@ -334,6 +497,9 @@ class GamepadEditGesture {
         draggingFollowArea = false
         resizingFollowArea = false
         isGroupDragging = false
+        isPinching = false
+        pinchingTargetIds = emptySet()
+        pinchingPrimaryId = null
 
         val result = dispatcher.dispatchEdit(
             raw, buttons, buttonBounds, allChildren,
