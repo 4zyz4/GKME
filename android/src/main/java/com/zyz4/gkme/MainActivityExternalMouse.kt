@@ -1,5 +1,6 @@
 package com.zyz4.gkme
 
+import android.os.Build
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -34,7 +35,7 @@ internal class ExternalMouseController(private val activity: MainActivity) {
         val hasMouse = InputDevice.getDeviceIds().any { id ->
             InputDevice.getDevice(id)?.let { device ->
                 ExternalMousePassthrough.isExternalMouse(InputDevice.SOURCE_MOUSE, device.sources,
-                    device.isExternal, device.isVirtual, MotionEvent.TOOL_TYPE_MOUSE)
+                    device.isExternalMouseDevice(), device.isVirtual, MotionEvent.TOOL_TYPE_MOUSE)
             } == true
         }
         val want = focused && a.viewModel.connectionManager.canForwardExternalInput &&
@@ -55,7 +56,7 @@ internal class ExternalMouseController(private val activity: MainActivity) {
     private fun eligible(event: MotionEvent): Boolean {
         val device = event.device ?: return false
         return event.pointerCount > 0 && ExternalMousePassthrough.isExternalMouse(
-            event.source, device.sources, device.isExternal, device.isVirtual, event.getToolType(0))
+            event.source, device.sources, device.isExternalMouseDevice(), device.isVirtual, event.getToolType(0))
     }
 
     /** Discard absolute coordinates while the capture request is pending; never hit the screen edge. */
@@ -99,6 +100,11 @@ internal class ExternalMouseController(private val activity: MainActivity) {
         if (event.keyCode != KeyEvent.KEYCODE_BACK && event.keyCode != KeyEvent.KEYCODE_FORWARD) return false
         val device = event.device ?: return false
         return ExternalMousePassthrough.isExternalMouse(event.source, device.sources,
-            device.isExternal, device.isVirtual, MotionEvent.TOOL_TYPE_MOUSE)
+            device.isExternalMouseDevice(), device.isVirtual, MotionEvent.TOOL_TYPE_MOUSE)
     }
 }
+
+/** Android 8 and 9 expose hardware IDs but have no public external-device flag. */
+internal fun InputDevice.isExternalMouseDevice(): Boolean =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) isExternal
+    else !isVirtual && id >= 0 && (vendorId != 0 || productId != 0)

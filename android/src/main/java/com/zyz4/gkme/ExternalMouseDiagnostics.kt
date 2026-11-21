@@ -18,7 +18,7 @@ internal class ExternalMouseDiagnostics {
         val device = event.device
         val tool = if (event.pointerCount > 0) event.getToolType(0) else -1
         val reason = if (device == null) "missing_device" else ExternalMousePassthrough.rejectionReason(
-            event.source, device.sources, device.isExternal, device.isVirtual, tool)
+            event.source, device.sources, device.isExternalMouseDevice(), device.isVirtual, tool)
         // Ignore touchscreen traffic; preserve rejected mouse-like sources/tools as evidence.
         if (tool != MotionEvent.TOOL_TYPE_MOUSE &&
             event.source and InputDevice.SOURCE_MOUSE != InputDevice.SOURCE_MOUSE &&
@@ -39,9 +39,9 @@ internal class ExternalMouseDiagnostics {
         for (id in InputDevice.getDeviceIds()) {
             val device = InputDevice.getDevice(id) ?: continue
             val reason = ExternalMousePassthrough.rejectionReason(InputDevice.SOURCE_MOUSE,
-                device.sources, device.isExternal, device.isVirtual, MotionEvent.TOOL_TYPE_MOUSE)
+                device.sources, device.isExternalMouseDevice(), device.isVirtual, MotionEvent.TOOL_TYPE_MOUSE)
             appendLine("id=$id name=${device.name} vendor=${device.vendorId} product=${device.productId} " +
-                "sources=0x${device.sources.toString(16)} type=${device.keyboardType} external=${device.isExternal} " +
+                "sources=0x${device.sources.toString(16)} type=${device.keyboardType} external=${device.isExternalMouseDevice()} " +
                 "virtual=${device.isVirtual} mouse-filter=${reason ?: "eligible"}")
         }
         appendLine("Mouse events this session:")
