@@ -159,6 +159,27 @@ data class EditModeState(
     val unselectedDragDownGrid: Pair<Int, Int>? = null,
     /** 双指缩放中；非 null 表示当前手势正在按指距比例改变控件尺寸。 */
     val pinchResizeStart: PinchResizeStart? = null,
+    /**
+     * 按下点命中的重叠控件（自顶向下）。非空表示当前手势落在重叠区域，
+     * 尚未发生拖拽时抬手会请求用户澄清选择哪一个。
+     */
+    val clarifyCandidates: List<String> = emptyList(),
+    /** 澄清选择手势的按下点 x（px），用于判断是否已开始拖拽。 */
+    val clarifyDownX: Float = 0f,
+    /** 澄清选择手势的按下点 y（px）。 */
+    val clarifyDownY: Float = 0f,
+)
+
+/**
+ * 重叠控件澄清选择请求。
+ *
+ * [candidateIds] 自顶向下排列（第一个是视觉最上层的控件），
+ * [x]/[y] 是按下点在 GamepadLayout 坐标系中的位置（px）。
+ */
+data class ClarifyRequest(
+    val candidateIds: List<String>,
+    val x: Float,
+    val y: Float,
 )
 
 /** 双指缩放中的单个控件及其起始几何。 */
@@ -226,6 +247,8 @@ data class ChildResizeStart(
 data class EditDispatchResult(
     val commands: List<EditCommand> = emptyList(),
     val newState: EditModeState,
+    /** 轻点重叠区域且未拖拽时，请求调用方弹出控件澄清选择器。 */
+    val clarifyRequest: ClarifyRequest? = null,
 )
 
 /**

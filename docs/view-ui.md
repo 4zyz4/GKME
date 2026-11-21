@@ -272,6 +272,11 @@ Activity **不直接改 ViewModel 内部状态**：
 - **多选批量拖拽**：选中集合保存在 `GamepadLayout.selectedButtonIds`，`GamepadInputDispatcher`
   在按下任何已选控件时把整组起始网格坐标写入 `ChildDragStart.groupStartGrid`，移动中按主控件
   位移统一生成 `MoveButton`（touchpad 同时联动 `MoveFollowArea`），保持组内相对位置。
+- **重叠控件澄清选择**：轻点重叠区域时不会立刻改变选择；抬手后在触点附近弹出候选列表
+  （自顶向下，候选忽略 `overlapTrigger` 过滤，保证被压住的控件也能选中），点选后才切换选中项。
+  若按下后直接拖动，则优先拖动已选中的控件，否则拖动视觉最顶层的控件，并在越过约 8dp
+  触摸容差后才开始移动；此时不再弹选择器。候选列表由 `OverlapSelectionPopup` 显示，
+  控件名与 `allControls` 的本地化名称一致，重名控件追加 id 后缀区分。
 - **双指缩放**：编辑模式下第二根手指落下即进入缩放（优先于拖拽/缩放柄/框选），目标优先取
   正在拖拽/缩放的控件，其次取手指命中的控件（命中多选成员时整组缩放），空白处则缩放当前选中集合。
   等比控件（`lockAspect=true`）按两指距离等比缩放；矩形控件按屏幕 x/y 轴向指距**分别修改宽度和高度**
@@ -313,7 +318,7 @@ Activity **不直接改 ViewModel 内部状态**：
 
 `RawTouchEvent`、`Pointer`、`InteractionResult`、`FollowAreaAction`、`SlotAssignment`、
 `OldSlotState`、`TouchCandidate`、`ClickResult`、`SwipeResult`、`FollowAreaResult`、`LayoutResult`、
-`EditModeState`、`FollowAreaDragStart`/`ResizeStart`、`ChildDragStart`/`ResizeStart`、`EditDispatchResult`；
+`EditModeState`、`FollowAreaDragStart`/`ResizeStart`、`ChildDragStart`/`ResizeStart`、`ClarifyRequest`、`EditDispatchResult`；
 接口 `InputDispatcher.dispatchInteraction` / `dispatchEdit`。
 
 `ViewExtensions.toRawEvent` 是唯一把 `MotionEvent` 转 `RawTouchEvent` 的适配器。

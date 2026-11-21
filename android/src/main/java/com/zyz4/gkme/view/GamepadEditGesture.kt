@@ -3,9 +3,9 @@ package com.zyz4.gkme.view
 import android.graphics.Rect
 import android.view.MotionEvent
 import com.zyz4.gkme.model.ButtonPosition
+import com.zyz4.gkme.view.inputdispatcher.ClarifyRequest
 import com.zyz4.gkme.view.inputdispatcher.EditCommand
 import com.zyz4.gkme.view.inputdispatcher.EditDispatchResult
-
 import com.zyz4.gkme.view.inputdispatcher.EditModeState
 import com.zyz4.gkme.view.inputdispatcher.GamepadInputDispatcher
 import com.zyz4.gkme.view.inputdispatcher.RawTouchEvent
@@ -119,6 +119,10 @@ class GamepadEditGesture {
         val pinchTargetIds: Set<String> = emptySet(),
         /** 双指缩放的主控件（用于刷新参数面板）。 */
         val pinchPrimaryId: String? = null,
+        /** 按下点存在重叠控件、尚未因拖拽而提交，抬手时需要澄清选择。 */
+        val clarifyPending: Boolean = false,
+        /** 轻点重叠区域且未拖拽：请求调用方弹出控件选择器。 */
+        val clarifyRequest: ClarifyRequest? = null,
     ) {
         companion object {
             fun empty(): DispatchOutput = DispatchOutput(
@@ -565,6 +569,7 @@ class GamepadEditGesture {
             selectDraggingChild = selectDragging,
             selectResizingChild = selectResizing,
             groupDragging = isGroupDragging,
+            clarifyPending = _editState.clarifyCandidates.isNotEmpty(),
         )
     }
 
@@ -603,6 +608,7 @@ class GamepadEditGesture {
             selectedButton = null,
             selectDraggingChild = null,
             selectResizingChild = null,
+            clarifyPending = _editState.clarifyCandidates.isNotEmpty(),
         )
     }
 
@@ -628,6 +634,29 @@ class GamepadEditGesture {
         // must only end the current drag/resize, not exit adjust mode (that is done via
         // exitFollowAreaAdjust / the panel's return button).
         syncFromEditState()
+
+        // 轻点重叠区域：保持当前选择不变，交给调用方弹出澄清选择器。
+        result.clarifyRequest?.let { request ->
+            draggingChild = null
+            resizingChild = null
+            draggingFollowArea = false
+            resizingFollowArea = false
+            isGroupDragging = false
+            return DispatchOutput(
+                commands = emptyList(),
+                commandsNoMove = emptyList(),
+                syncIsAdjustingFollowArea = isAdjustingFollowArea,
+                syncAdjustingFollowAreaId = adjustingFollowAreaId,
+                syncDraggingChild = null,
+                syncResizingChild = null,
+                syncDraggingFollowArea = false,
+                syncResizingFollowArea = false,
+                selectedButton = null,
+                selectDraggingChild = null,
+                selectResizingChild = null,
+                clarifyRequest = request,
+            )
+        }
 
         var selectDragging: String? = null
         var selectResizing: String? = null

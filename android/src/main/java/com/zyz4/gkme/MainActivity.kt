@@ -81,6 +81,8 @@ class MainActivity : ComponentActivity() {
     internal val floatingEditor: FloatingEditorPanel by lazy { createFloatingEditor() }
     internal var layoutGlobalSettingsPanel: LayoutGlobalSettingsPanel? = null
     internal var curveZoomOverlay: com.zyz4.gkme.view.CurveZoomOverlay? = null
+    /** 编辑模式下重叠控件的澄清选择弹窗。 */
+    internal var overlapSelectionPopup: com.zyz4.gkme.view.OverlapSelectionPopup? = null
     /** 设置按钮轮盘（仅屏幕中心显示，不拦截触摸）。 */
     internal var settingsButtonWheel: SettingsButtonWheelView? = null
     /** 杂项页中每个方向的操作下拉框。 */
@@ -440,6 +442,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        dismissOverlapSelectionPicker()
         if (::gamepadLayout.isInitialized) {
             if (BuildConfig.DEBUG) physicalControllerDiagnostics.stop()
             viewModel.releaseExternalInput()
@@ -477,6 +480,7 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         // 手指按住设置按钮时若窗口失焦（返回桌面、权限弹窗等），避免轮盘残留在屏幕上。
         hideSettingsButtonWheel()
+        dismissOverlapSelectionPicker()
         // 悬浮模式/切后台后 Activity 不再收到 key/motion 事件，改由后台状态源接管：
         //  - 轮询型 backend（USB / SDL3 HIDAPI）继续更新 controllerState，由 facade 推给
         //    ViewModel；

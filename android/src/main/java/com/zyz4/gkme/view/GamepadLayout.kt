@@ -875,6 +875,15 @@ class GamepadLayout @JvmOverloads constructor(
     interface GamepadLayoutListener {
         fun onButtonSelected(buttonId: String?)
         fun onEditModeChanged(isEditMode: Boolean)
+
+        /**
+         * 编辑模式下轻点重叠控件：请求用户澄清选择。
+         *
+         * @param candidateIds 命中的控件 id，自顶向下（第一个为视觉最上层）
+         * @param x 按下点 x（GamepadLayout 坐标系，px）
+         * @param y 按下点 y（GamepadLayout 坐标系，px）
+         */
+        fun onOverlapSelectionRequest(candidateIds: List<String>, x: Float, y: Float) {}
         fun onTouchpadEvent(
             x: Float, y: Float,
             touches: List<FloatArray>,
@@ -1804,8 +1813,10 @@ class GamepadLayout @JvmOverloads constructor(
         val raw = event.toRawEvent()
         // Use grid-coordinate based bounds (like findAllChildrenAt) instead of
         // child.left/top which may be stale at dispatch time on some Android devices.
+        // 按 z 轴倒序构建：LinkedHashMap 的迭代顺序即“最顶层优先”，编辑模式的命中
+        // 测试和重叠澄清选择都依赖这一顺序。
         val bounds = mutableMapOf<String, android.graphics.Rect>()
-        for (i in 0 until childCount) {
+        for (i in childCount - 1 downTo 0) {
             val child = getChildAt(i)
             val id = getButtonId(child)
             if (id != null) {
@@ -1916,6 +1927,22 @@ class GamepadLayout @JvmOverloads constructor(
             return true
         }
 
+        // 轻点重叠区域：保持当前选择不变，让用户从候选列表中澄清要编辑哪一个。
+        // 若用户按下后直接拖拽，GamepadEditGesture 已按“已选中优先，否则最顶层”
+        // 提交目标，不会走到这里。
+        output.clarifyRequest?.let { request ->
+            draggingChild = null
+            resizingChild = null
+            draggingFollowArea = false
+            resizingFollowArea = false
+            isGroupDragging = false
+            groupDragMoved = false
+            animateGridTo(0f)
+            listener?.onOverlapSelectionRequest(request.candidateIds, request.x, request.y)
+            invalidate()
+            return true
+        }
+
         // Sync edit-mode state from gesture output
         isAdjustingFollowArea = output.syncIsAdjustingFollowArea
         adjustingFollowAreaId = output.syncAdjustingFollowAreaId
@@ -1987,7 +2014,8 @@ class GamepadLayout @JvmOverloads constructor(
                     }
                 }
             }
-            if (draggingChild != null && !isGroupDragging) {
+            // 重叠候选尚未澄清时，移动阈值内的轻微抖动不应改变当前选择。
+            if (draggingChild != null && !isGroupDragging && !output.clarifyPending) {
                 val id = getButtonId(draggingChild!!)
                 if (id != null) {
                     setSelectedButton(id)

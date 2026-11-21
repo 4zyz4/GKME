@@ -461,6 +461,8 @@
     <string name="i18n_outline_width" formatted="false">"轮廓粗细"</string>
     <string name="i18n_outline_width_0" formatted="true">"轮廓粗细: %1$d"</string>
     <string name="i18n_output_distance" formatted="false">"输出距离 -&gt;"</string>
+    <string name="i18n_overlap_selection_hint" formatted="false">"多个控件重叠，请选择要编辑的控件"</string>
+    <string name="i18n_overlap_selection_title" formatted="false">"选择控件"</string>
     <string name="i18n_overlap_trigger" formatted="false">"重叠区域触发"</string>
     <string name="i18n_overlay_permission_is_required_for_float" formatted="false">"需要悬浮窗权限才能使用悬浮模式"</string>
     <string name="i18n_persistent_notification_while_controlled" formatted="false">"被控端运行期间的常驻通知，用于防止后台被系统清理"</string>

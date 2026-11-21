@@ -461,6 +461,8 @@
     <string name="i18n_outline_width" formatted="false">"Largeur du contour"</string>
     <string name="i18n_outline_width_0" formatted="true">"Largeur du contour : %1$d"</string>
     <string name="i18n_output_distance" formatted="false">"Distance de sortie -&gt;"</string>
+    <string name="i18n_overlap_selection_hint" formatted="false">"Plusieurs contrôles se chevauchent. Choisissez celui à modifier."</string>
+    <string name="i18n_overlap_selection_title" formatted="false">"Sélectionner un contrôle"</string>
     <string name="i18n_overlap_trigger" formatted="false">"Gâchette de chevauchement"</string>
     <string name="i18n_overlay_permission_is_required_for_float" formatted="false">"L'autorisation de superposition est requise pour le mode flottant"</string>
     <string name="i18n_persistent_notification_while_controlled" formatted="false">"Notification persistante pendant que le mode contrôlé est actif, utilisée pour empêcher le système de l'arrêter en arrière-plan"</string>

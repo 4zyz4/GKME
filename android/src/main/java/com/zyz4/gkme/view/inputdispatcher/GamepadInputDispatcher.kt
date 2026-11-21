@@ -156,18 +156,58 @@ override fun dispatchEdit(
 
         return when (action) {
             android.view.MotionEvent.ACTION_DOWN -> {
-                handleDown(x, y, buttons, currentButtonBounds, children, currentState.copy(pinchResizeStart = null), cellW, cellH, density, selectedButtonId, selectedButtonIds)
+                handleDown(
+                    x, y, buttons, currentButtonBounds, children,
+                    currentState.copy(
+                        pinchResizeStart = null,
+                        clarifyCandidates = emptyList(),
+                        clarifyDownX = 0f,
+                        clarifyDownY = 0f,
+                    ),
+                    cellW, cellH, density, selectedButtonId, selectedButtonIds,
+                )
             }
             android.view.MotionEvent.ACTION_POINTER_DOWN -> {
                 handlePointerDown(event.pointers, buttons, currentButtonBounds, currentState, selectedButtonIds)
             }
             android.view.MotionEvent.ACTION_MOVE -> {
+                // 重叠区域按下后先保持不动：越过拖动阈值才按“已选中优先，否则最顶层”
+                // 的目标开始拖拽，并放弃本次澄清选择。
+                if (currentState.clarifyCandidates.isNotEmpty()) {
+                    val slopPx = 8f * density
+                    val moved = kotlin.math.hypot(
+                        x - currentState.clarifyDownX,
+                        y - currentState.clarifyDownY,
+                    ) >= slopPx
+                    if (!moved) {
+                        return EditDispatchResult(emptyList(), currentState)
+                    }
+                    return handleMove(
+                        x, y, event.pointers, buttons, currentButtonBounds, children,
+                        currentState.copy(clarifyCandidates = emptyList()),
+                        cellW, cellH, density, selectedButtonId,
+                    )
+                }
                 handleMove(x, y, event.pointers, buttons, currentButtonBounds, children, currentState, cellW, cellH, density, selectedButtonId)
             }
             android.view.MotionEvent.ACTION_POINTER_UP -> {
                 handlePointerUp(event.actionIndex, event.pointers, buttons, currentState)
             }
             android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                // 轻点重叠区域（未拖拽）：请求调用方弹出澄清选择器。
+                val clarifyRequest = if (
+                    action == android.view.MotionEvent.ACTION_UP &&
+                    currentState.clarifyCandidates.isNotEmpty() &&
+                    currentState.pinchResizeStart == null
+                ) {
+                    ClarifyRequest(
+                        candidateIds = currentState.clarifyCandidates,
+                        x = currentState.clarifyDownX,
+                        y = currentState.clarifyDownY,
+                    )
+                } else {
+                    null
+                }
                 EditDispatchResult(
                     commands = emptyList(),
                     newState = currentState.copy(
@@ -177,7 +217,11 @@ override fun dispatchEdit(
                         childResizeStart = null,
                         unselectedDragDownGrid = null,
                         pinchResizeStart = null,
+                        clarifyCandidates = emptyList(),
+                        clarifyDownX = 0f,
+                        clarifyDownY = 0f,
                     ),
+                    clarifyRequest = clarifyRequest,
                 )
             }
             else -> EditDispatchResult(emptyList(), currentState)
@@ -242,11 +286,17 @@ override fun dispatchEdit(
 
         // 1) 命中测试：优先保持多选组内的控件，其次顶层的控件。
         //    注意：按在空白区域时不再拖动“当前选中”的控件——空白按下用于框选。
-        val allHitIds = hitResolver.resolve(x, y, buttons, bounds)
+        //    重叠区域记录原始候选（忽略 overlapTrigger 过滤），轻点抬手时交给调用方
+        //    弹出澄清选择器；直接拖拽则按“已选中优先，否则最顶层”处理。
+        val rawHits = hitResolver.findAllChildrenAt(x, y, bounds)
+        val rawHitIds = rawHits.map { it.first }
+        val allHitIds = hitResolver.filterOverlapChildren(rawHits, buttons).map { it.first }
+        val clarifyCandidates = if (rawHitIds.size > 1) rawHitIds else emptyList()
 
-        val hitId: String? = allHitIds.firstOrNull { it in selectedButtonIds }
+        val hitId: String? = rawHitIds.firstOrNull { it in selectedButtonIds }
             ?: allHitIds.firstOrNull()
-        
+            ?: rawHitIds.firstOrNull()
+
         if (hitId != null) {
             val rect = bounds[hitId]
             val pos = buttons.find { it.id == hitId }
@@ -274,12 +324,18 @@ override fun dispatchEdit(
                             hitId, x - rect.left.toFloat(), y - rect.top.toFloat(), groupStartGrid,
                         ),
                         unselectedDragDownGrid = Pair((x / cellW).toInt(), (y / cellH).toInt()),
+                        clarifyCandidates = clarifyCandidates,
+                        clarifyDownX = x,
+                        clarifyDownY = y,
                     )
                 } else {
                     state.copy(
                         childDragStart = ChildDragStart(
                             hitId, x - rect.left.toFloat(), y - rect.top.toFloat(), groupStartGrid,
                         ),
+                        clarifyCandidates = clarifyCandidates,
+                        clarifyDownX = x,
+                        clarifyDownY = y,
                     )
                 })
             } else if (hitId == selectedButtonId && pos != null) {
@@ -296,6 +352,9 @@ override fun dispatchEdit(
                 // Selected button has no pixel bounds — use grid-based rect for drag offset
                 return EditDispatchResult(commands, state.copy(
                     childDragStart = ChildDragStart(hitId, x - fakeRect.left.toFloat(), y - fakeRect.top.toFloat()),
+                    clarifyCandidates = clarifyCandidates,
+                    clarifyDownX = x,
+                    clarifyDownY = y,
                 ))
             }
         }
@@ -482,6 +541,9 @@ override fun dispatchEdit(
                 followAreaDragStart = null,
                 followAreaResizeStart = null,
                 unselectedDragDownGrid = null,
+                clarifyCandidates = emptyList(),
+                clarifyDownX = 0f,
+                clarifyDownY = 0f,
             ),
         )
     }

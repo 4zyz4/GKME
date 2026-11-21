@@ -525,7 +525,12 @@ internal fun MainActivity.setupGamepadLayoutListener() {
             }
         }
 
+        override fun onOverlapSelectionRequest(candidateIds: List<String>, x: Float, y: Float) {
+            a.showOverlapSelectionPicker(candidateIds, x, y)
+        }
+
         override fun onEditModeChanged(isEditMode: Boolean) {
+            if (!isEditMode) a.dismissOverlapSelectionPicker()
             if (isEditMode) a.viewModel.externalKeyboard.releaseAll()
             a.externalMouseController.updateCapture()
             if (isEditMode) {

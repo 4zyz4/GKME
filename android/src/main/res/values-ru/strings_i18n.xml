@@ -461,6 +461,8 @@
     <string name="i18n_outline_width" formatted="false">"Ширина обводки"</string>
     <string name="i18n_outline_width_0" formatted="true">"Ширина обводки: %1$d"</string>
     <string name="i18n_output_distance" formatted="false">"Выходное расстояние -&gt;"</string>
+    <string name="i18n_overlap_selection_hint" formatted="false">"Несколько элементов перекрываются. Выберите нужный."</string>
+    <string name="i18n_overlap_selection_title" formatted="false">"Выбрать элемент"</string>
     <string name="i18n_overlap_trigger" formatted="false">"Триггер перекрытия"</string>
     <string name="i18n_overlay_permission_is_required_for_float" formatted="false">"Для плавающего режима требуется разрешение на наложение"</string>
     <string name="i18n_persistent_notification_while_controlled" formatted="false">"Постоянное уведомление при активном управляемом режиме; используется, чтобы система не завершила его в фоне"</string>

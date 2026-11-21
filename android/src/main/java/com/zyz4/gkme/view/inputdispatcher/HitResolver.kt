@@ -14,6 +14,9 @@ object HitResolver {
 
     /**
      * Resolve all visible children at the given point, topmost first.
+     *
+     * [childBounds] must iterate in z-order with the topmost control first
+     * (GamepadLayout builds it from `childCount - 1 downTo 0`).
      */
     fun findAllChildrenAt(
         x: Float,
@@ -21,8 +24,6 @@ object HitResolver {
         childBounds: Map<String, android.graphics.Rect>,
     ): List<Pair<String, android.graphics.Rect>> {
         val result = mutableListOf<Pair<String, android.graphics.Rect>>()
-        // Note: caller should pass children in z-order (topmost last so we reverse).
-        // Here we iterate in insertion order; caller reverses if needed.
         for ((buttonId, rect) in childBounds) {
             if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
                 result.add(buttonId to rect)

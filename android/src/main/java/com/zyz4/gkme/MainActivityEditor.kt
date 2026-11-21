@@ -29,6 +29,7 @@ import com.zyz4.gkme.model.PhysicalTouchpadSettings
 import com.zyz4.gkme.view.FloatingEditorPanel
 import com.zyz4.gkme.view.LayoutGlobalSettingsPanel
 import com.zyz4.gkme.view.GamepadLayout
+import com.zyz4.gkme.view.OverlapSelectionPopup
 import com.zyz4.gkme.view.JoystickView
 import com.zyz4.gkme.view.RotatableButton
 import com.zyz4.gkme.view.CustomKeypadView
@@ -181,6 +182,45 @@ override fun onOpacityPreviewEnd(buttonId: String) {
             )
         )
     }
+}
+
+// ── 重叠控件澄清选择 ─────────────────────────────────────
+
+/**
+ * 编辑模式下轻点重叠控件时，在触点附近弹出候选列表（自顶向下）。
+ * 点选候选项后才切换选中状态并刷新参数面板；点击外部关闭则保持原选择。
+ */
+internal fun MainActivity.showOverlapSelectionPicker(candidateIds: List<String>, x: Float, y: Float) {
+    if (candidateIds.isEmpty()) return
+    val a = this
+    val popup = a.overlapSelectionPopup ?: OverlapSelectionPopup(a.gamepadLayout).also {
+        a.overlapSelectionPopup = it
+    }
+    popup.show(
+        items = candidateIds.map { id -> OverlapSelectionPopup.Item(id, a.overlapPickerLabel(id)) },
+        x = x,
+        y = y,
+    ) { id ->
+        a.gamepadLayout.setSelectedButton(id)
+    }
+}
+
+/** 澄清选择器里的控件名：自定义控件优先用自定义文本，重名控件用 id 后缀区分。 */
+private fun MainActivity.overlapPickerLabel(buttonId: String): String {
+    val pos = gamepadLayout.currentButtons.find { it.id == buttonId }
+    val base = buttonId.substringBefore("_")
+    val customName = pos?.takeIf { it.isCustom }?.customText?.takeIf { it.isNotBlank() }
+    val name = when {
+        customName != null -> customName
+        base == GamepadLayout.SETTINGS_BUTTON_ID -> getString(R.string.i18n_settings_button)
+        else -> allControls.find { it.baseId == base }?.let { getString(it.nameRes) } ?: base
+    }
+    val suffix = parseSuffix(buttonId)
+    return if (suffix != null) "$name · $suffix" else name
+}
+
+internal fun MainActivity.dismissOverlapSelectionPicker() {
+    overlapSelectionPopup?.dismiss()
 }
 
 // ── Layout global settings (full-screen page) ────────────

@@ -461,6 +461,8 @@
     <string name="i18n_outline_width" formatted="false">"Outline width"</string>
     <string name="i18n_outline_width_0" formatted="true">"Outline width: %1$d"</string>
     <string name="i18n_output_distance" formatted="false">"Output distance -&gt;"</string>
+    <string name="i18n_overlap_selection_hint" formatted="false">"Multiple controls overlap. Choose the one to edit."</string>
+    <string name="i18n_overlap_selection_title" formatted="false">"Select control"</string>
     <string name="i18n_overlap_trigger" formatted="false">"Overlap trigger"</string>
     <string name="i18n_overlay_permission_is_required_for_float" formatted="false">"Overlay permission is required for floating mode"</string>
     <string name="i18n_persistent_notification_while_controlled" formatted="false">"Persistent notification while controlled mode is active, used to prevent the system from killing it in the background"</string>

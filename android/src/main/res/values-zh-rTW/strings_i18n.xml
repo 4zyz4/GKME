@@ -461,6 +461,8 @@
     <string name="i18n_outline_width" formatted="false">"輪廓粗細"</string>
     <string name="i18n_outline_width_0" formatted="true">"輪廓粗細: %1$d"</string>
     <string name="i18n_output_distance" formatted="false">"輸出距離 -&gt;"</string>
+    <string name="i18n_overlap_selection_hint" formatted="false">"多個控制項重疊，請選擇要編輯的控制項"</string>
+    <string name="i18n_overlap_selection_title" formatted="false">"選擇控制項"</string>
     <string name="i18n_overlap_trigger" formatted="false">"重疊區域觸發"</string>
     <string name="i18n_overlay_permission_is_required_for_float" formatted="false">"需要懸浮窗權限才能使用懸浮模式"</string>
     <string name="i18n_persistent_notification_while_controlled" formatted="false">"被控端執行期間的常駐通知，用於防止背景被系統清理"</string>
