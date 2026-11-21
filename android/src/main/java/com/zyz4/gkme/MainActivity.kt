@@ -277,6 +277,8 @@ class MainActivity : ComponentActivity() {
         gamepadLayout = findViewById(R.id.gamepadLayout)
         floatingController = FloatingModeController(this)
         physicalControllerHandler = PhysicalControllerHandler(this)
+        // 后台 evdev 源不经过 Activity 的 dispatch，状态变化后主动同步给 ViewModel。
+        physicalControllerHandler.onStateChanged = { syncPhysicalControllerState() }
         setupMediaSession()
         setupGamepadLayoutListener()
         viewModel.onHapticFeedbackPress = { performHaptic(isPress = true) }
@@ -379,6 +381,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        // 回到前台：Activity 的 dispatch 会重新驱动手柄状态，交还输入。
+        if (::physicalControllerHandler.isInitialized) {
+            physicalControllerHandler.setBackgroundInputActive(false)
+        }
         if (::floatingController.isInitialized && floatingController.isActive &&
             android.os.SystemClock.elapsedRealtime() - floatingStartedAt > FLOATING_RESUME_GUARD_MS
         ) {
@@ -389,6 +395,13 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         // 手指按住设置按钮时若窗口失焦（返回桌面、权限弹窗等），避免轮盘残留在屏幕上。
         hideSettingsButtonWheel()
+        // 悬浮模式/切后台后 Activity 不再收到 key/motion 事件，改由后台状态源接管：
+        //  - 轮询型 backend（USB / SDL3 HIDAPI）继续更新 controllerState，由 facade 推给
+        //    ViewModel；
+        //  - 事件型 backend（InputManager / DualSense 蓝牙）由 evdev 读取补齐。
+        if (::physicalControllerHandler.isInitialized) {
+            physicalControllerHandler.setBackgroundInputActive(true)
+        }
         super.onPause()
     }
 

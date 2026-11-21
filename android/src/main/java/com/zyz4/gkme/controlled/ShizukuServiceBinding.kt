@@ -150,8 +150,8 @@ class ShizukuServiceBinding(
                 .daemon(daemon)
                 .processNameSuffix(processNameSuffix)
                 .debuggable(false)
-                // AIDL 接口变化（新增 readSystemSetting）后需递增，让 Shizuku 重建用户服务。
-                .version(3)
+                // AIDL/原生行为变化后需递增，让 Shizuku 重建用户服务。
+                .version(5)
                 .tag(tag)
 
             Shizuku.addBinderReceivedListenerSticky(binderReceivedListener)

@@ -2,6 +2,8 @@
 // 该接口的 Stub 由 Shizuku 在 shell/root 进程中实例化，App 进程通过 Binder 调用。
 package com.zyz4.gkme.controlled;
 
+import com.zyz4.gkme.controlled.IEvdevListener;
+
 interface IGamepadService {
     /**
      * 创建虚拟手柄，返回 0 表示成功，负数表示 -errno。
@@ -57,6 +59,29 @@ interface IGamepadService {
      * 返回 null 表示该设置不存在或读取失败。
      */
     String readSystemSetting(String key) = 10;
+
+    /**
+     * 枚举 /dev/input/event*（需要 shell 的 input 组权限）。
+     *
+     * 每个设备返回一行，字段以 '|' 分隔：
+     *   path|name|phys|uniq|bus|vendor|product|flags|abs
+     *
+     * flags：bit0 = 手柄，bit1 = 触摸板，bit2 = 体感。
+     * abs：逗号分隔的 "code:min:max"，仅包含手柄/触摸板常用轴。
+     */
+    String[] listEvdevDevices() = 11;
+
+    /**
+     * 开始读取指定 evdev 节点，事件通过 listener 回传。
+     *
+     * 每个节点一个独立读取线程；重复调用会先停止上一轮读取。
+     *
+     * @return 0 表示至少启动了一个节点；负数表示 -errno。
+     */
+    int startEvdevCapture(in IEvdevListener listener, in String[] paths) = 12;
+
+    /** 停止全部 evdev 读取线程（幂等）。 */
+    void stopEvdevCapture() = 13;
 
     /**
      * 用户服务退出（Shizuku 约定的事务号，见 Shizuku-API 文档：

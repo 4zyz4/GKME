@@ -34,7 +34,8 @@ target_link_libraries(gkme_audio PRIVATE
 # Switch Pro 与键鼠。
 add_library(gkme_uinput SHARED
         uinput_gamepad.c
-        uhid_input.c)
+        uhid_input.c
+        evdev_reader.c)
 
 target_link_libraries(gkme_uinput PRIVATE
         android

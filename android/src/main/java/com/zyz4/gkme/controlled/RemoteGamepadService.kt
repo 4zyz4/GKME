@@ -25,12 +25,22 @@ class RemoteGamepadService @JvmOverloads constructor(
 
         const val BACKEND_UINPUT = 0
         const val BACKEND_UHID = 1
+
+        /** 每次 native 读取最多编码的事件数（与 native 的 EVDEV_MAX_EVENTS 一致）。 */
+        private const val EVDEV_BATCH_EVENTS = 64
+
+        /** poll 超时：有事件时立即返回，空闲时每 100ms 唤醒一次以便停止线程。 */
+        private const val EVDEV_POLL_TIMEOUT_MS = 100
     }
 
     private val fd = AtomicInteger(-1)
     private val kbdFd = AtomicInteger(-1)
     private val mouseFd = AtomicInteger(-1)
     private val lock = Any()
+
+    /** 后台 evdev 读取线程；每个节点一个线程。 */
+    private val evdevLock = Any()
+    private val evdevReaders = ArrayList<EvdevReader>()
 
     @Volatile
     private var backend = BACKEND_UINPUT
@@ -268,7 +278,129 @@ class RemoteGamepadService @JvmOverloads constructor(
         }
     }
 
+    // ── evdev 后台实体手柄采集 ─────────────────────────────
+
+    override fun listEvdevDevices(): Array<String>? {
+        if (!RemoteGamepadDevice.isLoaded()) {
+            lastError = "native 库加载失败: ${RemoteGamepadDevice.loadError()}"
+            return null
+        }
+        return try {
+            RemoteGamepadDevice.nativeEvdevList()
+        } catch (t: Throwable) {
+            Log.e(TAG, "nativeEvdevList 失败", t)
+            lastError = t.message
+            null
+        }
+    }
+
+    override fun startEvdevCapture(listener: IEvdevListener?, paths: Array<String>?): Int {
+        if (!RemoteGamepadDevice.isLoaded()) return -19 // -ENODEV
+        if (listener == null || paths == null || paths.isEmpty()) return -22 // -EINVAL
+        synchronized(evdevLock) {
+            stopEvdevCaptureLocked()
+            var started = 0
+            var lastError = 0
+            for (path in paths) {
+                // 只接受 /dev/input/eventN，避免调用方传入任意路径。
+                if (!path.matches(Regex("/dev/input/event\\d+"))) {
+                    lastError = -22
+                    continue
+                }
+                val deviceFd = try {
+                    RemoteGamepadDevice.nativeEvdevOpen(path)
+                } catch (t: Throwable) {
+                    Log.e(TAG, "nativeEvdevOpen 失败: $path", t)
+                    -1
+                }
+                if (deviceFd < 0) {
+                    lastError = deviceFd
+                    Log.w(TAG, "无法打开 evdev 节点 $path (errno=${-deviceFd})")
+                    continue
+                }
+                val reader = EvdevReader(path, deviceFd, listener)
+                evdevReaders.add(reader)
+                reader.start()
+                started++
+            }
+            if (started > 0) {
+                Log.i(TAG, "evdev 采集已启动: ${paths.joinToString()}")
+                return 0
+            }
+            return if (lastError != 0) lastError else -19
+        }
+    }
+
+    override fun stopEvdevCapture() {
+        synchronized(evdevLock) {
+            if (evdevReaders.isEmpty()) return
+            stopEvdevCaptureLocked()
+            Log.i(TAG, "evdev 采集已停止")
+        }
+    }
+
+    private fun stopEvdevCaptureLocked() {
+        if (evdevReaders.isEmpty()) return
+        for (reader in evdevReaders) reader.stopReading()
+        for (reader in evdevReaders) {
+            try {
+                reader.join(300)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
+        }
+        evdevReaders.clear()
+    }
+
+    /** 单个节点的读取线程：poll 等待事件，批量回传给 App。 */
+    private class EvdevReader(
+        private val path: String,
+        private val deviceFd: Int,
+        private val listener: IEvdevListener,
+    ) : Thread("GKME-Evdev") {
+
+        @Volatile
+        private var running = true
+
+        private val buffer = ByteArray(8 * EVDEV_BATCH_EVENTS)
+
+        override fun run() {
+            while (running) {
+                val read = try {
+                    RemoteGamepadDevice.nativeEvdevRead(deviceFd, buffer, EVDEV_POLL_TIMEOUT_MS)
+                } catch (t: Throwable) {
+                    Log.e(TAG, "nativeEvdevRead 失败: $path", t)
+                    -1
+                }
+                when {
+                    read > 0 -> {
+                        val data = buffer.copyOf(read)
+                        try {
+                            listener.onEvents(path, data)
+                        } catch (_: Throwable) {
+                            // App 进程已退出或 Binder 断开：结束本线程。
+                            running = false
+                        }
+                    }
+                    read < 0 -> {
+                        try {
+                            listener.onCaptureError(path, read)
+                        } catch (_: Throwable) {
+                        }
+                        break
+                    }
+                }
+            }
+            RemoteGamepadDevice.nativeEvdevClose(deviceFd)
+        }
+
+        fun stopReading() {
+            running = false
+        }
+    }
+
     override fun exitService() {
+        stopEvdevCapture()
         release()
         // Shizuku 约定：用户服务进程不会被自动杀死，需要自行退出。
         Process.killProcess(Process.myPid())
