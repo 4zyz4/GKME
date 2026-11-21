@@ -366,14 +366,18 @@ Activity **不直接改 ViewModel 内部状态**：
 
 `FloatingModeController.kt`。把 `GamepadLayout` 从 Activity 重新 parent 到 `WindowManager` overlay。
 
-- `enter()`：创建**全屏悬浮窗**（隐藏态也常驻，不可触摸、无子视图=全透明，作为屏幕方向探针）
+- `enter()`：创建**全屏悬浮窗**（隐藏态也常驻，不可触摸、无子视图，作为屏幕方向探针）
   与隐藏态 toggle 窗口（眼睛图标，可拖动），启动 observers。
 - `showControls()`：把 `gamepadLayout` 移入全屏悬浮窗 `FrameLayout`；竖屏旋转 90°；`alpha=floatingOpacity`；
-  临时把 gamepad 背景置 null；打开窗口触摸；`TYPE_APPLICATION_OVERLAY` +
+  临时把 gamepad 背景置 null；打开窗口触摸（`params.alpha=1f`）；`TYPE_APPLICATION_OVERLAY` +
   `FLAG_NOT_FOCUSABLE | FLAG_LAYOUT_IN_SCREEN | FLAG_LAYOUT_NO_LIMITS`；窗口宽高用 `MATCH_PARENT`
   并设 `fitInsetsTypes=0`（铺满整屏，含系统栏）；添加失败会记日志并回滚。
-- `hideControls()`：恢复 alpha、把 gamepad 移回 Activity、窗口改回「不可触摸 + 空」、恢复背景与设置按钮，
-  并用刚量到的窗口尺寸把 toggle 贴回设置按钮位置。
+- `hideControls()`：恢复 alpha、把 gamepad 移回 Activity、窗口改回「不可触摸 + 空 + `params.alpha=0f`」、
+  恢复背景与设置按钮，并用刚量到的窗口尺寸把 toggle 贴回设置按钮位置。
+- **探针窗口必须保持窗口级 alpha=0（关键）**：`View.alpha` / 空视图 / `PixelFormat.TRANSLUCENT`
+  都不会让窗口对 InputDispatcher 透明。Android 12+ 的「不可信悬浮窗遮挡」按**窗口 alpha** 累计，
+  全屏 + `alpha=1` 的穿透层会把下层所有应用的触摸判为 `Untrusted touch` 丢弃
+  （`obscuring opacity = 1.00 > 0.80`）。所以隐藏态用 `params.alpha=0f`，显示态再置 1f。
 - `exit()`：移除 toggle 与全屏窗口、恢复、注销 observers。
 - **屏幕方向来源（关键）**：应用退到后台/悬浮后 `Display#getRealSize()`、`DisplayListener`、
   `WindowManager#getCurrentWindowMetrics()` 都可能长期返回进入后台前的旧尺寸（MIUI 会延迟给不可见
@@ -425,6 +429,7 @@ Activity **不直接改 ViewModel 内部状态**：
 | Shizuku 授权只自动尝试一次，拒绝后停止轮询 | `MainActivitySettings.kt:1670-1676` |
 | [已修复] 悬浮模式在后台拿不到屏幕方向更新（`getRealSize`/`DisplayListener`/`WindowMetrics` 都可能停在进后台前的值），导致「手机已横屏、悬浮层仍按竖屏排版」 | `FloatingModeController.kt`；改为以窗口 frame 为准 |
 | [已修复] 隐藏态旋转后小眼睛按钮留在旧坐标（竖屏下跑到屏幕外）：隐藏态已无全屏窗口可量尺寸 | 全屏窗口在隐藏态常驻（不可触摸、空内容）作为方向探针 |
+| [已修复] 悬浮模式开启后下层应用全部无法点击（Android 12+ 日志 `Untrusted touch ... obscuring opacity = 1.00`）：隐藏态探针窗口是全屏穿透层且窗口级 `alpha=1`，被输入系统计入不可信遮挡 | `FloatingModeController.kt`；隐藏态 `params.alpha=0f`，显示态恢复 1f |
 | 全 UI 层无 `TODO/FIXME`，注意事项以散文注释形式存在 | — |
 
 ---

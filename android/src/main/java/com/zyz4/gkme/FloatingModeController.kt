@@ -130,6 +130,8 @@ internal class FloatingModeController(private val activity: MainActivity) {
         // 显示态需要接收触摸；隐藏态是不可触摸的透明探针。
         overlayParams?.let { params ->
             params.flags = overlayFlags()
+            // 探针态的窗口 alpha 为 0，显示时必须一并恢复，否则整层不可见。
+            params.alpha = 1f
             runCatching { windowManager.updateViewLayout(root, params) }
         }
         overrideSettingsButtonForFloating()
@@ -153,9 +155,14 @@ internal class FloatingModeController(private val activity: MainActivity) {
         isShown = false
 
         // 隐藏态保留全屏窗口：移空子视图后完全透明，并关掉触摸，只作为屏幕方向探针。
+        // 仅靠「空视图 + NOT_TOUCHABLE」并不足以对输入系统透明：Android 12+ 的
+        // 不可信悬浮窗拦截按**窗口级 alpha**（不是 View alpha 或实际像素）累计遮挡度，
+        // 窗口 alpha=1 的全屏穿透层会让下层所有应用收到 "Untrusted touch" 被系统丢弃。
+        // 因此隐藏态必须把窗口 alpha 归零，显示态再恢复（见 showControls）。
         val root = overlayRoot
         overlayParams?.let { params ->
             params.flags = overlayFlags() or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+            params.alpha = 0f
             root?.let { runCatching { windowManager.updateViewLayout(it, params) } }
         }
 
@@ -237,6 +244,12 @@ internal class FloatingModeController(private val activity: MainActivity) {
             gravity = Gravity.TOP or Gravity.START
             x = 0
             y = 0
+            // 窗口以隐藏态（方向探针）创建：窗口 alpha 必须为 0。
+            // 空 FrameLayout 在屏幕上确实什么也不画，但 InputDispatcher 判断「不可信
+            // 悬浮窗遮挡」时只看窗口级 alpha；全屏 + alpha=1 会让 Android 12+ 把
+            // 所有下层应用的触摸都当作 untrusted touch 丢弃。显示态会在
+            // showControls() 里恢复为 1f。
+            alpha = 0f
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 layoutInDisplayCutoutMode =
                     WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
