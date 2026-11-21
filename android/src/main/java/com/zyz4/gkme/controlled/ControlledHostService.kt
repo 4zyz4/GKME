@@ -12,30 +12,22 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.zyz4.gkme.R
-import com.zyz4.gkme.service.ConnectionManager
 import com.zyz4.gkme.web.WebServer
-import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 /**
  * 被控端前台服务：以常驻通知持有 [ControlledHostManager] 的生命周期，避免熄屏或
  * 切到后台后被系统杀进程。[ControlledActivity] 只负责界面展示，离开页面后服务
  * 继续监听控制端；用户可通过通知的“停止”操作结束。
  *
- * 当开关开启「悬浮窗保活」时，服务会持有一个 1×1 透明悬浮窗（见 [FloatingKeepAlive]），
- * 让系统把本进程视为可见窗口，降低后台/熄屏被回收的概率。
+ * 保活只依赖前台服务本身，不再额外挂 1×1 透明悬浮窗。
  */
-@AndroidEntryPoint
 class ControlledHostService : Service() {
-
-    @Inject
-    lateinit var connectionManager: ConnectionManager
 
     companion object {
         const val ACTION_STOP = "com.zyz4.gkme.action.STOP_CONTROLLED"
@@ -58,7 +50,6 @@ class ControlledHostService : Service() {
 
     private var scope: CoroutineScope? = null
     private var notifyJob: Job? = null
-    private var keepAliveJob: Job? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -83,36 +74,17 @@ class ControlledHostService : Service() {
         ControlledHostManager.start()
         WebServer.start(this)
         startNotificationUpdates()
-        startFloatingKeepAlive()
         return START_STICKY
     }
 
     override fun onDestroy() {
         notifyJob?.cancel()
         notifyJob = null
-        keepAliveJob?.cancel()
-        keepAliveJob = null
         scope?.cancel()
         scope = null
-        FloatingKeepAlive.stop()
         WebServer.stop()
         ControlledHostManager.stop()
         super.onDestroy()
-    }
-
-    /** 跟随「悬浮窗保活」开关启停：设置变化时立即生效，进程重建后也能恢复。 */
-    private fun startFloatingKeepAlive() {
-        if (keepAliveJob != null) return
-        val s = scope ?: return
-        keepAliveJob = s.launch {
-            connectionManager.settings.collect { settings ->
-                if (settings.floatingKeepAlive) {
-                    FloatingKeepAlive.start(this@ControlledHostService)
-                } else {
-                    FloatingKeepAlive.stop()
-                }
-            }
-        }
     }
 
     private fun startNotificationUpdates() {

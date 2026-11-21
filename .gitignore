@@ -1,5 +1,6 @@
 # Gradle build folders
 .gradle/
+.kotlin/
 /build/
 **/build/
 

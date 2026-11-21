@@ -38,6 +38,7 @@
     <string name="i18n_joy_con_stop_export_log">Остановить и экспортировать</string>
     <string name="i18n_joy_con_pair">Пара Joy-Con (экспериментально)</string>
     <string name="i18n_auto" formatted="false">"Авто"</string>
+    <string name="i18n_auto_enter_floating_mode" formatted="false">"Автоматически входить в плавающий режим"</string>
     <string name="i18n_auto_hold" formatted="false">"Автоудержание"</string>
     <string name="i18n_available" formatted="false">"Доступно"</string>
     <string name="i18n_back" formatted="false">"Назад"</string>
@@ -47,6 +48,7 @@
     <string name="i18n_back_button_top_right_p1" formatted="false">"Кнопка «Назад» вверху справа (P1)"</string>
     <string name="i18n_background" formatted="false">"Фон"</string>
     <string name="i18n_background_color" formatted="false">"Цвет фона"</string>
+    <string name="i18n_background_mode" formatted="false">"Фоновый режим"</string>
     <string name="i18n_base" formatted="false">"- Основа"</string>
     <string name="i18n_base_color" formatted="false">"Цвет основы"</string>
     <string name="i18n_base_direction" formatted="false">"Направление основы"</string>
@@ -192,7 +194,6 @@
     <string name="i18n_failed_to_create_virtual_gamepad_code_0" formatted="true">"Не удалось создать виртуальный геймпад (code=%1$s); возможно, нужно запустить Shizuku с правами root"</string>
     <string name="i18n_failed_to_get_local_ip_address" formatted="false">"Не удалось получить локальный IP-адрес"</string>
     <string name="i18n_failed_to_load_image_0" formatted="true">"Не удалось загрузить изображение: %1$s"</string>
-    <string name="i18n_failed_to_open_overlay_permission_settin" formatted="false">"Не удалось открыть настройки разрешения наложения"</string>
     <string name="i18n_failed_to_open_settings_open_developer_o" formatted="false">"Не удалось открыть настройки. Откройте «Для разработчиков» вручную"</string>
     <string name="i18n_failed_to_read_appearance_profile" formatted="false">"Не удалось прочитать профиль внешнего вида"</string>
     <string name="i18n_failed_to_request_shizuku_permission_0" formatted="true">"Не удалось запросить разрешение Shizuku: %1$s"</string>
@@ -238,6 +239,7 @@
     <string name="i18n_gesture_end" formatted="false">"Конец жеста"</string>
     <string name="i18n_gesture_start" formatted="false">"Начало жеста"</string>
     <string name="i18n_gkme_controlled_mode_is_running" formatted="false">"Управляемый режим GKME работает"</string>
+    <string name="i18n_gkme_is_running_in_the_background" formatted="false">"Служба ввода GKME работает"</string>
     <string name="i18n_global_settings" formatted="false">"Общие настройки"</string>
     <string name="i18n_going_back_will_stop_the_service_go_back" formatted="false">"Возврат остановит сервис. Вернуться?"</string>
     <string name="i18n_gyro" formatted="false">"Гироскоп"</string>
@@ -271,6 +273,7 @@
     <string name="i18n_import_layout" formatted="false">"Импортировать макет"</string>
     <string name="i18n_imported_0" formatted="true">"Импортировано \"%1$s\""</string>
     <string name="i18n_input_gamepad" formatted="false">"Входной геймпад"</string>
+    <string name="i18n_input_forwarding_continues_tap_to_retur" formatted="false">"Передача ввода активна. Нажмите, чтобы открыть приложение."</string>
     <string name="i18n_instant" formatted="false">"Мгновенно"</string>
     <string name="i18n_integrated_d_pad" formatted="false">"Встроенная крестовина"</string>
     <string name="i18n_integrated_d_pad_custom_keypad" formatted="false">"Встроенная крестовина / своя клавиатура"</string>
@@ -456,11 +459,10 @@
     <string name="i18n_outline_width_0" formatted="true">"Ширина обводки: %1$d"</string>
     <string name="i18n_output_distance" formatted="false">"Выходное расстояние -&gt;"</string>
     <string name="i18n_overlap_trigger" formatted="false">"Триггер перекрытия"</string>
-    <string name="i18n_overlay_keep_alive" formatted="false">"Поддержание активности оверлея"</string>
-    <string name="i18n_overlay_permission_is_not_granted_cannot" formatted="false">"Разрешение на наложение не выдано, невозможно включить поддержание активности оверлея"</string>
     <string name="i18n_overlay_permission_is_required_for_float" formatted="false">"Для плавающего режима требуется разрешение на наложение"</string>
     <string name="i18n_persistent_notification_while_controlled" formatted="false">"Постоянное уведомление при активном управляемом режиме; используется, чтобы система не завершила его в фоне"</string>
     <string name="i18n_persistent_notification_while_floating_m" formatted="false">"Постоянное уведомление при активном плавающем режиме"</string>
+    <string name="i18n_persistent_notification_while_running_in_t" formatted="false">"Постоянное уведомление во время сеанса; используется, чтобы система не завершила приложение в фоне"</string>
     <string name="i18n_phone_gyro" formatted="false">"Гироскоп телефона"</string>
     <string name="i18n_phone_motor" formatted="false">"Мотор телефона"</string>
     <string name="i18n_phone_speaker" formatted="false">"Динамик телефона"</string>

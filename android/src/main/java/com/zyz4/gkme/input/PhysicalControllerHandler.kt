@@ -3,9 +3,13 @@ package com.zyz4.gkme.input
 import android.app.Activity
 import android.content.Context
 import android.hardware.usb.UsbManager
+import android.os.Handler
+import android.os.Looper
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
+import android.util.Log
+import com.zyz4.gkme.controlled.GamepadInjector
 import com.zyz4.gkme.input.usb.DualSenseController
 import com.zyz4.gkme.input.usb.Dualshock4Controller
 import com.zyz4.gkme.input.usb.ProCon2Controller
@@ -43,6 +47,16 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
 
     private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
     private var mirrorJobs = mutableListOf<Job>()
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    /** 后台状态下把 backend/evdev 的 controllerState 变化推给 ViewModel。 */
+    private var backgroundSyncJob: Job? = null
+
+    /** 延迟启动后台源，避免对话框/悬浮窗导致的焦点抖动反复开关。 */
+    private val backgroundStartRunnable = Runnable {
+        if (backgroundInputActive) startBackgroundInput()
+    }
 
     private var started = false
     private var backend: PhysicalControllerBackend? = null
@@ -100,7 +114,15 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
 
     override var inputControllerIndex: Int
         get() = storedInputControllerIndex
-        set(value) { storedInputControllerIndex = value; backend?.inputControllerIndex = value }
+        set(value) {
+            if (storedInputControllerIndex == value) return
+            storedInputControllerIndex = value
+            backend?.inputControllerIndex = value
+            if (backgroundInputActive) {
+                stopBackgroundInput()
+                startBackgroundInput()
+            }
+        }
 
     override var gyroControllerIndex: Int
         get() = storedGyroControllerIndex
@@ -122,6 +144,22 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
 
     override var isPointerCaptureActive: Boolean = false
 
+    /**
+     * Invoked on the main thread when the controller state changed outside the Activity's
+     * key/motion dispatch (evdev source, or a polling backend while the app is paused).
+     */
+    var onStateChanged: (() -> Unit)? = null
+
+    /** True between Activity onPause and onResume (floating mode / app in background). */
+    @Volatile
+    private var backgroundInputActive = false
+
+    /** evdev fallback active for the current background period; null when not reading. */
+    private var backgroundInput: EvdevInputSource? = null
+
+    /** Last evdev start attempt (uptime ms), used to back off when the user service is not ready. */
+    private var lastBackgroundStartAttemptMs = 0L
+
     // ── Lifecycle ──────────────────────────────────────────
 
     override fun start() {
@@ -129,11 +167,18 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
         started = true
         createAndStartBackend()
         startCompatibilityMonitor()
+        // 轮询型 backend（USB / SDL3 HIDAPI）在后台仍会更新 controllerState；没有这个
+        // collector，ViewModel 只在 Activity dispatch 时才会被同步，后台状态就丢了。
+        backgroundSyncJob = scope.launch {
+            _controllerState.collect { if (backgroundInputActive) onStateChanged?.invoke() }
+        }
     }
 
     override fun stop() {
         if (!started) return
         started = false
+        backgroundSyncJob?.cancel()
+        backgroundSyncJob = null
         compatibilityJob?.cancel()
         compatibilityJob = null
         stopBackend()
@@ -181,6 +226,8 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
         backend = newBackend
         _activeDriver.value = effectiveDriver
         startMirroring(newBackend)
+        // 后台输入源按当前 backend/设备重新绑定（切换驱动后设备 id 可能变化）。
+        if (backgroundInputActive) startBackgroundInput()
     }
 
     /**
@@ -274,6 +321,7 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
         compatibilityJob = scope.launch {
             while (isActive) {
                 delay(COMPATIBILITY_CHECK_INTERVAL_MS)
+                maintainBackgroundInput()
                 if (driver == ControllerDriver.AUTO) {
                     if (!started) continue
                     val desired = resolveAutoDriver()
@@ -333,6 +381,7 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
     private fun hasSystemGamepad(): Boolean = systemGamepads().isNotEmpty()
 
     private fun stopBackend() {
+        stopBackgroundInput()
         mirrorJobs.forEach { it.cancel() }
         mirrorJobs.clear()
         backend?.stop()
@@ -345,9 +394,144 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
         _accelData.value = floatArrayOf(0f, 0f, 0f)
     }
 
+    // ── Background evdev input ─────────────────────────────
+
+    /**
+     * Enables/disables background input while the Activity is paused.
+     *
+     * Android only delivers key/motion events to the focused window, so after
+     * `moveTaskToBack(true)` (floating mode) or when the user switches apps the
+     * InputManager / DualSense backends receive nothing. Event-driven backends are
+     * covered by [EvdevInputSource]; polling backends (USB driver, SDL3 HIDAPI) keep
+     * updating [controllerState] and are pushed by [backgroundSyncJob]. Outputs
+     * (rumble / LED / adaptive trigger) keep using the backend.
+     */
+    fun setBackgroundInputActive(active: Boolean) {
+        if (active == backgroundInputActive) return
+        backgroundInputActive = active
+        Log.i(TAG, "setBackgroundInputActive=$active driver=${_activeDriver.value} evdevReady=${GamepadInjector.isEvdevAvailable()}")
+        mainHandler.removeCallbacks(backgroundStartRunnable)
+        if (active) {
+            // 焦点抖动（对话框/悬浮窗/转屏）时不要立刻开关；稳定失焦后才启动。
+            mainHandler.postDelayed(backgroundStartRunnable, BACKGROUND_START_DELAY_MS)
+        } else {
+            stopBackgroundInput()
+        }
+    }
+
+    private fun supportsBackgroundEvdev(): Boolean = when (_activeDriver.value) {
+        // USB 驱动从 UsbDriverService 收事件，轮询状态由 backgroundSyncJob 推给 ViewModel；
+        // 只有驱动没有拿到设备（USB 权限被拒/驱动异常）时才用 evdev 兜底。
+        ControllerDriver.AXIXI2233_USB ->
+            backend?.connectedControllers?.value?.getOrNull(inputControllerIndex) == null
+        // SDL3 的 ControllerInfo.id 是 SDL instance id，且 HIDAPI 的 USB 路径后台可用；
+        // P1 先不接管，避免背键/陀螺仪能力回退。
+        ControllerDriver.SDL3 -> false
+        // Joy-Con 双手柄走蓝牙 HID 主机通道，事件由 Activity 分发；P1 不做 evdev 兜底。
+        ControllerDriver.JOY_CON_PAIR -> false
+        ControllerDriver.INPUT_MANAGER, ControllerDriver.DUALSENSE_BLUETOOTH -> true
+        ControllerDriver.AUTO -> false
+    }
+
+    private fun startBackgroundInput() {
+        if (backgroundInput != null) return
+        if (!supportsBackgroundEvdev()) {
+            Log.d(TAG, "evdev skip: unsupported driver ${_activeDriver.value}")
+            return
+        }
+        if (!GamepadInjector.isEvdevAvailable()) {
+            // 只在用户已经授权时补绑定，避免切后台时突然弹 Shizuku 授权框。
+            if (GamepadInjector.binderAlive && GamepadInjector.permissionGranted) {
+                GamepadInjector.ensureBound()
+            }
+            Log.d(TAG, "evdev skip: user service not ready")
+            return
+        }
+        val device = resolveInputDevice()
+        if (device == null) {
+            Log.d(TAG, "evdev skip: no physical gamepad at index $inputControllerIndex")
+            return
+        }
+        val source = EvdevInputSource(device) { state ->
+            // 只更新状态；由 backgroundSyncJob 统一推给 ViewModel，避免同一帧推两次。
+            _controllerState.value = state
+        }
+        if (source.start()) {
+            backgroundInput = source
+            // evdev 已经在读，说明手柄确实存在；backend 的 isConnected 可能因 USB 权限
+            // 或驱动切换暂时为 false，这里以实际能读到的事件为准。
+            _isConnected.value = true
+        } else {
+            Log.i(TAG, "evdev start failed for ${device.name}")
+        }
+    }
+
+    /**
+     * Resolves the Android [InputDevice] for [inputControllerIndex].
+     *
+     * The backend's device id can go stale (USB unplugged, id reused by another input
+     * device), so the id is validated by name and by the gamepad/joystick source bits.
+     */
+    private fun resolveInputDevice(): InputDevice? {
+        val info = backend?.connectedControllers?.value?.getOrNull(inputControllerIndex)
+        val fromInfo = info?.let { InputDevice.getDevice(it.id) }?.takeIf { it.name == info.name }
+        val candidate = fromInfo ?: systemGamepads().getOrNull(inputControllerIndex)
+        return candidate?.takeIf { isPhysicalGamepad(it) }
+    }
+
+    private fun isPhysicalGamepad(device: InputDevice): Boolean {
+        if (VirtualGamepad.matches(device)) return false
+        val sources = device.sources
+        return sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
+            sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK
+    }
+
+    private fun stopBackgroundInput() {
+        val source = backgroundInput ?: return
+        backgroundInput = null
+        source.stop()
+        // 释放可能仍按住的按键；回到前台后 backend 的下一帧会恢复真实状态。
+        _controllerState.value = PhysicalControllerState()
+        _isConnected.value = backend?.isConnected?.value ?: false
+        onStateChanged?.invoke()
+    }
+
+    /** Keeps the background source bound to the currently selected controller. */
+    private fun maintainBackgroundInput() {
+        if (!backgroundInputActive) return
+        // USB 驱动可能在失焦后才拿到设备：一旦 backend 恢复，就让出输入（保留背键能力）。
+        if (!supportsBackgroundEvdev()) {
+            stopBackgroundInput()
+            return
+        }
+        val source = backgroundInput
+        if (source == null) {
+            // 用户服务/目标设备可能稍后才就绪；失败后 5 秒重试，避免每秒枚举一次 evdev。
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (now - lastBackgroundStartAttemptMs >= BACKGROUND_RETRY_MS) {
+                lastBackgroundStartAttemptMs = now
+                startBackgroundInput()
+            }
+            return
+        }
+        val info = backend?.connectedControllers?.value?.getOrNull(inputControllerIndex)
+        val device = (info?.let { InputDevice.getDevice(it.id) }?.takeIf { it.name == info.name }
+            ?: systemGamepads().getOrNull(inputControllerIndex))
+            ?.takeIf { isPhysicalGamepad(it) }
+        if (!source.matches(device)) {
+            stopBackgroundInput()
+            startBackgroundInput()
+        }
+    }
+
     private fun startMirroring(b: PhysicalControllerBackend) {
-        mirrorJobs += scope.launch { b.isConnected.collect { _isConnected.value = it } }
-        mirrorJobs += scope.launch { b.controllerState.collect { _controllerState.value = it } }
+        mirrorJobs += scope.launch {
+            // 后台 evdev 源激活时由它接管状态；否则（含 USB/SDL3 轮询 backend）继续镜像。
+            b.isConnected.collect { if (backgroundInput == null) _isConnected.value = it }
+        }
+        mirrorJobs += scope.launch {
+            b.controllerState.collect { if (backgroundInput == null) _controllerState.value = it }
+        }
         mirrorJobs += scope.launch { b.connectedControllers.collect { _connectedControllers.value = it } }
         mirrorJobs += scope.launch { b.gyroData.collect { _gyroData.value = it } }
         mirrorJobs += scope.launch { b.accelData.collect { _accelData.value = it } }
@@ -518,6 +702,9 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
     }
 
     companion object {
+        private const val TAG = "GKME_Evdev"
         private const val COMPATIBILITY_CHECK_INTERVAL_MS = 1000L
+        private const val BACKGROUND_RETRY_MS = 5_000L
+        private const val BACKGROUND_START_DELAY_MS = 250L
     }
 }

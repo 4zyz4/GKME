@@ -12,6 +12,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3"/></a>
   <a href="https://github.com/4zyz4/GKME/releases"><img src="https://img.shields.io/badge/download-Releases-blue?logo=github" alt="Download Releases"/></a>
+  <a href="https://gkme.databk.top"><img src="https://img.shields.io/badge/website-gkme.databk.top-blue?logo=googlechrome&logoColor=white" alt="官方网站"/></a>
 </p>
 
 <p align="center">
@@ -21,6 +22,7 @@
 把你的 Android 手机变成一台虚拟游戏手柄！也可以是虚拟键盘、鼠标！支持 WiFi 局域网、USB 直连与蓝牙直连。
 
 - 💬 软件 QQ 群：**639317971**
+- 🌐 官方网站：[gkme.databk.top](https://gkme.databk.top)
 - 📖 开发者内部架构文档见 [`docs/`](docs/README.md)（协议、传输、输入、UI、震动、被控端与原生等）
 
 ## 目录
@@ -169,7 +171,11 @@ GKME 围绕两个维度组织功能：**连接方式**决定输入如何送达�
 
 ### 下载发行版
 
-前往 [GitHub Releases](https://github.com/4zyz4/GKME/releases) 下载最新版本。
+前往 [GitHub Releases](https://github.com/4zyz4/GKME/releases) 下载最新版本，也可以访问[官方网站](https://gkme.databk.top)了解更多信息。
+
+### 夜间构建
+
+夜间构建由 `master` 最新提交自动生成，发布在 [`nightly` 预发布](https://github.com/4zyz4/GKME/releases/tag/nightly)。它是**测试版本，可能包含 bug 或未完成的功能**，请不要当作日常主力版本，升级前请先备份数据。
 
 ### 自行构建
 

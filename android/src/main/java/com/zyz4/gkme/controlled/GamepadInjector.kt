@@ -147,6 +147,41 @@ object GamepadInjector {
         binding?.ensureBound()
     }
 
+    // ── evdev 后台实体手柄采集 ─────────────────────────────
+
+    /** 用户服务是否已连接，可用于 evdev 采集。 */
+    fun isEvdevAvailable(): Boolean = service != null
+
+    /** 枚举 /dev/input/event*，返回原生描述串（见 IGamepadService.listEvdevDevices）。 */
+    fun listEvdevDevices(): Array<String>? {
+        val svc = service ?: return null
+        return try {
+            svc.listEvdevDevices()
+        } catch (t: Throwable) {
+            Log.w(TAG, "listEvdevDevices 失败", t)
+            null
+        }
+    }
+
+    /** 在用户服务进程中启动指定节点的读取线程。 */
+    fun startEvdevCapture(listener: IEvdevListener, paths: Array<String>): Int {
+        val svc = service ?: return -19 // -ENODEV
+        return try {
+            svc.startEvdevCapture(listener, paths)
+        } catch (t: Throwable) {
+            Log.w(TAG, "startEvdevCapture 失败", t)
+            -1
+        }
+    }
+
+    /** 停止全部 evdev 读取线程。 */
+    fun stopEvdevCapture() {
+        try {
+            service?.stopEvdevCapture()
+        } catch (_: Throwable) {
+        }
+    }
+
     /**
      * 确保虚拟手柄已就绪。若 Shizuku 未运行/未授权/未绑定，则返回 false 并触发相应流程，
      * 调用方可稍后重试。

@@ -62,7 +62,8 @@ flowchart TB
   → `autoStartService()` → SDL 初始化 → `physicalControllerHandler.start()`。
 - 返回优先级：屏幕关闭 → 预览放大 → 曲线放大 → 布局全局设置 → 全局设置 → 编辑模式确认 → 设置页。
 - 悬浮模式：`enterFloatingMode` / `continueEnterFloating` / `startFloatingMode` / `exitFloatingMode`；
-  自动悬浮 `onUserLeaveHint → maybeAutoEnterFloating`（仅 LOCAL 且服务已启动、非编辑、已有悬浮权限）。
+  自动悬浮 `onUserLeaveHint → maybeAutoEnterFloating`（仅 LOCAL、已开启「自动进入悬浮模式」
+  且服务已启动、非编辑、已有悬浮权限）。
 - 屏幕关闭模式：`enterScreenOffMode` / `exitScreenOffMode`（`R.id.screenOffOverlay` 纯黑 + KEEP_SCREEN_ON）。
 - 物理手柄桥接：`dispatchKeyEvent` / `onKeyDown` / `onKeyUp`（含音量键映射）、
   `dispatchGenericMotionEvent`、`dispatchTouchEvent`（仅 Sony vendorId `0x054c` 走手柄分发）、
@@ -150,7 +151,9 @@ flowchart TB
   第 6 页启动音频指示轮询。
 - `setupSettings` 绑定各页；大量 `sync*`/`build*` 辅助。
 - 本机模式（Shizuku）：`startLocalMode` / `tryStartLocalVirtualDevice`（rumble=true、mouse=true）/
-  `startShizukuPolling`；创建后经 Shizuku 读取 `vibrate_input_devices` 决定是否转发震动。
+  `startShizukuPolling`；创建后按 `autoEnterFloating`（设置页「自动进入悬浮模式」，默认开）决定是否
+  调用 `enterFloatingMode`；关闭后启动服务与离开应用都不再自动创建悬浮窗。创建后经 Shizuku 读取
+  `vibrate_input_devices` 决定是否转发震动。
 - 预设管理：`refreshPresetList` + `PresetGridAdapter`、新建/导入/导出/重命名/复制。
 - 连接页 `setupConnectionPage`：启动/停止服务、蓝牙权限、USB adb 检查、轮询率选项
   `[30,45,60,90,100,120,200,250,300,500,750,1000]`。
@@ -363,14 +366,18 @@ Activity **不直接改 ViewModel 内部状态**：
 
 `FloatingModeController.kt`。把 `GamepadLayout` 从 Activity 重新 parent 到 `WindowManager` overlay。
 
-- `enter()`：创建**全屏悬浮窗**（隐藏态也常驻，不可触摸、无子视图=全透明，作为屏幕方向探针）
+- `enter()`：创建**全屏悬浮窗**（隐藏态也常驻，不可触摸、无子视图，作为屏幕方向探针）
   与隐藏态 toggle 窗口（眼睛图标，可拖动），启动 observers。
 - `showControls()`：把 `gamepadLayout` 移入全屏悬浮窗 `FrameLayout`；竖屏旋转 90°；`alpha=floatingOpacity`；
-  临时把 gamepad 背景置 null；打开窗口触摸；`TYPE_APPLICATION_OVERLAY` +
+  临时把 gamepad 背景置 null；打开窗口触摸（`params.alpha=1f`）；`TYPE_APPLICATION_OVERLAY` +
   `FLAG_NOT_FOCUSABLE | FLAG_LAYOUT_IN_SCREEN | FLAG_LAYOUT_NO_LIMITS`；窗口宽高用 `MATCH_PARENT`
   并设 `fitInsetsTypes=0`（铺满整屏，含系统栏）；添加失败会记日志并回滚。
-- `hideControls()`：恢复 alpha、把 gamepad 移回 Activity、窗口改回「不可触摸 + 空」、恢复背景与设置按钮，
-  并用刚量到的窗口尺寸把 toggle 贴回设置按钮位置。
+- `hideControls()`：恢复 alpha、把 gamepad 移回 Activity、窗口改回「不可触摸 + 空 + `params.alpha=0f`」、
+  恢复背景与设置按钮，并用刚量到的窗口尺寸把 toggle 贴回设置按钮位置。
+- **探针窗口必须保持窗口级 alpha=0（关键）**：`View.alpha` / 空视图 / `PixelFormat.TRANSLUCENT`
+  都不会让窗口对 InputDispatcher 透明。Android 12+ 的「不可信悬浮窗遮挡」按**窗口 alpha** 累计，
+  全屏 + `alpha=1` 的穿透层会把下层所有应用的触摸判为 `Untrusted touch` 丢弃
+  （`obscuring opacity = 1.00 > 0.80`）。所以隐藏态用 `params.alpha=0f`，显示态再置 1f。
 - `exit()`：移除 toggle 与全屏窗口、恢复、注销 observers。
 - **屏幕方向来源（关键）**：应用退到后台/悬浮后 `Display#getRealSize()`、`DisplayListener`、
   `WindowManager#getCurrentWindowMetrics()` 都可能长期返回进入后台前的旧尺寸（MIUI 会延迟给不可见
@@ -422,6 +429,7 @@ Activity **不直接改 ViewModel 内部状态**：
 | Shizuku 授权只自动尝试一次，拒绝后停止轮询 | `MainActivitySettings.kt:1670-1676` |
 | [已修复] 悬浮模式在后台拿不到屏幕方向更新（`getRealSize`/`DisplayListener`/`WindowMetrics` 都可能停在进后台前的值），导致「手机已横屏、悬浮层仍按竖屏排版」 | `FloatingModeController.kt`；改为以窗口 frame 为准 |
 | [已修复] 隐藏态旋转后小眼睛按钮留在旧坐标（竖屏下跑到屏幕外）：隐藏态已无全屏窗口可量尺寸 | 全屏窗口在隐藏态常驻（不可触摸、空内容）作为方向探针 |
+| [已修复] 悬浮模式开启后下层应用全部无法点击（Android 12+ 日志 `Untrusted touch ... obscuring opacity = 1.00`）：隐藏态探针窗口是全屏穿透层且窗口级 `alpha=1`，被输入系统计入不可信遮挡 | `FloatingModeController.kt`；隐藏态 `params.alpha=0f`，显示态恢复 1f |
 | 全 UI 层无 `TODO/FIXME`，注意事项以散文注释形式存在 | — |
 
 ---

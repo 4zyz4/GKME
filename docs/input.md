@@ -25,6 +25,7 @@ flowchart LR
         SDL["SdlPhysicalControllerBackend"]
         USBb["UsbPhysicalControllerBackend"]
         IM["InputManagerPhysicalControllerBackend"]
+        EVD["EvdevInputSource<br/>(后台/悬浮)"]
     end
     subgraph 反馈
         AT["AdaptiveTriggerHandler"]
@@ -37,6 +38,7 @@ flowchart LR
     SDL --> PCH
     USBb --> PCH
     IM --> PCH
+    EVD --> PCH
     VM -->|toProto| CM["ConnectionManager"]
     PC["PC 下行效果"] --> AT
     AT --> VM
@@ -46,7 +48,7 @@ flowchart LR
 
 - **状态容器**：`model/GamepadState.kt`。
 - **触屏路径**：`view/GamepadLayout` → `GkViewModel.on*` → `_gamepadState`。
-- **物理手柄路径**：`PhysicalControllerHandler` facade，四选一 backend（SDL3 / Axixi2233 USB / InputManager / DualSense 蓝牙），默认 `AUTO`。
+- **物理手柄路径**：`PhysicalControllerHandler` facade，四选一 backend（SDL3 / Axixi2233 USB / InputManager / DualSense 蓝牙），默认 `AUTO`。Activity 失焦时由 `EvdevInputSource`（Shizuku + evdev）接管输入，见 §4.6。
 - **体感路径**：`SensorHandler`（手机）+ `AccelSteeringMapper`（加速度计转向）+ `SensitivityCurve`。
 - **反馈路径**：`AdaptiveTriggerHandler` 解析 PC 自适应扳机并路由到各执行器。
 - **去回环**：`VirtualGamepad` 排除 GKME 自建的虚拟手柄。
@@ -198,6 +200,10 @@ protobuf `GamepadInput`。要点：
 
 > thread：生命周期/切换/镜像 collect 均在 `Dispatchers.Main.immediate`；
 > `isUsbDriverCompatible`/`hasSystemGamepad` 也在 Main（每秒一次）。
+>
+> 后台输入：`onPause`/`onResume` 调用 `setBackgroundInputActive`；`backgroundSyncJob`
+> 在后台把 `_controllerState` 变化推给 `ViewModel`（覆盖 USB / SDL3 HIDAPI 轮询后端），
+> 事件型后端由 `EvdevInputSource` 接管；backend 的镜像在 `backgroundInput != null` 时暂停。
 
 ### 4.3 SdlPhysicalControllerBackend
 
@@ -262,7 +268,106 @@ protobuf `GamepadInput`。要点：
   停止时也必须 `manager.cancel()`，只 cancel 默认马达会漏掉其余马达。
 - 不可用能力：自适应扳机、LED（返回默认/`false`）。
 
-### 4.6 SdlNative / SdlPlatform / AudioOutput
+### 4.6 后台输入（悬浮 / 切后台）
+
+悬浮模式执行 `moveTaskToBack(true)` 后 Activity 暂停、失去窗口焦点，Android 只把
+key/motion 事件派发给前台焦点窗口，`dispatchKeyEvent` / `onKeyDown` 等不再被调用。
+问题分成两类：
+
+1. **事件型 backend**（InputManager、DualSense 蓝牙）：后台完全收不到事件；
+2. **轮询型 backend**（USB 驱动、SDL3 HIDAPI）：状态还在更新，但 ViewModel 只在
+   Activity dispatch 时被同步，后台状态也会丢。
+
+对应的两层修复：
+
+- **状态推送（所有 backend）**：`PhysicalControllerHandler.backgroundSyncJob` 在
+  `backgroundInputActive` 时收集 `_controllerState` 并调用 `onStateChanged`
+  （即 `MainActivity.syncPhysicalControllerState`），所以 USB / SDL3 HIDAPI 在后台照常工作；
+- **evdev 输入源（事件型 backend）**：`EvdevInputSource` 配合 Shizuku 用户服务直接读
+  `/dev/input/event*`，不依赖窗口焦点。
+
+```mermaid
+flowchart LR
+    PAD["实体手柄"] --> K["内核 HID 驱动"]
+    K --> EV["/dev/input/event*"]
+    EV --> US["Shizuku 用户服务<br/>shell + input 组"]
+    US -->|"AIDL oneway，8 字节/事件"| SRC["EvdevInputSource"]
+    SRC --> PCH["PhysicalControllerHandler<br/>_controllerState"]
+    USBb["USB / SDL3 HIDAPI<br/>轮询 backend"] --> PCH
+    PCH -->|"backgroundSyncJob"| VM["GkViewModel"]
+```
+
+- **触发**：`MainActivity.onPause()` → `setBackgroundInputActive(true)`；
+  `onResume()` → `false`（停止并输出一帧全松开状态）。启动延迟 250 ms，避免转屏/
+  对话框造成的焦点抖动反复开关。
+- **镜像门控**：backend 的 `controllerState` / `isConnected` 只在 `backgroundInput == null`
+  时镜像；evdev 接管期间忽略 backend 的旧状态。
+- **权限**：用户服务以 shell（uid 2000）运行，`Groups` 含 `1004(input)`，与
+  `adb shell getevent` 相同；App 进程本身无权读 evdev。
+- **不抢焦点**：evdev 支持多读者，系统 InputFlinger 仍然把同一份事件投递给前台游戏。
+- **接管范围**：`INPUT_MANAGER`、`DUALSENSE_BLUETOOTH` 总是启用；`AXIXI2233_USB` 仅在
+  驱动没有拿到设备（USB 权限被拒/驱动异常）时兜底——驱动成功 claim 时会 detach 内核
+  HID，evdev 节点本身也会消失；`SDL3` P1 暂不接管（`ControllerInfo.id` 是 SDL instance
+  id，HIDAPI 的 USB 路径已由轮询推送覆盖）。
+- **设备匹配**：按 `InputDevice.name + vendorId + productId` 匹配主手柄节点；触摸板节点
+  按相同的 `uniq`（蓝牙 MAC / uhid 标识）或名称前缀匹配。GKME 自建虚拟手柄通过
+  `uniq` 以 `GKME-` 开头、或 `Xbox One S Controller` 且 `uniq`/`phys` 为空来排除——
+  不能只按 vid/pid，因为真实 DualSense 也是 `054c:0ce6`。
+- **事件编码**：native `evdev_reader.c` 用 `poll + read`，每条事件编码为 8 字节
+  （`type:u16, code:u16, value:i32`，小端），最多 64 条一批，oneway Binder 回传。
+  空闲时 100 ms 超时唤醒一次，有事件时立即返回。
+- **解码**：主手柄节点映射 `BTN_SOUTH/EAST/WEST/NORTH`、`BTN_TL/TR/TL2/TR2`、
+  `BTN_SELECT/START/MODE/THUMBL/THUMBR`、`ABS_X/Y/RX/RY`、`ABS_Z/RZ`（或
+  `ABS_GAS/BRAKE`）、`ABS_HAT0X/Y`；触摸板节点映射 `ABS_MT_*`、`BTN_TOUCH`、
+  `BTN_LEFT`（触摸板按压）。`EV_SYN/SYN_DROPPED` 时清空状态，避免丢事件后摇杆卡住。
+- **输出不变**：震动/LED/自适应扳机仍由当前 backend 负责；evdev 只接管输入状态。
+  陀螺仪/加速度继续走 backend 的 `InputDevice.getSensorManager()`（传感器与窗口焦点无关）。
+- **AIDL**：`IGamepadService.listEvdevDevices/startEvdevCapture/stopEvdevCapture`
+  （事务号 11/12/13），回调接口 `IEvdevListener`。接口/原生行为变化后
+  `ShizukuServiceBinding` 的 `.version()` 必须递增（当前 5）。
+
+#### 进程保活（SessionKeepAliveService）
+
+后台输入修好之后，进程本身仍会被系统按 cached 进程回收（尤其是本机模式关闭
+「自动进入悬浮模式」、或 WiFi/蓝牙控制端切到后台时）。因此只要会话处于运行状态，
+就额外持有一个 `specialUse` 前台服务：
+
+```mermaid
+flowchart LR
+    S["会话运行中<br/>phase != IDLE"] --> C{"已有前台服务？"}
+    C -->|"悬浮 / 被控端"| OWN["FloatingOverlayService<br/>ControlledHostService"]
+    C -->|"否"| K["SessionKeepAliveService<br/>specialUse"]
+    K --> P["进程保持 FGS<br/>oom ≈ 50"]
+```
+
+- **触发**：`MainActivity.syncSessionKeepAlive()` 在连接状态变化、`onPause`、退出悬浮
+  模式时调用；会话结束（`stopServer` → `IDLE`）或 Activity `onDestroy` 时停止。
+- **互斥**：悬浮模式的 `FloatingOverlayService`、被控端的 `ControlledHostService`
+  本身就是前台服务，此时不再启动 `SessionKeepAliveService`，避免两条常驻通知。
+- **通知**：channel `session_keepalive`、id `4103`，`IMPORTANCE_LOW` + silent，
+  点击回到 `MainActivity`；`START_NOT_STICKY`，进程被杀后不会留下没有功能的空通知。
+- **启动/停止竞态**：服务内部维护 `IDLE / STARTING / RUNNING` 状态。`STARTING` 期间收到
+  停止只置 `stopAfterStart`，等 `startForeground()` 成功后再 `stopSelf()`；`RUNNING` 的
+  停止延迟 500 ms，期间重新 `start` 会取消。否则 `stopService()` 可能落在新的
+  `startForegroundService()` 之后，系统销毁 ServiceRecord 后仍抛
+  `ForegroundServiceDidNotStartInTimeException`，把应用打崩。
+- **效果**（Xiaomi 23117RK66C / Android 16 实测）：按 Home 后进程从
+  `cch/top-sleeping` 变为 `FGS`（`oom cur=50`），`adb shell am kill` 不会回收；
+  去掉前台服务后同样的命令会立刻杀掉进程。
+- **厂商限制**：`specialUse` 能挡住系统的 cached 进程回收，但挡不住用户「强行停止」。
+  MIUI/HyperOS 还需要在系统设置里允许「自启动」，并把省电策略设为「无限制」；
+  部分 ROM 的深度省电仍可能在熄屏数小时后回收，需结合电池优化白名单使用。
+
+**限制**：
+
+- evdev 拿不到只存在于厂商 HID 报告里的按键（例如 Xbox Elite 背键）；带背键的手柄在
+  后台会回退到标准按键集。
+- 切换瞬间如果某个键正被按住，evdev 只会在下一次状态变化时收到它（启动/停止时会输出
+  一帧中性状态，避免卡键）。
+- 设备热插拔由 1 s 兼容性监控重新绑定；evdev 节点本身不做 inotify。
+- SDL3 的 Android-driver 手柄（例如部分蓝牙手柄）仍不在 P1 覆盖范围内。
+
+### 4.7 SdlNative / SdlPlatform / AudioOutput
 
 | 文件 | 职责 |
 |------|------|
@@ -429,6 +534,7 @@ protobuf `GamepadInput`。要点：
 | `AdaptiveTriggerHandler` 频率取“较响通道”，GALLOPING/MACHINE 两通道频率可能不同 | `AdaptiveTriggerHandler.kt:152-165` |
 | `GamepadState.buttons` 为 `UInt` 而部分常量是 `Int` | `GamepadState.kt:44-65` |
 | [已修复] `SensorHandler.computeWorldDelta` 含线性加速度耦合 | `SensorHandler.kt:93-128` |
+| [已修复] 悬浮模式/切后台后实体手柄输入丢失（Activity 失焦） | §4.6 `EvdevInputSource` + `evdev_reader.c` |
 
 ---
 

@@ -19,6 +19,24 @@ val localProperties = Properties().apply {
 fun localProperty(key: String): String? =
     localProperties.getProperty(key)?.trim()?.takeIf { it.isNotEmpty() }
 
+// 版本号基准值，发版时改这里。
+val baseVersionCode = 4901
+val baseVersionName = "4.9.1"
+
+// 版本号覆盖：夜间构建等非发版场景用，例如
+//   ./gradlew -Pgkme.versionName=4.9.1-nightly.20261122 -Pgkme.versionCode=4901 assembleRelease
+// 未传属性时保持基准值，本地普通构建行为不变。
+val versionCodeOverride: Int? = providers.gradleProperty("gkme.versionCode")
+    .orNull?.trim()?.takeIf { it.isNotEmpty() }
+    ?.let { value ->
+        val parsed = value.toIntOrNull()
+        require(parsed != null && parsed > 0) { "gradle property gkme.versionCode 必须是正整数，当前为：$value" }
+        parsed
+    }
+
+val versionNameOverride: String? = providers.gradleProperty("gkme.versionName")
+    .orNull?.trim()?.takeIf { it.isNotEmpty() }
+
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
@@ -37,8 +55,8 @@ android {
         minSdk = 26
         //noinspection OldTargetApi
         targetSdk = 36
-        versionCode = 4901
-        versionName = "4.9.1"
+        versionCode = versionCodeOverride ?: baseVersionCode
+        versionName = versionNameOverride ?: baseVersionName
 
         ndk {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
@@ -89,6 +107,9 @@ android {
             signingConfigs.findByName("releaseSigned")?.let { signingConfig = it }
         }
         release {
+            // 存在可用密钥时（本地 local.properties 或 CI 注入）产出可直接安装的签名 APK；
+            // 否则保持 unsigned，仅用于构建验证。
+            signingConfigs.findByName("releaseSigned")?.let { signingConfig = it }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

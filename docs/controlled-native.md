@@ -19,7 +19,6 @@ flowchart TB
         GI["GamepadInjector"]
         HI["HapticInjector"]
         RHS["RemoteHapticService<br/>进程内 RichTap"]
-        FKA["FloatingKeepAlive"]
         SB1["ShizukuServiceBinding"]
     end
 
@@ -36,7 +35,6 @@ flowchart TB
     CA --> CHM
     CHM -->|awaitInjectorReady/update| GI
     CA --> GI
-    CA --> FKA
     GI --> SB1 --> RGS
     HI --> RHS
     RGS --> RGD
@@ -48,7 +46,8 @@ flowchart TB
   Shizuku 权限为应用级一次授权。
 - **震动不再依赖 Shizuku**：`HapticInjector` 在 app 进程内直接实例化普通 Kotlin 类
   `RemoteHapticService` 反射调用 RichTap hidden API（前台 uid），不再有 AIDL 接口/用户服务。
-- **保活不再依赖 Shizuku**：被控端采用可选的「悬浮窗保活」（[FloatingKeepAlive]，见 §3.4）。
+- **保活只依赖前台服务**：被控端由 `ControlledHostService`（`specialUse` FGS）常驻，
+  避免熄屏/后台被回收；不再挂 1×1 透明悬浮窗。
 - **两条原生路径**：uinput（伪装 Xbox One S，Linux FF 震动）与 uhid（真实 HID 身份 + HID 键鼠）。
 
 ---
@@ -157,25 +156,6 @@ flowchart TB
 - `release()` 先 `releaseKeyboardMouse()` 再销毁手柄。
 - `RemoteHapticService`：`tryInitType2()` 失败才 `tryInitType1()`。
 
-### 3.4 FloatingKeepAlive（悬浮窗保活）
-
-**保活**：WiFi 被控端在熄屏/后台时可能被系统 Doze、待机桶或电池优化限制网络与唤醒；
-国产 ROM（MIUI/HyperOS、EMUI、ColorOS 等）另有各自的内存/耗电杀后台策略。
-
-- `controlled/FloatingKeepAlive.kt`。object，通过 [WindowManager] 在屏幕上挂一个 **1×1 像素、
-  完全透明且不可触摸**的悬浮窗（`TYPE_APPLICATION_OVERLAY`，flags 为
-  `NOT_FOCUSABLE | NOT_TOUCHABLE | NOT_TOUCH_MODAL`）。只要本进程持有一个系统级悬浮窗，
-  系统就会把它视为“有可见窗口”的进程，从而降低后台/熄屏被回收的概率。
-- `start(context)` / `stop()` 均把 `addView` / `removeView` post 到主线程执行；重复调用幂等。
-- 依赖 `SYSTEM_ALERT_WINDOW` 权限：`canDrawOverlays(context)` 为 false 时 `start` 直接跳过，
-  由 [ControlledActivity] 引导用户跳转系统「显示在其他应用上层」设置页。
-- **不强制**：是否启用由设置项 `floatingKeepAlive`（默认关闭）控制，界面上的「悬浮窗保活」
-  开关负责切换；`ControlledHostService` 订阅 `ConnectionManager.settings`，设置或进程重建后
-  自动恢复悬浮窗。
-
-> 旧版基于 Shizuku daemon 的「Doze 白名单 + 复活看门狗」保活已移除：它依赖 Shizuku 存活，
-> 且无法对抗系统「强制停止」，实际效果有限。
-
 ---
 
 ## 4. ControlledHostManager 与 ControlledHostService
@@ -215,16 +195,15 @@ flowchart TB
   `NOTIFICATION_ID=4102`。
 - `start/stop` 用 `ContextCompat.startForegroundService` / `stopService`；`onBind` 返回 null。
 - `onStartCommand`：STOP 则 `stopSelf()`；否则 `startForeground`，兜底 `GamepadInjector.init/ensureBound`、
-  `ControlledHostManager.start()` 与 `FloatingKeepAlive`（订阅 `ConnectionManager.settings`，
-  开关开启时挂悬浮窗）；`START_STICKY`。服务为 `@AndroidEntryPoint`，注入 `ConnectionManager`。
-- `onDestroy`：取消通知/保活任务、`FloatingKeepAlive.stop()`、`ControlledHostManager.stop()`。
+  `ControlledHostManager.start()`；`START_STICKY`。
+- `onDestroy`：取消通知任务、`ControlledHostManager.stop()`。
 - 通知收集 `ControlledHostManager.state` 刷新常驻通知（`IMPORTANCE_LOW`），含“停止” action 与
   点击回 `ControlledActivity`。
 
 ### 4.3 ControlledActivity / ControlledDevice / ControlledDeviceCard
 
-- `ControlledActivity`：初始化并绑定 injector、「悬浮窗保活」开关（缺权限时跳转系统设置并
-  在 `onResume` 补挂窗口）、启动前台服务、虚拟手柄类型选择器、订阅 Flow；退出确认框后停服务。
+- `ControlledActivity`：初始化并绑定 injector、启动前台服务、虚拟手柄类型选择器、订阅 Flow；
+  退出确认框后停服务。
 - `ControlledDevice`：单 IP 端点，`groupKey=mac 否则 ip`。
 - `ControlledDeviceCard`：同 MAC 多 IP 合并，`hasMultipleEndpoints` 决定是否展开。
 
@@ -365,8 +344,6 @@ flowchart TB
 | `last_report/last_len` 在 uhid 仅赋值未使用（预留） | `uhid_input.c:145-147,886-889` |
 | [已修复] Watchdog 释放手柄并进入 RECONNECTING，保留会话等待 Hello 重建（设计如此，文档已更正） | `ControlledHostManager.kt:449-464` |
 | 前台服务需 `PROPERTY_SPECIAL_USE_FGS_SUBTYPE`（Android 14+） | `AndroidManifest.xml:70-77` |
-| 悬浮窗保活需 `SYSTEM_ALERT_WINDOW` 权限；未授权时开关开启无效，界面会引导授权 | `FloatingKeepAlive.kt`；`ControlledActivity.kt` |
-| 悬浮窗保活无法对抗系统「强制停止」(force-stop)：被 force-stop 后进程与悬浮窗都不会存活 | `FloatingKeepAlive.kt` |
 | 鼠标高精度 30 单位/格为实测值，不同 ROM 可能不同 | `uinput_gamepad.c:564-566` |
 | uinput FF 能力恒暴露，本机/被控模式在系统里都显示为“带震动设备” | `uinput_gamepad.c:312-319` |
 

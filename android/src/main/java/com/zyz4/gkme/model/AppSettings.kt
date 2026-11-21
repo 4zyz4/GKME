@@ -310,8 +310,12 @@ data class AppSettings(
     /** Opacity (0-100) applied to all floating-mode buttons (multiplied with each button's
      *  own idle/active opacity). */
     val floatingOpacity: Int = 50,
-    /** 被控端是否启用「悬浮窗保活」（挂一个透明 1×1 悬浮窗降低后台被杀概率）。 */
-    val floatingKeepAlive: Boolean = false,
+    /**
+     * 本机模式（Shizuku）下是否自动进入悬浮模式：
+     * 开启时启动服务后自动退出应用并创建悬浮窗，离开应用（Home/最近任务）也会自动进入；
+     * 关闭时两者都不自动执行，只能从「悬浮模式」入口手动进入。
+     */
+    val autoEnterFloating: Boolean = true,
     /** 设置按钮轮盘菜单的方向模式：true = 4 方向，false = 8 方向。 */
     val settingsButtonFourWay: Boolean = true,
     /** 设置按钮轮盘菜单：滑动方向 -> 操作；为空表示不启用轮盘（设置按钮保持普通点击）。 */

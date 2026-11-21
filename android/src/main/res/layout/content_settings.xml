@@ -1772,6 +1772,32 @@
                     </LinearLayout>
                 </LinearLayout>
 
+                <!-- 自动进入悬浮模式（仅本机模式显示） -->
+                <LinearLayout
+                    android:id="@+id/rowAutoFloating"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:background="@color/bg_surface"
+                    android:paddingHorizontal="12dp"
+                    android:layout_marginBottom="16dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/i18n_auto_enter_floating_mode"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp" />
+
+                    <Switch
+                        android:id="@+id/switchAutoEnterFloating"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
                 <!-- Control Type (conditional: WiFi) -->
                 <LinearLayout
                     android:id="@+id/sectionControlType"

@@ -24,6 +24,7 @@ import android.widget.TextView
 import com.zyz4.gkme.R
 import com.zyz4.gkme.applyContentSizeCap
 import com.zyz4.gkme.model.AppSettings
+import com.zyz4.gkme.model.ButtonPosition
 import com.zyz4.gkme.model.DisplayMode
 import com.zyz4.gkme.model.FillType
 import kotlin.math.sqrt
@@ -92,7 +93,7 @@ object AppearanceApplier {
     fun applyButtonAppearance(view: View, settings: AppSettings) {
         val density = view.resources.displayMetrics.density
         val tag = view.tag as? String
-        val isCircle = tag != null && isCircleButton(tag)
+        val isCircle = tag != null && ButtonPosition.isCircleId(tag)
         if (settings.btnFillType == FillType.SOLID_COLOR) {
             applyToButtonWithColor(view, settings, isCircle, density)
         } else if (settings.btnFillType == FillType.IMAGE) {
@@ -140,7 +141,7 @@ object AppearanceApplier {
     private fun applyToButton(view: View, settings: AppSettings) {
         val tag = view.tag as? String ?: return
         val baseId = tag.substringBefore("_")
-        val isCircle = isCircleButton(tag)
+        val isCircle = ButtonPosition.isCircleId(tag)
         val density = view.resources.displayMetrics.density
         val maxPx = contentCapPx(view, settings)
 
@@ -488,15 +489,6 @@ object AppearanceApplier {
         val g = (Color.green(color) + (255 - Color.green(color)) * factor).toInt().coerceIn(0, 255)
         val b = (Color.blue(color) + (255 - Color.blue(color)) * factor).toInt().coerceIn(0, 255)
         return Color.rgb(r, g, b)
-    }
-
-    private fun isCircleButton(tag: String): Boolean {
-        val baseId = tag.substringBefore("_")
-        return baseId in listOf(
-            "btnA", "btnB", "btnX", "btnY",
-            "btnDpadUp", "btnDpadDown", "btnDpadLeft", "btnDpadRight",
-            "btnHome", "btnSelect", "btnMenu", "btnLS", "btnRS", "btnShare", "btnMic",
-        ) || baseId.startsWith("btnCustomCircle")
     }
 
     private fun fitCenterDrawable(bmp: Bitmap): Drawable {

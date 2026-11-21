@@ -38,6 +38,7 @@
     <string name="i18n_joy_con_export_log">导出日志</string>
     <string name="i18n_joy_con_stop_export_log">停止并导出</string>
     <string name="i18n_auto" formatted="false">"自动"</string>
+    <string name="i18n_auto_enter_floating_mode" formatted="false">"自动进入悬浮模式"</string>
     <string name="i18n_auto_hold" formatted="false">"自动保持"</string>
     <string name="i18n_available" formatted="false">"可连接"</string>
     <string name="i18n_back" formatted="false">"返回"</string>
@@ -47,6 +48,7 @@
     <string name="i18n_back_button_top_right_p1" formatted="false">"背键右上 (P1)"</string>
     <string name="i18n_background" formatted="false">"背景"</string>
     <string name="i18n_background_color" formatted="false">"背景颜色"</string>
+    <string name="i18n_background_mode" formatted="false">"后台运行"</string>
     <string name="i18n_base" formatted="false">"- 底座"</string>
     <string name="i18n_base_color" formatted="false">"底座颜色"</string>
     <string name="i18n_base_direction" formatted="false">"基准方向"</string>
@@ -192,7 +194,6 @@
     <string name="i18n_failed_to_create_virtual_gamepad_code_0" formatted="true">"创建虚拟手柄失败 (code=%1$s)，可能需要以 root 启动 Shizuku"</string>
     <string name="i18n_failed_to_get_local_ip_address" formatted="false">"无法获取本机 IP"</string>
     <string name="i18n_failed_to_load_image_0" formatted="true">"图片加载失败: %1$s"</string>
-    <string name="i18n_failed_to_open_overlay_permission_settin" formatted="false">"无法打开悬浮窗权限设置"</string>
     <string name="i18n_failed_to_open_settings_open_developer_o" formatted="false">"无法打开设置，请手动进入「开发者选项」"</string>
     <string name="i18n_failed_to_read_appearance_profile" formatted="false">"无法读取外观配置文件"</string>
     <string name="i18n_failed_to_request_shizuku_permission_0" formatted="true">"申请 Shizuku 权限失败: %1$s"</string>
@@ -238,6 +239,7 @@
     <string name="i18n_gesture_end" formatted="false">"手势结束"</string>
     <string name="i18n_gesture_start" formatted="false">"手势开始"</string>
     <string name="i18n_gkme_controlled_mode_is_running" formatted="false">"GKME 被控端运行中"</string>
+    <string name="i18n_gkme_is_running_in_the_background" formatted="false">"GKME 输入服务运行中"</string>
     <string name="i18n_global_settings" formatted="false">"全局设置"</string>
     <string name="i18n_going_back_will_stop_the_service_go_back" formatted="false">"返回后将停止服务，确认返回吗？"</string>
     <string name="i18n_gyro" formatted="false">"陀螺仪"</string>
@@ -271,6 +273,7 @@
     <string name="i18n_import_layout" formatted="false">"导入布局"</string>
     <string name="i18n_imported_0" formatted="true">"已导入「%1$s」"</string>
     <string name="i18n_input_gamepad" formatted="false">"输入手柄"</string>
+    <string name="i18n_input_forwarding_continues_tap_to_retur" formatted="false">"输入转发服务运行中，点按打开应用"</string>
     <string name="i18n_instant" formatted="false">"即时"</string>
     <string name="i18n_integrated_d_pad" formatted="false">"一体十字键"</string>
     <string name="i18n_integrated_d_pad_custom_keypad" formatted="false">"一体十字键/自定义按键盘"</string>
@@ -456,11 +459,10 @@
     <string name="i18n_outline_width_0" formatted="true">"轮廓粗细: %1$d"</string>
     <string name="i18n_output_distance" formatted="false">"输出距离 -&gt;"</string>
     <string name="i18n_overlap_trigger" formatted="false">"重叠区域触发"</string>
-    <string name="i18n_overlay_keep_alive" formatted="false">"悬浮窗保活"</string>
-    <string name="i18n_overlay_permission_is_not_granted_cannot" formatted="false">"未授予悬浮窗权限，无法启用悬浮窗保活"</string>
     <string name="i18n_overlay_permission_is_required_for_float" formatted="false">"需要悬浮窗权限才能使用悬浮模式"</string>
     <string name="i18n_persistent_notification_while_controlled" formatted="false">"被控端运行期间的常驻通知，用于防止后台被系统清理"</string>
     <string name="i18n_persistent_notification_while_floating_m" formatted="false">"悬浮模式运行期间的常驻通知"</string>
+    <string name="i18n_persistent_notification_while_running_in_t" formatted="false">"会话运行期间的常驻通知，用于防止后台被系统清理"</string>
     <string name="i18n_phone_gyro" formatted="false">"手机陀螺仪"</string>
     <string name="i18n_phone_motor" formatted="false">"手机马达"</string>
     <string name="i18n_phone_speaker" formatted="false">"手机扬声器"</string>

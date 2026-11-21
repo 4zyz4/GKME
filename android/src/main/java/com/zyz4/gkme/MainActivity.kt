@@ -50,11 +50,13 @@ import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.model.AppSettings
 import com.zyz4.gkme.model.ComboTiming
 import com.zyz4.gkme.model.ConnectionMode
+import com.zyz4.gkme.model.ControlType
 import com.zyz4.gkme.model.HapticEffect
 import com.zyz4.gkme.model.SettingsButtonDirection
 import com.zyz4.gkme.model.VibrationType
 import com.zyz4.gkme.service.ConnectionPhase
 import com.zyz4.gkme.service.FloatingOverlayService
+import com.zyz4.gkme.service.SessionKeepAliveService
 import com.zyz4.gkme.view.FloatingEditorPanel
 import com.zyz4.gkme.view.GamepadLayout
 import com.zyz4.gkme.view.ExternalInputFrameLayout
@@ -340,6 +342,8 @@ class MainActivity : ComponentActivity() {
         }
         floatingController = FloatingModeController(this)
         physicalControllerHandler = PhysicalControllerHandler(this)
+        // 后台 evdev 源不经过 Activity 的 dispatch，状态变化后主动同步给 ViewModel。
+        physicalControllerHandler.onStateChanged = { syncPhysicalControllerState() }
         if (BuildConfig.DEBUG) {
             physicalControllerDiagnostics.start(lifecycleScope, physicalControllerHandler, viewModel.connectionState)
         }
@@ -449,12 +453,19 @@ class MainActivity : ComponentActivity() {
             mediaSession?.release()
             displayManager.unregisterDisplayListener(displayListener)
         }
+        // 只有用户真正结束页面时才停止保活；系统回收/配置变化导致的 onDestroy
+        // 不应把前台服务一起停掉，否则进程会立刻退回 cached 状态。
+        if (isFinishing) SessionKeepAliveService.stop(this)
         super.onDestroy()
     }
 
     override fun onResume() {
         super.onResume()
         if (!::gamepadLayout.isInitialized) return
+        // 回到前台：Activity 的 dispatch 会重新驱动手柄状态，交还输入。
+        if (::physicalControllerHandler.isInitialized) {
+            physicalControllerHandler.setBackgroundInputActive(false)
+        }
         gamepadLayout.post { externalMouseController.updateCapture() }
         if (::floatingController.isInitialized && floatingController.isActive &&
             android.os.SystemClock.elapsedRealtime() - floatingStartedAt > FLOATING_RESUME_GUARD_MS
@@ -466,10 +477,20 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         // 手指按住设置按钮时若窗口失焦（返回桌面、权限弹窗等），避免轮盘残留在屏幕上。
         hideSettingsButtonWheel()
+        // 悬浮模式/切后台后 Activity 不再收到 key/motion 事件，改由后台状态源接管：
+        //  - 轮询型 backend（USB / SDL3 HIDAPI）继续更新 controllerState，由 facade 推给
+        //    ViewModel；
+        //  - 事件型 backend（InputManager / DualSense 蓝牙）由 evdev 读取补齐。
+        if (::physicalControllerHandler.isInitialized) {
+            physicalControllerHandler.setBackgroundInputActive(true)
+        }
         if (::gamepadLayout.isInitialized) {
             viewModel.releaseExternalInput()
             physicalControllerHandler.releaseJoyConInput()
             externalMouseController.updateCapture(paused = true)
+            // 没有悬浮窗时要靠前台服务把进程保持在 FOREGROUND_SERVICE 优先级，
+            // 否则系统会把它当成 cached 进程回收，输入转发随之中断。
+            syncSessionKeepAlive()
         }
         super.onPause()
     }
@@ -488,6 +509,7 @@ class MainActivity : ComponentActivity() {
         // 协议门槛尚未通过时主界面还没构建，此时不要初始化 ViewModel 或触碰手柄布局。
         if (!::gamepadLayout.isInitialized) return
         if (viewModel.settings.value.connectionMode != ConnectionMode.LOCAL) return
+        if (!viewModel.settings.value.autoEnterFloating) return
         if (viewModel.connectionState.value.phase == ConnectionPhase.IDLE) return
         if (!::floatingController.isInitialized || floatingController.isActive) return
         // 悬浮启动的权限流程进行中时不再重复触发，避免权限对话框反复弹出。
@@ -544,6 +566,8 @@ class MainActivity : ComponentActivity() {
         if (inSettings) hideSettings()
         ContextCompat.startForegroundService(this, Intent(this, FloatingOverlayService::class.java))
         floatingController.enter()
+        // 悬浮模式自己的前台服务已接管保活，避免出现两条常驻通知。
+        SessionKeepAliveService.stop(this)
         floatingStartedAt = android.os.SystemClock.elapsedRealtime()
         moveTaskToBack(true)
         showToast(getString(R.string.i18n_floating_mode_enabled_tap_the_floating_b))
@@ -553,7 +577,29 @@ class MainActivity : ComponentActivity() {
         if (!::floatingController.isInitialized || !floatingController.isActive) return
         runCatching { floatingController.exit() }
         stopService(Intent(this, FloatingOverlayService::class.java))
+        // 退出悬浮后如果会话仍在运行，交回会话保活服务。
+        syncSessionKeepAlive()
         showToast(getString(R.string.i18n_exited_floating_mode))
+    }
+
+    /**
+     * 让 [SessionKeepAliveService] 与当前会话状态保持一致。
+     *
+     * 会话（本机虚拟手柄 / 控制端连接）运行期间保持一个前台服务，使进程在应用切到
+     * 后台、且没有悬浮窗时仍处于 `FOREGROUND_SERVICE` 优先级，避免被系统按 cached
+     * 进程回收。被控端与悬浮模式已经有自己的前台服务，此时不再重复启动。
+     */
+    internal fun syncSessionKeepAlive() {
+        val settings = viewModel.settings.value
+        val sessionActive = viewModel.connectionState.value.phase != ConnectionPhase.IDLE
+        val hasOwnForegroundService =
+            (settings.connectionMode == ConnectionMode.WIFI && settings.controlType == ControlType.CONTROLLED) ||
+                (::floatingController.isInitialized && floatingController.isActive)
+        if (sessionActive && !hasOwnForegroundService) {
+            SessionKeepAliveService.start(this)
+        } else {
+            SessionKeepAliveService.stop(this)
+        }
     }
 
     internal var pointerCaptureNeeded = false

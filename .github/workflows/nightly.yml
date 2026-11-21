@@ -1,0 +1,236 @@
+name: Nightly Build
+
+# 夜间构建：每天北京时间 02:00（UTC 18:00）基于 master 构建一个「正式签名」的
+# release APK，并更新滚动预发布 Release（固定标签 nightly）。
+# 若 master 近 24 小时没有新提交，check 任务会直接跳过构建，不产生任何产物。
+on:
+  schedule:
+    # UTC 18:00 = 北京时间次日 02:00
+    - cron: "0 18 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 忽略「近 24 小时无提交」检查，强制构建
+        type: boolean
+        default: false
+
+# 夜间构建不并发：同一时间只允许一个，避免两个任务同时写同一个 Release。
+concurrency:
+  group: nightly-build
+  cancel-in-progress: false
+
+permissions:
+  contents: write # 创建 / 更新 nightly Release 及其资源
+
+env:
+  ANDROID_HOME: /usr/local/lib/android/sdk
+  NDK_VERSION: "30.0.16248370"
+  CMAKE_VERSION: "4.1.2"
+
+jobs:
+  check:
+    name: Check commits in last 24h
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      should_build: ${{ steps.decide.outputs.should_build }}
+      sha: ${{ steps.decide.outputs.sha }}
+      count: ${{ steps.decide.outputs.count }}
+
+    steps:
+      # 夜间构建只针对 master；需要完整历史才能统计 24 小时内的提交。
+      - name: Checkout master (full history)
+        uses: actions/checkout@v5
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Decide whether to build
+        id: decide
+        env:
+          FORCE: ${{ github.event.inputs.force }}
+        run: |
+          set -euo pipefail
+          SHA="$(git rev-parse HEAD)"
+          COUNT="$(git rev-list --count --since='24 hours ago' HEAD)"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "master HEAD: $SHA"
+          echo "commits in last 24h: $COUNT"
+
+          if [ "$FORCE" = "true" ]; then
+            echo "手动触发并强制构建。"
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+          elif [ "$COUNT" -gt 0 ]; then
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::最近 24 小时 master 没有新提交，跳过本次夜间构建。"
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    name: Build signed nightly APK
+    needs: check
+    if: needs.check.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      # 构建 check 任务确认过的那次提交，避免两次 checkout 之间 master 又前进。
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.check.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Cache Android NDK & CMake
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.ANDROID_HOME }}/ndk/${{ env.NDK_VERSION }}
+            ${{ env.ANDROID_HOME }}/cmake/${{ env.CMAKE_VERSION }}
+          key: android-sdk-${{ runner.os }}-ndk-${{ env.NDK_VERSION }}-cmake-${{ env.CMAKE_VERSION }}
+
+      - name: Install Android NDK & CMake
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$SDKMANAGER" ] || SDKMANAGER="$(command -v sdkmanager)"
+          # runner 上许可证通常已接受；忽略 yes 因 SIGPIPE 产生的非零退出码
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" --install "ndk;$NDK_VERSION" "cmake;$CMAKE_VERSION"
+
+      # 密钥来自仓库 Secrets：GKME_KEYSTORE_BASE64 / GKME_KEYSTORE_PASSWORD /
+      # GKME_KEY_ALIAS / GKME_KEY_PASSWORD。
+      # 缺失时直接失败——夜间构建必须带正式签名，避免发出无法覆盖安装的包。
+      - name: Restore signing keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.GKME_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.GKME_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.GKME_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.GKME_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${KEYSTORE_BASE64:-}" ]; then
+            echo "::error::缺少 secrets.GKME_KEYSTORE_BASE64，无法为夜间构建签名。"
+            exit 1
+          fi
+          KEYSTORE="$RUNNER_TEMP/gkme-nightly.jks"
+          # 去掉可能存在的 CR，兼容 Windows 上生成的 base64 文本
+          if ! tr -d '\r' <<< "$KEYSTORE_BASE64" | base64 -d > "$KEYSTORE" 2> "$RUNNER_TEMP/b64.err"; then
+            echo "::error::secrets.GKME_KEYSTORE_BASE64 不是合法的 base64（长度 ${#KEYSTORE_BASE64}）：$(cat "$RUNNER_TEMP/b64.err")"
+            exit 1
+          fi
+          # android/build.gradle.kts 从仓库根目录的 local.properties 读取签名配置
+          {
+            printf 'GKME_RELEASE_STORE_FILE=%s\n' "$KEYSTORE"
+            printf 'GKME_RELEASE_STORE_PASSWORD=%s\n' "$STORE_PASSWORD"
+            printf 'GKME_RELEASE_KEY_ALIAS=%s\n' "$KEY_ALIAS"
+            printf 'GKME_RELEASE_KEY_PASSWORD=%s\n' "$KEY_PASSWORD"
+          } > local.properties
+          chmod 600 "$KEYSTORE" local.properties
+
+      - name: Assemble release APK
+        run: |
+          set -euo pipefail
+          # 版本名 = 基准版本 + 日期后缀，便于在系统设置里区分夜间包与正式版。
+          # versionCode 保持不变，否则夜间包会挡住之后安装更高的正式版。
+          BASE_VERSION="$(sed -n 's/^val baseVersionName = "\([^"]*\)".*/\1/p' android/build.gradle.kts | head -n1)"
+          if [ -z "$BASE_VERSION" ]; then
+            echo "::error::无法从 android/build.gradle.kts 解析 baseVersionName。"
+            exit 1
+          fi
+          NIGHTLY_VERSION="${BASE_VERSION}-nightly.$(date -u +%Y%m%d)"
+          echo "nightly versionName: $NIGHTLY_VERSION"
+          echo "NIGHTLY_VERSION=$NIGHTLY_VERSION" >> "$GITHUB_ENV"
+
+          chmod +x gradlew
+          ./gradlew --stacktrace -Pgkme.versionName="$NIGHTLY_VERSION" assembleRelease
+
+      # 用 apksigner 校验产物确实被签名，并回读 APK 里的实际版本号，
+      # 避免因配置漂移发出 unsigned 包或没打上夜间版本号的包。
+      - name: Verify signature and collect artifacts
+        id: apk
+        run: |
+          set -euo pipefail
+          APK="$(find android/build/outputs/apk/release -maxdepth 1 -name '*.apk' | head -n1)"
+          if [ -z "$APK" ]; then
+            echo "::error::未找到 release APK。"
+            exit 1
+          fi
+          BUILD_TOOLS="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -n1)"
+          "${BUILD_TOOLS}apksigner" verify --print-certs "$APK"
+
+          BADGING="$("${BUILD_TOOLS}aapt2" dump badging "$APK" | head -n1)"
+          VERSION_NAME="$(sed -n "s/.*versionName='\([^']*\)'.*/\1/p" <<< "$BADGING")"
+          VERSION_CODE="$(sed -n "s/.*versionCode='\([^']*\)'.*/\1/p" <<< "$BADGING")"
+          echo "versionName=$VERSION_NAME"
+          echo "versionCode=$VERSION_CODE"
+          if [ "$VERSION_NAME" != "$NIGHTLY_VERSION" ]; then
+            echo "::warning::APK 内的 versionName ($VERSION_NAME) 与预期 ($NIGHTLY_VERSION) 不一致。"
+          fi
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+
+          # 固定文件名，配合 gh release upload --clobber 实现滚动更新
+          mkdir -p dist
+          cp "$APK" dist/gkme-nightly.apk
+          cp android/build/outputs/mapping/release/mapping.txt dist/mapping-nightly.txt
+          echo "日期（UTC）: $(date -u +'%Y-%m-%d')"
+          echo "提交: $(git rev-parse --short=7 HEAD)"
+
+      - name: Upload nightly APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gkme-nightly-apk
+          path: dist/gkme-nightly.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish rolling nightly release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT_COUNT: ${{ needs.check.outputs.count }}
+          VERSION_NAME: ${{ steps.apk.outputs.version_name }}
+          VERSION_CODE: ${{ steps.apk.outputs.version_code }}
+        run: |
+          set -euo pipefail
+          TAG=nightly
+          TITLE="Nightly $(date -u +'%Y-%m-%d')"
+          {
+            echo "> ⚠️ **测试版（Nightly）：这是自动构建的测试版本，可能包含 bug、未完成的功能或与正式版不兼容的行为。**"
+            echo "> 请勿作为日常主力版本使用；升级前建议先备份应用数据，反馈问题时请附上下面的版本号。"
+            echo
+            echo "| 项目 | 值 |"
+            echo "| --- | --- |"
+            echo "| 版本 | \`${VERSION_NAME}\`（versionCode ${VERSION_CODE}） |"
+            echo "| 类型 | 夜间测试版（Pre-release，滚动覆盖） |"
+            echo "| 签名 | 与正式版相同的密钥，可直接覆盖安装 |"
+            echo "| 构建时间（UTC） | $(date -u +'%Y-%m-%d %H:%M') |"
+            echo "| master HEAD | \`$(git rev-parse --short=7 HEAD)\` $(git log -1 --pretty=%s | sed 's/|/\\|/g') |"
+            echo "| 近 24 小时提交数 | ${COMMIT_COUNT} |"
+            echo "| 下载 | \`gkme-nightly.apk\`（R8 混淆映射：\`mapping-nightly.txt\`） |"
+            echo
+            echo "### 近 24 小时内的提交"
+            echo
+            git log --since='24 hours ago' --pretty='- `%h` %s' || true
+          } > "$RUNNER_TEMP/notes.md"
+
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TITLE" --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            gh release create "$TAG" \
+              --prerelease \
+              --target "${{ needs.check.outputs.sha }}" \
+              --title "$TITLE" \
+              --notes-file "$RUNNER_TEMP/notes.md"
+          fi
+          gh release upload "$TAG" dist/gkme-nightly.apk dist/mapping-nightly.txt --clobber

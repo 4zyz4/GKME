@@ -81,6 +81,9 @@ internal fun MainActivity.observeState() {
                         a.physicalControllerHandler.stopAllVibration()
                     }
                     wasConnected = st.connected
+                    // 会话开始/结束时同步后台保活前台服务；本方法在 STARTED 期间运行，
+                    // 不会出现“从后台启动前台服务”的限制。
+                    a.syncSessionKeepAlive()
                     if (st.phase == ConnectionPhase.IDLE || st.phase == ConnectionPhase.DISCONNECTED) {
                         a.viewModel.connectionManager.clearTriggerEffects()
                     }

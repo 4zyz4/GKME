@@ -1676,9 +1676,28 @@ export class GamepadLayout {
   }
 
   // ── hit testing ──
+  // Same predicate as _drawButton: only standard buttons are painted as circles;
+  // joysticks / pads / keypads / touchpads paint their own shapes.
+  _isRoundControl(b) {
+    if (b.isJoystick || b.isDpadPad || b.isKeypad || b.isTouchpad || b.isMousepad) return false;
+    return !!b.roundShape || isCircleButton(b.id);
+  }
+
+  // Round controls use the inscribed circle as their touch area so the corners
+  // of the (square) grid slot never steal touches from neighbouring controls.
+  _pointInRect(r, px, py, round) {
+    if (round) {
+      const radius = Math.min(r.w, r.h) / 2;
+      const dx = px - (r.x + r.w / 2);
+      const dy = py - (r.y + r.h / 2);
+      return dx * dx + dy * dy <= radius * radius;
+    }
+    return px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h;
+  }
+
   _pointInControl(b, px, py) {
     const r = this._hitRectFor(b, false);
-    return px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h;
+    return this._pointInRect(r, px, py, this._isRoundControl(b));
   }
 
   // Extended-range rectangle used by the touchpad when 扩展触摸范围 is on:
@@ -1727,7 +1746,7 @@ export class GamepadLayout {
     for (const b of this.buttons) {
       if (!b.visible) continue;
       const r = this._hitRectFor(b, includeExtension);
-      if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) {
+      if (this._pointInRect(r, px, py, this._isRoundControl(b))) {
         found = b; // last drawn = topmost
       }
     }

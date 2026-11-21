@@ -106,4 +106,26 @@ public final class RemoteGamepadDevice {
                                                    int buttons);
 
     public static native void nativeDestroyUhidInput(int fd);
+
+    // ── evdev 只读采集（后台实体手柄）────────────────────────────────────
+
+    /**
+     * 枚举 /dev/input/event*，返回描述串数组。每行：
+     * path|name|phys|uniq|bus|vendor|product|flags|abs
+     * flags：bit0 = 手柄，bit1 = 触摸板，bit2 = 体感。
+     */
+    public static native String[] nativeEvdevList();
+
+    /** 打开 evdev 节点，返回 fd（负数表示 -errno）。 */
+    public static native int nativeEvdevOpen(String path);
+
+    /**
+     * 等待并读取一批事件，编码为每条 8 字节（type u16、code u16、value i32，小端）。
+     *
+     * @return 写入 out 的字节数；0 表示超时；负数表示 -errno
+     */
+    public static native int nativeEvdevRead(int fd, byte[] out, int timeoutMs);
+
+    /** 关闭 evdev fd。 */
+    public static native void nativeEvdevClose(int fd);
 }
