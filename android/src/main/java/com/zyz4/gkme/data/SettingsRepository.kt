@@ -93,7 +93,6 @@ class SettingsRepository @Inject constructor(
         val GYRO_STICK_CURVE = stringPreferencesKey("gyro_stick_curve")
         val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val FLOATING_OPACITY = intPreferencesKey("floating_opacity")
-        val FLOATING_KEEP_ALIVE = booleanPreferencesKey("floating_keep_alive")
         val AUTO_ENTER_FLOATING = booleanPreferencesKey("auto_enter_floating")
         val SETTINGS_BUTTON_FOUR_WAY = booleanPreferencesKey("settings_button_four_way")
         val SETTINGS_BUTTON_ACTIONS = stringPreferencesKey("settings_button_actions")
@@ -274,7 +273,6 @@ class SettingsRepository @Inject constructor(
             ) { GyroCoordinateSystem.YAW_ROLL },
             keepScreenOn = prefs[Keys.KEEP_SCREEN_ON] ?: false,
             floatingOpacity = (prefs[Keys.FLOATING_OPACITY] ?: 50).coerceIn(0, 100),
-            floatingKeepAlive = prefs[Keys.FLOATING_KEEP_ALIVE] ?: false,
             autoEnterFloating = prefs[Keys.AUTO_ENTER_FLOATING] ?: true,
             settingsButtonFourWay = prefs[Keys.SETTINGS_BUTTON_FOUR_WAY] ?: true,
             settingsButtonActions = parseSettingsButtonActions(prefs[Keys.SETTINGS_BUTTON_ACTIONS]),
@@ -422,7 +420,6 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.GYRO_COORDINATE_SYSTEM] = settings.gyroCoordinateSystem.ordinal
             prefs[Keys.KEEP_SCREEN_ON] = settings.keepScreenOn
             prefs[Keys.FLOATING_OPACITY] = settings.floatingOpacity
-            prefs[Keys.FLOATING_KEEP_ALIVE] = settings.floatingKeepAlive
             prefs[Keys.AUTO_ENTER_FLOATING] = settings.autoEnterFloating
             prefs[Keys.SETTINGS_BUTTON_FOUR_WAY] = settings.settingsButtonFourWay
             if (settings.settingsButtonActions.isEmpty()) {

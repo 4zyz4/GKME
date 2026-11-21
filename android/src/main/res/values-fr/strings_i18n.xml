@@ -189,7 +189,6 @@
     <string name="i18n_failed_to_create_virtual_gamepad_code_0" formatted="true">"Échec de la création de la manette virtuelle (code=%1$s) ; vous devrez peut-être démarrer Shizuku en tant que root"</string>
     <string name="i18n_failed_to_get_local_ip_address" formatted="false">"Échec de l'obtention de l'adresse IP locale"</string>
     <string name="i18n_failed_to_load_image_0" formatted="true">"Échec du chargement de l'image : %1$s"</string>
-    <string name="i18n_failed_to_open_overlay_permission_settin" formatted="false">"Échec de l'ouverture des paramètres d'autorisation de superposition"</string>
     <string name="i18n_failed_to_open_settings_open_developer_o" formatted="false">"Échec de l'ouverture des paramètres. Ouvrez les Options pour les développeurs manuellement"</string>
     <string name="i18n_failed_to_read_appearance_profile" formatted="false">"Échec de la lecture du profil d'apparence"</string>
     <string name="i18n_failed_to_request_shizuku_permission_0" formatted="true">"Échec de la demande d'autorisation Shizuku : %1$s"</string>
@@ -455,8 +454,6 @@
     <string name="i18n_outline_width_0" formatted="true">"Largeur du contour : %1$d"</string>
     <string name="i18n_output_distance" formatted="false">"Distance de sortie -&gt;"</string>
     <string name="i18n_overlap_trigger" formatted="false">"Gâchette de chevauchement"</string>
-    <string name="i18n_overlay_keep_alive" formatted="false">"Maintien de la superposition"</string>
-    <string name="i18n_overlay_permission_is_not_granted_cannot" formatted="false">"L'autorisation de superposition n'est pas accordée, impossible d'activer le maintien de la superposition"</string>
     <string name="i18n_overlay_permission_is_required_for_float" formatted="false">"L'autorisation de superposition est requise pour le mode flottant"</string>
     <string name="i18n_persistent_notification_while_controlled" formatted="false">"Notification persistante pendant que le mode contrôlé est actif, utilisée pour empêcher le système de l'arrêter en arrière-plan"</string>
     <string name="i18n_persistent_notification_while_floating_m" formatted="false">"Notification persistante pendant que le mode flottant est actif"</string>
