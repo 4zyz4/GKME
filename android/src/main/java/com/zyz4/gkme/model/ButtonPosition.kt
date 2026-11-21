@@ -89,6 +89,10 @@ data class ButtonPosition(
     // ── Keyboard control ──
     val isKeyboard: Boolean = false,
 ) {
+    /** True when this control is painted as a circle (used by touch hit-testing). */
+    val isCircleShape: Boolean
+        get() = if (isCustom) roundShape || lockAspect else isCircleId(id)
+
     companion object {
         // 预测外推时间（约一帧，60fps）：预测位置 = 当前位置 + 速度 × 该时间。
         const val PREDICTION_FRAME_MS = 16f
@@ -123,6 +127,19 @@ data class ButtonPosition(
 
         /** 自定义按钮的默认显示文字：固定英文 [CUSTOM_BUTTON_DEFAULT_TEXT]，不随界面语言变化。 */
         const val CUSTOM_BUTTON_DEFAULT_TEXT = "Custom"
+
+        // 圆形按钮（与 AppearanceApplier 绘制圆形背景的按钮一致）。
+        private val CIRCLE_BUTTON_IDS = setOf(
+            "btnA", "btnB", "btnX", "btnY",
+            "btnDpadUp", "btnDpadDown", "btnDpadLeft", "btnDpadRight",
+            "btnHome", "btnSelect", "btnMenu", "btnLS", "btnRS", "btnShare", "btnMic",
+        )
+
+        /** 该 id 是否属于固定画成圆形的内置控件。 */
+        fun isCircleId(id: String): Boolean {
+            val baseId = id.substringBefore("_")
+            return baseId in CIRCLE_BUTTON_IDS || baseId.startsWith("btnCustomCircle")
+        }
 
         // 自定义按键盘默认区域文本使用罗盘方位（语言无关）：
         // 0=上(N), 1=下(S), 2=左(W), 3=右(E), 4=中心(C), 5=左上(NW), 6=右上(NE), 7=左下(SW), 8=右下(SE)。

@@ -87,6 +87,16 @@ object GamepadLayoutGeometry {
         return null
     }
 
+    /** True when [pos] is painted as a circle by the standard button painter.
+     *  Joysticks / pads / keypads / touchpads, triggers and the settings button
+     *  all report false and keep rectangular hit areas. */
+    fun isRoundHitTarget(child: View?, pos: ButtonPosition): Boolean {
+        if (child is JoystickView || child is DpadPadView || child is CustomKeypadView || child is LinearTriggerView) {
+            return false
+        }
+        return pos.isCircleShape
+    }
+
     /** Returns all visible children at the grid-coordinate (cellW, cellH) given by (x/y, y/cellH),
      *  topmost first. Uses grid-coordinate based bounds from [buttons] instead of viewport
      *  pixel bounds to avoid missing hits on some Android devices. */
@@ -113,7 +123,17 @@ object GamepadLayoutGeometry {
                 if (cellW > 0f) vx += child.translationX / cellW
                 if (cellH > 0f) vy += child.translationY / cellH
             }
-            if (gridX >= vx && gridX <= vx + vb[2] && gridY >= vy && gridY <= vy + vb[3]) {
+            val hit = if (isRoundHitTarget(child, pos)) {
+                // Circle buttons: use the inscribed circle so the square slot's
+                // corners do not steal touches from neighbouring controls.
+                val radius = minOf(vb[2] * cellW, vb[3] * cellH) / 2f
+                val dx = x - (vx + vb[2] / 2f) * cellW
+                val dy = y - (vy + vb[3] / 2f) * cellH
+                dx * dx + dy * dy <= radius * radius
+            } else {
+                gridX >= vx && gridX <= vx + vb[2] && gridY >= vy && gridY <= vy + vb[3]
+            }
+            if (hit) {
                 result.add(child)
             }
         }

@@ -37,8 +37,17 @@ object SwipeTriggerStrategy {
             val rect = childBounds[pos.id] ?: continue
 
             for (pointer in pointers) {
-                if (pointer.x >= rect.left && pointer.x <= rect.right &&
-                    pointer.y >= rect.top && pointer.y <= rect.bottom) {
+                val inside = if (pos.isCircleShape) {
+                    // 圆形按钮：判定区域为内接圆，与绘制形状一致。
+                    val radius = minOf(rect.width(), rect.height()) / 2f
+                    val dx = pointer.x - rect.exactCenterX()
+                    val dy = pointer.y - rect.exactCenterY()
+                    dx * dx + dy * dy <= radius * radius
+                } else {
+                    pointer.x >= rect.left && pointer.x <= rect.right &&
+                        pointer.y >= rect.top && pointer.y <= rect.bottom
+                }
+                if (inside) {
                     // 非 overlapTrigger 的重叠过滤由调用方在传入 childBounds 前
                     // 完成，本纯函数只负责命中判断。
                     newlyActive.add(pos.id)
