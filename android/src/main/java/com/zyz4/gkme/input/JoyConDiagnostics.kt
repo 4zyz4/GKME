@@ -15,6 +15,7 @@ internal object JoyConDiagnostics {
     var recording = false
         private set
 
+    @Volatile
     var report: String? = null
         private set
 

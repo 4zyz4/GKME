@@ -351,6 +351,7 @@ class MainActivity : ComponentActivity() {
         viewModel.onHapticFeedbackRelease = { performHaptic(isPress = false) }
         gamepadLayout.applyAppearance(viewModel.settings.value)
         Handler(Looper.getMainLooper()).postDelayed({
+            if (isFinishing || isDestroyed) return@postDelayed
             // 首帧之后再初始化 Shizuku 监听与 RichTap 预置资源，避免拖慢启动。
             // 注册 Shizuku 监听（本机模式使用），以便连接页正确显示授权条目状态。
             GamepadInjector.init(this)
@@ -435,22 +436,25 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        if (BuildConfig.DEBUG) physicalControllerDiagnostics.stop()
-        viewModel.releaseExternalInput()
-        externalMouseController.updateCapture(paused = true)
-        keyboardInputManager.unregisterInputDeviceListener(keyboardDeviceListener)
-        if (::floatingController.isInitialized && floatingController.isActive) {
-            runCatching { floatingController.exit() }
-            stopService(Intent(this, FloatingOverlayService::class.java))
+        if (::gamepadLayout.isInitialized) {
+            if (BuildConfig.DEBUG) physicalControllerDiagnostics.stop()
+            viewModel.releaseExternalInput()
+            externalMouseController.updateCapture(paused = true)
+            keyboardInputManager.unregisterInputDeviceListener(keyboardDeviceListener)
+            if (floatingController.isActive) {
+                runCatching { floatingController.exit() }
+                stopService(Intent(this, FloatingOverlayService::class.java))
+            }
+            physicalControllerHandler.stop()
+            mediaSession?.release()
+            displayManager.unregisterDisplayListener(displayListener)
         }
-        if (::physicalControllerHandler.isInitialized) physicalControllerHandler.stop()
-        mediaSession?.release()
-        displayManager.unregisterDisplayListener(displayListener)
         super.onDestroy()
     }
 
     override fun onResume() {
         super.onResume()
+        if (!::gamepadLayout.isInitialized) return
         gamepadLayout.post { externalMouseController.updateCapture() }
         if (::floatingController.isInitialized && floatingController.isActive &&
             android.os.SystemClock.elapsedRealtime() - floatingStartedAt > FLOATING_RESUME_GUARD_MS
@@ -462,9 +466,11 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         // 手指按住设置按钮时若窗口失焦（返回桌面、权限弹窗等），避免轮盘残留在屏幕上。
         hideSettingsButtonWheel()
-        viewModel.releaseExternalInput()
-        physicalControllerHandler.releaseJoyConInput()
-        externalMouseController.updateCapture(paused = true)
+        if (::gamepadLayout.isInitialized) {
+            viewModel.releaseExternalInput()
+            physicalControllerHandler.releaseJoyConInput()
+            externalMouseController.updateCapture(paused = true)
+        }
         super.onPause()
     }
 
@@ -687,8 +693,10 @@ class MainActivity : ComponentActivity() {
     // 分发（含 screen-off 模式下吞掉手柄 BACK）必须在 Activity 层拦截，重写是唯一入口。
     @SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // Before accepting the license, let the agreement page handle its own keys.
+        if (!::gamepadLayout.isInitialized) return super.dispatchKeyEvent(event)
         if (dispatchJoyConKeyEvent(event, "activity")) return true
-        if (::gamepadLayout.isInitialized && externalMouseController.consumeSideButtonKey(event)) return true
+        if (externalMouseController.consumeSideButtonKey(event)) return true
         if (dispatchExternalKeyboardEvent(event, "activity")) return true
         // In screen-off mode the gamepad is meant for gameplay: swallow controller
         // BACK events (e.g. the B button) so only the real back key/gesture exits.

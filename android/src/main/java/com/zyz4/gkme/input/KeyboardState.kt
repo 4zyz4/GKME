@@ -62,10 +62,15 @@ internal class KeyboardState {
         val updated = KeyboardReport(modifier, owners.keys.filter { it < 0xE0 }.take(6))
         if (updated == report) return false
         report = updated
+        if (pending.size >= MAX_PENDING_REPORTS) pending.removeFirst()
         pending.addLast(updated)
         return true
     }
 
     // Preserve the right-modifier aliases accepted by the existing ViewModel API.
     private fun normalize(code: Int): Int = if (code in 0xE8..0xEB) code - 4 else code
+
+    private companion object {
+        const val MAX_PENDING_REPORTS = 256
+    }
 }

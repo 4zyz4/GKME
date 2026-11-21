@@ -1204,9 +1204,13 @@ private fun MainActivity.setupJoyConLogControls() {
 
     fun updateButtons() {
         start.isEnabled = !JoyConDiagnostics.recording
-        start.text = if (JoyConDiagnostics.recording) "Joy-Con 记录中" else "开始 Joy-Con 记录"
+        start.setText(
+            if (JoyConDiagnostics.recording) R.string.i18n_joy_con_recording else R.string.i18n_joy_con_start_log
+        )
         export.isEnabled = JoyConDiagnostics.recording || JoyConDiagnostics.report != null
-        export.text = if (JoyConDiagnostics.recording) "停止并导出" else "导出日志"
+        export.setText(
+            if (JoyConDiagnostics.recording) R.string.i18n_joy_con_stop_export_log else R.string.i18n_joy_con_export_log
+        )
     }
 
     fun diagnosticContext(): String =

@@ -32,6 +32,11 @@
     <string name="i18n_audio" formatted="false">"Audio"</string>
     <string name="i18n_author_4zyz4_qq_group_639317971" formatted="false">"Auteur : 4zyz4  Groupe QQ : 639317971\n\n"</string>
     <string name="i18n_authorized" formatted="false">"Autorisé"</string>
+    <string name="i18n_joy_con_start_log">Démarrer le journal Joy-Con</string>
+    <string name="i18n_joy_con_recording">Enregistrement des entrées Joy-Con</string>
+    <string name="i18n_joy_con_export_log">Exporter le journal</string>
+    <string name="i18n_joy_con_stop_export_log">Arrêter et exporter</string>
+    <string name="i18n_joy_con_pair">Paire de Joy-Con (expérimental)</string>
     <string name="i18n_auto" formatted="false">"Automatique"</string>
     <string name="i18n_auto_hold" formatted="false">"Maintien automatique"</string>
     <string name="i18n_available" formatted="false">"Disponible"</string>

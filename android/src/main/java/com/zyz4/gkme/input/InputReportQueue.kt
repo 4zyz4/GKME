@@ -12,7 +12,7 @@ internal class InputReportQueue {
     fun keyboard(report: KeyboardReport) {
         if (keyboard == report) return
         keyboard = report
-        pending.addLast(InputReport(keyboard, MouseReport(mouseButtons)))
+        enqueue(InputReport(keyboard, MouseReport(mouseButtons)))
     }
 
     @Synchronized
@@ -24,9 +24,14 @@ internal class InputReportQueue {
                 dx = previous.mouse.dx + report.dx, dy = previous.mouse.dy + report.dy,
                 wheel = previous.mouse.wheel + report.wheel, pan = previous.mouse.pan + report.pan)))
         } else {
-            pending.addLast(InputReport(keyboard, report))
+            enqueue(InputReport(keyboard, report))
         }
         mouseButtons = report.buttons
+    }
+
+    private fun enqueue(report: InputReport) {
+        if (pending.size >= MAX_PENDING_REPORTS) pending.removeFirst()
+        pending.addLast(report)
     }
 
     @Synchronized
@@ -40,5 +45,9 @@ internal class InputReportQueue {
         keyboard = currentKeyboard
         mouseButtons = 0
         pending.clear()
+    }
+
+    private companion object {
+        const val MAX_PENDING_REPORTS = 256
     }
 }

@@ -33,6 +33,10 @@
     <string name="i18n_author_4zyz4_qq_group_639317971" formatted="false">"作者：4zyz4  软件Q群：639317971\n\n"</string>
     <string name="i18n_authorized" formatted="false">"已授权"</string>
     <string name="i18n_joy_con_pair">Joy-Con 双手柄（实验）</string>
+    <string name="i18n_joy_con_start_log">开始 Joy-Con 记录</string>
+    <string name="i18n_joy_con_recording">Joy-Con 记录中</string>
+    <string name="i18n_joy_con_export_log">导出日志</string>
+    <string name="i18n_joy_con_stop_export_log">停止并导出</string>
     <string name="i18n_auto" formatted="false">"自动"</string>
     <string name="i18n_auto_hold" formatted="false">"自动保持"</string>
     <string name="i18n_available" formatted="false">"可连接"</string>

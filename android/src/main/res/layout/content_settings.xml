@@ -2824,14 +2824,14 @@
                         android:id="@+id/btnStartJoyConLog"
                         style="@style/GamepadChip"
                         android:background="@drawable/bg_chip_selected"
-                        android:text="开始 Joy-Con 记录" />
+                        android:text="@string/i18n_joy_con_start_log" />
 
                     <Button
                         android:id="@+id/btnExportJoyConLog"
                         style="@style/GamepadChip"
                         android:layout_marginStart="8dp"
                         android:background="@drawable/bg_chip_selected"
-                        android:text="导出日志" />
+                        android:text="@string/i18n_joy_con_export_log" />
                 </LinearLayout>
 
             </LinearLayout>

@@ -85,6 +85,21 @@ class KeyboardStateTest {
         assertEquals(KeyboardReport(), state.snapshot())
     }
 
+    @Test fun overflowRetainsTheNewestTransitionsAndFinalRelease() {
+        state.keyDown(0xE1, keyboard)
+        repeat(150) {
+            state.keyDown(0x04, keyboard)
+            state.keyUp(0x04, keyboard)
+        }
+        state.keyUp(0xE1, keyboard)
+
+        val reports = state.drainReports()
+        assertEquals(256, reports.size)
+        assertEquals(KeyboardReport(2), reports.first())
+        assertEquals(KeyboardReport(2, listOf(0x04)), reports[1])
+        assertEquals(KeyboardReport(), reports.last())
+    }
+
     @Test fun clearPublishesReleaseAndDiscardDropsOldSessionTransitions() {
         state.keyDown(0xE0, keyboard)
         state.keyDown(0x04, keyboard)

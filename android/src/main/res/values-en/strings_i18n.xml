@@ -32,6 +32,11 @@
     <string name="i18n_audio" formatted="false">"Audio"</string>
     <string name="i18n_author_4zyz4_qq_group_639317971" formatted="false">"Author: 4zyz4  QQ group: 639317971\n\n"</string>
     <string name="i18n_authorized" formatted="false">"Authorized"</string>
+    <string name="i18n_joy_con_start_log">Start Joy-Con logging</string>
+    <string name="i18n_joy_con_recording">Recording Joy-Con input</string>
+    <string name="i18n_joy_con_export_log">Export log</string>
+    <string name="i18n_joy_con_stop_export_log">Stop and export</string>
+    <string name="i18n_joy_con_pair">Paired Joy-Con (experimental)</string>
     <string name="i18n_auto" formatted="false">"Auto"</string>
     <string name="i18n_auto_hold" formatted="false">"Auto hold"</string>
     <string name="i18n_available" formatted="false">"Available"</string>

@@ -37,6 +37,21 @@ class InputReportQueueTest {
         assertEquals(listOf(InputReport(KeyboardReport(), MouseReport(1))), queue.drain())
     }
 
+    @Test fun overflowDropsOldestReportsAndRetainsFinalRelease() {
+        val queue = InputReportQueue()
+        queue.keyboard(KeyboardReport(1))
+        repeat(300) { index ->
+            queue.mouse(MouseReport(buttons = if (index % 2 == 0) 1 else 0, dx = index + 1))
+        }
+        queue.keyboard(KeyboardReport())
+
+        val reports = queue.drain()
+        assertEquals(256, reports.size)
+        assertEquals((46..300).toList(), reports.dropLast(1).map { it.mouse.dx })
+        assertTrue(reports.dropLast(1).all { it.keyboard.modifier == 1 })
+        assertEquals(InputReport(KeyboardReport(), MouseReport()), reports.last())
+    }
+
     @Test fun reconnectResetDropsOldMotionClicksAndModifiers() {
         val queue = InputReportQueue()
         queue.keyboard(KeyboardReport(1, listOf(4)))
