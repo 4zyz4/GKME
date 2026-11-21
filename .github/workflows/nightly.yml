@@ -125,7 +125,10 @@ jobs:
           fi
           KEYSTORE="$RUNNER_TEMP/gkme-nightly.jks"
           # 去掉可能存在的 CR，兼容 Windows 上生成的 base64 文本
-          tr -d '\r' <<< "$KEYSTORE_BASE64" | base64 -d > "$KEYSTORE"
+          if ! tr -d '\r' <<< "$KEYSTORE_BASE64" | base64 -d > "$KEYSTORE" 2> "$RUNNER_TEMP/b64.err"; then
+            echo "::error::secrets.GKME_KEYSTORE_BASE64 不是合法的 base64（长度 ${#KEYSTORE_BASE64}）：$(cat "$RUNNER_TEMP/b64.err")"
+            exit 1
+          fi
           # android/build.gradle.kts 从仓库根目录的 local.properties 读取签名配置
           {
             printf 'GKME_RELEASE_STORE_FILE=%s\n' "$KEYSTORE"
