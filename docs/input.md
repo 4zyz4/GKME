@@ -326,6 +326,33 @@ flowchart LR
   （事务号 11/12/13），回调接口 `IEvdevListener`。接口/原生行为变化后
   `ShizukuServiceBinding` 的 `.version()` 必须递增（当前 5）。
 
+#### 进程保活（SessionKeepAliveService）
+
+后台输入修好之后，进程本身仍会被系统按 cached 进程回收（尤其是本机模式关闭
+「自动进入悬浮模式」、或 WiFi/蓝牙控制端切到后台时）。因此只要会话处于运行状态，
+就额外持有一个 `specialUse` 前台服务：
+
+```mermaid
+flowchart LR
+    S["会话运行中<br/>phase != IDLE"] --> C{"已有前台服务？"}
+    C -->|"悬浮 / 被控端"| OWN["FloatingOverlayService<br/>ControlledHostService"]
+    C -->|"否"| K["SessionKeepAliveService<br/>specialUse"]
+    K --> P["进程保持 FGS<br/>oom ≈ 50"]
+```
+
+- **触发**：`MainActivity.syncSessionKeepAlive()` 在连接状态变化、`onPause`、退出悬浮
+  模式时调用；会话结束（`stopServer` → `IDLE`）或 Activity `onDestroy` 时停止。
+- **互斥**：悬浮模式的 `FloatingOverlayService`、被控端的 `ControlledHostService`
+  本身就是前台服务，此时不再启动 `SessionKeepAliveService`，避免两条常驻通知。
+- **通知**：channel `session_keepalive`、id `4103`，`IMPORTANCE_LOW` + silent，
+  点击回到 `MainActivity`；`START_NOT_STICKY`，进程被杀后不会留下没有功能的空通知。
+- **效果**（Xiaomi 23117RK66C / Android 16 实测）：按 Home 后进程从
+  `cch/top-sleeping` 变为 `FGS`（`oom cur=50`），`adb shell am kill` 不会回收；
+  去掉前台服务后同样的命令会立刻杀掉进程。
+- **厂商限制**：`specialUse` 能挡住系统的 cached 进程回收，但挡不住用户「强行停止」。
+  MIUI/HyperOS 还需要在系统设置里允许「自启动」，并把省电策略设为「无限制」；
+  部分 ROM 的深度省电仍可能在熄屏数小时后回收，需结合电池优化白名单使用。
+
 **限制**：
 
 - evdev 拿不到只存在于厂商 HID 报告里的按键（例如 Xbox Elite 背键）；带背键的手柄在

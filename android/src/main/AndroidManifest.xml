@@ -68,6 +68,16 @@
                 android:value="floating_gamepad_overlay" />
         </service>
 
+        <!-- 会话保活：本机模式/控制端运行期间常驻，避免后台无悬浮窗时被系统回收 -->
+        <service
+            android:name=".service.SessionKeepAliveService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="gamepad_input_keepalive" />
+        </service>
+
         <!-- 作为被控端：发现控制端并创建本地虚拟手柄 -->
         <activity
             android:name=".controlled.ControlledActivity"
