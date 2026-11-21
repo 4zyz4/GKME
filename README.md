@@ -12,6 +12,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3"/></a>
   <a href="https://github.com/4zyz4/GKME/releases"><img src="https://img.shields.io/badge/download-Releases-blue?logo=github" alt="Download Releases"/></a>
+  <a href="https://gkme.databk.top"><img src="https://img.shields.io/badge/website-gkme.databk.top-blue?logo=googlechrome&logoColor=white" alt="Official Website"/></a>
 </p>
 
 <p align="center">
@@ -21,6 +22,7 @@
 Turn your Android phone into a virtual gamepad — or a virtual keyboard and mouse! Supports WiFi LAN, direct USB, and direct Bluetooth connections.
 
 - 💬 QQ group: **639317971**
+- 🌐 Official website: [gkme.databk.top](https://gkme.databk.top)
 - 📖 Internal developer architecture docs are in [`docs/`](docs/README.md) (protocol, transport, input, UI, haptics, controlled side, native, etc.)
 
 ## Table of Contents
@@ -169,7 +171,7 @@ Connect an Android-compatible gamepad to the phone via an OTG cable or Bluetooth
 
 ### Download Releases
 
-Go to [GitHub Releases](https://github.com/4zyz4/GKME/releases) to download the latest version.
+Go to [GitHub Releases](https://github.com/4zyz4/GKME/releases) to download the latest version, or visit the [official website](https://gkme.databk.top) for more information.
 
 ### Nightly Builds
 
