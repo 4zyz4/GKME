@@ -58,6 +58,7 @@ export class LayoutEditor {
     this._collapsed = false;
     this._adjusting = false;
     this._current = null;
+    this._multiCount = 0;
     this._sizeSyncers = [];
 
     this._buildActions();
@@ -128,7 +129,8 @@ export class LayoutEditor {
   refreshLanguage() {
     this._buildActions();
     this._setCollapsed(this._collapsed);
-    if (this._current) this.showParams(this._current);
+    if (this._multiCount > 1) this.showMultiSelection(this._multiCount);
+    else if (this._current) this.showParams(this._current);
   }
 
   _updateActions() {
@@ -206,6 +208,11 @@ export class LayoutEditor {
       this.clearParams();
       return;
     }
+    const selected = this.app.layout.selectedIds;
+    if (selected && selected.size > 1) {
+      this.showMultiSelection(selected.size);
+      return;
+    }
     this.showParams(this.app.layout.getButton(id));
   }
 
@@ -220,7 +227,104 @@ export class LayoutEditor {
   clearParams() {
     this._sizeSyncers = [];
     this._current = null;
+    this._multiCount = 0;
     this.params.innerHTML = "";
+  }
+
+  /**
+   * 多选浮窗：显示选中数量，并提供「取消选中」「全部删除」批量操作。
+   * Mirrors FloatingEditorPanel.showMultiSelection.
+   */
+  showMultiSelection(count) {
+    if (count <= 1) return;
+    this._sizeSyncers = [];
+    this._current = null;
+    this._multiCount = count;
+    this.params.innerHTML = "";
+    this.params.append(
+      el("div", { class: "editctrlname", text: t("editor.selectedControlsCount", count) })
+    );
+    this.params.append(
+      this._btnRow([
+        [t("editor.clearSelection"), () => this.app.layout.deselectButton()],
+        [t("editor.deleteAllSelected"), () => this._deleteSelected()],
+      ])
+    );
+  }
+
+  /** 批量删除选中的控件（settings 按钮不可删除）。 */
+  async _deleteSelected() {
+    const layout = this.app.layout;
+    const ids = [...layout.selectedIds].filter((id) => !isSettingsId(id));
+    if (!ids.length) {
+      layout.deselectButton();
+      this.clearParams();
+      return;
+    }
+    const ok = await showConfirm(
+      t("editor.deleteControlTitle"),
+      t("editor.deleteSelectedControls", ids.length),
+      { positiveText: t("editor.deleteControl") }
+    );
+    if (!ok) return;
+    layout.buttons = layout.buttons.filter((b) => !ids.includes(b.id));
+    layout.deselectButton();
+    layout.render();
+    this.app._positionStatus();
+    this.clearParams();
+  }
+
+  /**
+   * 重叠控件澄清选择器：在触点附近弹出候选控件（自顶向下），
+   * 点选后才切换选择。Mirrors OverlapSelectionPopup.
+   */
+  showOverlapPicker(ids, x, y) {
+    if (!ids || !ids.length) return;
+    const layout = this.app.layout;
+    const overlay = el("div", { class: "overlapov" });
+    const popup = el("div", { class: "overlappopup" });
+    popup.append(
+      el("div", { class: "overlappopuptitle", text: t("editor.overlapSelectionTitle") }),
+      el("div", { class: "overlappopuphint", text: t("editor.overlapSelectionHint") })
+    );
+    for (const id of ids) {
+      const item = el("button", {
+        type: "button",
+        class: "overlappopupitem",
+        text: this._overlapLabel(id),
+      });
+      item.addEventListener("click", () => {
+        overlay.remove();
+        layout.setSelected(id);
+      });
+      popup.append(item);
+    }
+    overlay.append(popup);
+    document.body.append(overlay);
+    overlay.addEventListener("pointerdown", (e) => {
+      if (e.target === overlay) overlay.remove();
+    });
+
+    // 触点定位到弹窗左上角；下方空间不足时翻到触点上方，并夹紧在屏幕内。
+    const { w, h } = localViewport();
+    popup.style.left = `${Math.max(8, x)}px`;
+    popup.style.top = `${Math.max(8, y)}px`;
+    const pw = popup.offsetWidth;
+    const ph = popup.offsetHeight;
+    const left = Math.max(8, Math.min(x, w - pw - 8));
+    const top = y + ph > h - 8 ? Math.max(8, y - ph) : y;
+    popup.style.left = `${left}px`;
+    popup.style.top = `${top}px`;
+  }
+
+  /** 澄清选择器里的控件名：自定义控件优先用自定义文本，重名控件用 id 后缀区分。 */
+  _overlapLabel(id) {
+    const b = this.app.layout.getButton(id);
+    const custom = b && b.isCustom && (b.customText || "").trim();
+    const name = custom || controlDisplayName(id);
+    const underscore = id.lastIndexOf("_");
+    const suffix = underscore >= 0 ? id.slice(underscore + 1) : "";
+    return /^\d+$/.test(suffix) ? `${name} · ${suffix}` : name;
   }
 
   // ── geometry helpers ──
@@ -395,6 +499,7 @@ export class LayoutEditor {
     this._sizeSyncers = [];
     this.params.innerHTML = "";
     this._current = button;
+    this._multiCount = 0;
     if (!button) return;
 
     const id = button.id;

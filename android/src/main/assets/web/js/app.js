@@ -260,6 +260,9 @@ class App {
       onEditChanged: () => this.editor && this.editor.onEditChanged(),
       onEditEnd: () => this.editor && this.editor.onEditEnd(),
       onSelect: (id) => this.editor && this.editor.onSelect(id),
+      onOverlapSelection: (ids, x, y) => {
+        if (this.editor) this.editor.showOverlapPicker(ids, x, y);
+      },
     });
     this.layout.setDisplayMode(this.settings.displayMode);
     this.layout.keyboardShift = false;

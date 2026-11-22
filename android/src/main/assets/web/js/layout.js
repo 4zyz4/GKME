@@ -334,7 +334,16 @@ export class GamepadLayout {
     this.displayMode = "XBOX";
     this.appearance = JSON.parse(JSON.stringify(DEFAULT_APPEARANCE));
     this.editMode = false;
+    // Primary selection plus the full multi-selection set (marquee / group
+    // drag). Mirrors GamepadLayout._selectedButtonIds.
+    this._selectedIds = new Set();
     this.selectedId = null;
+    // Edit gestures: marquee, pinch-resize and overlap clarify state. These
+    // mirror GamepadEditGesture's marquee / pinch / clarify fields.
+    this._editPointers = new Map();
+    this._marquee = null;
+    this._pinch = null;
+    this._clarify = null;
     this.pressedBits = 0;
     this.stickVisual = { left: { x: 0, y: 0 }, right: { x: 0, y: 0 } };
     this.controlActive = new Map();
@@ -353,6 +362,30 @@ export class GamepadLayout {
 
     this._bind();
     this.resize();
+  }
+
+  /** Ids in the current multi-selection; single selection holds one id. */
+  get selectedIds() {
+    return this._selectedIds;
+  }
+
+  get selectedId() {
+    return this._selectedId;
+  }
+
+  /**
+   * Mirrors GamepadLayout.selectedButtonId's setter: null clears the set, a
+   * value already in a multi-selection keeps the other members, and any other
+   * value collapses the selection to that single control.
+   */
+  set selectedId(value) {
+    this._selectedId = value;
+    if (value == null) {
+      this._selectedIds.clear();
+    } else if (!(this._selectedIds.size > 1 && this._selectedIds.has(value))) {
+      this._selectedIds.clear();
+      this._selectedIds.add(value);
+    }
   }
 
   // ── geometry ──
@@ -624,6 +657,7 @@ export class GamepadLayout {
     this.editMode = true;
     this.selectedId = null;
     this._adjustingFollowArea = false;
+    this._resetEditGestures();
     this._resetGrid();
     this.render();
   }
@@ -631,10 +665,19 @@ export class GamepadLayout {
   exitEditMode() {
     this.editMode = false;
     this.selectedId = null;
-    this._edit = null;
     this._adjustingFollowArea = false;
+    this._resetEditGestures();
     this._resetGrid();
     this.render();
+  }
+
+  /** Clears every in-flight edit gesture (mirrors GamepadEditGesture.reset). */
+  _resetEditGestures() {
+    this._edit = null;
+    this._editPointers.clear();
+    this._marquee = null;
+    this._pinch = null;
+    this._clarify = null;
   }
 
   discardToSnapshot() {
@@ -648,6 +691,7 @@ export class GamepadLayout {
 
   enterFollowAreaAdjust(id) {
     this._adjustingFollowArea = true;
+    this._selectedIds.clear();
     this.selectedId = id;
     this.render();
   }
@@ -655,6 +699,46 @@ export class GamepadLayout {
   exitFollowAreaAdjust() {
     this._adjustingFollowArea = false;
     this.render();
+  }
+
+  /** Single selection (mirrors GamepadLayout.setSelectedButton). */
+  setSelected(id) {
+    if (this.blockSelection) return;
+    if (this.selectedId === id && this._selectedIds.size <= 1) return;
+    this._selectedIds.clear();
+    this.selectedId = id;
+    this.render();
+    this.cb.onSelect && this.cb.onSelect(id);
+  }
+
+  /**
+   * Batch selection (mirrors GamepadLayout.selectButtons). An empty set is
+   * equivalent to clearing the selection; primaryId becomes the panel's control.
+   */
+  selectButtons(ids, primaryId = null) {
+    if (this.blockSelection) return;
+    const wanted = new Set(ids);
+    const valid = this.buttons
+      .filter((b) => b.visible && wanted.has(b.id))
+      .map((b) => b.id);
+    if (!valid.length) {
+      this.deselectButton();
+      return;
+    }
+    this._selectedIds.clear();
+    for (const id of valid) this._selectedIds.add(id);
+    // Fill the set first: the setter keeps the other members for multi-select.
+    this.selectedId = primaryId && valid.includes(primaryId) ? primaryId : valid[0];
+    this.render();
+    this.cb.onSelect && this.cb.onSelect(this.selectedId);
+  }
+
+  deselectButton() {
+    if (this.selectedId == null && this._selectedIds.size === 0) return;
+    this.selectedId = null;
+    this._selectedIds.clear();
+    this.render();
+    this.cb.onSelect && this.cb.onSelect(null);
   }
 
   // Grid overlay fade — mirrors GamepadLayout.animateGridTo (200 ms). Fades in
@@ -722,8 +806,52 @@ export class GamepadLayout {
       this._drawControl(b);
     }
 
-    if (this.editMode && this.selectedId) this._drawSelection(this.getButton(this.selectedId));
+    if (this.editMode) this._drawEditOverlay();
     ctx.restore();
+  }
+
+  /**
+   * Edit-mode selection layer: dashed cyan boxes for the rest of a
+   * multi-selection and for marquee hits, the primary control's solid box, and
+   * the marquee rectangle. Mirrors GamepadRenderer.drawSelectionOverlay/drawMarquee.
+   */
+  _drawEditOverlay() {
+    const ids = new Set(this._selectedIds);
+    if (this.selectedId) ids.add(this.selectedId);
+    const marqueeIds = this._marquee ? this._marquee.selection : new Set();
+    const multiIds = new Set([...ids, ...marqueeIds]);
+    if (this.selectedId) multiIds.delete(this.selectedId);
+
+    if (multiIds.size) {
+      const ctx = this.ctx;
+      ctx.save();
+      ctx.setTransform(this._dpr, 0, 0, this._dpr, 0, 0);
+      ctx.strokeStyle = "#00E5FF";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 6]);
+      for (const id of multiIds) {
+        const b = this.getButton(id);
+        if (!b || !b.visible) continue;
+        const r = this.gridRect(b);
+        ctx.strokeRect(r.x, r.y, r.w, r.h);
+      }
+      ctx.restore();
+    }
+
+    if (this.selectedId) this._drawSelection(this.getButton(this.selectedId));
+
+    const rect = this._marquee && this._marquee.rect;
+    if (rect && rect.w > 0 && rect.h > 0) {
+      const ctx = this.ctx;
+      ctx.save();
+      ctx.setTransform(this._dpr, 0, 0, this._dpr, 0, 0);
+      ctx.fillStyle = "rgba(0,229,255,0.2)";
+      ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+      ctx.strokeStyle = "#00E5FF";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+      ctx.restore();
+    }
   }
 
   _drawCoverImage(img) {
@@ -1751,6 +1879,26 @@ export class GamepadLayout {
       }
     }
     return found;
+  }
+
+  /**
+   * All visible controls under a point, topmost first (mirrors
+   * GamepadLayout's z-ordered child bounds). The settings button is pinned on
+   * top like its translationZ in Android.
+   */
+  _hitControlsAt(px, py) {
+    const hits = [];
+    const push = (b) => {
+      const r = this._hitRectFor(b, false);
+      if (this._pointInRect(r, px, py, this._isRoundControl(b))) hits.push(b);
+    };
+    for (const b of this.buttons) {
+      if (!b.visible || b.isSettings) continue;
+      push(b);
+    }
+    const settings = this.buttons.find((b) => b.isSettings && b.visible);
+    if (settings) push(settings);
+    return hits.reverse();
   }
 
   _hitHandle(px, py) {
@@ -2802,9 +2950,20 @@ export class GamepadLayout {
   }
 
   // ── edit mode ──
+  // Gesture priority mirrors GamepadEditGesture: pinch > marquee > drag/resize,
+  // with overlap clarification deferred until the finger lifts without dragging.
+
   _editDown(e, px, py) {
     if (this.blockSelection) return;
+    this._editPointers.set(e.pointerId, { px, py });
     try { this.canvas.setPointerCapture(e.pointerId); } catch {}
+
+    // 第二根手指落下 → 进入双指缩放；三指继续走缩放路径。
+    if (this._editPointers.size >= 2) {
+      if (!this._pinch && !this._adjustingFollowArea) this._startPinch();
+      return;
+    }
+
     // Follow-area adjust session: drag/resize the extended-range rectangle.
     if (this._adjustingFollowArea && this.selectedId) {
       const b = this.getButton(this.selectedId);
@@ -2825,40 +2984,120 @@ export class GamepadLayout {
     if (this.selectedId && this._hitHandle(px, py)) {
       const b = this.getButton(this.selectedId);
       this._edit = { pointerId: e.pointerId, mode: "resize", b, start: { ...b }, gx: px, gy: py };
+      this._clarify = null;
+      this._marquee = null;
       this._animateGridTo(1);
       return;
     }
-    const hit = this._hitTest(px, py, false);
-    if (hit) {
-      this.selectedId = hit.id;
-      this._edit = { pointerId: e.pointerId, mode: "move", b: hit, start: { x: hit.x, y: hit.y }, gx: px, gy: py };
-      this._animateGridTo(1);
-    } else {
-      this.selectedId = null;
+
+    const hits = this._hitControlsAt(px, py);
+    const hit = hits[0] || null;
+    if (!hit) {
+      // 空白按下：开始框选；轻点空白在抬手时取消选择。
       this._edit = null;
-      this.cb.onSelect && this.cb.onSelect(null);
+      this._clarify = null;
+      this._marquee = {
+        pointerId: e.pointerId,
+        startX: px, startY: py, curX: px, curY: py,
+        moved: false, rect: null, selection: new Set(),
+      };
+      this._animateGridTo(1);
+      this.render();
+      return;
     }
+
+    // 已选控件优先，否则取最顶层；重叠时先记录候选，轻点抬手再澄清。
+    const target = hits.find((b) => this._selectedIds.has(b.id)) || hit;
+    this._clarify = hits.length > 1
+      ? { pointerId: e.pointerId, ids: hits.map((b) => b.id), downX: px, downY: py }
+      : null;
+    this._marquee = null;
+    this._pinch = null;
+
+    // 多选组内的控件按下时整组一起拖动（保持相对位置）。
+    const group = this._selectedIds.size > 1 && this._selectedIds.has(target.id)
+      ? new Map(
+          this.buttons
+            .filter((b) => b.visible && this._selectedIds.has(b.id))
+            .map((b) => [b.id, { x: b.x, y: b.y }])
+        )
+      : null;
+
+    this._edit = {
+      pointerId: e.pointerId, mode: "move", b: target,
+      start: { x: target.x, y: target.y }, group, gx: px, gy: py, moved: false,
+    };
+    this._animateGridTo(1);
+    if (!this._clarify) this.selectedId = target.id;
     this.render();
-    if (hit) this.cb.onSelect && this.cb.onSelect(hit.id);
+    if (!this._clarify) this.cb.onSelect && this.cb.onSelect(target.id);
   }
 
   _editMove(e) {
-    if (!this._edit || this._edit.pointerId !== e.pointerId) return;
-    const { loc } = { loc: this._layout };
-    const cell = loc.cell;
     const { px, py } = this._pos(e);
+    if (this._editPointers.has(e.pointerId)) {
+      this._editPointers.set(e.pointerId, { px, py });
+    }
+
+    if (this._pinch) {
+      this._updatePinch();
+      return;
+    }
+    if (this._marquee) {
+      this._updateMarquee(px, py);
+      return;
+    }
+    if (!this._edit || this._edit.pointerId !== e.pointerId) return;
+
+    const cell = this._layout.cell;
     const rawDx = (px - this._edit.gx) / cell;
     const rawDy = (py - this._edit.gy) / cell;
     // 关闭网格时不吸附到整格（网格只影响显示与吸附）。
     const dgx = this.useGrid ? Math.round(rawDx) : rawDx;
     const dgy = this.useGrid ? Math.round(rawDy) : rawDy;
+
+    // 重叠候选尚未澄清：移动超过 8px 才提交拖拽目标。
+    if (this._clarify) {
+      if (Math.hypot(px - this._clarify.downX, py - this._clarify.downY) < 8) return;
+      this._clarify = null;
+      if (!this._edit.group) this.setSelected(this._edit.b.id);
+    }
+    if (!this._edit.moved && Math.hypot(px - this._edit.gx, py - this._edit.gy) > 8) {
+      this._edit.moved = true;
+    }
+
     const b = this._edit.b;
     if (this._edit.mode === "move") {
-      const nx = this._edit.start.x + dgx;
-      const ny = this._edit.start.y + dgy;
-      const [vw] = onScreenGridSize(b);
-      b.x = Math.max(0, Math.min(this.cols - vw, nx));
-      b.y = Math.max(0, ny);
+      if (this._edit.group) {
+        // 多选批量拖拽：以主控件位移为准，整组保持相对位置。
+        for (const [id, start] of this._edit.group) {
+          const target = this.getButton(id);
+          if (!target) continue;
+          const [vw] = onScreenGridSize(target);
+          const nx = Math.max(0, Math.min(this.cols - vw, start.x + dgx));
+          const ny = Math.max(0, start.y + dgy);
+          const dx = nx - target.x;
+          const dy = ny - target.y;
+          target.x = nx;
+          target.y = ny;
+          if (target.isTouchpad && target.followAreaEnabled && (dx || dy)) {
+            target.followAreaX = Math.max(0, target.followAreaX + dx);
+            target.followAreaY = Math.max(0, target.followAreaY + dy);
+          }
+        }
+      } else {
+        const nx = this._edit.start.x + dgx;
+        const ny = this._edit.start.y + dgy;
+        const [vw] = onScreenGridSize(b);
+        const prevX = b.x;
+        const prevY = b.y;
+        b.x = Math.max(0, Math.min(this.cols - vw, nx));
+        b.y = Math.max(0, ny);
+        if (b.isTouchpad && b.followAreaEnabled) {
+          b.followAreaX = Math.max(0, b.followAreaX + (b.x - prevX));
+          b.followAreaY = Math.max(0, b.followAreaY + (b.y - prevY));
+        }
+      }
     } else if (this._edit.mode === "fareamove") {
       b.followAreaX = Math.max(0, this._edit.start.x + dgx);
       b.followAreaY = Math.max(0, this._edit.start.y + dgy);
@@ -2886,10 +3125,289 @@ export class GamepadLayout {
   }
 
   _editUp(e) {
-    if (this._edit && this._edit.pointerId === e.pointerId) {
+    const cancel = e.type === "pointercancel";
+    this._editPointers.delete(e.pointerId);
+
+    if (this._pinch) {
+      if (this._editPointers.size >= 2) {
+        // 三指及以上：抬起一根后按剩余两指重新锚定，缩放不中断。
+        this._reanchorPinch();
+      } else {
+        const primary = this._pinch.primaryId || this.selectedId;
+        this._pinch = null;
+        this._edit = null;
+        this._animateGridTo(0);
+        this.render();
+        if (primary) this.cb.onSelect && this.cb.onSelect(primary);
+        this.cb.onEditEnd && this.cb.onEditEnd();
+      }
+      return;
+    }
+
+    if (this._marquee) {
+      if (this._marquee.pointerId !== e.pointerId) return;
+      const marquee = this._marquee;
+      this._marquee = null;
       this._edit = null;
       this._animateGridTo(0);
+      if (!cancel && marquee.moved) {
+        this.selectButtons([...marquee.selection]);
+      } else if (!cancel) {
+        // 轻点空白：取消选择。
+        this.deselectButton();
+      } else {
+        this.render();
+      }
+      this.cb.onEditEnd && this.cb.onEditEnd();
+      return;
+    }
+
+    if (this._clarify) {
+      const clarify = this._clarify;
+      this._clarify = null;
+      this._edit = null;
+      this._animateGridTo(0);
+      this.render();
+      if (!cancel && clarify.pointerId === e.pointerId) {
+        this.cb.onOverlapSelection && this.cb.onOverlapSelection(
+          clarify.ids, clarify.downX, clarify.downY,
+        );
+      }
+      return;
+    }
+
+    if (this._edit && this._edit.pointerId === e.pointerId) {
+      const edit = this._edit;
+      this._edit = null;
+      this._animateGridTo(0);
+      if (edit.group) {
+        if (edit.moved) {
+          // 批量拖拽结束：保持多选，只刷新参数面板。
+          this.cb.onSelect && this.cb.onSelect(edit.b.id);
+        } else {
+          // 轻点多选中的控件：收缩为单选。
+          this.setSelected(edit.b.id);
+        }
+      }
+      this.render();
       this.cb.onEditEnd && this.cb.onEditEnd();
     }
+  }
+
+  // ── marquee selection ──
+
+  _updateMarquee(px, py) {
+    const m = this._marquee;
+    if (!m || m.pointerId == null) return;
+    m.curX = px;
+    m.curY = py;
+    if (!m.moved) {
+      if (Math.hypot(px - m.startX, py - m.startY) < 8) return;
+      m.moved = true;
+    }
+    const rect = {
+      x: Math.min(m.startX, px),
+      y: Math.min(m.startY, py),
+      w: Math.abs(px - m.startX),
+      h: Math.abs(py - m.startY),
+    };
+    m.rect = rect;
+    m.selection = new Set();
+    for (const b of this.buttons) {
+      if (!b.visible) continue;
+      const r = this._hitRectFor(b, false);
+      if (r.w <= 0 || r.h <= 0) continue;
+      if (r.x < rect.x + rect.w && r.x + r.w > rect.x &&
+          r.y < rect.y + rect.h && r.y + r.h > rect.y) {
+        m.selection.add(b.id);
+      }
+    }
+    this.render();
+  }
+
+  // ── pinch resize ──
+
+  _pinchMetrics(points) {
+    const [a, b] = points;
+    return {
+      distance: Math.hypot(a.px - b.px, a.py - b.py),
+      spanX: Math.abs(a.px - b.px),
+      spanY: Math.abs(a.py - b.py),
+      focusX: (a.px + b.px) / 2,
+      focusY: (a.py + b.py) / 2,
+    };
+  }
+
+  /**
+   * 第二根手指落下时选择缩放目标（mirrors resolvePinchTargetIds）：
+   * 1. 已有多选批量拖拽 → 整组；2. 正在拖拽/缩放的控件 → 该控件；
+   * 3. 手指或两指中点命中的控件（属于多选则整组）；4. 当前选中集合。
+   */
+  _resolvePinchTargetIds(points, prevEdit) {
+    const visible = new Set(this.buttons.filter((b) => b.visible).map((b) => b.id));
+    if (prevEdit && prevEdit.group && prevEdit.group.size > 1) {
+      const ids = [...prevEdit.group.keys()].filter((id) => visible.has(id));
+      if (ids.length > 1) return ids;
+    }
+    if (prevEdit && prevEdit.b && visible.has(prevEdit.b.id)) return [prevEdit.b.id];
+
+    const probes = [];
+    if (points.length >= 2) {
+      probes.push({
+        x: (points[0].px + points[1].px) / 2,
+        y: (points[0].py + points[1].py) / 2,
+      });
+    }
+    for (const p of points) probes.push({ x: p.px, y: p.py });
+
+    let hitId = null;
+    for (const p of probes) {
+      const hit = this._hitControlsAt(p.x, p.y)[0];
+      if (hit) { hitId = hit.id; break; }
+    }
+    const selected = [...this._selectedIds].filter((id) => visible.has(id));
+    if (hitId) {
+      return selected.includes(hitId) && selected.length > 1 ? selected : [hitId];
+    }
+    return selected;
+  }
+
+  _startPinch() {
+    const points = [...this._editPointers.values()];
+    if (points.length < 2) return;
+    const prevEdit = this._edit;
+    const ids = this._resolvePinchTargetIds(points, prevEdit);
+    this._edit = null;
+    this._marquee = null;
+    this._clarify = null;
+    if (!ids.length) {
+      this.render();
+      return;
+    }
+    const start = this._pinchMetrics(points);
+    if (start.distance < 1) {
+      this.render();
+      return;
+    }
+    const targets = ids
+      .map((id) => {
+        const b = this.getButton(id);
+        return b ? { id, startX: b.x, startY: b.y, startW: b.w, startH: b.h } : null;
+      })
+      .filter(Boolean);
+    if (!targets.length) {
+      this.render();
+      return;
+    }
+    const primaryId = targets.some((t) => t.id === this.selectedId)
+      ? this.selectedId
+      : targets[0].id;
+    this._pinch = { targets, start, primaryId };
+    this.selectButtons(ids, primaryId);
+    this._animateGridTo(1);
+    this.render();
+  }
+
+  _reanchorPinch() {
+    const points = [...this._editPointers.values()];
+    if (!this._pinch || points.length < 2) return;
+    const start = this._pinchMetrics(points);
+    if (start.distance < 1) return;
+    this._pinch.start = start;
+    this._pinch.targets = this._pinch.targets.map((t) => {
+      const b = this.getButton(t.id);
+      return b
+        ? { id: t.id, startX: b.x, startY: b.y, startW: b.w, startH: b.h }
+        : t;
+    });
+  }
+
+  /**
+   * 矩形控件按 x/y 轴向指距独立缩放，其余控件等比缩放。控件跟随
+   * “初始触摸帧 → 当前触摸帧”的平移/缩放，手指按住的点始终贴手。
+   */
+  _updatePinch() {
+    const pinch = this._pinch;
+    const points = [...this._editPointers.values()];
+    if (!pinch || points.length < 2 || pinch.start.distance <= 0) return;
+
+    const current = this._pinchMetrics(points);
+    const uniform = Math.max(0.05, Math.min(20, current.distance / pinch.start.distance));
+    const cell = this._layout.cell;
+    const minSpan = 8;
+
+    for (const target of pinch.targets) {
+      const b = this.getButton(target.id);
+      if (!b) continue;
+      const swapped = !b.lockAspect &&
+        ((b.rotation || 0) % 180 === 90);
+      const startVisualLeft = target.startX * cell;
+      const startVisualTop = target.startY * cell;
+      const startVisualW = (swapped ? target.startH : target.startW) * cell;
+      const startVisualH = (swapped ? target.startW : target.startH) * cell;
+
+      const scaleX = b.lockAspect
+        ? uniform
+        : this._axisScale(pinch.start.spanX, current.spanX, startVisualW, minSpan);
+      const scaleY = b.lockAspect
+        ? uniform
+        : this._axisScale(pinch.start.spanY, current.spanY, startVisualH, minSpan);
+
+      const newVisualLeft = current.focusX - (pinch.start.focusX - startVisualLeft) * scaleX;
+      const newVisualTop = current.focusY - (pinch.start.focusY - startVisualTop) * scaleY;
+      const newVisualW = startVisualW * scaleX;
+      const newVisualH = startVisualH * scaleY;
+
+      let newX = this._snap(newVisualLeft / cell);
+      let newY = this._snap(newVisualTop / cell);
+      newX = Math.max(0, Math.min(this.cols - 1, newX));
+      newY = Math.max(0, newY);
+      let newW = Math.max(1, swapped ? this._snap(newVisualH / cell) : this._snap(newVisualW / cell));
+      let newH = Math.max(1, swapped ? this._snap(newVisualW / cell) : this._snap(newVisualH / cell));
+
+      if (b.isSettings) {
+        newW = Math.min(newW, Math.max(1, this.cols - newX));
+        const rows = Math.floor(this._layout.rows || (newY + newH));
+        newH = Math.min(newH, Math.max(1, rows - newY));
+        if (b.lockAspect) {
+          const side = Math.min(newW, newH);
+          newW = side;
+          newH = side;
+        }
+      }
+
+      if (newX !== b.x || newY !== b.y) {
+        const dx = newX - b.x;
+        const dy = newY - b.y;
+        b.x = newX;
+        b.y = newY;
+        if (b.isTouchpad && b.followAreaEnabled) {
+          b.followAreaX = Math.max(0, b.followAreaX + dx);
+          b.followAreaY = Math.max(0, b.followAreaY + dy);
+        }
+      }
+      if (newW !== b.w || newH !== b.h) {
+        b.w = newW;
+        b.h = newH;
+      }
+    }
+    this.cb.onEditChanged && this.cb.onEditChanged();
+    this.render();
+  }
+
+  /** Grid snapping; free mode keeps sub-grid precision. */
+  _snap(value) {
+    return this.useGrid ? Math.round(value) : value;
+  }
+
+  /**
+   * 单轴缩放比例。初始指距足够大时按“当前间距 / 起始间距”；否则退化为
+   * “1 + 位移 / 控件该方向尺寸”，避免两指共线时比例爆炸。
+   */
+  _axisScale(startSpan, currentSpan, startSizePx, minSpanPx) {
+    const scale = startSpan >= minSpanPx
+      ? currentSpan / startSpan
+      : 1 + (currentSpan - startSpan) / Math.max(startSizePx, minSpanPx);
+    return Math.max(0.05, Math.min(20, scale));
   }
 }
