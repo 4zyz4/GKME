@@ -426,6 +426,7 @@
     <string name="i18n_not_started" formatted="false">"未启动"</string>
     <string name="i18n_note_this_app_is_not_emotion_join_qq_gro" formatted="false">"注意：本软件不是Emotion，请进入Q群1045923515以下载正版Emotion"</string>
     <string name="i18n_about_intro" formatted="false">"把 Android 手机变成一台虚拟游戏手柄 —— 也可以是虚拟键盘和鼠标。支持 WiFi 局域网、USB 直连与蓝牙直连。"</string>
+    <string name="i18n_about_badge_website" formatted="false">"官网"</string>
     <string name="i18n_about_section_connections" formatted="false">"连接方式"</string>
     <string name="i18n_about_section_opensource" formatted="false">"开源项目"</string>
     <string name="i18n_about_section_author" formatted="false">"作者与反馈"</string>

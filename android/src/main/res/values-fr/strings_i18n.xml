@@ -426,6 +426,7 @@
     <string name="i18n_not_started" formatted="false">"Non démarré"</string>
     <string name="i18n_note_this_app_is_not_emotion_join_qq_gro" formatted="false">"Remarque : cette application n'est pas Emotion. Rejoignez le groupe QQ 1045923515 pour télécharger l'Emotion officiel"</string>
     <string name="i18n_about_intro" formatted="false">"Transformez votre téléphone Android en manette virtuelle — mais aussi en clavier et souris virtuels. Connexions WiFi, USB direct et Bluetooth direct."</string>
+    <string name="i18n_about_badge_website" formatted="false">"Site web"</string>
     <string name="i18n_about_section_connections" formatted="false">"Modes de connexion"</string>
     <string name="i18n_about_section_opensource" formatted="false">"Open source"</string>
     <string name="i18n_about_section_author" formatted="false">"Auteur et retours"</string>

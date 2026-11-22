@@ -426,6 +426,7 @@
     <string name="i18n_not_started" formatted="false">"Not started"</string>
     <string name="i18n_note_this_app_is_not_emotion_join_qq_gro" formatted="false">"Note: this app is not Emotion. Join QQ group 1045923515 to download the official Emotion"</string>
     <string name="i18n_about_intro" formatted="false">"Turn your Android phone into a virtual gamepad — or a virtual keyboard and mouse. Supports WiFi LAN, direct USB, and direct Bluetooth connections."</string>
+    <string name="i18n_about_badge_website" formatted="false">"Website"</string>
     <string name="i18n_about_section_connections" formatted="false">"Connection Methods"</string>
     <string name="i18n_about_section_opensource" formatted="false">"Open Source"</string>
     <string name="i18n_about_section_author" formatted="false">"Author &amp; Feedback"</string>

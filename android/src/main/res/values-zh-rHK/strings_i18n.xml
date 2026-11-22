@@ -426,6 +426,7 @@
     <string name="i18n_not_started" formatted="false">"未啓動"</string>
     <string name="i18n_note_this_app_is_not_emotion_join_qq_gro" formatted="false">"注意：本軟件不是Emotion，請進入Q羣1045923515以下載正版Emotion"</string>
     <string name="i18n_about_intro" formatted="false">"把你的 Android 手機變成一台虛擬遊戲手掣 —— 也可以是虛擬鍵盤和滑鼠。支援 WiFi 區域網絡、USB 直連與藍牙直連。"</string>
+    <string name="i18n_about_badge_website" formatted="false">"官網"</string>
     <string name="i18n_about_section_connections" formatted="false">"連接方式"</string>
     <string name="i18n_about_section_opensource" formatted="false">"開源專案"</string>
     <string name="i18n_about_section_author" formatted="false">"作者與回饋"</string>

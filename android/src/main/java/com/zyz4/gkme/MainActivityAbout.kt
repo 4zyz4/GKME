@@ -15,6 +15,9 @@ import androidx.core.content.ContextCompat
 /** GKME 源码页；关于页的徽章按钮和开源项目行都会跳转到浏览器。 */
 private const val GKME_SOURCE_URL = "https://github.com/4zyz4/gkme"
 
+/** GKME 官网；关于页的「官网」徽章会跳转到浏览器。 */
+private const val GKME_WEBSITE_URL = "https://gkme.databk.top"
+
 /**
  * 关于页展示的一条开源项目。
  *
@@ -89,6 +92,9 @@ internal fun MainActivity.setupAboutPage() {
 
     a.findViewById<View>(R.id.btnAboutSource).setOnClickListener {
         a.openExternalUrl(GKME_SOURCE_URL)
+    }
+    a.findViewById<View>(R.id.btnAboutWebsite).setOnClickListener {
+        a.openExternalUrl(GKME_WEBSITE_URL)
     }
     a.findViewById<View>(R.id.btnAboutLicense).setOnClickListener {
         a.showGplLicenseDialog()
