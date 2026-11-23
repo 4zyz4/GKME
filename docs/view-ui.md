@@ -63,7 +63,9 @@ flowchart TB
 - 返回优先级：屏幕关闭 → 预览放大 → 曲线放大 → 布局全局设置 → 全局设置 → 编辑模式确认 → 设置页。
 - 悬浮模式：`enterFloatingMode` / `continueEnterFloating` / `startFloatingMode` / `exitFloatingMode`；
   自动悬浮 `onUserLeaveHint → maybeAutoEnterFloating`（仅 LOCAL、已开启「自动进入悬浮模式」
-  且服务已启动、非编辑、已有悬浮权限）。
+  且服务已启动、非编辑、已有悬浮权限）。本应用自己发起的 Activity 跳转（图片/文件选择、
+  系统设置、外部链接等）统一经 `noUserLeaveHint()` / `NoUserLeaveHintContract` 附加
+  `FLAG_ACTIVITY_NO_USER_ACTION`，避免被误判成 Home/最近任务。
 - 屏幕关闭模式：`enterScreenOffMode` / `exitScreenOffMode`（`R.id.screenOffOverlay` 纯黑 + KEEP_SCREEN_ON）。
 - 物理手柄桥接：`dispatchKeyEvent` / `onKeyDown` / `onKeyUp`（含音量键映射）、
   `dispatchGenericMotionEvent`、`dispatchTouchEvent`（仅 Sony vendorId `0x054c` 走手柄分发）、

@@ -34,22 +34,34 @@ import java.io.FileOutputStream
 internal fun MainActivity.setupAppearanceImageLaunchers() {
     val a = this
 
-    a.bgImagePickerLauncher = a.registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    a.bgImagePickerLauncher = a.registerForActivityResult(
+        NoUserLeaveHintContract(ActivityResultContracts.GetContent())
+    ) { uri ->
         uri?.let { a.savePickedImage(it, "bg") { path -> a.viewModel.updateAppearance { it.copy(bgImagePath = path) } } }
     }
-    a.btnImagePickerLauncher = a.registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    a.btnImagePickerLauncher = a.registerForActivityResult(
+        NoUserLeaveHintContract(ActivityResultContracts.GetContent())
+    ) { uri ->
         uri?.let { a.savePickedImage(it, "btn") { path -> a.viewModel.updateAppearance { it.copy(btnImagePath = path) } } }
     }
-    a.joyBaseImagePickerLauncher = a.registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    a.joyBaseImagePickerLauncher = a.registerForActivityResult(
+        NoUserLeaveHintContract(ActivityResultContracts.GetContent())
+    ) { uri ->
         uri?.let { a.savePickedImage(it, "joy_base") { path -> a.viewModel.updateAppearance { it.copy(joyBaseImagePath = path) } } }
     }
-    a.joyCapImagePickerLauncher = a.registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    a.joyCapImagePickerLauncher = a.registerForActivityResult(
+        NoUserLeaveHintContract(ActivityResultContracts.GetContent())
+    ) { uri ->
         uri?.let { a.savePickedImage(it, "joy_cap") { path -> a.viewModel.updateAppearance { it.copy(joyCapImagePath = path) } } }
     }
-    a.tpImagePickerLauncher = a.registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    a.tpImagePickerLauncher = a.registerForActivityResult(
+        NoUserLeaveHintContract(ActivityResultContracts.GetContent())
+    ) { uri ->
         uri?.let { a.savePickedImage(it, "tp") { path -> a.viewModel.updateAppearance { it.copy(tpImagePath = path) } } }
     }
-    a.padImagePickerLauncher = a.registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    a.padImagePickerLauncher = a.registerForActivityResult(
+        NoUserLeaveHintContract(ActivityResultContracts.GetContent())
+    ) { uri ->
         uri?.let { a.savePickedImage(it, "pad") { path ->
             a.onAppearanceChange { it.copy(dpadPadImagePath = path, dpadPadFillType = FillType.IMAGE) }
         } }

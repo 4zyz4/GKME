@@ -66,7 +66,7 @@ internal fun MainActivity.openDeveloperOptions() {
     for (intent in targets) {
         try {
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            startActivity(intent)
+            startActivity(intent.noUserLeaveHint())
             return
         } catch (_: Exception) {
         }

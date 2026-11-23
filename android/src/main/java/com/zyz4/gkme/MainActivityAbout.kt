@@ -194,7 +194,7 @@ private fun MainActivity.bindAboutProjects(containerId: Int, projects: List<Abou
 /** 打开外部链接；设备没有可用浏览器时给出提示，而不是崩溃。 */
 internal fun MainActivity.openExternalUrl(url: String) {
     val opened = runCatching {
-        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).noUserLeaveHint())
     }.isSuccess
     if (!opened) {
         CustomDialog.showToast(this, getString(R.string.i18n_about_unable_to_open_link))

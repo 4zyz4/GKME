@@ -1985,7 +1985,7 @@ internal fun MainActivity.updateHdVibrationUI() {
 internal fun MainActivity.launchControlledMode() {
     val a = this
     a.hideSettings()
-    a.startActivity(Intent(a, ControlledActivity::class.java))
+    a.startActivity(Intent(a, ControlledActivity::class.java).noUserLeaveHint())
 }
 
 @Suppress("DEPRECATION")

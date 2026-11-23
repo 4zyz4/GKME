@@ -2,6 +2,7 @@ package com.zyz4.gkme.controlled
 
 import com.zyz4.gkme.R
 import com.zyz4.gkme.i18n.AppStrings
+import com.zyz4.gkme.noUserLeaveHint
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -347,7 +348,7 @@ class ShizukuServiceBinding(
             val launch = context.packageManager.getLaunchIntentForPackage(SHIZUKU_PACKAGE)
             if (launch != null) {
                 launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(launch)
+                context.startActivity(launch.noUserLeaveHint())
                 return
             }
             openDownloadPage(context)
@@ -357,6 +358,7 @@ class ShizukuServiceBinding(
             try {
                 val intent = Intent(Intent.ACTION_VIEW, SHIZUKU_DOWNLOAD_URL.toUri())
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    .noUserLeaveHint()
                 context.startActivity(intent)
             } catch (_: Exception) {
             }

@@ -211,7 +211,7 @@ class MainActivity : ComponentActivity() {
     }
 
     internal val bluetoothEnableLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
+        NoUserLeaveHintContract(ActivityResultContracts.StartActivityForResult())
     ) { result ->
         if (result.resultCode == RESULT_OK) {
             viewModel.startServer()
@@ -221,23 +221,23 @@ class MainActivity : ComponentActivity() {
     }
 
     internal val discoverableLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
+        NoUserLeaveHintContract(ActivityResultContracts.StartActivityForResult())
     ) { _ -> }
 
     internal val importPresetLauncher = registerForActivityResult(
-        ActivityResultContracts.OpenDocument()
+        NoUserLeaveHintContract(ActivityResultContracts.OpenDocument())
     ) { uri ->
         uri?.let { importPresetFromUri(it) }
     }
 
     internal val exportPresetLauncher = registerForActivityResult(
-        ActivityResultContracts.CreateDocument("application/json")
+        NoUserLeaveHintContract(ActivityResultContracts.CreateDocument("application/json"))
     ) { uri ->
         uri?.let { exportPresetToUri(it) }
     }
 
     internal val exportJoyConLogLauncher = registerForActivityResult(
-        ActivityResultContracts.CreateDocument("text/plain")
+        NoUserLeaveHintContract(ActivityResultContracts.CreateDocument("text/plain"))
     ) { uri ->
         val report = JoyConDiagnostics.report
         if (uri != null && report != null) {
@@ -254,19 +254,19 @@ class MainActivity : ComponentActivity() {
     }
 
     internal val exportAppearanceLauncher = registerForActivityResult(
-        ActivityResultContracts.CreateDocument("application/zip")
+        NoUserLeaveHintContract(ActivityResultContracts.CreateDocument("application/zip"))
     ) { uri ->
         uri?.let { exportAppearanceToUri(it) }
     }
 
     internal val importAppearanceLauncher = registerForActivityResult(
-        ActivityResultContracts.OpenDocument()
+        NoUserLeaveHintContract(ActivityResultContracts.OpenDocument())
     ) { uri ->
         uri?.let { importAppearanceFromUri(it) }
     }
 
     internal val overlayPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
+        NoUserLeaveHintContract(ActivityResultContracts.StartActivityForResult())
     ) {
         if (Settings.canDrawOverlays(this)) {
             continueEnterFloating()
@@ -501,8 +501,12 @@ class MainActivity : ComponentActivity() {
 
     /**
      * 本机模式下服务已启动时，用户每次最小化应用（Home / 最近任务）都自动进入悬浮模式，
-     * 无需再手动点按悬浮按钮。切到本 App 内部页面或系统权限页不会触发
-     * [onUserLeaveHint]，因此不会被误触发。
+     * 无需再手动点按悬浮按钮。
+     *
+     * 注意：本应用自己启动其他 Activity（图片/文件选择、系统设置、外部链接等）时，
+     * 系统同样会回调 [onUserLeaveHint]。这些跳转的 Intent 必须带上
+     * [Intent.FLAG_ACTIVITY_NO_USER_ACTION]（见 [noUserLeaveHint] 与
+     * [NoUserLeaveHintContract]），否则会被误判成用户最小化应用。
      */
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
