@@ -628,8 +628,9 @@ internal fun MainActivity.setupTouchHandler(
     when {
         isDpad -> view.setOnTouchListener { v, e ->
             when (e.action) {
-                MotionEvent.ACTION_DOWN -> { v.isPressed = true; v.performClick(); a.viewModel.triggerHapticPress(); a.viewModel.onDpad(bit, true); true }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.isPressed = false; a.viewModel.triggerHapticRelease(); a.viewModel.onDpad(bit, false); true }
+                // onDpad 内部已经触发按下/松开振动，这里不能再调用一次，否则会重复振动。
+                MotionEvent.ACTION_DOWN -> { v.isPressed = true; v.performClick(); a.viewModel.onDpad(bit, true); true }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.isPressed = false; a.viewModel.onDpad(bit, false); true }
                 else -> true
             }
         }
