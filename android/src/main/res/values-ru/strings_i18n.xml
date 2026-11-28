@@ -737,4 +737,9 @@
     <string name="i18n_gyro_mode_mouse_hint" formatted="false">"Используйте указатель мыши как лазерную указку."</string>
     <string name="i18n_gyro_mode_view_hint" formatted="false">"Поворачивайте обзор, вращая телефон."</string>
     <string name="i18n_gyro_mode_direction_hint" formatted="false">"Используйте гироскоп, чтобы имитировать руль телефоном. Подходит для гоночных игр."</string>
+    <!-- Подсказка подключения в управляемом режиме -->
+    <string name="i18n_controlled_empty_title" formatted="false">"Ожидание контроллера"</string>
+    <string name="i18n_controlled_empty_intro" formatted="false">"Откройте GKME на другом телефоне и выберите тип управления «Режим контроллера», затем подключитесь любым способом:"</string>
+    <string name="i18n_controlled_empty_phone" formatted="false">"Wi-Fi: подключите оба телефона к одной сети — после запуска службы контроллер появится в списке ниже автоматически; можно также ввести его IP выше для подключения вручную."</string>
+    <string name="i18n_controlled_empty_web" formatted="false">"Веб-геймпад: откройте адрес выше в браузере в той же сети или отсканируйте QR-код камерой."</string>
 </resources>

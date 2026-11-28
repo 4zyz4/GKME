@@ -519,7 +519,13 @@ object ControlledHostManager {
                     changed = true
                 }
             }
-            if (changed) publish()
+            if (changed) {
+                publish()
+                // 设备全部超时移除后恢复“正在扫描”，避免状态栏残留上一个设备 IP。
+                if (active == null && _state.value.phase == Phase.LISTENING) {
+                    _state.value = HostState(Phase.LISTENING, AppText.Res(R.string.i18n_scanning))
+                }
+            }
             // 手柄用户服务未连上时兜底重试，保证长时间连接失败也能触发状态提示。
             GamepadInjector.ensureBound()
             _shizukuStatus.value = GamepadInjector.statusText()

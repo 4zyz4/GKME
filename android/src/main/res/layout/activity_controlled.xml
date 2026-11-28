@@ -1,198 +1,344 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- 被控端页面固定为横屏（AndroidManifest 中 userLandscape），
+     因此直接按横向双栏排布：左栏是连接设置，右栏是网页手柄与设备列表，
+     不再让整页纵向滚动。 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     android:fitsSystemWindows="true"
-    android:scrollbars="vertical">
+    android:padding="16dp">
 
+    <!-- 顶部栏：返回、标题与状态。状态不放在输入框样式的色块里，
+         而是作为标题下方的一行说明，长文本省略显示。 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:baselineAligned="false">
 
-        <!-- 顶部栏 -->
+        <Button
+            android:id="@+id/btnControlledBack"
+            android:layout_width="120dp"
+            android:layout_height="44dp"
+            android:background="?android:attr/selectableItemBackground"
+            android:text="@string/i18n_back"
+            android:drawableStart="@drawable/ic_back"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:textColor="@color/text_primary"
+            android:textSize="13sp"
+            android:stateListAnimator="@null" />
+
         <LinearLayout
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="12dp">
-
-            <Button
-                android:id="@+id/btnControlledBack"
-                android:layout_width="120dp"
-                android:layout_height="44dp"
-                android:background="?android:attr/selectableItemBackground"
-                android:text="@string/i18n_back"
-                android:drawableStart="@drawable/ic_back"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp"
-                android:textColor="@color/text_primary"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
+            android:layout_weight="1"
+            android:layout_marginStart="12dp"
+            android:orientation="vertical">
 
             <TextView
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="12dp"
+                android:maxLines="1"
+                android:ellipsize="end"
                 android:text="@string/i18n_controlled_mode"
                 android:textColor="@color/text_primary"
                 android:textSize="18sp"
                 android:fontFamily="sans-serif-medium" />
-        </LinearLayout>
-
-        <!-- Shizuku 环境卡片 -->
-        <LinearLayout
-            android:id="@+id/cardShizuku"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:background="@color/bg_surface"
-            android:padding="12dp"
-            android:layout_marginBottom="12dp">
 
             <TextView
-                android:layout_width="0dp"
+                android:id="@+id/tvControlledStatus"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/i18n_shizuku_environment"
-                android:textColor="@color/text_primary"
-                android:textSize="14sp"
-                android:fontFamily="sans-serif-medium" />
-
-            <Button
-                android:id="@+id/btnShizukuAction"
-                style="@style/GamepadChip"
-                android:text="@string/i18n_download_shizuku" />
+                android:layout_marginTop="2dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="@string/i18n_not_started"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp" />
         </LinearLayout>
+    </LinearLayout>
 
-        <!-- 网页手柄卡片：选择网卡、当前地址与二维码 -->
-        <LinearLayout
-            android:id="@+id/cardWeb"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:background="@color/bg_surface"
-            android:padding="12dp"
-            android:layout_marginBottom="12dp">
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="12dp"
+        android:background="@color/bg_surface_light" />
+
+    <!-- 左右两栏：各自独立滚动，避免整页一起滚动 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
+
+        <!-- 左栏：Shizuku 环境、网页手柄、手动连接 -->
+        <ScrollView
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="5"
+            android:fillViewport="true"
+            android:scrollbars="vertical">
 
             <LinearLayout
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
                 android:orientation="vertical">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/i18n_web_gamepad"
-                    android:textColor="@color/text_primary"
-                    android:textSize="14sp"
-                    android:fontFamily="sans-serif-medium" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/i18n_select_network_interface"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="11sp"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginBottom="2dp" />
-
-                <Spinner
-                    android:id="@+id/spinnerWebInterface"
+                <!-- Shizuku 环境卡片 -->
+                <LinearLayout
+                    android:id="@+id/cardShizuku"
                     android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:background="@drawable/bg_small_btn" />
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="@drawable/bg_controlled_card"
+                    android:padding="12dp"
+                    android:layout_marginBottom="8dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/i18n_shizuku_environment"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp"
+                        android:fontFamily="sans-serif-medium" />
+
+                    <Button
+                        android:id="@+id/btnShizukuAction"
+                        style="@style/GamepadChip"
+                        android:background="@drawable/bg_controlled_chip"
+                        android:text="@string/i18n_download_shizuku" />
+                </LinearLayout>
+
+                <!-- 网页手柄卡片：选择网卡、当前地址与二维码 -->
+                <LinearLayout
+                    android:id="@+id/cardWeb"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="@drawable/bg_controlled_card"
+                    android:padding="12dp"
+                    android:layout_marginBottom="8dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/i18n_web_gamepad"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp"
+                            android:fontFamily="sans-serif-medium" />
+
+                        <FrameLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="36dp"
+                            android:layout_marginTop="8dp"
+                            android:background="@drawable/bg_controlled_input">
+
+                            <Spinner
+                                android:id="@+id/spinnerWebInterface"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:background="@null"
+                                android:paddingStart="10dp"
+                                android:paddingEnd="30dp" />
+
+                            <ImageView
+                                android:layout_width="14dp"
+                                android:layout_height="14dp"
+                                android:layout_gravity="end|center_vertical"
+                                android:layout_marginEnd="10dp"
+                                android:importantForAccessibility="no"
+                                android:src="@drawable/ic_arrow_down" />
+                        </FrameLayout>
+
+                        <TextView
+                            android:id="@+id/tvWebHost"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:textColor="@color/text_primary"
+                            android:textSize="12sp"
+                            android:fontFamily="monospace" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:id="@+id/ivWebQr"
+                        android:layout_width="88dp"
+                        android:layout_height="88dp"
+                        android:layout_marginStart="14dp"
+                        android:contentDescription="@string/i18n_web_gamepad_qr_code"
+                        android:scaleType="fitCenter" />
+                </LinearLayout>
+
+                <!-- 手动 IP 卡片：输入框与按钮分两行，适应窄栏 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="@drawable/bg_controlled_card"
+                    android:padding="12dp">
+
+                    <EditText
+                        android:id="@+id/etManualIp"
+                        android:layout_width="match_parent"
+                        android:layout_height="36dp"
+                        android:background="@drawable/bg_controlled_input"
+                        android:hint="@string/i18n_host_ip"
+                        android:inputType="text"
+                        android:importantForAutofill="no"
+                        android:paddingHorizontal="10dp"
+                        android:singleLine="true"
+                        android:textColor="@color/text_primary"
+                        android:textColorHint="@color/text_secondary"
+                        android:textSize="13sp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="8dp">
+
+                        <Button
+                            android:id="@+id/btnManualConnect"
+                            style="@style/GamepadChip"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:background="@drawable/bg_controlled_chip"
+                            android:text="@string/i18n_connect_manually" />
+
+                        <Button
+                            android:id="@+id/btnRefreshDevices"
+                            style="@style/GamepadChip"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_marginStart="8dp"
+                            android:background="@drawable/bg_controlled_chip"
+                            android:text="@string/i18n_refresh" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+        </ScrollView>
+
+        <!-- 右栏：无设备引导与设备列表 -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="6"
+            android:layout_marginStart="16dp"
+            android:orientation="vertical">
+
+            <!-- 无设备时的连接引导：整块在右栏内垂直居中 -->
+            <LinearLayout
+                android:id="@+id/emptyControlledHint"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="20dp"
+                android:paddingBottom="12dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/i18n_controlled_empty_title"
+                        android:textColor="@color/text_primary"
+                        android:textSize="16sp"
+                        android:fontFamily="sans-serif-medium" />
+
+                    <ProgressBar
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:layout_marginStart="8dp"
+                        android:indeterminate="true"
+                        android:indeterminateTint="@color/text_secondary"
+                        android:importantForAccessibility="no" />
+                </LinearLayout>
 
                 <TextView
-                    android:id="@+id/tvWebHost"
-                    android:layout_width="wrap_content"
+                    style="@style/GamepadHint"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/i18n_controlled_empty_intro"
+                    android:textSize="12sp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:textColor="@color/text_primary"
-                    android:textSize="13sp"
-                    android:fontFamily="monospace" />
+                    android:layout_marginTop="16dp"
+                    android:orientation="horizontal"
+                    android:gravity="top">
+
+                    <View
+                        android:layout_width="4dp"
+                        android:layout_height="4dp"
+                        android:layout_marginTop="6dp"
+                        android:layout_marginEnd="10dp"
+                        android:background="@drawable/bg_controlled_bullet" />
+
+                    <TextView
+                        style="@style/GamepadHint"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:text="@string/i18n_controlled_empty_phone"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:orientation="horizontal"
+                    android:gravity="top">
+
+                    <View
+                        android:layout_width="4dp"
+                        android:layout_height="4dp"
+                        android:layout_marginTop="6dp"
+                        android:layout_marginEnd="10dp"
+                        android:background="@drawable/bg_controlled_bullet" />
+
+                    <TextView
+                        style="@style/GamepadHint"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:text="@string/i18n_controlled_empty_web"
+                        android:textSize="12sp" />
+                </LinearLayout>
             </LinearLayout>
 
-            <ImageView
-                android:id="@+id/ivWebQr"
-                android:layout_width="110dp"
-                android:layout_height="110dp"
-                android:layout_marginStart="14dp"
-                android:contentDescription="@string/i18n_web_gamepad_qr_code"
-                android:scaleType="fitCenter" />
-        </LinearLayout>
-
-        <!-- 手动 IP 卡片 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:background="@color/bg_surface"
-            android:padding="10dp"
-            android:layout_marginBottom="8dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/i18n_ip_address"
-                android:textColor="@color/text_primary"
-                android:textSize="13sp"
-                android:layout_marginEnd="8dp" />
-
-            <EditText
-                android:id="@+id/etManualIp"
-                android:layout_width="0dp"
-                android:layout_height="40dp"
+            <!-- 设备列表：有设备时占满右栏并独立滚动 -->
+            <ScrollView
+                android:id="@+id/deviceListScroll"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
                 android:layout_weight="1"
-                android:background="@drawable/bg_small_btn"
-                android:hint="@string/i18n_host_ip"
-                android:inputType="text"
-                android:importantForAutofill="no"
-                android:paddingHorizontal="10dp"
-                android:singleLine="true"
-                android:textColor="@color/text_primary"
-                android:textColorHint="@color/text_secondary"
-                android:textSize="13sp" />
+                android:visibility="gone"
+                android:scrollbars="vertical">
 
-            <Button
-                android:id="@+id/btnManualConnect"
-                style="@style/GamepadChip"
-                android:layout_marginStart="8dp"
-                android:text="@string/i18n_connect_manually" />
-
-            <Button
-                android:id="@+id/btnRefreshDevices"
-                style="@style/GamepadChip"
-                android:layout_marginStart="6dp"
-                android:text="@string/i18n_refresh" />
+                <LinearLayout
+                    android:id="@+id/deviceListContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </ScrollView>
         </LinearLayout>
-
-        <!-- 状态 -->
-        <TextView
-            android:id="@+id/tvControlledStatus"
-            android:layout_width="match_parent"
-            android:layout_height="40dp"
-            android:background="@color/bg_surface"
-            android:gravity="center_vertical"
-            android:paddingHorizontal="12dp"
-            android:text="@string/i18n_not_started"
-            android:textColor="@color/text_secondary"
-            android:textSize="13sp"
-            android:layout_marginBottom="8dp" />
-
-        <!-- 设备列表 -->
-        <LinearLayout
-            android:id="@+id/deviceListContainer"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical" />
-
     </LinearLayout>
-</ScrollView>
+</LinearLayout>

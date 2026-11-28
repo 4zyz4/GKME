@@ -54,6 +54,8 @@ class ControlledActivity : ComponentActivity() {
     lateinit var deviceModeRepository: ControlledDeviceModeRepository
 
     private lateinit var deviceList: LinearLayout
+    private lateinit var deviceListScroll: View
+    private lateinit var emptyHint: View
     private lateinit var tvStatus: TextView
     private lateinit var btnShizukuAction: Button
     private lateinit var etManualIp: EditText
@@ -76,6 +78,8 @@ class ControlledActivity : ComponentActivity() {
         hideSystemBars()
 
         deviceList = findViewById(R.id.deviceListContainer)
+        deviceListScroll = findViewById(R.id.deviceListScroll)
+        emptyHint = findViewById(R.id.emptyControlledHint)
         tvStatus = findViewById(R.id.tvControlledStatus)
         btnShizukuAction = findViewById(R.id.btnShizukuAction)
         etManualIp = findViewById(R.id.etManualIp)
@@ -291,8 +295,12 @@ class ControlledActivity : ComponentActivity() {
         val connectingIp = ControlledHostManager.connectingIp.value
         val reconnecting =
             ControlledHostManager.state.value.phase == ControlledHostManager.Phase.RECONNECTING
+        // 列表为空时展示连接引导（对齐电脑端主机端的空状态提示）。
+        val empty = cards.isEmpty()
+        emptyHint.visibility = if (empty) View.VISIBLE else View.GONE
+        deviceListScroll.visibility = if (empty) View.GONE else View.VISIBLE
         deviceList.removeAllViews()
-        if (cards.isEmpty()) return
+        if (empty) return
         val inflater = LayoutInflater.from(this)
         for (card in cards) {
             val activeEndpoint = card.endpoints.firstOrNull { it.ip == active?.ip }

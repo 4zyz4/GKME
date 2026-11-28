@@ -737,4 +737,9 @@
     <string name="i18n_gyro_mode_mouse_hint" formatted="false">"就像雷射筆一樣使用滑鼠指標。"</string>
     <string name="i18n_gyro_mode_view_hint" formatted="false">"透過轉動手機來轉視角。"</string>
     <string name="i18n_gyro_mode_direction_hint" formatted="false">"藉助陀螺儀把電話模擬成方向盤，適合賽車遊戲。"</string>
+    <!-- 被控端連線引導 -->
+    <string name="i18n_controlled_empty_title" formatted="false">"等待控制端連線"</string>
+    <string name="i18n_controlled_empty_intro" formatted="false">"在另一部手機上開啟 GKME，控制類型選擇「作為控制端」，然後任選一種方式連線："</string>
+    <string name="i18n_controlled_empty_phone" formatted="false">"WiFi：兩部手機連線同一區域網路，控制端啟動服務後會自動出現在下方；也可以在上方輸入控制端 IP 手動連線。"</string>
+    <string name="i18n_controlled_empty_web" formatted="false">"網頁手把：在同一區域網路內用瀏覽器開啟上方網址，或用相機掃描 QR Code。"</string>
 </resources>

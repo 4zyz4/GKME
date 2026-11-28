@@ -738,4 +738,9 @@
     <string name="i18n_gyro_mode_mouse_hint" formatted="false">"Use the mouse pointer like a laser pointer."</string>
     <string name="i18n_gyro_mode_view_hint" formatted="false">"Turn the view by rotating the phone."</string>
     <string name="i18n_gyro_mode_direction_hint" formatted="false">"Use the gyro to simulate a steering wheel with the phone. Suitable for racing games."</string>
+    <!-- Controlled mode connection guide -->
+    <string name="i18n_controlled_empty_title" formatted="false">"Waiting for a controller"</string>
+    <string name="i18n_controlled_empty_intro" formatted="false">"Open GKME on another phone and choose “Controller mode” as the control type, then connect in either way:"</string>
+    <string name="i18n_controlled_empty_phone" formatted="false">"Wi-Fi: join both phones to the same network — once the controller starts its service it appears below automatically; you can also type its IP above to connect manually."</string>
+    <string name="i18n_controlled_empty_web" formatted="false">"Web gamepad: open the address above in a browser on the same network, or scan the QR code with a camera."</string>
 </resources>

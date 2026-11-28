@@ -737,4 +737,9 @@
     <string name="i18n_gyro_mode_mouse_hint" formatted="false">"Utilisez le pointeur de la souris comme un pointeur laser."</string>
     <string name="i18n_gyro_mode_view_hint" formatted="false">"Tournez la vue en faisant pivoter le téléphone."</string>
     <string name="i18n_gyro_mode_direction_hint" formatted="false">"Utilisez le gyroscope pour simuler un volant avec le téléphone. Adapté aux jeux de course."</string>
+    <!-- Guide de connexion du mode contrôlé -->
+    <string name="i18n_controlled_empty_title" formatted="false">"En attente d'une manette"</string>
+    <string name="i18n_controlled_empty_intro" formatted="false">"Ouvrez GKME sur un autre téléphone et choisissez « Mode manette » comme type de contrôle, puis connectez-le de l'une de ces façons :"</string>
+    <string name="i18n_controlled_empty_phone" formatted="false">"Wi-Fi : connectez les deux téléphones au même réseau — dès que le contrôleur démarre son service, il apparaît ci-dessous ; vous pouvez aussi saisir son IP ci-dessus pour vous connecter manuellement."</string>
+    <string name="i18n_controlled_empty_web" formatted="false">"Manette Web : ouvrez l'adresse ci-dessus dans un navigateur du même réseau, ou scannez le QR code avec l'appareil photo."</string>
 </resources>
