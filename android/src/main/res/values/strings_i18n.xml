@@ -460,6 +460,7 @@
     <string name="i18n_about_project_sdl3_desc" formatted="false">"实体手柄输入与 HID 访问"</string>
     <string name="i18n_about_project_hilt_desc" formatted="false">"依赖注入框架"</string>
     <string name="i18n_about_project_shizuku_desc" formatted="false">"本机 / 被控端虚拟手柄创建授权"</string>
+    <string name="i18n_about_project_bouncycastle_desc" formatted="false">"网页手柄 HTTPS 的运行时自签名证书"</string>
     <string name="i18n_ok" formatted="false">"确定"</string>
     <string name="i18n_one_finger_swipe" formatted="false">"单指滑动"</string>
     <string name="i18n_open_settings" formatted="false">"去开启"</string>

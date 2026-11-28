@@ -460,6 +460,7 @@
     <string name="i18n_about_project_sdl3_desc" formatted="false">"Entrée des manettes physiques et accès HID"</string>
     <string name="i18n_about_project_hilt_desc" formatted="false">"Framework d'injection de dépendances"</string>
     <string name="i18n_about_project_shizuku_desc" formatted="false">"Autorisation de création de manettes virtuelles en mode local / contrôlé"</string>
+    <string name="i18n_about_project_bouncycastle_desc" formatted="false">"Certificat auto-signé à l'exécution pour le HTTPS de la manette Web"</string>
     <string name="i18n_ok" formatted="false">"OK"</string>
     <string name="i18n_one_finger_swipe" formatted="false">"Balayage à un doigt"</string>
     <string name="i18n_open_settings" formatted="false">"Ouvrir les paramètres"</string>

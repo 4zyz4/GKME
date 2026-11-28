@@ -460,6 +460,7 @@
     <string name="i18n_about_project_sdl3_desc" formatted="false">"Physical gamepad input and HID access"</string>
     <string name="i18n_about_project_hilt_desc" formatted="false">"Dependency injection framework"</string>
     <string name="i18n_about_project_shizuku_desc" formatted="false">"Authorization for creating virtual gamepads in local / controlled modes"</string>
+    <string name="i18n_about_project_bouncycastle_desc" formatted="false">"Runtime self-signed certificate for the web gamepad's HTTPS"</string>
     <string name="i18n_ok" formatted="false">"OK"</string>
     <string name="i18n_one_finger_swipe" formatted="false">"One-finger swipe"</string>
     <string name="i18n_open_settings" formatted="false">"Open settings"</string>

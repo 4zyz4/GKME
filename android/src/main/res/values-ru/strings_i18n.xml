@@ -460,6 +460,7 @@
     <string name="i18n_about_project_sdl3_desc" formatted="false">"Ввод с физического геймпада и доступ к HID"</string>
     <string name="i18n_about_project_hilt_desc" formatted="false">"Фреймворк внедрения зависимостей"</string>
     <string name="i18n_about_project_shizuku_desc" formatted="false">"Авторизация создания виртуального геймпада в локальном / управляемом режиме"</string>
+    <string name="i18n_about_project_bouncycastle_desc" formatted="false">"Самоподписанный сертификат для HTTPS веб-геймпада"</string>
     <string name="i18n_ok" formatted="false">"ОК"</string>
     <string name="i18n_one_finger_swipe" formatted="false">"Свайп одним пальцем"</string>
     <string name="i18n_open_settings" formatted="false">"Открыть настройки"</string>

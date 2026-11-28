@@ -460,6 +460,7 @@
     <string name="i18n_about_project_sdl3_desc" formatted="false">"實體手把輸入與 HID 存取"</string>
     <string name="i18n_about_project_hilt_desc" formatted="false">"依賴注入框架"</string>
     <string name="i18n_about_project_shizuku_desc" formatted="false">"本機 / 被控端虛擬手把建立授權"</string>
+    <string name="i18n_about_project_bouncycastle_desc" formatted="false">"網頁手把 HTTPS 的執行階段自簽憑證"</string>
     <string name="i18n_ok" formatted="false">"確定"</string>
     <string name="i18n_one_finger_swipe" formatted="false">"單指滑動"</string>
     <string name="i18n_open_settings" formatted="false">"去開啟"</string>

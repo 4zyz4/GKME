@@ -73,6 +73,11 @@ private val openSourceLibraries = listOf(
         R.string.i18n_about_project_shizuku_desc,
         "https://shizuku.rikka.app/",
     ),
+    AboutProject(
+        "BouncyCastle",
+        R.string.i18n_about_project_bouncycastle_desc,
+        "https://www.bouncycastle.org/",
+    ),
 )
 
 internal fun MainActivity.setupAboutPage() {
