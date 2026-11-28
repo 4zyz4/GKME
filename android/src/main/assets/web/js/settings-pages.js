@@ -300,6 +300,7 @@ export const PAGES = {
         el("div", { class: "aboutver", text: t("about.version", APP_VERSION) }),
         el("div", { class: "aboutbadges" }, [
           button("GitHub", () => openExternal(app, GKME_SOURCE_URL), "aboutbadge"),
+          button(t("about.badgeWebsite"), () => openExternal(app, GKME_WEBSITE_URL), "aboutbadge"),
           button("GPLv3", () => showLicenseDialog(t("about.licenseTitle")), "aboutbadge selected"),
         ]),
         el("div", { class: "aboutdesc", text: t("about.description") }),
@@ -353,6 +354,7 @@ export const PAGES = {
 };
 
 const GKME_SOURCE_URL = "https://github.com/4zyz4/gkme";
+const GKME_WEBSITE_URL = "https://gkme.databk.top";
 
 /** Opens an external link; a blocked popup is reported instead of failing silently. */
 function openExternal(app, url) {

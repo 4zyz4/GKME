@@ -136,6 +136,7 @@ const STRINGS = {
     "misc.resetAction": "重置",
 
     "about.version": "版本 {0}",
+    "about.badgeWebsite": "官网",
     "about.description": "把 Android 手机变成一台虚拟游戏手柄 —— 也可以是虚拟键盘和鼠标。支持 WiFi 局域网、USB 直连与蓝牙直连。",
 
     "dialog.sponsorTitle": "赞助",
@@ -503,6 +504,7 @@ const STRINGS = {
     "misc.resetAction": "重設",
 
     "about.version": "版本 {0}",
+    "about.badgeWebsite": "官網",
     "about.description": "把你的 Android 手機變成一台虛擬遊戲手把 —— 也可以是虛擬鍵盤和滑鼠。支援 WiFi 區域網路、USB 直連與藍牙直連。",
 
     "dialog.sponsorTitle": "贊助",
@@ -870,6 +872,7 @@ const STRINGS = {
     "misc.resetAction": "重設",
 
     "about.version": "版本 {0}",
+    "about.badgeWebsite": "官網",
     "about.description": "把你的 Android 手機變成一台虛擬遊戲手掣 —— 也可以是虛擬鍵盤和滑鼠。支援 WiFi 區域網絡、USB 直連與藍牙直連。",
 
     "dialog.sponsorTitle": "贊助",
@@ -1237,6 +1240,7 @@ const STRINGS = {
     "misc.resetAction": "Reset",
 
     "about.version": "Version {0}",
+    "about.badgeWebsite": "Website",
     "about.description": "Turn your Android phone into a virtual gamepad — or a virtual keyboard and mouse. Supports WiFi LAN, direct USB, and direct Bluetooth connections.",
 
     "dialog.sponsorTitle": "Sponsor",
@@ -1604,6 +1608,7 @@ const STRINGS = {
     "misc.resetAction": "Сбросить",
 
     "about.version": "Версия {0}",
+    "about.badgeWebsite": "Сайт",
     "about.description": "Превратите телефон Android в виртуальный геймпад — а также в виртуальную клавиатуру и мышь. Поддерживаются WiFi-сеть, прямое USB- и Bluetooth-подключение.",
 
     "dialog.sponsorTitle": "Спонсорство",
@@ -1971,6 +1976,7 @@ const STRINGS = {
     "misc.resetAction": "Réinitialiser",
 
     "about.version": "Version {0}",
+    "about.badgeWebsite": "Site web",
     "about.description": "Transformez votre téléphone Android en manette virtuelle — mais aussi en clavier et souris virtuels. Connexions WiFi, USB direct et Bluetooth direct.",
 
     "dialog.sponsorTitle": "Soutenir",
