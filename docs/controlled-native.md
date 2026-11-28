@@ -218,7 +218,7 @@ flowchart TB
 | 设备节点 | `/dev/uinput` | `/dev/uhid` |
 | 总线/身份 | `BUS_VIRTUAL` + `0x045E:0x02FD`，名 `Xbox One S Controller` | `BUS_USB` + 真实厂商/产品 |
 | 描述符 | 无，直接 Linux input 事件 | `gkme_hid_descriptors.h` 真实 HID report descriptor |
-| 报告 | 11 EV_KEY + 8 EV_ABS + 1 EV_SYN | 各 profile 的 64 字节 HID 报告 |
+| 报告 | 11 EV_KEY + 8 EV_ABS + 1 EV_SYN | 各 profile 的 HID 报告（Switch 为 12B 简单帧或 64B 全量帧） |
 | 震动回读 | Linux FF（upload/erase/EV_FF） | 解析 output report |
 | 支持身份 | Xbox One S、GKME 键盘/鼠标 | DS4 / DualSense / Switch Pro、HID 键鼠、精确触摸板 |
 | 库 | `libgkme_uinput.so` | 同上 |
@@ -247,15 +247,20 @@ flowchart TB
 - 设备种类：DS4=1、DualSense=2、Switch Pro=3、Keyboard=10、Mouse=11、精确触摸板=12。
 - **身份伪装**：DS4 `0x054C:0x09CC`、DualSense `0x054C:0x0CE6`、Switch Pro `0x057E:0x2009`。
 - 创建走 `gkme_uk_create`（`open("/dev/uhid")` + `CREATE2`），起 `reader` 线程；
-  仅 Switch Pro 额外起 `streamer` 线程（每 15000us 发 0x30 帧）。
+  仅 Switch Pro 额外起 `streamer` 线程（每 15000us 重发一帧当前输入模式的报告）。
 - **报告格式**：
   - DS4：64 字节，`rpt[0]=0x01`；hat/face 在 `rpt[5]`，肩键在 `rpt[6]`，Guide/触摸板在 `rpt[7]`，
     LT/RT 在 `rpt[8..9]`，IMU 在 `13..24`，`rpt[33]`=触点报告数、`rpt[34]`=时间戳、触摸从 `rpt[35]` 起。
   - DualSense：64 字节，`rpt[0]=0x01`；IMU 在 `16..27`，触摸从 `rpt[33]` 起（y 按 1080/943 缩放）、`rpt[41]`=时间戳。
   - 触摸点编码对齐 hid-playstation `ps_touch_point`（DS4/DualSense 相同）：byte1=X 低 8 位、
     byte2 低半字节=X 高 4 位、byte2 高半字节=Y 低 4 位、byte3=Y 高 8 位。
-  - Switch Pro：`frame[0]=0x30`、`frame[1]=timer`、`frame[2]=0x91`、`frame[12]=0xB0`；
-    12 位 nibble 打包摇杆 + 3 组 IMU。
+  - Switch Pro **同一时刻只发一种帧形状**，由子命令 0x03 选择：
+    - `0x3F`（默认）：12 字节标准 HID 手柄帧，`frame[1..2]`=16 个按键、`frame[3]` 低半字节=hat、
+      `frame[4..11]`=X/Y/Rx/Ry 四个 16 位小端轴（Y/Ry 向下为正）。描述符只把 0x3F 声明为标准
+      gamepad，因此 HID 栈在协议主机接管前就有可用输入。
+    - `0x30/0x31`：64 字节全量 Nintendo 帧，`frame[0]=0x30`、`frame[1]=timer`、`frame[2]=0x91`、
+      `frame[12]=0xB0`；12 位 nibble 打包摇杆 + 3 组 IMU。描述符把 0x30 声明为不透明 vendor 输入，
+      避免把 timer/battery 字节当成按键。
 - **Feature 应答** `gkme_build_feature`：DS4/DualSense 的校准/固件/MAC；键盘/鼠标 `rnum==0` 时返回
   `{0x01}`（鼠标 Resolution Multiplier 必须回有效值，否则内核写 feature 可能阻塞）。
 - **Output（震动回读）** `gkme_handle_output`：`rumble_enabled==0` 时忽略（保留给不需要回读的调用方）；
@@ -263,9 +268,11 @@ flowchart TB
   DS4 rid 0x05、DualSense rid 0x02、Switch rid 0x01/0x10。
 - **Switch 专有协议**：`gkme_switch_proprietary`（0x01/0x02/0x03）与 `gkme_switch_subcommand`
   （0x02/0x03/0x04/0x10/0x21/0x40/0x48）；`gkme_switch_spi_byte` 镜像校准数据。
+  子命令 0x03 只接受 0x30/0x31/0x3F，切换输入帧形状（切换与发送共用 `dev->lock`）。
 - **线程**：`gkme_uk_reader`（poll 200ms + read，处理 STOP/GET_REPORT/SET_REPORT/OUTPUT）；
   `gkme_uk_streamer`（仅 Switch Pro）。
-- `nativeWriteUhid` 在 `dev->lock` 内更新 gyro/accel/touch 并打包，解锁后发送。
+- `nativeWriteUhid` 在 `dev->lock` 内更新 gyro/accel/touch、打包并发送，保证模式切换后
+  不会发出旧形状的 Switch 帧。
 - 键鼠：`nativeWriteKeyboardUhid` 写 34 字节（modifier + 保留 + 256 位位图）；
   `nativeWriteMouseUhid` 写 9 字节。
 - **精确触摸板**：`nativeCreateTouchpadUhid` 创建 `045E:0B0D` 设备；`nativeWriteTouchpadUhid`
@@ -284,7 +291,7 @@ flowchart TB
 |--------|------|----------|
 | `GKMD_DESC_DS4` | 507B | `gkme_pack_ds4` 64B；feature 0x02/0x81/0x20/0xA3 |
 | `GKMD_DESC_DUALSENSE` | 273B | `gkme_pack_dualsense`；feature 0x05/0x09/0x20/0x22 |
-| `GKMD_DESC_SWITCH_PRO` | 203B | `gkme_switch_build_frame` 0x30 帧 |
+| `GKMD_DESC_SWITCH_PRO` | 149B | `gkme_switch_build_frame`：0x3F 短帧（12B）或 0x30 全量帧（64B）；0x30/0x21/0x81 为 vendor 输入 |
 | `GKMD_DESC_KEYBOARD` | 68B | 标准 Boot Keyboard，报告 34B |
 | `GKMD_DESC_MOUSE` | 119B | HID Mouse，报告 9B |
 | `GKMD_DESC_TOUCHPAD` | 494B | Windows Precision Touchpad（5 触点，110×70 mm），报告 35B；feature 2/3/4/5（含 257B 认证报告） |

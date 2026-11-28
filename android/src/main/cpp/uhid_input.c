@@ -146,6 +146,10 @@ typedef struct {
     int sw_imu;
     uint8_t sw_timer;
     uint8_t sw_device_type;
+    /* 子命令 0x03 选择的输入报告形状：0x30/0x31 为全量 Nintendo 帧，
+     * 0x3F 为描述符里的标准 HID 手柄短帧。默认 0x3F，让内核 HID
+     * 栈在协议主机（SDL/eden）接管前先拿到可用输入。 */
+    uint8_t sw_input_mode;
 
     /* 最近一帧输入报告（Switch 需要周期性重发） */
     uint8_t last_report[64];
@@ -493,7 +497,95 @@ static void gkme_switch_fill_state(gkme_uk_dev *dev, uint8_t state[46]) {
     if (dev->sw_imu) memcpy(state + 10, dev->sw_body + 12, 36);
 }
 
-static void gkme_switch_build_frame(gkme_uk_dev *dev, uint8_t frame[64]) {
+#define GKME_SWITCH_FULL_FRAME_LEN 64
+#define GKME_SWITCH_SIMPLE_FRAME_LEN 12
+
+/* 0x30/0x31 是全量 Nintendo 帧；其余（0x3F）用描述符里的标准 HID 短帧。 */
+static int gkme_switch_full_mode(uint8_t mode) {
+    return mode == 0x30 || mode == 0x31;
+}
+
+/* 12 位摇杆（0x800 中心、0x600 行程）→ 描述符的 0..65535 无符号轴。 */
+static uint16_t gkme_switch_scale_stick(uint16_t value12, int invert) {
+    int defl = (int)value12 - 0x800;
+    if (invert) defl = -defl;
+    int scaled = 32768 + defl * 32768 / 0x600;
+    if (scaled < 0) scaled = 0;
+    if (scaled > 65535) scaled = 65535;
+    return (uint16_t)scaled;
+}
+
+static void gkme_put_u16(uint8_t *p, uint16_t v) {
+    p[0] = (uint8_t)(v & 0xFF);
+    p[1] = (uint8_t)(v >> 8);
+}
+
+/* 把 body[2..10]（2 个按键字节 + 十字键字节 + 两对 12 位摇杆）翻译成 0x3F
+ * 简单帧：2 个按键字节、十字键低半字节、X/Y/Rx/Ry 四个 16 位轴。与 GKMD
+ * 的 SwitchBuildSimpleFrame 一致；HID 的 Y 轴向下为正，故 Y/Ry 取反。 */
+static void gkme_switch_build_simple(gkme_uk_dev *dev, uint8_t frame[12]) {
+    const uint8_t *body = dev->sw_body;
+    uint8_t n0 = body[2]; /* Y X B A SR SL R ZR */
+    uint8_t n1 = body[3]; /* Minus Plus RStick LStick Home Capture */
+    uint8_t n2 = body[4]; /* Down Up Right Left SR SL L ZL */
+
+    memset(frame, 0, GKME_SWITCH_SIMPLE_FRAME_LEN);
+    frame[0] = 0x3F;
+
+    uint8_t b1 = 0;
+    if (n0 & 0x04) b1 |= 0x01; /* B */
+    if (n0 & 0x08) b1 |= 0x02; /* A */
+    if (n0 & 0x01) b1 |= 0x04; /* Y */
+    if (n0 & 0x02) b1 |= 0x08; /* X */
+    if (n2 & 0x40) b1 |= 0x10; /* L */
+    if (n0 & 0x40) b1 |= 0x20; /* R */
+    if (n2 & 0x80) b1 |= 0x40; /* ZL */
+    if (n0 & 0x80) b1 |= 0x80; /* ZR */
+
+    uint8_t b2 = 0;
+    if (n1 & 0x01) b2 |= 0x01; /* Minus */
+    if (n1 & 0x02) b2 |= 0x02; /* Plus */
+    if (n1 & 0x08) b2 |= 0x04; /* LStick */
+    if (n1 & 0x04) b2 |= 0x08; /* RStick */
+    if (n1 & 0x10) b2 |= 0x10; /* Home */
+    if (n1 & 0x20) b2 |= 0x20; /* Capture */
+
+    int up = (n2 & 0x02) != 0;
+    int down = (n2 & 0x01) != 0;
+    int left = (n2 & 0x08) != 0;
+    int right = (n2 & 0x04) != 0;
+    int hat = 8;
+    if (up && right) hat = 1;
+    else if (right && down) hat = 3;
+    else if (down && left) hat = 5;
+    else if (left && up) hat = 7;
+    else if (up) hat = 0;
+    else if (right) hat = 2;
+    else if (down) hat = 4;
+    else if (left) hat = 6;
+
+    frame[1] = b1;
+    frame[2] = b2;
+    frame[3] = (uint8_t)(hat & 0x0F);
+
+    uint16_t lx = (uint16_t)(body[5] | ((body[6] & 0x0F) << 8));
+    uint16_t ly = (uint16_t)((body[6] >> 4) | (body[7] << 4));
+    uint16_t rx = (uint16_t)(body[8] | ((body[9] & 0x0F) << 8));
+    uint16_t ry = (uint16_t)((body[9] >> 4) | (body[10] << 4));
+
+    gkme_put_u16(frame + 4, gkme_switch_scale_stick(lx, 0));
+    gkme_put_u16(frame + 6, gkme_switch_scale_stick(ly, 1));
+    gkme_put_u16(frame + 8, gkme_switch_scale_stick(rx, 0));
+    gkme_put_u16(frame + 10, gkme_switch_scale_stick(ry, 1));
+}
+
+/* 按当前输入模式只生成一种帧形状，返回实际长度（12 或 64）。
+ * 调用方必须持有 dev->lock，且应持锁发送，避免模式切换后仍发出旧形状。 */
+static int gkme_switch_build_frame(gkme_uk_dev *dev, uint8_t frame[64]) {
+    if (!gkme_switch_full_mode(dev->sw_input_mode)) {
+        gkme_switch_build_simple(dev, frame);
+        return GKME_SWITCH_SIMPLE_FRAME_LEN;
+    }
     uint8_t state[46];
     gkme_switch_fill_state(dev, state);
     memset(frame, 0, 64);
@@ -503,6 +595,7 @@ static void gkme_switch_build_frame(gkme_uk_dev *dev, uint8_t frame[64]) {
     memcpy(frame + 3, state, 9);
     frame[12] = 0xB0;
     memcpy(frame + 13, state + 10, 36);
+    return GKME_SWITCH_FULL_FRAME_LEN;
 }
 
 /* ── Switch SPI 镜像（取自 GKMD）──────────────────────────────────────── */
@@ -732,6 +825,14 @@ static void gkme_switch_subcommand(gkme_uk_dev *dev, const uint8_t *data, int le
         reply[26] = 0x01;
         break;
     case 0x03:
+        /* 输入报告模式：0x30/0x31 切到全量帧，0x3F 切回标准 HID 短帧。
+         * 只保留一种形状，避免主机把 0x3F 当成数字摇杆报文。 */
+        if (arglen >= 1 &&
+            (args[0] == 0x30 || args[0] == 0x31 || args[0] == 0x3F)) {
+            pthread_mutex_lock(&dev->lock);
+            dev->sw_input_mode = args[0];
+            pthread_mutex_unlock(&dev->lock);
+        }
         break;
     case 0x04:
         reply[13] = 0x83;
@@ -827,9 +928,11 @@ static void *gkme_uk_streamer(void *arg) {
         if (!dev->has_streamer) continue;
         pthread_mutex_lock(&dev->lock);
         uint8_t frame[64];
-        gkme_switch_build_frame(dev, frame);
+        int len = gkme_switch_build_frame(dev, frame);
+        /* 持锁发送：子命令 0x03 改模式也要拿同一把锁，切换后不会再发出
+         * 旧形状的帧。 */
+        gkme_uk_send_input(dev->fd, frame, len);
         pthread_mutex_unlock(&dev->lock);
-        gkme_uk_send_input(dev->fd, frame, 64);
     }
     return NULL;
 }
@@ -869,6 +972,7 @@ static int gkme_uk_create(const uint8_t *desc, int desc_len, const char *name,
     dev->running = 1;
     dev->sw_imu = 0;
     dev->sw_device_type = 3; /* Pro */
+    dev->sw_input_mode = 0x3F; /* 默认标准 HID 短帧 */
     dev->index = g_uk_index++;
     dev->rumble_enabled = rumble_enabled;
     gkme_uk_store(fd, dev);
@@ -922,7 +1026,7 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWriteUhid(
     gkme_uk_dev *dev = gkme_uk_get(fd);
     if (!dev) return;
     uint8_t rpt[64];
-    int len = 64;
+    int len;
     pthread_mutex_lock(&dev->lock);
     dev->gyro[0] = gyroX; dev->gyro[1] = gyroY; dev->gyro[2] = gyroZ;
     dev->accel[0] = accelX; dev->accel[1] = accelY; dev->accel[2] = accelZ;
@@ -949,12 +1053,14 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWriteUhid(
     if (dev->profile == GKME_PROFILE_DS4) {
         gkme_pack_ds4(rpt, dev, buttons, leftTrigger, rightTrigger,
                       leftX, leftY, rightX, rightY);
+        len = 64;
     } else if (dev->profile == GKME_PROFILE_DUALSENSE) {
         gkme_pack_dualsense(rpt, dev, buttons, leftTrigger, rightTrigger,
                             leftX, leftY, rightX, rightY);
+        len = 64;
     } else if (dev->profile == GKME_PROFILE_SWITCH_PRO) {
         gkme_switch_fill_body(dev, buttons, leftTrigger, rightTrigger, leftX, leftY, rightX, rightY);
-        gkme_switch_build_frame(dev, rpt);
+        len = gkme_switch_build_frame(dev, rpt);
     } else {
         pthread_mutex_unlock(&dev->lock);
         return;
@@ -963,8 +1069,10 @@ Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWriteUhid(
         memcpy(dev->last_report, rpt, len);
         dev->last_len = len;
     }
-    pthread_mutex_unlock(&dev->lock);
+    /* 持锁发送：Switch 的形状由子命令 0x03 决定，与 streamer 用同一把锁，
+     * 避免模式切换后仍发出旧形状的帧。 */
     gkme_uk_send_input(dev->fd, rpt, len);
+    pthread_mutex_unlock(&dev->lock);
 }
 
 JNIEXPORT jlong JNICALL
