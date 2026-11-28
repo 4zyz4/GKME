@@ -133,6 +133,9 @@ export class InputState {
     this.leftTrigger = 0;
     this.rightTrigger = 0;
     this.touches = [];
+    // Precision touchpad full state ({ contacts, buttons }) or null when this
+    // frame carries no touchpad update (mirrors GamepadState.precisionTouchpad).
+    this.precisionTouchpad = null;
     // keyboard
     this.kbModifiers = 0;
     this.kbKeys = new Set(); // usages
@@ -170,6 +173,7 @@ export class InputState {
       leftTrigger: this.leftTrigger,
       rightTrigger: this.rightTrigger,
       touches: this.touches,
+      precisionTouchpad: this.precisionTouchpad,
       scanCodes,
       modifiers: this.kbModifiers >>> 0,
       mouseDx: this.mouseDx | 0,

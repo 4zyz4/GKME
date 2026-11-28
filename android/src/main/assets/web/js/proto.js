@@ -97,7 +97,14 @@ class Writer {
 
   message(field, sub) {
     if (!sub) return;
-    this.bytes(field, sub);
+    // Write the field even when the sub-message is empty: proto3 message
+    // fields are presence-tracked, and an empty PrecisionTouchpad must still
+    // mean "lift every contact".
+    this.tag(field, WIRE_LEN);
+    this.varint(sub.length);
+    this._ensure(sub.length);
+    this.buf.set(sub, this.pos);
+    this.pos += sub.length;
   }
 
   // Packed repeated uint32 (proto3 default for repeated scalar).
@@ -146,6 +153,21 @@ export function encodeGamepadInput(inp) {
       if (!pt) continue;
       encodeTouch(w, 22, pt);
     }
+  }
+  // Precision touchpad (field 31): presence means "this frame carries a full
+  // touchpad state"; an empty contact list lifts every contact. `null`/undefined
+  // omits the field so the receiver keeps its current state.
+  if (inp.precisionTouchpad) {
+    const tp = new Writer();
+    for (const contact of inp.precisionTouchpad.contacts || []) {
+      const c = new Writer();
+      c.uint(1, contact.id);
+      c.uint(2, contact.x);
+      c.uint(3, contact.y);
+      tp.message(1, c.toBytes());
+    }
+    tp.uint(2, inp.precisionTouchpad.buttons >>> 0);
+    w.message(31, tp.toBytes());
   }
   w.packedUints(28, inp.scanCodes);
   w.uint(30, inp.modifiers >>> 0);

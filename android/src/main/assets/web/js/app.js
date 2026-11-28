@@ -238,6 +238,13 @@ class App {
       onTouchpad: (touches) => {
         this.state.touches = touches;
       },
+      // Precision touchpad sends a full-state frame immediately; the periodic
+      // loop must not repeat it (field absent = no update).
+      onPrecisionTouchpad: (contacts) => {
+        this.state.precisionTouchpad = { contacts, buttons: 0 };
+        this._sendFrame();
+        this.state.precisionTouchpad = null;
+      },
       onMouseMove: (dx, dy, speed, b) => this._onMouseMove(dx, dy, speed, b),
       onMouseScroll: (dx, dy, b) => this._onMouseScroll(dx, dy, b),
       onMouseButton: (bit, down) => this._onMouseButton(bit, down),

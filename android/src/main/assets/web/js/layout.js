@@ -74,6 +74,9 @@ const DEFAULTS = {
   mouseMoveSlop: 4,
   invertScrollV: false,
   invertScrollH: false,
+  // Precision touchpad mode: report raw multi-touch contacts instead of
+  // synthesising gestures (host recognises taps / scroll / gestures).
+  precisionTouchpad: false,
   singleTapAction: "LEFT_CLICK",
   twoFingerTapAction: "RIGHT_CLICK",
   threeFingerTapAction: "MIDDLE_CLICK",
@@ -548,6 +551,7 @@ export class GamepadLayout {
         }
         if (b.prediction) o.prediction = true;
         if (base === "mousepad") {
+          if (b.precisionTouchpad) o.precisionTouchpad = true;
           if (b.mouseSensitivity !== 1) o.mouseSensitivity = b.mouseSensitivity;
           if (Array.isArray(b.mouseAcceleration) && b.mouseAcceleration.length) {
             o.mouseAcceleration = b.mouseAcceleration.slice();
@@ -1974,6 +1978,10 @@ export class GamepadLayout {
       return;
     }
     if (b.isMousepad) {
+      if (b.precisionTouchpad) {
+        this._precisionDown(b, e, px, py);
+        return;
+      }
       this._mpDown(b, e, px, py);
       return;
     }
@@ -2046,7 +2054,15 @@ export class GamepadLayout {
     else if (info.kind === "dpad") this._updateDpad(e.pointerId, px, py);
     else if (info.kind === "keypad") this._updateKeypad(e.pointerId, px, py);
     else if (info.kind === "trigger") this._updateTrigger(e.pointerId, px, py, e);
-    else if (info.kind === "mousepad") this._mpMove(info.b, info, e);
+    else if (info.kind === "mousepad") {
+      if (info.b.precisionTouchpad) {
+        info.px = px;
+        info.py = py;
+        this._precisionSend(info.b);
+      } else {
+        this._mpMove(info.b, info, e);
+      }
+    }
     else if (info.kind === "touchpad") { info.px = px; info.py = py; this._updateTouchpad(info.b); }
   }
 
@@ -2060,6 +2076,17 @@ export class GamepadLayout {
     this._pointers.delete(e.pointerId);
 
     if (info.kind === "mousepad") {
+      if (info.b.precisionTouchpad) {
+        if (this._mpPointerCount(info.b) === 0) {
+          // Last contact lifted: send an explicit empty state so the host
+          // releases every contact (field present, contacts empty).
+          info.b._precisionNextId = 0;
+          this.cb.onPrecisionTouchpad && this.cb.onPrecisionTouchpad([]);
+        } else {
+          this._precisionSend(info.b);
+        }
+        return;
+      }
       const cancel = e.type === "pointercancel";
       if (cancel) {
         this._mpUp(info.b, info, e, true);
@@ -2651,6 +2678,59 @@ export class GamepadLayout {
     }));
     this.cb.onTouchpad && this.cb.onTouchpad(touches);
     this.render();
+  }
+
+  // ── Precision touchpad (mirrors MainActivity.attachPrecisionTouchpad) ──
+  // Reports every finger's absolute position in the Windows Precision Touchpad
+  // logical range instead of relative mouse deltas; the host creates the
+  // virtual digitizer and performs taps / scrolling / multi-finger gestures.
+  // WebSocket is equivalent to Android's WiFi/USB transport, so this mode is
+  // always available (no Bluetooth fallback needed).
+  _precisionDown(b, e, px, py) {
+    if (!b._precisionNextId) b._precisionNextId = 0;
+    this._pointers.set(e.pointerId, {
+      id: b.id,
+      kind: "mousepad",
+      b,
+      px,
+      py,
+      precisionId: (b._precisionNextId++) % 256,
+    });
+    // Precision mode is transparent: no press highlight and no haptic feedback.
+    this._precisionSend(b);
+  }
+
+  /** Maps one normalized (0..1) control coordinate for the control rotation. */
+  _precisionRotate(nx, ny, rotation) {
+    switch (((rotation % 360) + 360) % 360) {
+      case 90: return { nx: ny, ny: 1 - nx };
+      case 180: return { nx: 1 - nx, ny: 1 - ny };
+      case 270: return { nx: 1 - ny, ny: nx };
+      default: return { nx, ny };
+    }
+  }
+
+  _precisionSend(b) {
+    const r = this.gridRect(b);
+    const contacts = [];
+    for (const [, info] of this._pointers) {
+      if (info.kind !== "mousepad" || info.b !== b) continue;
+      const nx = r.w > 0 ? (info.px - r.x) / r.w : 0;
+      const ny = r.h > 0 ? (info.py - r.y) / r.h : 0;
+      const p = this._precisionRotate(
+        Math.max(0, Math.min(1, nx)),
+        Math.max(0, Math.min(1, ny)),
+        b.rotation || 0
+      );
+      contacts.push({
+        id: info.precisionId || 0,
+        x: Math.max(0, Math.min(4095, Math.round(p.nx * 4095))),
+        y: Math.max(0, Math.min(4095, Math.round(p.ny * 4095))),
+      });
+      // Precision touchpad reports carry at most five contacts.
+      if (contacts.length >= 5) break;
+    }
+    this.cb.onPrecisionTouchpad && this.cb.onPrecisionTouchpad(contacts);
   }
 
   // ── Mousepad gestures (mirrors MainActivityControls.attachMousepadGestures) ──
