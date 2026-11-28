@@ -438,6 +438,14 @@
     <string name="i18n_about_opensource_libraries" formatted="false">"Используемые библиотеки с открытым кодом"</string>
     <string name="i18n_about_license_notice" formatted="false">"Распространяется по лицензии GNU General Public License v3.0.\nCopyright (C) 2026 4zyz4"</string>
     <string name="i18n_about_unable_to_open_link" formatted="false">"Не удалось открыть ссылку"</string>
+    <!-- Проверка обновлений -->
+    <string name="i18n_about_check_update" formatted="false">"Проверить обновления"</string>
+    <string name="i18n_update_checking" formatted="false">"Проверка обновлений…"</string>
+    <string name="i18n_update_available_title" formatted="false">"Доступно обновление"</string>
+    <string name="i18n_update_available_message" formatted="true">"Доступна версия %1$s; у вас версия %2$s. Открыть официальный сайт для загрузки?"</string>
+    <string name="i18n_update_go_download" formatted="false">"Перейти на сайт"</string>
+    <string name="i18n_update_up_to_date" formatted="false">"У вас последняя версия"</string>
+    <string name="i18n_update_check_failed" formatted="false">"Не удалось проверить обновления. Проверьте сеть и повторите попытку."</string>
     <string name="i18n_about_connection_wifi" formatted="false">"WiFi (локальная сеть)"</string>
     <string name="i18n_about_connection_wifi_desc" formatted="false">"Автопоиск или ручной IP, UDP + Protobuf"</string>
     <string name="i18n_about_connection_usb" formatted="false">"USB (ADB)"</string>

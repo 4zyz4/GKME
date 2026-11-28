@@ -438,6 +438,14 @@
     <string name="i18n_about_opensource_libraries" formatted="false">"使用的开源库"</string>
     <string name="i18n_about_license_notice" formatted="false">"本项目基于 GNU General Public License v3.0 发布。\nCopyright (C) 2026 4zyz4"</string>
     <string name="i18n_about_unable_to_open_link" formatted="false">"无法打开链接"</string>
+    <!-- 更新检查 -->
+    <string name="i18n_about_check_update" formatted="false">"检查更新"</string>
+    <string name="i18n_update_checking" formatted="false">"正在检查更新…"</string>
+    <string name="i18n_update_available_title" formatted="false">"发现新版本"</string>
+    <string name="i18n_update_available_message" formatted="true">"最新版本 %1$s，当前版本 %2$s。是否前往官网下载？"</string>
+    <string name="i18n_update_go_download" formatted="false">"前往官网下载"</string>
+    <string name="i18n_update_up_to_date" formatted="false">"已是最新版本"</string>
+    <string name="i18n_update_check_failed" formatted="false">"检查更新失败，请检查网络后重试"</string>
     <string name="i18n_about_connection_wifi" formatted="false">"WiFi 局域网"</string>
     <string name="i18n_about_connection_wifi_desc" formatted="false">"自动发现或手动输入 IP，UDP + Protobuf 通信"</string>
     <string name="i18n_about_connection_usb" formatted="false">"USB（ADB）"</string>

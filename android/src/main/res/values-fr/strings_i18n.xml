@@ -438,6 +438,14 @@
     <string name="i18n_about_opensource_libraries" formatted="false">"Bibliothèques open source utilisées"</string>
     <string name="i18n_about_license_notice" formatted="false">"Publié sous GNU General Public License v3.0.\nCopyright (C) 2026 4zyz4"</string>
     <string name="i18n_about_unable_to_open_link" formatted="false">"Impossible d'ouvrir le lien"</string>
+    <!-- Vérification des mises à jour -->
+    <string name="i18n_about_check_update" formatted="false">"Vérifier les mises à jour"</string>
+    <string name="i18n_update_checking" formatted="false">"Vérification des mises à jour…"</string>
+    <string name="i18n_update_available_title" formatted="false">"Mise à jour disponible"</string>
+    <string name="i18n_update_available_message" formatted="true">"La version %1$s est disponible ; vous utilisez la version %2$s. Ouvrir le site officiel pour la télécharger ?"</string>
+    <string name="i18n_update_go_download" formatted="false">"Aller sur le site"</string>
+    <string name="i18n_update_up_to_date" formatted="false">"Vous utilisez déjà la dernière version"</string>
+    <string name="i18n_update_check_failed" formatted="false">"Échec de la vérification. Vérifiez votre connexion et réessayez."</string>
     <string name="i18n_about_connection_wifi" formatted="false">"WiFi (LAN)"</string>
     <string name="i18n_about_connection_wifi_desc" formatted="false">"Découverte automatique ou IP manuelle, UDP + Protobuf"</string>
     <string name="i18n_about_connection_usb" formatted="false">"USB (ADB)"</string>

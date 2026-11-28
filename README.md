@@ -90,6 +90,7 @@ GKME organizes its functionality along two dimensions: the **connection method**
 | **Appearance customization** | Backgrounds, buttons, sticks, and touchpads support solid colors or custom images, adjustable control opacity (100% by default), exportable as ZIP configs, and colors can bind to gamepad LEDs |
 | **Global layout settings** | Gyro settings are upgraded to a full-screen global settings page, with physical gamepad and volume key mapping moved into it; settings are saved with layout presets |
 | **Transition animations** | Animated transitions for settings page switches, the layout editing overlay, and parameter changes |
+| **Update check** | Silently checks GitHub Releases every 3 days; when a new release is found it offers a download link to the official website and can be dismissed for that version (manual check is available on the About page) |
 
 ### ⚡ Haptics & Feedback
 

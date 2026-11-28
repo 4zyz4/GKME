@@ -102,6 +102,8 @@ class MainActivity : ComponentActivity() {
     /** 用户点击“启动服务”后因缺少蓝牙权限而挂起的蓝牙模式启动请求。 */
     internal var pendingBluetoothStart = false
     internal var pendingForwardMicrophone = false
+    /** 是否有一次更新检查正在进行，避免手动连点重复请求。 */
+    internal var updateCheckRunning = false
     internal var lastAppliedSettings: AppSettings? = null
     internal var lastPresetInfos: Any? = null
     internal var lastPresetCurrentName: String? = null
@@ -382,6 +384,11 @@ class MainActivity : ComponentActivity() {
             physicalControllerHandler.start()
             ensureSettingsInflated()
         }, 500L)
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (isFinishing || isDestroyed) return@postDelayed
+            // 每 3 天通过 GitHub Releases API 静默检查一次更新；失败或已是最新时不打扰用户。
+            if (!isScreenOff && !floatingController.isActive) maybeCheckForUpdates()
+        }, AUTO_UPDATE_CHECK_START_DELAY_MS)
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when {

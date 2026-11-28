@@ -3500,6 +3500,13 @@
                             android:textAllCaps="false" />
 
                         <Button
+                            android:id="@+id/btnAboutCheckUpdate"
+                            style="@style/GamepadChip"
+                            android:layout_marginHorizontal="4dp"
+                            android:text="@string/i18n_about_check_update"
+                            android:textAllCaps="false" />
+
+                        <Button
                             android:id="@+id/btnAboutLicense"
                             style="@style/GamepadChip"
                             android:layout_marginHorizontal="4dp"
