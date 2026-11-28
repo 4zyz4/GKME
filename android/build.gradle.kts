@@ -20,11 +20,11 @@ fun localProperty(key: String): String? =
     localProperties.getProperty(key)?.trim()?.takeIf { it.isNotEmpty() }
 
 // 版本号基准值，发版时改这里。
-val baseVersionCode = 41000
-val baseVersionName = "4.10.0"
+val baseVersionCode = 41100
+val baseVersionName = "4.11.0"
 
 // 版本号覆盖：夜间构建等非发版场景用，例如
-//   ./gradlew -Pgkme.versionName=4.10.0-nightly.20261122 -Pgkme.versionCode=41000 assembleRelease
+//   ./gradlew -Pgkme.versionName=4.11.0-nightly.20261122 -Pgkme.versionCode=41100 assembleRelease
 // 未传属性时保持基准值，本地普通构建行为不变。
 val versionCodeOverride: Int? = providers.gradleProperty("gkme.versionCode")
     .orNull?.trim()?.takeIf { it.isNotEmpty() }
