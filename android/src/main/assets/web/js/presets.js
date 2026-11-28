@@ -4,6 +4,9 @@
 
 export const FULL_CON = {
   version: 1,
+  gyroOrientation: "LANDSCAPE",
+  gyroActivateMode: "ALWAYS",
+  gyroMode: "HANDHELD",
   buttons: [
     { id: "touchpad", x: 39, y: 7, w: 44, h: 28, lockAspect: false, overlapTrigger: true, doubleClickEnable: true },
     { id: "btnY", x: 100, y: 11, w: 10, h: 10, lockAspect: true },
@@ -112,6 +115,10 @@ export const KEYBOARD = {
 
 export const MOUSE = {
   version: 1,
+  gyroOrientation: "PORTRAIT",
+  gyroActivateMode: "BUTTON",
+  gyroMode: "MOUSE",
+  gyroModeSensitivity: 20,
   buttons: [
     { id: "btnSettings", x: 0, y: 23, w: 8, h: 8 },
     { id: "mousepad_2", x: 9, y: 4, w: 45, h: 75, rotation: 270 },

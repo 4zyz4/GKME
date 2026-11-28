@@ -354,6 +354,13 @@ html.force-landscape body {
 .filebtn input { display: none; }
 
 .hint { color: var(--text-dim); font-size: 12px; line-height: 1.6; margin: 10px 0 0; }
+.gyrolive {
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  margin-top: 10px;
+}
 
 .presetlist { display: flex; flex-direction: column; gap: 6px; }
 .presetitem {

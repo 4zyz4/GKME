@@ -7,6 +7,7 @@ import { DEFAULT_APPEARANCE, normalizeButton } from "./layout.js";
 import { DEFAULT_SETTINGS, savePresets, APP_VERSION } from "./state.js";
 import { connectedGamepads, deviceMotorCount, gamepadActuator } from "./haptics.js";
 import { t, LANGUAGES, getLanguage, setLanguage } from "./i18n.js";
+import { GYRO_ORIENTATION } from "./gyro.js";
 
 function ensureAppearance(app) {
   if (!app.settings.appearance) {
@@ -178,6 +179,59 @@ export const PAGES = {
       root.appendChild(el("p", { class: "hint", text: hapticsHint(app, shown, pads) }));
     };
     build();
+  },
+
+  gyro(app, root) {
+    const g = app.settings.gyro;
+    root.appendChild(
+      section(t("gyro.section"), [
+        row(t("gyro.enable"), toggle(g.enabled, (v) => {
+          g.enabled = v;
+          if (!v) app.gyroProcessor.reset();
+        })),
+        row(
+          t("gyro.orientation"),
+          select(
+            [
+              [GYRO_ORIENTATION.LANDSCAPE, t("global.gyroLandscape")],
+              [GYRO_ORIENTATION.PORTRAIT, t("global.gyroPortrait")],
+              [GYRO_ORIENTATION.PORTRAIT_INVERTED, t("global.gyroPortraitInverted")],
+            ],
+            g.orientation,
+            (v) => {
+              g.orientation = v;
+              app.gyroProcessor.reset();
+            }
+          )
+        ),
+      ])
+    );
+    root.appendChild(el("p", { class: "hint", text: t("gyro.orientationHint") }));
+
+    const statusEl = el("div", { class: "hint" });
+    const liveEl = el("div", { class: "gyrolive" });
+    const canRequest = typeof window.DeviceMotionEvent?.requestPermission === "function";
+    const requestBtn = button(t("gyro.requestPermission"), async () => {
+      const ok = await app.sensors.requestPermission();
+      app._toast(ok ? t("gyro.permissionGranted") : t("gyro.permissionDenied"));
+    });
+    const sensorRows = [statusEl];
+    if (canRequest) sensorRows.push(el("div", { class: "btnrow" }, [requestBtn]));
+    sensorRows.push(liveEl);
+    root.appendChild(section(t("gyro.sensor"), sensorRows));
+    root.appendChild(el("p", { class: "hint", text: t("gyro.hint") }));
+
+    // Live readout / status follows the page until it is replaced.
+    const tick = () => {
+      if (!root.isConnected) return;
+      statusEl.textContent = gyroStatusText(app);
+      const sample = app.sensors.sample();
+      const fmt = (v) => (v >= 0 ? "+" : "") + v.toFixed(2);
+      liveEl.textContent = `X ${fmt(sample.gyro.x)}   Y ${fmt(sample.gyro.y)}   Z ${fmt(sample.gyro.z)} rad/s`;
+      requestBtn.style.display = app.sensors.permission === "granted" ? "none" : "";
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
   },
 
   misc(app, root) {
@@ -352,6 +406,19 @@ export const PAGES = {
     root.appendChild(page);
   },
 };
+
+function gyroStatusText(app) {
+  const sensors = app.sensors;
+  if (!sensors || !sensors.supported) return t("gyro.statusUnsupported");
+  if (sensors.permission === "denied") return t("gyro.statusBlocked");
+  if (!sensors.received) {
+    if (typeof window !== "undefined" && window.isSecureContext === false) return t("gyro.statusInsecure");
+    return t("gyro.statusWaiting");
+  }
+  if (sensors.hasGyro) return t("gyro.statusReady");
+  if (sensors.hasAccel) return t("gyro.statusNoGyro");
+  return t("gyro.statusUnavailable");
+}
 
 const GKME_SOURCE_URL = "https://github.com/4zyz4/gkme";
 const GKME_WEBSITE_URL = "https://gkme.databk.top";

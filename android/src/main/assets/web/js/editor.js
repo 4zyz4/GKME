@@ -618,6 +618,12 @@ export class LayoutEditor {
       this.params.append(this._hint(t("editor.autoHoldHint")));
     }
 
+    // ── Gyro activation (all controls except the settings button) ──
+    if (!isSettings) {
+      this.params.append(this._check(t("editor.gyroActivate"), button.gyroActivate, (v) => this._update(id, { gyroActivate: v })));
+      this.params.append(this._hint(t("editor.gyroActivateHint")));
+    }
+
     // ── Double click ──
     if (DOUBLE_CLICK_IDS.has(base)) {
       this.params.append(this._check(t("editor.doubleTap"), button.doubleClickEnable, (v) => this._update(id, { doubleClickEnable: v })));

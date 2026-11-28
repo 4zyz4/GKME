@@ -2,15 +2,19 @@
 //
 // Mirrors com.zyz4.gkme.view.LayoutGlobalSettingsPanel: a full-screen,
 // 80%-opaque page with a category sidebar. The page acts on the layout preset
-// currently being edited. The gyro and volume-key pages of the Android panel
-// are not ported (the browser has no gyro stream and volume keys are out of
-// scope), and the sensitivity-curve editors are omitted by design.
+// currently being edited. Volume-key mapping is out of scope, and the
+// sensitivity-curve editors are omitted by design (an imported curve is kept
+// on the preset but not applied).
 
 import { el } from "./dom.js";
 import { t } from "./i18n.js";
 import { showOutputPicker } from "./picker.js";
 import { bitName, MOUSE_TAP_ACTIONS, MOUSE_SWIPE_ACTIONS, mouseActionLabel } from "./controls.js";
 import { clampGridDensity, MAX_GRID_DENSITY, MIN_GRID_DENSITY } from "./layout.js";
+import {
+  GYRO_ACTIVATE_MODE, GYRO_BASE_DIRECTION, GYRO_COORDINATE_SYSTEM, GYRO_MODE, GYRO_MODES,
+  GYRO_ORIENTATION, gyroModeHint, gyroModeLabel, isAccelMode, isViewMode,
+} from "./gyro.js";
 import {
   PHYSICAL_INPUTS, PHYSICAL_MAPPING_GROUPS, PHYSICAL_KIND, physicalInputLabel,
   mappingOutputs, mappingTiming, isDefaultMapping,
@@ -32,6 +36,7 @@ export class GlobalSettingsPanel {
     this.closeBtn = document.getElementById("gsClose");
     this.tabs = [
       { key: "grid", labelKey: "global.grid" },
+      { key: "gyro", labelKey: "global.gyro" },
       { key: "physical", labelKey: "global.physical" },
     ];
     this.currentTab = 0;
@@ -112,7 +117,9 @@ export class GlobalSettingsPanel {
     this.body.innerHTML = "";
     const page = el("div", { class: "settingspage" });
     this.body.appendChild(page);
-    if (this.tabs[index].key === "grid") this._buildGridPage(page);
+    const key = this.tabs[index].key;
+    if (key === "grid") this._buildGridPage(page);
+    else if (key === "gyro") this._buildGyroPage(page);
     else this._buildPhysicalPage(page);
     page.scrollTop = scrollTop;
   }
@@ -266,6 +273,142 @@ export class GlobalSettingsPanel {
     requestAnimationFrame(() => drawGridPreview(preview, layout.useGrid, layout.gridDensity));
   }
 
+  // ── 陀螺仪 page ──
+  _buildGyroPage(page) {
+    const layout = this.app.layout;
+    const settings = this.app.settings.gyro;
+    const cfg = this.app.gyroConfig();
+    const rebuild = () => {
+      const scroller = this.body.querySelector(".settingspage");
+      const top = scroller ? scroller.scrollTop : 0;
+      this.body.innerHTML = "";
+      const next = el("div", { class: "settingspage" });
+      this.body.appendChild(next);
+      this._buildGyroPage(next);
+      next.scrollTop = top;
+    };
+
+    page.appendChild(this._section(t("global.gyro")));
+
+    // ── Hold orientation (layout override, "不指定" = app default) ──
+    page.appendChild(
+      el("div", { class: "gslabel", text: t("global.gyroOrientation") })
+    );
+    page.appendChild(
+      this._select(
+        [
+          ["", t("global.gyroOrientationUnspecified")],
+          [GYRO_ORIENTATION.LANDSCAPE, t("global.gyroLandscape")],
+          [GYRO_ORIENTATION.PORTRAIT, t("global.gyroPortrait")],
+          [GYRO_ORIENTATION.PORTRAIT_INVERTED, t("global.gyroPortraitInverted")],
+        ],
+        layout.gyroOrientation || "",
+        (value) => {
+          layout.setGyroSettings({ orientation: value || null });
+          rebuild();
+        }
+      )
+    );
+    page.appendChild(el("div", { class: "gshint", text: t("global.gyroOrientationHint") }));
+
+    // ── Activation mode ──
+    page.appendChild(this._section(t("global.gyroActivation")));
+    page.appendChild(el("div", { class: "gshint", text: t("global.gyroActivationHint") }));
+    page.appendChild(
+      this._select(
+        [
+          [GYRO_ACTIVATE_MODE.ALWAYS, t("global.gyroAlwaysOn")],
+          [GYRO_ACTIVATE_MODE.BUTTON, t("global.gyroActivateButton")],
+        ],
+        cfg.activateMode,
+        (value) => {
+          layout.setGyroSettings({ activateMode: value });
+          rebuild();
+        }
+      )
+    );
+
+    // ── Mapping mode ──
+    page.appendChild(this._section(t("global.gyroBehavior")));
+    page.appendChild(el("div", { class: "gshint", text: t("global.gyroBehaviorHint") }));
+    page.appendChild(
+      this._select(
+        GYRO_MODES.map((mode) => [mode, gyroModeLabel(mode)]),
+        cfg.mode,
+        (value) => {
+          layout.setGyroSettings({ mode: value });
+          rebuild();
+        }
+      )
+    );
+    page.appendChild(el("div", { class: "gshint", text: gyroModeHint(cfg.mode) }));
+
+    // ── Advanced (hidden while forwarding raw handheld motion) ──
+    if (cfg.mode === GYRO_MODE.HANDHELD) return;
+
+    const advanced = el("div", {});
+    page.appendChild(advanced);
+
+    if (isAccelMode(cfg.mode)) {
+      advanced.appendChild(this._section(t("global.gyroBaseDirection")));
+      advanced.appendChild(
+        this._select(
+          [
+            [GYRO_BASE_DIRECTION.VERTICAL, t("global.gyroVertical")],
+            [GYRO_BASE_DIRECTION.HORIZONTAL, t("global.gyroFlat")],
+          ],
+          settings.baseDirection,
+          (value) => this.app.setGlobalGyro({ baseDirection: value })
+        )
+      );
+    }
+
+    if (isViewMode(cfg.mode)) {
+      advanced.appendChild(this._section(t("global.gyroCoordinateSystem")));
+      advanced.appendChild(
+        this._select(
+          [
+            [GYRO_COORDINATE_SYSTEM.YAW, t("global.gyroYaw")],
+            [GYRO_COORDINATE_SYSTEM.ROLL, t("global.gyroRoll")],
+            [GYRO_COORDINATE_SYSTEM.YAW_ROLL, t("global.gyroYawRoll")],
+            [GYRO_COORDINATE_SYSTEM.WORLD, t("global.gyroWorld")],
+          ],
+          settings.coordinateSystem,
+          (value) => this.app.setGlobalGyro({ coordinateSystem: value })
+        )
+      );
+    }
+
+    advanced.appendChild(
+      this._seek({
+        label: t("global.gyroSensitivity"),
+        value: cfg.sensitivity,
+        min: 1,
+        max: 100,
+        onChange: (value) => layout.setGyroSettings({ sensitivity: value }),
+      }).el
+    );
+    advanced.appendChild(el("div", { class: "gshint", text: t("global.gyroCurveUnavailable") }));
+    advanced.appendChild(
+      this._seek({
+        label: t("global.gyroDeadZone"),
+        value: cfg.deadZone,
+        min: 0,
+        max: 100,
+        onChange: (value) => layout.setGyroSettings({ deadZone: value }),
+      }).el
+    );
+    advanced.appendChild(
+      this._seek({
+        label: t("global.gyroAntiDeadZone"),
+        value: cfg.reverseDeadZone,
+        min: 0,
+        max: 100,
+        onChange: (value) => layout.setGyroSettings({ reverseDeadZone: value }),
+      }).el
+    );
+  }
+
   // ── 实体手柄 page ──
   _buildPhysicalPage(page) {
     const layout = this.app.layout;
@@ -408,6 +551,12 @@ export class GlobalSettingsPanel {
     actions.append(clear, reset);
     container.appendChild(actions);
 
+    container.appendChild(
+      this._check(t("global.gyroActivateControl"), current.gyroActivate, (value) => {
+        this._writeMapping(input.key, current.outputs, mappings, value, current.comboTiming, current.comboIntervalMs);
+      })
+    );
+
     if (current.outputs.length) {
       container.appendChild(
         this._comboTiming(current.comboTiming, current.comboIntervalMs, (patch) => {
@@ -428,8 +577,16 @@ export class GlobalSettingsPanel {
       else layout.setPhysicalStickSettings(layout.leftStickSettings, stripped);
     };
     const current = read();
+    const mappings = layout.physicalInputMappings || {};
+    const mapping = mappingTiming(mappings, input.key);
 
     container.appendChild(this._section(t("global.stickMapping")));
+    container.appendChild(
+      this._check(t("global.gyroActivateControl"), mapping.gyroActivate, (value) => {
+        this._writeMapping(input.key, mapping.outputs, mappings, value, mapping.comboTiming, mapping.comboIntervalMs);
+        rebuild();
+      })
+    );
     container.appendChild(
       this._select(
         [

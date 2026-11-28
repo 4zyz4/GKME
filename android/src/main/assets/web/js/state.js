@@ -32,6 +32,20 @@ export const DEFAULT_SETTINGS = {
   physical: {
     forward: true,
   },
+  // Default motion settings. A layout may override orientation / activate mode /
+  // mode / sensitivity / dead zones; base direction and coordinate system are
+  // app-wide (mirrors AppSettings vs LayoutPreset in the Android app).
+  gyro: {
+    enabled: true,
+    orientation: "LANDSCAPE",
+    activateMode: "ALWAYS",
+    mode: "HANDHELD",
+    sensitivity: 20,
+    deadZone: 0,
+    reverseDeadZone: 0,
+    baseDirection: "VERTICAL",
+    coordinateSystem: "YAW_ROLL",
+  },
   meta: {
     deviceName: "",
   },
@@ -105,7 +119,19 @@ export function ensurePresets() {
   // missing built-in; user edits to an existing copy are preserved.
   const presets = loadPresets() || {};
   for (const [name, preset] of Object.entries(BUILTIN_PRESETS)) {
-    if (!presets[name]) presets[name] = JSON.parse(JSON.stringify(preset));
+    if (!presets[name]) {
+      presets[name] = JSON.parse(JSON.stringify(preset));
+      continue;
+    }
+    // Pre-gyro copies of a built-in layout keep their buttons but gain the
+    // built-in motion defaults, so the mouse preset's gyro button works after
+    // upgrading without a manual "restore defaults".
+    const stored = presets[name];
+    if (stored && stored.gyroMode === undefined) {
+      for (const key of ["gyroOrientation", "gyroActivateMode", "gyroMode", "gyroModeSensitivity"]) {
+        if (preset[key] !== undefined) stored[key] = preset[key];
+      }
+    }
   }
   savePresets(presets);
   return presets;
@@ -144,6 +170,13 @@ export class InputState {
     this.mouseDy = 0;
     this.mouseWheel = 0;
     this.mousePan = 0;
+    // Motion sensor forwarding (GamepadInput gyro_x..accel_z, rad/s and m/s²).
+    this.gyroX = 0;
+    this.gyroY = 0;
+    this.gyroZ = 0;
+    this.accelX = 0;
+    this.accelY = 0;
+    this.accelZ = 0;
     // Mousepad gesture buttons (HID bitfield), kept separate from on-screen
     // mouse-key controls so holding one does not release the other.
     this.mouseGestureButtons = 0;
@@ -181,6 +214,12 @@ export class InputState {
       mouseWheel: this.mouseWheel | 0,
       mousePan: this.mousePan | 0,
       mouseButtons: (mouseButtonsFromBits(this.buttons) | this.mouseGestureButtons) >>> 0,
+      gyroX: this.gyroX,
+      gyroY: this.gyroY,
+      gyroZ: this.gyroZ,
+      accelX: this.accelX,
+      accelY: this.accelY,
+      accelZ: this.accelZ,
     };
   }
 

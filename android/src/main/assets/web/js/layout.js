@@ -14,6 +14,9 @@ import {
 import { drawIcon } from "./icons.js";
 import { t, keypadDefaultTexts, localizeKeypadText } from "./i18n.js";
 import { viewportToLocal } from "./orientation.js";
+import {
+  GYRO_ACTIVATE_MODE, GYRO_MODES, GYRO_ORIENTATION,
+} from "./gyro.js";
 
 export const GRID_COLS = 120;
 
@@ -331,6 +334,15 @@ export class GamepadLayout {
     this.leftStickSettings = null;
     this.rightStickSettings = null;
     this.touchpadSettings = null;
+    // Per-layout gyro overrides. null means "use the app default"; the names
+    // match LayoutPreset in Android so presets round-trip between the two.
+    this.gyroOrientation = null;
+    this.gyroActivateMode = null;
+    this.gyroMode = null;
+    this.gyroModeSensitivity = null;
+    this.gyroDeadZone = null;
+    this.gyroReverseDeadZone = null;
+    this.gyroStickCurve = null;
     // Set while the layout global settings page is open (mirrors
     // GamepadLayout.blockSelectionForGlobalSettings).
     this.blockSelection = false;
@@ -475,6 +487,27 @@ export class GamepadLayout {
     this.leftStickSettings = this.preset.leftStickSettings || null;
     this.rightStickSettings = this.preset.rightStickSettings || null;
     this.touchpadSettings = this.preset.touchpadSettings || null;
+    this.gyroOrientation = Object.values(GYRO_ORIENTATION).includes(this.preset.gyroOrientation)
+      ? this.preset.gyroOrientation
+      : null;
+    this.gyroActivateMode = Object.values(GYRO_ACTIVATE_MODE).includes(this.preset.gyroActivateMode)
+      ? this.preset.gyroActivateMode
+      : null;
+    this.gyroMode = GYRO_MODES.includes(this.preset.gyroMode) ? this.preset.gyroMode : null;
+    this.gyroModeSensitivity = this.preset.gyroModeSensitivity != null && Number.isFinite(Number(this.preset.gyroModeSensitivity))
+      ? Math.max(1, Math.min(100, Math.round(Number(this.preset.gyroModeSensitivity))))
+      : null;
+    this.gyroDeadZone = this.preset.gyroDeadZone != null && Number.isFinite(Number(this.preset.gyroDeadZone))
+      ? Math.max(0, Math.min(100, Math.round(Number(this.preset.gyroDeadZone))))
+      : null;
+    this.gyroReverseDeadZone = this.preset.gyroReverseDeadZone != null && Number.isFinite(Number(this.preset.gyroReverseDeadZone))
+      ? Math.max(0, Math.min(100, Math.round(Number(this.preset.gyroReverseDeadZone))))
+      : null;
+    // The curve is preserved for Android preset round-trips; this build has no
+    // curve editor (see the gyro page in global-settings.js).
+    this.gyroStickCurve = Array.isArray(this.preset.gyroStickCurve) && this.preset.gyroStickCurve.length
+      ? this.preset.gyroStickCurve.slice()
+      : null;
     const raw = (this.preset.buttons || []).slice();
     if (!raw.some((b) => baseId(b.id) === "btnSettings")) {
       raw.push({ id: "btnSettings", x: (GRID_COLS - 6) / 2, y: 0, w: 6, h: 6, lockAspect: true });
@@ -605,6 +638,14 @@ export class GamepadLayout {
     if (this.leftStickSettings) out.leftStickSettings = JSON.parse(JSON.stringify(this.leftStickSettings));
     if (this.rightStickSettings) out.rightStickSettings = JSON.parse(JSON.stringify(this.rightStickSettings));
     if (this.touchpadSettings) out.touchpadSettings = JSON.parse(JSON.stringify(this.touchpadSettings));
+    // Android LayoutPreset keys: absent = "use the app default".
+    if (this.gyroOrientation) out.gyroOrientation = this.gyroOrientation;
+    if (this.gyroActivateMode) out.gyroActivateMode = this.gyroActivateMode;
+    if (this.gyroMode) out.gyroMode = this.gyroMode;
+    if (this.gyroModeSensitivity != null) out.gyroModeSensitivity = this.gyroModeSensitivity;
+    if (this.gyroDeadZone != null) out.gyroDeadZone = this.gyroDeadZone;
+    if (this.gyroReverseDeadZone != null) out.gyroReverseDeadZone = this.gyroReverseDeadZone;
+    if (this.gyroStickCurve && this.gyroStickCurve.length) out.gyroStickCurve = this.gyroStickCurve.slice();
     return out;
   }
 
@@ -653,6 +694,38 @@ export class GamepadLayout {
   /** Replaces the physical-controller touchpad mapping of the edited layout. */
   setPhysicalTouchpadSettings(settings) {
     this.touchpadSettings = settings || null;
+  }
+
+  /** Replaces the per-layout gyro overrides (null = use the app default). */
+  setGyroSettings(settings) {
+    const s = settings || {};
+    if ("orientation" in s) {
+      this.gyroOrientation = Object.values(GYRO_ORIENTATION).includes(s.orientation) ? s.orientation : null;
+    }
+    if ("activateMode" in s) {
+      this.gyroActivateMode = Object.values(GYRO_ACTIVATE_MODE).includes(s.activateMode) ? s.activateMode : null;
+    }
+    if ("mode" in s) {
+      this.gyroMode = GYRO_MODES.includes(s.mode) ? s.mode : null;
+    }
+    if ("sensitivity" in s) {
+      this.gyroModeSensitivity = s.sensitivity != null
+        ? Math.max(1, Math.min(100, Math.round(Number(s.sensitivity) || 1)))
+        : null;
+    }
+    if ("deadZone" in s) {
+      this.gyroDeadZone = s.deadZone != null
+        ? Math.max(0, Math.min(100, Math.round(Number(s.deadZone) || 0)))
+        : null;
+    }
+    if ("reverseDeadZone" in s) {
+      this.gyroReverseDeadZone = s.reverseDeadZone != null
+        ? Math.max(0, Math.min(100, Math.round(Number(s.reverseDeadZone) || 0)))
+        : null;
+    }
+    if ("stickCurve" in s) {
+      this.gyroStickCurve = Array.isArray(s.stickCurve) && s.stickCurve.length ? s.stickCurve.slice() : null;
+    }
   }
 
   // ── edit-mode lifecycle ──

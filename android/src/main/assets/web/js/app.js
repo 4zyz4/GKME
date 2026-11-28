@@ -18,6 +18,11 @@ import {
   setActivePresetName, InputState, DEFAULT_SETTINGS,
 } from "./state.js";
 import { Haptics } from "./haptics.js";
+import { MotionSensors } from "./sensors.js";
+import {
+  GyroProcessor, GYRO_ACTIVATE_MODE, GYRO_BASE_DIRECTION, GYRO_COORDINATE_SYSTEM,
+  GYRO_MODE, GYRO_MODES, GYRO_ORIENTATION,
+} from "./gyro.js";
 import { PAGES } from "./settings-pages.js";
 import { BUILTIN_PRESETS, BUILTIN_PRESET_ORDER } from "./presets.js";
 import { LayoutEditor } from "./editor.js";
@@ -48,6 +53,16 @@ class App {
     this.conn = new Connection();
     this.state = new InputState();
     this.haptics = new Haptics(this.settings);
+    // Motion sensors (phone gyro / accelerometer), see js/sensors.js + js/gyro.js.
+    this.sensors = new MotionSensors();
+    this.sensors.start();
+    this.gyroProcessor = new GyroProcessor();
+    this._gyroOutput = null;
+    this._gyroTouchHeld = false;
+    this._gyroPhysicalHeld = false;
+    this._gyroMouseAccumX = 0;
+    this._gyroMouseAccumY = 0;
+    this._gyroLastFrame = 0;
 
     this.kbKeys = new Set();
     this.kbModifiers = 0;
@@ -121,6 +136,8 @@ class App {
     document.addEventListener("fullscreenchange", () => setTimeout(() => { this.layout.resize(); this._positionStatus(); }, 300));
 
     this.connectBtn.addEventListener("click", () => {
+      // iOS 13+ only grants motion access from a user gesture.
+      this.sensors.requestPermission().catch(() => {});
       this.conn.connect();
       this._enterFullscreen();
     });
@@ -284,6 +301,7 @@ class App {
     this.activePreset = name;
     setActivePresetName(name);
     this.layout.setPreset(this.presets[name]);
+    if (this.gyroProcessor) this.gyroProcessor.reset();
     this._positionStatus();
     this._toast(t("presets.loaded", this.presetDisplayName(name)));
   }
@@ -510,11 +528,137 @@ class App {
     // Optional LED-bound appearance could be applied here.
   }
 
+  // ── Motion / gyro (mirrors GkViewModel's gyro section) ──
+
+  /**
+   * Effective gyro configuration: per-layout overrides fall back to the app
+   * defaults. `inverted` is the landscape-secondary display rotation, matching
+   * Android's ROTATION_270 check.
+   */
+  gyroConfig() {
+    const g = this.settings.gyro || {};
+    const layout = this.layout || {};
+    const pick = (override, fallback) => (override !== null && override !== undefined ? override : fallback);
+    const rawAngle = typeof screen !== "undefined" && screen.orientation && Number.isFinite(screen.orientation.angle)
+      ? screen.orientation.angle
+      : (typeof window !== "undefined" && Number.isFinite(Number(window.orientation)) ? Number(window.orientation) : 0);
+    const angle = ((Math.round(rawAngle) % 360) + 360) % 360;
+    const orientation = pick(layout.gyroOrientation, g.orientation);
+    const activateMode = pick(layout.gyroActivateMode, g.activateMode);
+    const mode = pick(layout.gyroMode, g.mode);
+    return {
+      enabled: g.enabled !== false,
+      orientation: Object.values(GYRO_ORIENTATION).includes(orientation) ? orientation : GYRO_ORIENTATION.LANDSCAPE,
+      activateMode: activateMode === GYRO_ACTIVATE_MODE.BUTTON ? GYRO_ACTIVATE_MODE.BUTTON : GYRO_ACTIVATE_MODE.ALWAYS,
+      mode: GYRO_MODES.includes(mode) ? mode : GYRO_MODE.HANDHELD,
+      sensitivity: pick(layout.gyroModeSensitivity, g.sensitivity != null ? g.sensitivity : 20),
+      deadZone: pick(layout.gyroDeadZone, g.deadZone != null ? g.deadZone : 0),
+      reverseDeadZone: pick(layout.gyroReverseDeadZone, g.reverseDeadZone != null ? g.reverseDeadZone : 0),
+      baseDirection: g.baseDirection === GYRO_BASE_DIRECTION.HORIZONTAL
+        ? GYRO_BASE_DIRECTION.HORIZONTAL
+        : GYRO_BASE_DIRECTION.VERTICAL,
+      coordinateSystem: Object.values(GYRO_COORDINATE_SYSTEM).includes(g.coordinateSystem)
+        ? g.coordinateSystem
+        : GYRO_COORDINATE_SYSTEM.YAW_ROLL,
+      inverted: angle === 270,
+    };
+  }
+
+  /** Updates an app-wide gyro option (base direction / coordinate system). */
+  setGlobalGyro(patch) {
+    if (!this.settings.gyro) this.settings.gyro = {};
+    Object.assign(this.settings.gyro, patch);
+    this.gyroProcessor.reset();
+    saveSettings(this.settings);
+  }
+
+  /**
+   * Every pressed on-screen control with `gyroActivate` counts as an activation
+   * source (joysticks only while deflected, since controlActive is cleared at
+   * centre).
+   */
+  _refreshGyroTouchActivation() {
+    let held = false;
+    if (this.layout) {
+      for (const [id, active] of this.layout.controlActive) {
+        if (!active) continue;
+        const button = this.layout.getButton(id);
+        if (button && button.gyroActivate) {
+          held = true;
+          break;
+        }
+      }
+    }
+    this._gyroTouchHeld = held;
+  }
+
+  _updateGyro(dt) {
+    const cfg = this.gyroConfig();
+    const active = cfg.enabled && (
+      cfg.activateMode === GYRO_ACTIVATE_MODE.BUTTON
+        ? (this._gyroTouchHeld || this._gyroPhysicalHeld)
+        : true
+    );
+    this.sensors.setOrientation(cfg.orientation, cfg.inverted);
+    const sample = this.sensors.sample();
+    const out = this.gyroProcessor.update(sample, cfg, active, dt);
+    this._gyroOutput = out;
+
+    const st = this.state;
+    if (out.active) {
+      st.gyroX = out.forwardGyro.x;
+      st.gyroY = out.forwardGyro.y;
+      st.gyroZ = out.forwardGyro.z;
+      st.accelX = out.forwardAccel.x;
+      st.accelY = out.forwardAccel.y;
+      st.accelZ = out.forwardAccel.z;
+    } else {
+      st.gyroX = 0;
+      st.gyroY = 0;
+      st.gyroZ = 0;
+      st.accelX = 0;
+      st.accelY = 0;
+      st.accelZ = 0;
+    }
+  }
+
+  /**
+   * Gyro → mouse integration, one step per send tick (mirrors the Android send
+   * loop's `gyroMouseAccum` += -mapped * sens * 50).
+   */
+  _gyroMouseStep() {
+    const out = this._gyroOutput;
+    if (!out || !out.active || out.mode !== GYRO_MODE.MOUSE) return;
+    if (!this.conn.connected) {
+      this._gyroMouseAccumX = 0;
+      this._gyroMouseAccumY = 0;
+      return;
+    }
+    this._gyroMouseAccumX += -out.mappedX * out.sens * 50;
+    this._gyroMouseAccumY += -out.mappedY * out.sens * 50;
+    const rawMx = Math.trunc(this._gyroMouseAccumX);
+    const rawMy = Math.trunc(this._gyroMouseAccumY);
+    const mx = Math.max(-127, Math.min(127, rawMx));
+    const my = Math.max(-127, Math.min(127, rawMy));
+    this._gyroMouseAccumX -= rawMx;
+    this._gyroMouseAccumY -= rawMy;
+    if (!mx && !my) return;
+    const st = this.state;
+    st.mouseDx = Math.max(-32768, Math.min(32767, st.mouseDx + mx));
+    st.mouseDy = Math.max(-32768, Math.min(32767, st.mouseDy + my));
+  }
+
   // ── Loops ──
   _startLoops() {
-    const loop = () => {
+    const loop = (now) => {
+      const dt = this._gyroLastFrame
+        ? Math.max(0, Math.min(0.05, (now - this._gyroLastFrame) / 1000))
+        : 1 / 60;
+      this._gyroLastFrame = now;
       this._pollPhysicalGamepad();
       this._applyPhysicalStickMouse();
+      this._refreshGyroTouchActivation();
+      this._updateGyro(dt);
       this.layout.setPressedBits(this.state.buttons);
       this.layout.render();
       this._raf = requestAnimationFrame(loop);
@@ -528,7 +672,10 @@ class App {
     if (this._sendTimer) clearInterval(this._sendTimer);
     const hz = Math.max(10, Math.min(1000, this.settings.pollingHz || 125));
     const interval = Math.round(1000 / hz);
-    this._sendTimer = setInterval(() => this._sendFrame(), interval);
+    this._sendTimer = setInterval(() => {
+      this._gyroMouseStep();
+      this._sendFrame();
+    }, interval);
   }
 
   _sendFrame() {
@@ -546,6 +693,16 @@ class App {
     st.kbKeys = keys;
     st.kbModifiers = (this.kbModifiers | this.mappedKbModifiers | this.customKbModifiers) >>> 0;
     const input = st.toInput();
+    // Gyro stick contributions are added on top of the touch/physical values
+    // without mutating the persistent snapshot (mirrors GkViewModel's combined
+    // phoneStick + physicalStick + gyro output).
+    const gyro = this._gyroOutput;
+    if (gyro && gyro.active) {
+      input.leftStickX = clampS16(st.leftStickX + gyro.stick.lx);
+      input.leftStickY = clampS16(st.leftStickY + gyro.stick.ly);
+      input.rightStickX = clampS16(st.rightStickX + gyro.stick.rx);
+      input.rightStickY = clampS16(st.rightStickY + gyro.stick.ry);
+    }
     this.conn.sendGamepadInput(input);
     // Mouse deltas are one-shot; periodic frames must not repeat them.
     st.clearMouseDeltas();
@@ -565,6 +722,7 @@ class App {
       this._setPhysicalSource("leftStick", [], "SIMULTANEOUS", 16);
       this._setPhysicalSource("rightStick", [], "SIMULTANEOUS", 16);
       this._physMouseVec = { x: 0, y: 0 };
+      this._gyroPhysicalHeld = false;
     };
     if (!this.settings.physical.forward) {
       clearAll();
@@ -638,6 +796,21 @@ class App {
     const [shapedLx, shapedLy] = shapeStick(leftSettings, lx, ly);
     const [shapedRx, shapedRy] = shapeStick(rightSettings, rx, ry);
     const routed = routeSticks(leftSettings, shapedLx, shapedLy, rightSettings, shapedRx, shapedRy);
+
+    // ── Gyro activation ──
+    // Mirrors applyPhysicalMappings: a pressed button (or a deflected stick)
+    // whose mapping is flagged `gyroActivate` keeps the gyro active.
+    let gyroHeld = false;
+    for (const key of pressed) {
+      if (mappingTiming(mappings, key).gyroActivate) {
+        gyroHeld = true;
+        break;
+      }
+    }
+    if (!gyroHeld && mappingTiming(mappings, "LEFT_JOYSTICK").gyroActivate && (shapedLx || shapedLy)) gyroHeld = true;
+    if (!gyroHeld && mappingTiming(mappings, "RIGHT_JOYSTICK").gyroActivate && (shapedRx || shapedRy)) gyroHeld = true;
+    this._gyroPhysicalHeld = gyroHeld;
+
     this._setStickDirectionSource("leftStick", leftSettings, shapedLx, shapedLy);
     this._setStickDirectionSource("rightStick", rightSettings, shapedRx, shapedRy);
     this._physMouseVec = { x: routed.mouseX, y: routed.mouseY };
@@ -868,6 +1041,7 @@ class App {
       ["presets", t("nav.layout")],
       ["physical", t("nav.physical")],
       ["vibration", t("nav.vibration")],
+      ["gyro", t("nav.gyro")],
       ["misc", t("nav.misc")],
       ["about", t("nav.about")],
     ];
@@ -1208,7 +1382,9 @@ class App {
   }
 }
 
-// ── tiny DOM helper used by page builders ──
+function clampS16(value) {
+  return Math.max(-32768, Math.min(32767, Math.round(value)));
+}
 
 window.addEventListener("DOMContentLoaded", () => {
   window.gkme = new App();

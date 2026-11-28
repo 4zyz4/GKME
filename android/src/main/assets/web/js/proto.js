@@ -146,6 +146,13 @@ export function encodeGamepadInput(inp) {
   w.uint(6, inp.leftTrigger >>> 0);
   w.uint(7, inp.rightTrigger >>> 0);
   w.uint(8, inp.dpad >>> 0);
+  // Motion sensors (float32, rad/s and m/s²); zero values are omitted by Writer.float.
+  w.float(9, inp.gyroX);
+  w.float(10, inp.gyroY);
+  w.float(11, inp.gyroZ);
+  w.float(12, inp.accelX);
+  w.float(13, inp.accelY);
+  w.float(14, inp.accelZ);
   w.uint(16, inp.batteryLevel >>> 0);
   w.bool(17, inp.isCharging);
   if (inp.touches && inp.touches.length) {
