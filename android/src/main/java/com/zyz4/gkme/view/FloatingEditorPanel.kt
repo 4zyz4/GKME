@@ -918,6 +918,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 }
             }
             buttonParamsInner.addView(cbGyro, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+            addHint(buttonParamsInner, R.string.i18n_used_to_activate_the_gyro_hint)
         }
 
         // ── Auto hold for buttons ──

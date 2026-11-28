@@ -628,6 +628,7 @@
     <string name="i18n_usb_driver_axixi" formatted="false">"Pilote USB (Axixi)"</string>
     <string name="i18n_use_controller_led_color" formatted="false">"Utiliser la couleur LED du contrôleur"</string>
     <string name="i18n_used_to_activate_the_gyro" formatted="false">"Utilisé pour activer le gyroscope"</string>
+    <string name="i18n_used_to_activate_the_gyro_hint" formatted="false">"Lorsque cette option est activée, maintenir ce contrôle active le mouvement si l'activation du gyroscope est réglée sur « maintenir un bouton »."</string>
     <string name="i18n_version_0" formatted="true">"Version %1$s"</string>
     <string name="i18n_vertical" formatted="false">"Vertical"</string>
     <string name="i18n_vibration" formatted="false">"Vibration"</string>
