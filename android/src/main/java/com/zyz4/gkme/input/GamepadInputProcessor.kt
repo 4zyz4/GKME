@@ -62,6 +62,20 @@ fun GamepadState.toProto(
         builder.addPressedScanCodes(key.toInt())
     }
     builder.setKeyboardModifiers(keyboardModifier.toInt())
+    precisionTouchpad?.let { tp ->
+        val pb = com.zyz4.gkme.proto.PrecisionTouchpad.newBuilder()
+            .setButtons(tp.buttons)
+        for (c in tp.contacts) {
+            pb.addContacts(
+                com.zyz4.gkme.proto.PrecisionTouchpadContact.newBuilder()
+                    .setId(c.id)
+                    .setX(c.x)
+                    .setY(c.y)
+                    .build()
+            )
+        }
+        builder.setPrecisionTouchpad(pb)
+    }
     return builder.build()
 }
 

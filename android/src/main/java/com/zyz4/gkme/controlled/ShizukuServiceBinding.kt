@@ -152,7 +152,7 @@ class ShizukuServiceBinding(
                 .processNameSuffix(processNameSuffix)
                 .debuggable(false)
                 // AIDL/原生行为变化后需递增，让 Shizuku 重建用户服务。
-                .version(5)
+                .version(6)
                 .tag(tag)
 
             Shizuku.addBinderReceivedListenerSticky(binderReceivedListener)

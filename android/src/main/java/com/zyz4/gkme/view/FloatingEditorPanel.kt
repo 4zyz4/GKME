@@ -993,85 +993,103 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             }
         }
         if (isMousepadId(buttonId)) {
-            // ── 手势动作配置（多个下拉选框）──
-            addMouseActionSpinner(
-                buttonParamsInner, context.getString(R.string.i18n_single_tap), MouseGestureAction.TAP_ACTIONS, button.singleTapAction,
-            ) { action ->
-                currentButton = currentButton?.copy(singleTapAction = action)
-                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
-            }
-            addMouseActionSpinner(
-                buttonParamsInner, context.getString(R.string.i18n_two_finger_tap), MouseGestureAction.TAP_ACTIONS, button.twoFingerTapAction,
-            ) { action ->
-                currentButton = currentButton?.copy(twoFingerTapAction = action)
-                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
-            }
-            addMouseActionSpinner(
-                buttonParamsInner, context.getString(R.string.i18n_three_finger_tap), MouseGestureAction.TAP_ACTIONS, button.threeFingerTapAction,
-            ) { action ->
-                currentButton = currentButton?.copy(threeFingerTapAction = action)
-                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
-            }
-            addMouseActionSpinner(
-                buttonParamsInner, context.getString(R.string.i18n_double_tap_then_drag), MouseGestureAction.SWIPE_ACTIONS, button.doubleTapDragAction,
-            ) { action ->
-                currentButton = currentButton?.copy(doubleTapDragAction = action)
-                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
-            }
-            addMouseActionSpinner(
-                buttonParamsInner, context.getString(R.string.i18n_one_finger_swipe), MouseGestureAction.SWIPE_ACTIONS, button.oneFingerSwipeAction,
-            ) { action ->
-                currentButton = currentButton?.copy(oneFingerSwipeAction = action)
-                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
-            }
-            addMouseActionSpinner(
-                buttonParamsInner, context.getString(R.string.i18n_two_finger_swipe), MouseGestureAction.SWIPE_ACTIONS, button.twoFingerSwipeAction,
-            ) { action ->
-                currentButton = currentButton?.copy(twoFingerSwipeAction = action)
-                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
-            }
-            addMouseActionSpinner(
-                buttonParamsInner, context.getString(R.string.i18n_three_finger_swipe), MouseGestureAction.SWIPE_ACTIONS, button.threeFingerSwipeAction,
-            ) { action ->
-                currentButton = currentButton?.copy(threeFingerSwipeAction = action)
-                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
-            }
-            addSeekbarFloat(buttonParamsInner, context.getString(R.string.i18n_mouse_sensitivity), button.mouseSensitivity, 0.1f, 3f, 0.05f) { v ->
-                currentButton = currentButton?.copy(mouseSensitivity = v)
-                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
-            }
-            addSeekbar(buttonParamsInner, context.getString(R.string.i18n_swipe_threshold), button.mouseMoveSlop, 0, 20, onChange = { v ->
-                currentButton = currentButton?.copy(mouseMoveSlop = v)
-                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
-            })
-            addSeekbarFloat(buttonParamsInner, context.getString(R.string.i18n_scroll_sensitivity), button.scrollSensitivity, 0.01f, 1f, 0.01f) { v ->
-                currentButton = currentButton?.copy(scrollSensitivity = v)
-                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
-            }
-            addSeekbarFloat(buttonParamsInner, context.getString(R.string.i18n_pointer_acceleration), button.mouseAcceleration?.get(1) ?: 0f, 0f, 0.5f, 0.01f) { v ->
-                currentButton = currentButton?.copy(mouseAcceleration = listOf(1f, v))
-                currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
-            }
-            val cbInvert = CheckBox(context).apply {
-                text = context.getString(R.string.i18n_invert_vertical_scroll)
+            // ── 精确触摸板：置于手势配置上方；开启后手势配置不再生效，因此隐藏 ──
+            val cbPrecision = CheckBox(context).apply {
+                text = context.getString(R.string.i18n_precision_touchpad)
                 setTextColor(-0x444445)
                 textSize = 14f
-                isChecked = button.invertScrollV
+                isChecked = button.precisionTouchpad
                 setOnCheckedChangeListener { _, isChecked ->
-                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(invertScrollV = isChecked)) }
+                    val current = currentButton ?: return@setOnCheckedChangeListener
+                    val updated = current.copy(precisionTouchpad = isChecked)
+                    currentButton = updated
+                    editorListener?.onButtonUpdated(buttonId, updated)
+                    showParameters(buttonId, updated)
                 }
             }
-            buttonParamsInner.addView(cbInvert, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
-            val cbInvertH = CheckBox(context).apply {
-                text = context.getString(R.string.i18n_invert_horizontal_scroll)
-                setTextColor(-0x444445)
-                textSize = 14f
-                isChecked = button.invertScrollH
-                setOnCheckedChangeListener { _, isChecked ->
-                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(invertScrollH = isChecked)) }
+            buttonParamsInner.addView(cbPrecision, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+
+            if (!button.precisionTouchpad) {
+                // ── 手势动作配置（多个下拉选框）──
+                addMouseActionSpinner(
+                    buttonParamsInner, context.getString(R.string.i18n_single_tap), MouseGestureAction.TAP_ACTIONS, button.singleTapAction,
+                ) { action ->
+                    currentButton = currentButton?.copy(singleTapAction = action)
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
                 }
+                addMouseActionSpinner(
+                    buttonParamsInner, context.getString(R.string.i18n_two_finger_tap), MouseGestureAction.TAP_ACTIONS, button.twoFingerTapAction,
+                ) { action ->
+                    currentButton = currentButton?.copy(twoFingerTapAction = action)
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                }
+                addMouseActionSpinner(
+                    buttonParamsInner, context.getString(R.string.i18n_three_finger_tap), MouseGestureAction.TAP_ACTIONS, button.threeFingerTapAction,
+                ) { action ->
+                    currentButton = currentButton?.copy(threeFingerTapAction = action)
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                }
+                addMouseActionSpinner(
+                    buttonParamsInner, context.getString(R.string.i18n_double_tap_then_drag), MouseGestureAction.SWIPE_ACTIONS, button.doubleTapDragAction,
+                ) { action ->
+                    currentButton = currentButton?.copy(doubleTapDragAction = action)
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                }
+                addMouseActionSpinner(
+                    buttonParamsInner, context.getString(R.string.i18n_one_finger_swipe), MouseGestureAction.SWIPE_ACTIONS, button.oneFingerSwipeAction,
+                ) { action ->
+                    currentButton = currentButton?.copy(oneFingerSwipeAction = action)
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                }
+                addMouseActionSpinner(
+                    buttonParamsInner, context.getString(R.string.i18n_two_finger_swipe), MouseGestureAction.SWIPE_ACTIONS, button.twoFingerSwipeAction,
+                ) { action ->
+                    currentButton = currentButton?.copy(twoFingerSwipeAction = action)
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                }
+                addMouseActionSpinner(
+                    buttonParamsInner, context.getString(R.string.i18n_three_finger_swipe), MouseGestureAction.SWIPE_ACTIONS, button.threeFingerSwipeAction,
+                ) { action ->
+                    currentButton = currentButton?.copy(threeFingerSwipeAction = action)
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                }
+                addSeekbarFloat(buttonParamsInner, context.getString(R.string.i18n_mouse_sensitivity), button.mouseSensitivity, 0.1f, 3f, 0.05f) { v ->
+                    currentButton = currentButton?.copy(mouseSensitivity = v)
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                }
+                addSeekbar(buttonParamsInner, context.getString(R.string.i18n_swipe_threshold), button.mouseMoveSlop, 0, 20, onChange = { v ->
+                    currentButton = currentButton?.copy(mouseMoveSlop = v)
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                })
+                addSeekbarFloat(buttonParamsInner, context.getString(R.string.i18n_scroll_sensitivity), button.scrollSensitivity, 0.01f, 1f, 0.01f) { v ->
+                    currentButton = currentButton?.copy(scrollSensitivity = v)
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                }
+                addSeekbarFloat(buttonParamsInner, context.getString(R.string.i18n_pointer_acceleration), button.mouseAcceleration?.get(1) ?: 0f, 0f, 0.5f, 0.01f) { v ->
+                    currentButton = currentButton?.copy(mouseAcceleration = listOf(1f, v))
+                    currentButton?.let { editorListener?.onButtonUpdated(buttonId, it) }
+                }
+                val cbInvert = CheckBox(context).apply {
+                    text = context.getString(R.string.i18n_invert_vertical_scroll)
+                    setTextColor(-0x444445)
+                    textSize = 14f
+                    isChecked = button.invertScrollV
+                    setOnCheckedChangeListener { _, isChecked ->
+                        currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(invertScrollV = isChecked)) }
+                    }
+                }
+                buttonParamsInner.addView(cbInvert, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+                val cbInvertH = CheckBox(context).apply {
+                    text = context.getString(R.string.i18n_invert_horizontal_scroll)
+                    setTextColor(-0x444445)
+                    textSize = 14f
+                    isChecked = button.invertScrollH
+                    setOnCheckedChangeListener { _, isChecked ->
+                        currentButton?.let { editorListener?.onButtonUpdated(buttonId, it.copy(invertScrollH = isChecked)) }
+                    }
+                }
+                buttonParamsInner.addView(cbInvertH, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
             }
-            buttonParamsInner.addView(cbInvertH, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
         }
         if (buttonId.substringBefore("_") in joystickIds) {
             // ── Rectangular area follow ──

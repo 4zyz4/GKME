@@ -474,6 +474,7 @@
     <string name="i18n_phone_speaker" formatted="false">"Phone speaker"</string>
     <string name="i18n_physical_gamepad" formatted="false">"Physical gamepad"</string>
     <string name="i18n_pointer_acceleration" formatted="false">"Pointer acceleration"</string>
+    <string name="i18n_precision_touchpad" formatted="false">"Precision touchpad (WiFi/USB)"</string>
     <string name="i18n_polling_rate" formatted="false">"Polling rate"</string>
     <string name="i18n_port_0_is_in_use_a_service_may_already_b" formatted="true">"Port %1$s is in use; a service may already be running"</string>
     <string name="i18n_port_0_is_in_use_another_instance_may_al" formatted="true">"Port %1$s is in use; another instance may already be running"</string>

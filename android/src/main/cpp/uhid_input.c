@@ -109,6 +109,11 @@ struct gkme_uhid_event {
 #define GKME_PROFILE_SWITCH_PRO 3
 #define GKME_PROFILE_KEYBOARD 10
 #define GKME_PROFILE_MOUSE 11
+#define GKME_PROFILE_TOUCHPAD 12
+
+/* Precision touchpad input report: report id + 5 * 6-byte contacts
+ * + Scan Time(2) + Contact Count(1) + Button 1(1). */
+#define GKME_TOUCHPAD_REPORT_LEN 35
 
 #define GKME_MAX_DEV 256
 
@@ -391,6 +396,40 @@ static void gkme_pack_dualsense(uint8_t rpt[64], gkme_uk_dev *dev,
     rpt[41] = (uint8_t)(dev->touch_seq++ & 0x7F);
 }
 
+/* 精确触摸板（Windows Precision Touchpad）：全量触点上报表。
+ * contacts 为 [id, x, y] 三元组，x/y 为描述符逻辑范围 0..4095；
+ * 只上报当前按下的触点，未列出的触点由 Contact Count 隐含抬起。
+ * 每点 6 字节：Confidence|TipSwitch(1) | Contact ID(1) | X(2 LE) | Y(2 LE)，
+ * 之后 Scan Time(2)、Contact Count(1)、Button 1(1)。 */
+static void gkme_pack_touchpad(uint8_t rpt[GKME_TOUCHPAD_REPORT_LEN],
+                               const int *contacts, int n, int buttons,
+                               uint16_t scan) {
+    memset(rpt, 0, GKME_TOUCHPAD_REPORT_LEN);
+    rpt[0] = 0x01;
+    if (n < 0) n = 0;
+    if (n > 5) n = 5;
+    for (int i = 0; i < n; i++) {
+        int id = contacts[i * 3] & 0xFF;
+        int x = contacts[i * 3 + 1];
+        int y = contacts[i * 3 + 2];
+        if (x < 0) x = 0;
+        if (x > 0x0FFF) x = 0x0FFF;
+        if (y < 0) y = 0;
+        if (y > 0x0FFF) y = 0x0FFF;
+        uint8_t *p = rpt + 1 + i * 6;
+        p[0] = 0x03; /* bit0 Confidence, bit1 Tip Switch */
+        p[1] = (uint8_t)id;
+        p[2] = (uint8_t)(x & 0xFF);
+        p[3] = (uint8_t)((x >> 8) & 0xFF);
+        p[4] = (uint8_t)(y & 0xFF);
+        p[5] = (uint8_t)((y >> 8) & 0xFF);
+    }
+    rpt[31] = (uint8_t)(scan & 0xFF);
+    rpt[32] = (uint8_t)(scan >> 8);
+    rpt[33] = (uint8_t)n;
+    rpt[34] = (uint8_t)(buttons & 0x01); /* 描述符只有 Button 1 */
+}
+
 /* Switch 12 位摇杆（little-nibble 打包）。 */
 static uint16_t gkme_switch_stick(int v, int invert) {
     if (v < -32768) v = -32768;
@@ -571,6 +610,37 @@ static int gkme_build_feature(gkme_uk_dev *dev, uint8_t rnum, uint8_t *out, int 
             return 0;
         }
     }
+    if (dev->profile == GKME_PROFILE_TOUCHPAD) {
+        switch (rnum) {
+        case 0x02:
+            /* Contact Count Maximum + Pad Type. */
+            if (cap < 3) return 0;
+            out[0] = 0x02;
+            out[1] = 0x05;
+            out[2] = 0x00;
+            return 3;
+        case 0x03:
+            /* Microsoft 默认的 256 字节认证报告。 */
+            n = (int)sizeof(GKMD_PTP_CERT);
+            if (n > cap) n = cap;
+            memcpy(out, GKMD_PTP_CERT, n);
+            return n;
+        case 0x04:
+            /* Input Mode：Windows 启动时写入/读回。 */
+            if (cap < 2) return 0;
+            out[0] = 0x04;
+            out[1] = 0x00;
+            return 2;
+        case 0x05:
+            /* Surface Switch + Button Switch。 */
+            if (cap < 2) return 0;
+            out[0] = 0x05;
+            out[1] = 0x03;
+            return 2;
+        default:
+            return 0;
+        }
+    }
     if (dev->profile == GKME_PROFILE_KEYBOARD || dev->profile == GKME_PROFILE_MOUSE) {
         /* 鼠标的 Resolution Multiplier（无 report id）需返回有效值，否则内核写
          * feature 时可能阻塞。键盘无 feature，返回 0 即可。 */
@@ -715,7 +785,8 @@ static void *gkme_uk_reader(void *arg) {
             break;
         }
         if (ev.type == GKME_UHID_GET_REPORT) {
-            uint8_t buf[64];
+            /* 精确触摸板的认证报告为 257 字节，不能再用 64 字节栈缓冲。 */
+            uint8_t buf[GKME_UHID_DATA_MAX];
             int len = gkme_build_feature(dev, ev.u.get_report.rnum, buf, (int)sizeof(buf));
             struct gkme_uhid_event out;
             memset(&out, 0, sizeof(out));
@@ -980,4 +1051,36 @@ JNIEXPORT void JNICALL
 Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeDestroyUhidInput(
         JNIEnv *env, jclass clazz, jint fd) {
     gkme_uk_destroy(fd);
+}
+
+/* ── JNI：精确触摸板 ──────────────────────────────────────────────────── */
+JNIEXPORT jint JNICALL
+Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeCreateTouchpadUhid(
+        JNIEnv *env, jclass clazz) {
+    return gkme_uk_create(GKMD_DESC_TOUCHPAD, GKMD_DESC_TOUCHPAD_LEN,
+                          "Microsoft Precision Touchpad", "PTP0001",
+                          0x045E, 0x0B0D, GKME_PROFILE_TOUCHPAD, 0);
+}
+
+JNIEXPORT void JNICALL
+Java_com_zyz4_gkme_controlled_RemoteGamepadDevice_nativeWriteTouchpadUhid(
+        JNIEnv *env, jclass clazz, jint fd, jint buttons, jintArray contacts) {
+    gkme_uk_dev *dev = gkme_uk_get(fd);
+    if (!dev) return;
+    int values[15];
+    int n = 0;
+    if (contacts) {
+        jsize len = (*env)->GetArrayLength(env, contacts);
+        n = (int)(len / 3);
+        if (n > 5) n = 5;
+        if (n > 0) {
+            (*env)->GetIntArrayRegion(env, contacts, 0, n * 3, values);
+        }
+    }
+    uint8_t rpt[GKME_TOUCHPAD_REPORT_LEN];
+    pthread_mutex_lock(&dev->lock);
+    uint16_t scan = (uint16_t)(dev->touch_seq++ & 0xFFFF);
+    gkme_pack_touchpad(rpt, values, n, buttons, scan);
+    pthread_mutex_unlock(&dev->lock);
+    gkme_uk_send_input(dev->fd, rpt, GKME_TOUCHPAD_REPORT_LEN);
 }

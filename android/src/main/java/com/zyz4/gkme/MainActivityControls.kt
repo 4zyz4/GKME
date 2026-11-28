@@ -23,11 +23,13 @@ import com.zyz4.gkme.model.ConnectionMode
 import com.zyz4.gkme.model.DisplayMode
 import com.zyz4.gkme.model.GamepadState
 import com.zyz4.gkme.model.MouseGestureAction
+import com.zyz4.gkme.model.PrecisionTouchpadContact
 import com.zyz4.gkme.model.TouchPoint
 import com.zyz4.gkme.view.CustomKeypadView
 import com.zyz4.gkme.view.DpadPadView
 import com.zyz4.gkme.view.EmaVelocityTracker
 import com.zyz4.gkme.view.GamepadLayout
+import com.zyz4.gkme.view.PrecisionTouchpad
 import com.zyz4.gkme.view.ButtonEventHandler
 import com.zyz4.gkme.view.ButtonTracker
 
@@ -1017,7 +1019,79 @@ internal fun MainActivity.setupTouchpadView(tp: FrameLayout) {
  */
 @SuppressLint("ClickableViewAccessibility")
 internal fun MainActivity.setupMousepadView(mp: FrameLayout) {
-    mp.setOnTouchListener(attachMousepadGestures(mp, useConfig = true))
+    val gestureListener = attachMousepadGestures(mp, useConfig = true)
+    val precisionListener = attachPrecisionTouchpad(mp)
+    var precisionWasActive = false
+    mp.setOnTouchListener { v, event ->
+        val id = mp.tag as? String
+        val pos = id?.let { current -> gamepadLayout.currentButtons.find { it.id == current } }
+        val usePrecision = pos?.precisionTouchpad == true &&
+            viewModel.settings.value.connectionMode != ConnectionMode.BLUETOOTH
+        if (usePrecision) {
+            precisionWasActive = true
+            precisionListener.onTouch(v, event)
+        } else {
+            // 从精确模式切回手势模式时释放对端仍在按住的触点。
+            if (precisionWasActive) {
+                precisionWasActive = false
+                viewModel.clearPrecisionTouchpad()
+            }
+            gestureListener.onTouch(v, event)
+        }
+    }
+}
+
+/**
+ * Precision-touchpad listener: forwards every finger's absolute position in the
+ * Windows Precision Touchpad logical range instead of relative mouse deltas.
+ * The host (GKMD's `precision-touchpad` persona) performs cursor motion, taps,
+ * scrolling and multi-finger gestures itself.
+ */
+@SuppressLint("ClickableViewAccessibility")
+internal fun MainActivity.attachPrecisionTouchpad(mp: FrameLayout): View.OnTouchListener {
+    val a = this
+
+    fun send(event: MotionEvent, include: (Int) -> Boolean) {
+        val w = mp.width
+        val h = mp.height
+        if (w <= 0 || h <= 0) return
+        val id = mp.tag as? String
+        val rotation = id?.let { current ->
+            a.gamepadLayout.currentButtons.find { it.id == current }?.rotation
+        } ?: 0
+        val contacts = ArrayList<PrecisionTouchpadContact>(event.pointerCount)
+        for (i in 0 until event.pointerCount) {
+            if (!include(i)) continue
+            contacts.add(
+                PrecisionTouchpad.contact(
+                    id = event.getPointerId(i),
+                    nx = event.getX(i) / w,
+                    ny = event.getY(i) / h,
+                    rotation = rotation,
+                )
+            )
+        }
+        a.viewModel.onPrecisionTouchpad(contacts)
+    }
+
+    fun endGesture() {
+        a.viewModel.onPrecisionTouchpad(emptyList())
+        // Precision mode is transparent: the host performs the gestures, so the
+        // phone shows no press highlight and gives no haptic feedback.
+    }
+
+    return View.OnTouchListener { _, event ->
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> send(event) { true }
+            MotionEvent.ACTION_POINTER_DOWN -> send(event) { true }
+            MotionEvent.ACTION_MOVE -> send(event) { true }
+            // The pointer going up is no longer a contact; report the rest.
+            MotionEvent.ACTION_POINTER_UP -> send(event) { it != event.actionIndex }
+            MotionEvent.ACTION_UP -> endGesture()
+            MotionEvent.ACTION_CANCEL -> endGesture()
+        }
+        true
+    }
 }
 
 /**

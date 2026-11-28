@@ -220,7 +220,7 @@ flowchart TB
 | 描述符 | 无，直接 Linux input 事件 | `gkme_hid_descriptors.h` 真实 HID report descriptor |
 | 报告 | 11 EV_KEY + 8 EV_ABS + 1 EV_SYN | 各 profile 的 64 字节 HID 报告 |
 | 震动回读 | Linux FF（upload/erase/EV_FF） | 解析 output report |
-| 支持身份 | Xbox One S、GKME 键盘/鼠标 | DS4 / DualSense / Switch Pro、HID 键鼠 |
+| 支持身份 | Xbox One S、GKME 键盘/鼠标 | DS4 / DualSense / Switch Pro、HID 键鼠、精确触摸板 |
 | 库 | `libgkme_uinput.so` | 同上 |
 
 由 `VirtualGamepadType`（`model/AppSettings.kt:19-30`）的 `nativeBackend`/`uhidProfileId` 选择。
@@ -244,7 +244,7 @@ flowchart TB
 ### 5.3 uhid 路径（`cpp/uhid_input.c`）
 
 - 协议结构 `gkme_uhid_*` 均 `__attribute__((packed))`；`GKME_UHID_DATA_MAX=4096`。
-- 设备种类：DS4=1、DualSense=2、Switch Pro=3、Keyboard=10、Mouse=11。
+- 设备种类：DS4=1、DualSense=2、Switch Pro=3、Keyboard=10、Mouse=11、精确触摸板=12。
 - **身份伪装**：DS4 `0x054C:0x09CC`、DualSense `0x054C:0x0CE6`、Switch Pro `0x057E:0x2009`。
 - 创建走 `gkme_uk_create`（`open("/dev/uhid")` + `CREATE2`），起 `reader` 线程；
   仅 Switch Pro 额外起 `streamer` 线程（每 15000us 发 0x30 帧）。
@@ -268,6 +268,13 @@ flowchart TB
 - `nativeWriteUhid` 在 `dev->lock` 内更新 gyro/accel/touch 并打包，解锁后发送。
 - 键鼠：`nativeWriteKeyboardUhid` 写 34 字节（modifier + 保留 + 256 位位图）；
   `nativeWriteMouseUhid` 写 9 字节。
+- **精确触摸板**：`nativeCreateTouchpadUhid` 创建 `045E:0B0D` 设备；`nativeWriteTouchpadUhid`
+  写 35 字节（report id 1 + 5×6 字节触点 + Scan Time + Contact Count + Button 1），
+  每点 `Confidence|TipSwitch`、Contact ID、X/Y（0..4095，小端）。设备由
+  `GamepadInjector` 在首次收到 `GamepadInput.precision_touchpad` 时懒创建，避免未使用
+  精确模式时多出一个触摸板。feature 应答：2 = 最大触点数/板类型、3 = 257 字节认证报告、
+  4 = Input Mode、5 = Surface/Button Switch；`gkme_uk_reader` 的 GET_REPORT 缓冲已扩大到
+  `GKME_UHID_DATA_MAX` 以容纳认证报告。
 
 ### 5.4 HID 描述符（`cpp/gkme_hid_descriptors.h`）
 
@@ -280,6 +287,7 @@ flowchart TB
 | `GKMD_DESC_SWITCH_PRO` | 203B | `gkme_switch_build_frame` 0x30 帧 |
 | `GKMD_DESC_KEYBOARD` | 68B | 标准 Boot Keyboard，报告 34B |
 | `GKMD_DESC_MOUSE` | 119B | HID Mouse，报告 9B |
+| `GKMD_DESC_TOUCHPAD` | 494B | Windows Precision Touchpad（5 触点，110×70 mm），报告 35B；feature 2/3/4/5（含 257B 认证报告） |
 
 这些描述符与 `nativeWrite*Uhid` 的字节布局、`gkme_build_feature` 的 feature 长度严格对应，
 是 uhid 路径被内核 `hid-playstation`/`hid-nintendo` 正确枚举的关键。
@@ -318,7 +326,7 @@ flowchart TB
 | 原生库名 | `gkme_uinput` |
 | 通知 id / 渠道 | 4102 / `controlled_mode` |
 | uinput 身份 | `0x045E:0x02FD` Xbox One S |
-| uhid 身份 | DS4 `0x054C:0x09CC`、DS5 `0x054C:0x0CE6`、Switch `0x057E:0x2009` |
+| uhid 身份 | DS4 `0x054C:0x09CC`、DS5 `0x054C:0x0CE6`、Switch `0x057E:0x2009`、精确触摸板 `0x045E:0x0B0D` |
 | FF 上限 | `GKME_MAX_FF=16` |
 | 滚轮换算 | 协议 120/格 → 系统 30/格（高精度） |
 | 实时调参门槛 | RichTap core 主版本 ≥ 32 |

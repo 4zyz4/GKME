@@ -19,6 +19,9 @@ object GamepadInjector {
 
     private const val TAG = "GKME_GamepadInjector"
 
+    /** 精确触摸板描述符最多 5 个触点。 */
+    private const val MAX_PRECISION_CONTACTS = 5
+
     /**
      * 系统设置：为 1 时系统振动器的输出会被重定向到支持震动的输入设备；
      * 若本机再用系统振动器转发虚拟手柄震动，会形成回环。
@@ -75,6 +78,13 @@ object GamepadInjector {
 
     @Volatile
     private var mouseFailed = false
+
+    /** 精确触摸板（uhid）的懒创建状态；仅在收到精确触摸板帧后创建。 */
+    @Volatile
+    private var touchpadCreated = false
+
+    @Volatile
+    private var touchpadFailed = false
 
     private var binding: ShizukuServiceBinding? = null
 
@@ -278,6 +288,12 @@ object GamepadInjector {
                 } catch (_: Throwable) {
                 }
             }
+            if (touchpadCreated) {
+                try {
+                    svc.releasePrecisionTouchpad()
+                } catch (_: Throwable) {
+                }
+            }
             if (created) {
                 try {
                     svc.release()
@@ -310,6 +326,8 @@ object GamepadInjector {
         keyboardFailed = false
         mouseCreated = false
         mouseFailed = false
+        touchpadCreated = false
+        touchpadFailed = false
     }
 
     fun update(input: GamepadInput) {
@@ -353,6 +371,7 @@ object GamepadInjector {
         }
         updateKeyboard(svc, input)
         if (mouseEnabled) updateMouse(svc, input)
+        updatePrecisionTouchpad(svc, input)
     }
 
     /**
@@ -407,6 +426,41 @@ object GamepadInjector {
                 input.mousePan,
                 input.mouseButtons,
             )
+        } catch (_: Throwable) {
+        }
+    }
+
+    /**
+     * 转发一帧精确触摸板状态。设备在第一次收到该消息时懒创建；创建失败后本次
+     * 会话不再重试（与键盘/鼠标一致）。
+     */
+    private fun updatePrecisionTouchpad(svc: IGamepadService, input: GamepadInput) {
+        if (!input.hasPrecisionTouchpad()) return
+        if (!touchpadCreated) {
+            if (touchpadFailed) return
+            val r = try {
+                svc.createPrecisionTouchpad()
+            } catch (_: Throwable) {
+                -1
+            }
+            if (r != 0) {
+                touchpadFailed = true
+                Log.w(TAG, "创建精确触摸板失败: $r")
+                return
+            }
+            touchpadCreated = true
+        }
+        val frame = input.precisionTouchpad
+        val count = minOf(MAX_PRECISION_CONTACTS, frame.contactsCount)
+        val contacts = IntArray(count * 3)
+        for (i in 0 until count) {
+            val c = frame.getContacts(i)
+            contacts[i * 3] = c.id
+            contacts[i * 3 + 1] = c.x
+            contacts[i * 3 + 2] = c.y
+        }
+        try {
+            svc.updatePrecisionTouchpad(frame.buttons, contacts)
         } catch (_: Throwable) {
         }
     }

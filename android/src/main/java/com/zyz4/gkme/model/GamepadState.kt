@@ -34,6 +34,10 @@ data class GamepadState(
     // Keyboard fields for WiFi/UDP mode
     val keyboardModifier: UInt = 0u,
     val keyboardKeys: List<UInt> = emptyList(),
+    // Precision touchpad full state. Non-null means "a precision touchpad frame
+    // is being reported": an empty contact list lifts every contact. Null means
+    // "this frame carries no touchpad update".
+    val precisionTouchpad: PrecisionTouchpadState? = null,
 ) {
     companion object {
         // Bits 0-5 = A/B/X/Y/LB/RB
@@ -83,3 +87,29 @@ data class TouchPoint(
     val y: Int = 0,
     val active: Boolean = false,
 )
+
+/** One finger on a precision touchpad; [x]/[y] are 0..[PRECISION_TOUCHPAD_MAX]. */
+data class PrecisionTouchpadContact(
+    val id: Int = 0,
+    val x: Int = 0,
+    val y: Int = 0,
+)
+
+/** Full precision-touchpad state for one frame. */
+data class PrecisionTouchpadState(
+    val contacts: List<PrecisionTouchpadContact> = emptyList(),
+    val buttons: Int = 0,
+) {
+    companion object {
+        /** Logical range of the precision-touchpad descriptor (0..4095). */
+        const val PRECISION_TOUCHPAD_MAX = 4095
+        /** Most contacts one precision-touchpad report carries. */
+        const val MAX_CONTACTS = 5
+
+        const val BUTTON_LEFT = 1
+        const val BUTTON_RIGHT = 2
+        const val BUTTON_MIDDLE = 4
+        const val BUTTON_BACK = 8
+        const val BUTTON_FORWARD = 16
+    }
+}

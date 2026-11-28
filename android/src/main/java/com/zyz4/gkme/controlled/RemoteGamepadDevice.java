@@ -107,6 +107,18 @@ public final class RemoteGamepadDevice {
 
     public static native void nativeDestroyUhidInput(int fd);
 
+    /** Create the Windows Precision Touchpad uhid device, returns fd or -errno. */
+    public static native int nativeCreateTouchpadUhid();
+
+    /**
+     * Write one full precision-touchpad frame.
+     *
+     * @param contacts triples [id, x, y]; x/y are 0..4095 and only currently
+     *                 down contacts are listed (max 5)
+     * @param buttons  bit0 = left button; the descriptor declares Button 1 only
+     */
+    public static native void nativeWriteTouchpadUhid(int fd, int buttons, int[] contacts);
+
     // ── evdev 只读采集（后台实体手柄）────────────────────────────────────
 
     /**

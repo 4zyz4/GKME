@@ -47,6 +47,25 @@ message GamepadInput {
   // Keyboard fields — HID Keyboard/Keypad usage IDs (Usage page 0x07, 0x04..0xFF)
   repeated uint32 pressed_scan_codes = 28;
   uint32 keyboard_modifiers = 30;
+
+  // Precision touchpad (Windows Precision Touchpad / HID digitizer) state.
+  // The message is present only while a precision touchpad source is active;
+  // an empty contact list with the message present lifts every contact.
+  PrecisionTouchpad precision_touchpad = 31;
+}
+
+/// One contact on a precision touchpad. x/y use the descriptor's logical
+/// range 0..4095 (0 = left/top). Contacts not listed are lifted.
+message PrecisionTouchpadContact {
+  uint32 id = 1;
+  uint32 x = 2;
+  uint32 y = 3;
+}
+
+message PrecisionTouchpad {
+  repeated PrecisionTouchpadContact contacts = 1;
+  // bit0 左键 / bit1 右键 / bit2 中键 / bit3 后退 / bit4 前进
+  uint32 buttons = 2;
 }
 
 message TouchPoint {

@@ -84,6 +84,26 @@ interface IGamepadService {
     void stopEvdevCapture() = 13;
 
     /**
+     * 创建精确触摸板（Windows Precision Touchpad，uhid 身份 045E:0B0D）。
+     * 与虚拟手柄后端无关，始终走 uhid。
+     *
+     * @return 0 表示成功，负数表示 -errno
+     */
+    int createPrecisionTouchpad() = 14;
+
+    /**
+     * 写入一帧精确触摸板状态。
+     *
+     * @param buttons  bit0 = 左键（描述符只有 Button 1）
+     * @param contacts 触点三元组 [id, x, y]，x/y 为 0..4095；只包含当前按下的
+     *                 触点（最多 5 个），空数组表示全部抬起
+     */
+    void updatePrecisionTouchpad(int buttons, in int[] contacts) = 15;
+
+    /** 销毁精确触摸板。 */
+    void releasePrecisionTouchpad() = 16;
+
+    /**
      * 用户服务退出（Shizuku 约定的事务号，见 Shizuku-API 文档：
      * "The transaction code for that method is 16777115 (use 16777114 in aidl)"）。
      */

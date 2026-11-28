@@ -72,6 +72,14 @@ message GamepadInput {
   uint32 mouse_buttons = 27;     // bit0 左 / bit1 右 / bit2 中 / bit3 后退 / bit4 前进
   repeated uint32 pressed_scan_codes = 28;   // HID Keyboard/Keypad 用法 ID（Usage 0x04..0xFF）
   uint32 keyboard_modifiers = 30;            // bit0 LCtrl … bit7 RGui
+  PrecisionTouchpad precision_touchpad = 31; // 精确触摸板（存在 = 有效帧）
+}
+
+message PrecisionTouchpadContact { uint32 id = 1; uint32 x = 2; uint32 y = 3; }
+
+message PrecisionTouchpad {
+  repeated PrecisionTouchpadContact contacts = 1;  // 当前按下的触点，空 = 全部抬起
+  uint32 buttons = 2;                              // bit0 左键 … bit4 前进
 }
 
 message TouchPoint { uint32 id = 1; uint32 x = 2; uint32 y = 3; bool active = 4; }
@@ -302,6 +310,9 @@ void updateKeyboard(int modifiers, in int[] usages);
 int  createMouse();
 void updateMouse(int dx, int dy, int wheel, int pan, int buttons);
 void releaseKeyboardMouse();
+int  createPrecisionTouchpad();       // 0 成功，负数为 -errno（uhid，045E:0B0D）
+void updatePrecisionTouchpad(int buttons, in int[] contacts); // [id,x,y] 三元组
+void releasePrecisionTouchpad();
 String readSystemSetting(String key);  // 以 shell 身份读取 Settings.System，null = 不存在/失败
 void exitService();
 ```
@@ -373,6 +384,28 @@ fun  updateParameter(intensity, frequency): Boolean
 与 `MainActivityControls.Kb` 一致）；`keyboard_modifiers` 为 HID 修饰位掩码
 （bit0=LCtrl … bit7=RGui）。键盘报告在 WiFi/USB 下复用 `GamepadInput`（type `0x02`），
 在蓝牙下走 Report ID 17。
+
+### 8.5 精确触摸板
+
+`GamepadInput.precision_touchpad` 是 **proto3 message 字段**，因此有明确的存在性：
+
+- 字段不存在 = 本帧没有精确触摸板更新，接收方保持现状。
+- 字段存在 = 全量状态；`contacts` 只列当前按下的触点，空列表表示全部抬起。
+- 坐标 `x/y` 为 Windows Precision Touchpad 描述符的逻辑范围 **0..4095**（左上为 0,0），
+  最多 5 点；`id` 在同一触点按下到抬起的生命周期内保持稳定。
+- `buttons` 为触点板按键位掩码（bit0 左键 … bit4 前进）。内置描述符只声明 Button 1，
+  因此当前只有左键会写入 HID 报告；轻点、双指滚动等手势由 Windows 根据原始触点识别。
+
+来源：布局中的“触摸板（鼠标）”控件开启 `precisionTouchpad` 后，直接把
+`MotionEvent` 的多指绝对坐标（按控件旋转映射）写入 `GamepadState.precisionTouchpad`，
+由周期发送循环整帧下发。**蓝牙模式不支持**该字段，控件会回退到原有鼠标手势路径。
+
+接收端：
+
+- PC（GKME-Windows）：用 GKMD 的 `precision-touchpad` persona（Microsoft `045E:0B0D`，
+  5 触点，110×70 mm）创建虚拟 USB/IP 设备，`GKController.SubmitTouch` 负责按描述符打包。
+- 被控端/本机（GKME）：懒创建同样的 uhid 设备（profile 12），由
+  `IGamepadService.createPrecisionTouchpad/updatePrecisionTouchpad` 注入。
 
 ---
 

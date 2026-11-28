@@ -135,6 +135,10 @@ protobuf `GamepadInput`。要点：
   摇杆的触摸板模式本就以速度驱动，不再叠加预测。
 - **鼠标板光标位移**：同样使用 `EmaVelocityTracker`（批处理历史样本 + EMA 速度），
   位移按平滑速度积分，不再取逐事件的原始坐标差；滚动与拖拽复用同一位移量。手柄触摸板不适用。
+- **鼠标板精确模式**（`ButtonPosition.precisionTouchpad`）：开启后不再在本机合成光标/滚动/
+  轻点，而是把每根手指的绝对坐标按控件旋转映射到 Windows Precision Touchpad 的逻辑范围
+  （0..4095），写入 `GamepadState.precisionTouchpad`，由对端创建/驱动精确触摸板设备。
+  WiFi / USB / 本机模式生效；蓝牙没有对应 HID 设备，运行时回退到上面的鼠标手势路径。
 - **指针加速度**（`input/PointerAcceleration.kt`）：倍率由 EMA 速度（px/ms）决定，
   再换算到固定 120Hz 的“参考帧位移”后套用 `1 + accel × 位移`。因此同一物理手势在
   120/240Hz 触控、任意 WiFi/USB 轮询率下倍率一致；旧实现按单次事件位移计算，

@@ -51,6 +51,8 @@ import com.zyz4.gkme.model.PhysicalInputs
 import com.zyz4.gkme.model.PhysicalStickDirectionSettings
 import com.zyz4.gkme.model.PhysicalStickSettings
 import com.zyz4.gkme.model.PhysicalTouchpadSettings
+import com.zyz4.gkme.model.PrecisionTouchpadContact
+import com.zyz4.gkme.model.PrecisionTouchpadState
 import com.zyz4.gkme.model.SettingsButtonAction
 import com.zyz4.gkme.model.SettingsButtonDirection
 import com.zyz4.gkme.model.TargetPlatform
@@ -1812,6 +1814,36 @@ class GkViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    /**
+     * 上报一帧精确触摸板状态（原始触点，PC/被控端负责光标、手势与点击）。
+     *
+     * 触点坐标为精确触摸板描述符的逻辑范围 0..4095；空列表表示所有手指都已
+     * 抬起。状态会一直保留在 [GamepadState.precisionTouchpad] 中，由周期发送
+     * 循环整帧下发，因此抬手后还会再发若干次空触点帧，确保对端释放。
+     */
+    fun onPrecisionTouchpad(
+        contacts: List<PrecisionTouchpadContact>,
+        buttons: Int = 0,
+    ) {
+        val normalized = if (contacts.size > PrecisionTouchpadState.MAX_CONTACTS) {
+            contacts.subList(0, PrecisionTouchpadState.MAX_CONTACTS)
+        } else {
+            contacts
+        }
+        _gamepadState.value = _gamepadState.value.copy(
+            precisionTouchpad = PrecisionTouchpadState(
+                contacts = normalized,
+                buttons = buttons and 0x1F,
+            ),
+        )
+    }
+
+    /** 停止精确触摸板上报（切换布局/模式时调用），此后帧内不再携带该消息。 */
+    fun clearPrecisionTouchpad() {
+        if (_gamepadState.value.precisionTouchpad == null) return
+        _gamepadState.value = _gamepadState.value.copy(precisionTouchpad = null)
     }
 
     fun triggerHapticPress() {

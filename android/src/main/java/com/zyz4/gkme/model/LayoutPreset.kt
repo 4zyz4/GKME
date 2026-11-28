@@ -142,6 +142,7 @@ data class LayoutPreset(
                     if (!btnObj.has("scrollSensitivity")) btnObj.addProperty("scrollSensitivity", 0.1)
                     if (!btnObj.has("invertScrollV")) btnObj.addProperty("invertScrollV", false)
                     if (!btnObj.has("invertScrollH")) btnObj.addProperty("invertScrollH", false)
+                    if (!btnObj.has("precisionTouchpad")) btnObj.addProperty("precisionTouchpad", false)
                     if (!btnObj.has("singleTapAction")) btnObj.addProperty("singleTapAction", MouseGestureAction.LEFT_CLICK.name)
                     if (!btnObj.has("twoFingerTapAction")) btnObj.addProperty("twoFingerTapAction", MouseGestureAction.RIGHT_CLICK.name)
                     if (!btnObj.has("threeFingerTapAction")) btnObj.addProperty("threeFingerTapAction", MouseGestureAction.MIDDLE_CLICK.name)
@@ -366,6 +367,7 @@ data class LayoutPreset(
                 if (b.mouseMoveSlop != 4) m["mouseMoveSlop"] = b.mouseMoveSlop
                 if (b.invertScrollV) m["invertScrollV"] = b.invertScrollV
                 if (b.invertScrollH) m["invertScrollH"] = b.invertScrollH
+                if (b.precisionTouchpad) m["precisionTouchpad"] = b.precisionTouchpad
                 if (!b.doubleClickEnable) m["doubleClickEnable"] = b.doubleClickEnable
                 if (b.singleTapAction != MouseGestureAction.LEFT_CLICK) m["singleTapAction"] = b.singleTapAction.name
                 if (b.twoFingerTapAction != MouseGestureAction.RIGHT_CLICK) m["twoFingerTapAction"] = b.twoFingerTapAction.name

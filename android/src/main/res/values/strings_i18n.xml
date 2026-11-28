@@ -474,6 +474,7 @@
     <string name="i18n_phone_speaker" formatted="false">"手机扬声器"</string>
     <string name="i18n_physical_gamepad" formatted="false">"实体手柄"</string>
     <string name="i18n_pointer_acceleration" formatted="false">"指针加速度"</string>
+    <string name="i18n_precision_touchpad" formatted="false">"精确触摸板（WiFi/USB）"</string>
     <string name="i18n_polling_rate" formatted="false">"轮询率"</string>
     <string name="i18n_port_0_is_in_use_a_service_may_already_b" formatted="true">"端口 %1$s 被占用，可能已有服务在运行"</string>
     <string name="i18n_port_0_is_in_use_another_instance_may_al" formatted="true">"端口 %1$s 被占用，可能另一个实例已在运行"</string>

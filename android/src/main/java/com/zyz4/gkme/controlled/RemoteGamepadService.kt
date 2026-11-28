@@ -36,6 +36,7 @@ class RemoteGamepadService @JvmOverloads constructor(
     private val fd = AtomicInteger(-1)
     private val kbdFd = AtomicInteger(-1)
     private val mouseFd = AtomicInteger(-1)
+    private val touchpadFd = AtomicInteger(-1)
     private val lock = Any()
 
     /** 后台 evdev 读取线程；每个节点一个线程。 */
@@ -128,6 +129,7 @@ class RemoteGamepadService @JvmOverloads constructor(
 
     override fun release() {
         releaseKeyboardMouse()
+        releasePrecisionTouchpad()
         synchronized(lock) {
             val f = fd.getAndSet(-1)
             if (f >= 0 && RemoteGamepadDevice.isLoaded()) {
@@ -220,6 +222,51 @@ class RemoteGamepadService @JvmOverloads constructor(
         } catch (t: Throwable) {
             Log.e(TAG, "nativeWriteMouse 失败", t)
             lastError = t.message
+        }
+    }
+
+    override fun createPrecisionTouchpad(): Int {
+        if (!RemoteGamepadDevice.isLoaded()) {
+            lastError = "native 库加载失败: ${RemoteGamepadDevice.loadError()}"
+            Log.e(TAG, lastError!!)
+            return -19 // -ENODEV
+        }
+        synchronized(lock) {
+            if (touchpadFd.get() >= 0) return 0
+            val f = RemoteGamepadDevice.nativeCreateTouchpadUhid()
+            if (f < 0) {
+                lastError = "无法通过 /dev/uhid 创建精确触摸板 (errno=${-f})"
+                Log.e(TAG, lastError!!)
+                return f
+            }
+            touchpadFd.set(f)
+            Log.i(TAG, "精确触摸板已创建 fd=$f")
+            return 0
+        }
+    }
+
+    override fun updatePrecisionTouchpad(buttons: Int, contacts: IntArray?) {
+        val f = touchpadFd.get()
+        if (f < 0 || !RemoteGamepadDevice.isLoaded()) return
+        try {
+            RemoteGamepadDevice.nativeWriteTouchpadUhid(f, buttons, contacts ?: IntArray(0))
+        } catch (t: Throwable) {
+            Log.e(TAG, "nativeWriteTouchpad 失败", t)
+            lastError = t.message
+        }
+    }
+
+    override fun releasePrecisionTouchpad() {
+        synchronized(lock) {
+            val f = touchpadFd.getAndSet(-1)
+            if (f >= 0 && RemoteGamepadDevice.isLoaded()) {
+                try {
+                    RemoteGamepadDevice.nativeDestroyUhid(f)
+                } catch (t: Throwable) {
+                    Log.e(TAG, "销毁精确触摸板失败", t)
+                }
+                Log.i(TAG, "精确触摸板已销毁 fd=$f")
+            }
         }
     }
 

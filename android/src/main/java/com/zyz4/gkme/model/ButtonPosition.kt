@@ -71,6 +71,9 @@ data class ButtonPosition(
     val mouseMoveSlop: Int = 4,
     val invertScrollV: Boolean = false,
     val invertScrollH: Boolean = false,
+    // 精确触摸板模式：鼠标板直接上报原始多指触点，由 PC（Windows 精密触控板）
+    // 或本机被控端负责光标、滚动、轻点与手势；关闭时沿用下面的手势映射。
+    val precisionTouchpad: Boolean = false,
     // ── 鼠标触控板手势动作 ──
     val singleTapAction: MouseGestureAction = MouseGestureAction.LEFT_CLICK,
     val twoFingerTapAction: MouseGestureAction = MouseGestureAction.RIGHT_CLICK,
