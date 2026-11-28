@@ -699,6 +699,7 @@ html.force-landscape body {
 
 .editcheck { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; }
 .editchecklabel { color: #BBBBBB; font-size: 14px; }
+.edithint { color: #888888; font-size: 12px; line-height: 1.4; padding: 0 0 8px; }
 
 .editseclabel { color: var(--text); font-size: 14px; padding: 8px 0 2px; }
 

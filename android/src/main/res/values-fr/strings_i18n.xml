@@ -698,4 +698,47 @@
     <string name="i18n_gpl3_text_unavailable" formatted="false">"Impossible de charger le texte intégral de la GPLv3."</string>
     <string name="i18n_agree_and_continue" formatted="false">"Accepter et continuer"</string>
     <string name="i18n_exit_app" formatted="false">"Quitter l'application"</string>
+
+    <!-- Descriptions des réglages -->
+    <string name="i18n_gkme_required_on_target" formatted="false">"Ce mode nécessite l'installation de GKME sur l'appareil récepteur."</string>
+    <string name="i18n_bluetooth_no_gkme_limits" formatted="false">"Ce mode ne nécessite pas GKME sur l'appareil récepteur, mais la vibration et le gyroscope de la manette ne sont pas pris en charge."</string>
+    <string name="i18n_gyro_mapping_hint" formatted="false">"Le mappage du gyroscope se règle dans Disposition - Modifier - Réglages globaux, par exemple pour tourner la vue ou simuler un volant."</string>
+    <string name="i18n_overlap_trigger_hint" formatted="false">"Lorsque ce contrôle chevauche un autre contrôle, détermine si un appui sur la zone de chevauchement active ce contrôle. Les zones non chevauchantes ne sont pas affectées."</string>
+    <string name="i18n_follow_area_overlap_hint" formatted="false">"Lorsque le rectangle chevauche un autre contrôle, détermine si un appui sur la zone de chevauchement déclenche ce contrôle. Les zones non chevauchantes ne sont pas affectées."</string>
+    <string name="i18n_touchpad_mode_hint" formatted="false">"Le joystick suit la direction du mouvement du doigt plutôt que sa position. Utile pour la caméra."</string>
+    <string name="i18n_follow_area_hint" formatted="false">"Lorsque cette option est activée, un appui dans le rectangle déplace immédiatement le centre du joystick sous le doigt, sans avoir à viser le joystick."</string>
+    <string name="i18n_auto_hold_hint" formatted="false">"Lorsque cette option est activée, un appui maintient le bouton enfoncé jusqu'au prochain appui."</string>
+    <string name="i18n_fast_response_hint" formatted="false">"Lorsque cette option est activée, la réponse est plus rapide mais moins fluide."</string>
+    <string name="i18n_linear_trigger_hint" formatted="false">"Active la pression progressive des gâchettes, mais la gâchette se déclenche en glissant au lieu d'appuyer. Adapté aux jeux de course."</string>
+    <string name="i18n_voice_coil_hint" formatted="false">"Les moteurs des Joy-Con sont des moteurs linéaires LRA, mais ils sont considérés ici comme des moteurs à bobine mobile."</string>
+    <string name="i18n_xbox_no_gyro_note" formatted="false">"Remarque : le contrôle par mouvements n'est pas pris en charge lors de l'émulation d'une manette Xbox."</string>
+    <string name="i18n_settings_button_wheel_hint" formatted="false">"Faites glisser le bouton de réglages pour exécuter des actions rapides."</string>
+    <string name="i18n_floating_mode_hint" formatted="false">"L'application flottera au-dessus des autres applications, idéal pour le streaming. Pour créer une manette virtuelle sur ce téléphone, utilisez Connexion - Cet appareil."</string>
+    <string name="i18n_control_type_hint" formatted="false">"Le rôle contrôleur envoie les entrées à l'appareil distant ; le rôle contrôlé reçoit les entrées distantes et crée une manette virtuelle locale."</string>
+    <string name="i18n_target_platform_hint" formatted="false">"Choisissez le système cible. Les modes manette uniquement n'envoient que les entrées de manette ; le mode clavier/souris universel émule aussi un clavier et une souris."</string>
+    <string name="i18n_polling_rate_hint" formatted="false">"Nombre de rapports de manette envoyés par seconde. Plus élevé = plus réactif, mais consomme plus et exige une meilleure connexion."</string>
+    <string name="i18n_auto_enter_floating_hint" formatted="false">"Entre automatiquement en mode flottant après le démarrage du mode Cet appareil ; désactivé, le mode flottant ne s'ouvre que manuellement."</string>
+    <string name="i18n_hd_vibration_hint" formatted="false">"Utilise le moteur linéaire du téléphone pour des vibrations HD fines et à haute fréquence ; désactivé, des vibrations standard sont utilisées."</string>
+    <string name="i18n_button_vibration_hint" formatted="false">"Retour haptique à l'appui et au relâchement des boutons à l'écran. Chacun peut utiliser un effet système ou une durée, une intensité et une fréquence personnalisées."</string>
+    <string name="i18n_game_vibration_hint" formatted="false">"Transmet les vibrations du jeu à l'appareil sélectionné ; les moteurs gauche/droite peuvent être inversés."</string>
+    <string name="i18n_adaptive_trigger_hint" formatted="false">"Transmet les effets de gâchette adaptative du jeu au moteur du téléphone, au moteur de la manette ou à la gâchette de la manette ; les gâchettes gauche/droite peuvent être inversées."</string>
+    <string name="i18n_controller_audio_hint" formatted="false">"Sélectionnez la sortie audio du haut-parleur/casque de la manette."</string>
+    <string name="i18n_forward_microphone_hint" formatted="false">"Transmet l'audio capté par le micro du téléphone comme entrée micro de la manette virtuelle."</string>
+    <string name="i18n_gamepad_driver_hint" formatted="false">"Sélectionne automatiquement un pilote selon les capacités de la manette ; changez manuellement en cas de problème de compatibilité."</string>
+    <string name="i18n_input_gamepad_hint" formatted="false">"Sélectionnez la manette physique à mapper ; lorsque plusieurs sont connectées, leurs capacités peuvent être consultées séparément."</string>
+    <string name="i18n_gyro_source_hint" formatted="false">"Sélectionnez la source du mouvement : gyroscope du téléphone ou d'une manette connectée."</string>
+    <string name="i18n_gyro_orientation_hint" formatted="false">"Sélectionnez l'orientation de prise en main ; une orientation incorrecte inverse les axes."</string>
+    <string name="i18n_screen_off_mode_hint" formatted="false">"Couvre l'écran d'un voile noir pendant que la manette continue de fonctionner ; appuyez sur Retour ou utilisez le geste de retour pour quitter."</string>
+    <string name="i18n_double_tap_press_hint" formatted="false">"Double-tap sur le joystick pour L3/R3 ; double-tap sur le pavé tactile pour un clic du pavé."</string>
+    <string name="i18n_extended_touch_hint" formatted="false">"Lorsque cette option est activée, le pavé tactile répond aux touches dans le rectangle étendu et mappe tout le rectangle sur les coordonnées du pavé ; l'apparence du pavé ne change pas."</string>
+    <string name="i18n_precision_touchpad_hint" formatted="false">"Envoie les contacts multi-touch bruts au PC pour qu'il reconnaisse les gestes ; les options de gestes ci-dessous sont désactivées."</string>
+    <string name="i18n_swipe_trigger_hint" formatted="false">"Lorsque cette option est activée, le contrôle peut être déclenché en appuyant dessus ou en faisant glisser un doigt depuis un autre endroit. Sortir le doigt du contrôle le relâche."</string>
+    <string name="i18n_joystick_deadzone_hint" formatted="false">"La zone morte est la zone non réactive autour du centre du joystick ; l'anti-zone morte compense la zone morte du jeu."</string>
+    <string name="i18n_gyro_behavior_hint" formatted="false">"Choisissez la sortie du gyroscope : mouvement de la manette, souris, caméra du stick ou direction du stick."</string>
+    <string name="i18n_gyro_activation_hint" formatted="false">"Toujours actif, ou uniquement pendant l'appui sur le bouton d'activation."</string>
+    <string name="i18n_grid_hint" formatted="false">"La grille sert uniquement à aligner les contrôles pendant l'édition et n'apparaît pas en jeu."</string>
+    <string name="i18n_gyro_mode_handheld_hint" formatted="false">"Simule l'entrée de mouvement de la manette."</string>
+    <string name="i18n_gyro_mode_mouse_hint" formatted="false">"Utilisez le pointeur de la souris comme un pointeur laser."</string>
+    <string name="i18n_gyro_mode_view_hint" formatted="false">"Tournez la vue en faisant pivoter le téléphone."</string>
+    <string name="i18n_gyro_mode_direction_hint" formatted="false">"Utilisez le gyroscope pour simuler un volant avec le téléphone. Adapté aux jeux de course."</string>
 </resources>

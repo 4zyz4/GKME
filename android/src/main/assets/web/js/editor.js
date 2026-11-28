@@ -360,6 +360,11 @@ export class LayoutEditor {
     return el("div", { class: "editseclabel", text });
   }
 
+  /** Small secondary-color explanation shown under an ambiguous setting. */
+  _hint(text) {
+    return el("div", { class: "edithint", text });
+  }
+
   _seek({ label, value, min, max, step = 1, onChange }) {
     const state = { value: Math.min(max, Math.max(min, value)) };
     const wrap = el("div", { class: "editseek" });
@@ -604,16 +609,19 @@ export class LayoutEditor {
     // ── Overlap trigger ──
     if (!isSettings) {
       this.params.append(this._check(t("editor.overlapTrigger"), button.overlapTrigger, (v) => this._update(id, { overlapTrigger: v })));
+      this.params.append(this._hint(t("editor.overlapTriggerHint")));
     }
 
     // ── Auto hold ──
     if ((isButtonId(id) || getControl(id)?.isKeyboard) && !isSettings) {
       this.params.append(this._check(t("editor.autoHold"), button.autoHold, (v) => this._update(id, { autoHold: v })));
+      this.params.append(this._hint(t("editor.autoHoldHint")));
     }
 
     // ── Double click ──
     if (DOUBLE_CLICK_IDS.has(base)) {
       this.params.append(this._check(t("editor.doubleTap"), button.doubleClickEnable, (v) => this._update(id, { doubleClickEnable: v })));
+      this.params.append(this._hint(t("editor.doubleTapHint")));
     }
 
     // ── Follow area ──
@@ -639,6 +647,7 @@ export class LayoutEditor {
           this.showParams(this._current);
         })
       );
+      this.params.append(this._hint(t("editor.extendedTouchHint")));
       if (button.followAreaEnabled) this.params.append(this._btnRow([[t("editor.enterAdjust"), () => this.setAdjusting(true)]]));
     } else if (JOYSTICK_IDS.has(base) || base === "dpadPad" || isKeypadId(id)) {
       this.params.append(
@@ -652,6 +661,7 @@ export class LayoutEditor {
           this.showParams(this._current);
         })
       );
+      this.params.append(this._hint(t("editor.followInsideHint")));
       if (button.followAreaEnabled) this.params.append(this._btnRow([[t("editor.enterAdjust"), () => this.setAdjusting(true)]]));
     }
 
@@ -766,8 +776,11 @@ export class LayoutEditor {
           onChange: (v) => this._update(id, { reverseDeadZone: v }),
         }).el
       );
+      this.params.append(this._hint(t("editor.deadzoneHint")));
       this.params.append(this._check(t("editor.touchpadMode"), button.touchpadMode, (v) => this._update(id, { touchpadMode: v })));
+      this.params.append(this._hint(t("editor.touchpadModeHint")));
       this.params.append(this._check(t("editor.fastResponse"), button.prediction, (v) => this._update(id, { prediction: v })));
+      this.params.append(this._hint(t("editor.fastResponseHint")));
     }
 
     // ── Keypad ──
@@ -838,6 +851,7 @@ export class LayoutEditor {
       this.params.append(
         this._check(t("editor.triggerOverlap"), button.followAreaOverlapTrigger, (v) => this._update(id, { followAreaOverlapTrigger: v }))
       );
+      this.params.append(this._hint(t("editor.followAreaOverlapHint")));
     }
   }
 
@@ -940,6 +954,7 @@ export class LayoutEditor {
         this.showParams(this._current);
       })
     );
+    this.params.append(this._hint(t("editor.swipeTriggerHint")));
 
     if (isTrigger) {
       this.params.append(
@@ -948,6 +963,7 @@ export class LayoutEditor {
           this.showParams(this._current);
         })
       );
+      this.params.append(this._hint(t("editor.linearTriggerHint")));
       if (button.linearTriggerEnabled) {
         const dirOptions = [
           ["DOWN", t("editor.slideDown")], ["UP", t("editor.slideUp")], ["LEFT", t("editor.slideLeft")], ["RIGHT", t("editor.slideRight")],
@@ -966,6 +982,7 @@ export class LayoutEditor {
           }).el
         );
         this.params.append(this._check(t("editor.fastResponse"), button.prediction, (v) => this._update(id, { prediction: v })));
+        this.params.append(this._hint(t("editor.fastResponseHint")));
       }
     }
   }

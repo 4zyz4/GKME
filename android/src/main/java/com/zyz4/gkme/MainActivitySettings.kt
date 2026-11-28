@@ -2211,13 +2211,25 @@ internal fun MainActivity.updateSettingsVisibility(mode: ConnectionMode) {
     val isWifi = mode == ConnectionMode.WIFI
     val isLocal = mode == ConnectionMode.LOCAL
     a.findViewById<View>(R.id.sectionTargetPlatform).visibility = if (isBt) View.VISIBLE else View.GONE
+    val connectionHint = a.findViewById<TextView>(R.id.tvConnectionModeHint)
+    val connectionHintRes = when (mode) {
+        ConnectionMode.WIFI, ConnectionMode.USB -> R.string.i18n_gkme_required_on_target
+        ConnectionMode.BLUETOOTH -> R.string.i18n_bluetooth_no_gkme_limits
+        ConnectionMode.LOCAL -> null
+    }
+    if (connectionHintRes != null) {
+        connectionHint.setText(connectionHintRes)
+        connectionHint.visibility = View.VISIBLE
+    } else {
+        connectionHint.visibility = View.GONE
+    }
     a.findViewById<View>(R.id.sectionControlType).visibility = if (isWifi) View.VISIBLE else View.GONE
     a.findViewById<View>(R.id.tvServerIp).visibility = if (isWifi) View.VISIBLE else View.GONE
     a.findViewById<View>(R.id.sectionShizuku).visibility = if (isLocal) View.VISIBLE else View.GONE
     // 被控端的手柄类型改到被控 activity 内选择，主设置页仅在本地模式显示。
     a.findViewById<View>(R.id.sectionVirtualGamepad).visibility =
         if (isLocal) View.VISIBLE else View.GONE
-    a.findViewById<View>(R.id.rowAutoFloating).visibility =
+    a.findViewById<View>(R.id.sectionAutoFloating).visibility =
         if (isLocal) View.VISIBLE else View.GONE
     if (isLocal) {
         a.startShizukuPolling()

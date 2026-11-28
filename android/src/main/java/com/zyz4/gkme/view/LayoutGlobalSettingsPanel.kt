@@ -128,6 +128,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
     private var physicalDirty = true
     private var volumeDirty = true
     private var gyroAdvancedContainer: LinearLayout? = null
+    private var gyroModeHintView: TextView? = null
     private var gyroCoordinateSystemSpinner: Spinner? = null
     private var gyroBaseDirectionSpinner: Spinner? = null
     private var gyroBaseDirectionLabel: TextView? = null
@@ -482,6 +483,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         val container = contentContainer ?: return
         container.removeAllViews()
         gyroAdvancedContainer = null
+        gyroModeHintView = null
         gyroCoordinateSystemSpinner = null
         gyroBaseDirectionSpinner = null
         gyroBaseDirectionLabel = null
@@ -502,6 +504,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
 
         // ── Gyro activation mode ──
         container.addView(sectionLabel(context.getString(R.string.i18n_gyro_activation), density))
+        container.addView(hintLabel(context.getString(R.string.i18n_gyro_activation_hint), density))
 
         val gyroActivateItems = listOf(context.getString(R.string.i18n_always_on), context.getString(R.string.i18n_enable_while_a_specific_button_is_held))
         val gyroActivateSpinner = Spinner(context).apply {
@@ -528,6 +531,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
 
         // ── Gyro mapping mode ──
         container.addView(sectionLabel(context.getString(R.string.i18n_gyro_behavior), density))
+        container.addView(hintLabel(context.getString(R.string.i18n_gyro_behavior_hint), density))
 
         val modeSpinner = Spinner(context).apply {
             adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, gyroModeItems).also {
@@ -549,6 +553,10 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         }
         container.addView(modeSpinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             topMargin = (4f * density).toInt()
+            bottomMargin = (4f * density).toInt()
+        })
+        gyroModeHintView = hintLabel("", density)
+        container.addView(gyroModeHintView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             bottomMargin = (12f * density).toInt()
         })
 
@@ -668,6 +676,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT,
         ))
+        container.addView(hintLabel(context.getString(R.string.i18n_grid_hint), density))
 
         gridPreview = GridDensityPreviewView(context).apply {
             setState(gridUseGrid, gridDensity)
@@ -709,6 +718,15 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
         setTextColor(-0x1)
         textSize = 15f
         setPadding(0, (8f * density).toInt(), 0, 0)
+    }
+
+    /** Small secondary-color explanation shown under an ambiguous setting. */
+    private fun hintLabel(text: String, density: Float): TextView = TextView(context).apply {
+        this.text = text
+        setTextColor(-0x444445)
+        textSize = 12f
+        setPadding(0, (2f * density).toInt(), 0, (4f * density).toInt())
+        setLineSpacing(2f * density, 1f)
     }
 
     private fun buildGyroSelector(density: Float, container: LinearLayout) {
@@ -770,6 +788,18 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
             gyroMode == GyroMode.ACCELEROMETER_LEFT_STICK ||
             gyroMode == GyroMode.ACCELEROMETER_RIGHT_STICK
         gyroStickCurveContainer?.visibility = if (needStickCurve) View.VISIBLE else View.GONE
+        updateGyroModeHint()
+    }
+
+    private fun updateGyroModeHint() {
+        val hintRes = when (gyroMode) {
+            GyroMode.MOUSE -> R.string.i18n_gyro_mode_mouse_hint
+            GyroMode.LEFT_STICK, GyroMode.RIGHT_STICK -> R.string.i18n_gyro_mode_view_hint
+            GyroMode.ACCELEROMETER_LEFT_STICK, GyroMode.ACCELEROMETER_RIGHT_STICK ->
+                R.string.i18n_gyro_mode_direction_hint
+            GyroMode.HANDHELD, GyroMode.NONE -> R.string.i18n_gyro_mode_handheld_hint
+        }
+        gyroModeHintView?.setText(hintRes)
     }
 
     /** Routes a curve edit from either the inline editor or the enlarged overlay to both views. */

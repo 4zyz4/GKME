@@ -699,4 +699,47 @@
     <string name="i18n_gpl3_text_unavailable" formatted="false">"The full GPLv3 text could not be loaded."</string>
     <string name="i18n_agree_and_continue" formatted="false">"Agree and continue"</string>
     <string name="i18n_exit_app" formatted="false">"Exit app"</string>
+
+    <!-- Setting descriptions -->
+    <string name="i18n_gkme_required_on_target" formatted="false">"This mode requires GKME on the receiving device."</string>
+    <string name="i18n_bluetooth_no_gkme_limits" formatted="false">"This mode does not require GKME on the receiving device, but vibration and controller gyro are not supported."</string>
+    <string name="i18n_gyro_mapping_hint" formatted="false">"Gyro mapping can be adjusted in Layout - Edit - Global settings, for example turning the view or emulating a steering wheel."</string>
+    <string name="i18n_overlap_trigger_hint" formatted="false">"When this control overlaps another control, determines whether a tap on the overlapping area presses this control. Non-overlapping areas are unaffected."</string>
+    <string name="i18n_follow_area_overlap_hint" formatted="false">"When the rectangle overlaps another control, determines whether a tap on the overlapping area triggers this control. Non-overlapping areas are unaffected."</string>
+    <string name="i18n_touchpad_mode_hint" formatted="false">"The joystick follows the direction of finger movement instead of its position. Useful for camera control."</string>
+    <string name="i18n_follow_area_hint" formatted="false">"When enabled, tapping inside the rectangle immediately moves the joystick center to the finger, so you do not need to aim for the joystick itself."</string>
+    <string name="i18n_auto_hold_hint" formatted="false">"When enabled, one tap keeps the button pressed until the next tap."</string>
+    <string name="i18n_fast_response_hint" formatted="false">"When enabled, response is faster but less smooth."</string>
+    <string name="i18n_linear_trigger_hint" formatted="false">"Enables pressure-sensitive triggers, but the trigger is pulled by sliding instead of tapping. Suitable for racing games."</string>
+    <string name="i18n_voice_coil_hint" formatted="false">"Joy-Con motors are LRA linear motors, but they are treated as voice-coil motors here."</string>
+    <string name="i18n_xbox_no_gyro_note" formatted="false">"Note: motion control is not supported when emulating an Xbox controller."</string>
+    <string name="i18n_settings_button_wheel_hint" formatted="false">"Slide the settings button to perform quick actions."</string>
+    <string name="i18n_floating_mode_hint" formatted="false">"The app will float above other apps, suitable for streaming. To create a virtual gamepad on this phone, use Connect - This device mode."</string>
+    <string name="i18n_control_type_hint" formatted="false">"Controller role sends input to the remote device; controlled role receives remote input and creates a local virtual gamepad."</string>
+    <string name="i18n_target_platform_hint" formatted="false">"Choose the target system. Gamepad-only modes send gamepad input only; universal keyboard/mouse mode also emulates a keyboard and mouse."</string>
+    <string name="i18n_polling_rate_hint" formatted="false">"How many gamepad reports are sent per second. Higher is more responsive but uses more power and needs a better connection."</string>
+    <string name="i18n_auto_enter_floating_hint" formatted="false">"Automatically enter floating mode after starting this-device mode; when off, enter floating mode only manually."</string>
+    <string name="i18n_hd_vibration_hint" formatted="false">"Uses the phone's linear motor for high-frequency, detailed HD vibration; when off, standard vibration is used."</string>
+    <string name="i18n_button_vibration_hint" formatted="false">"Haptic feedback when pressing and releasing on-screen buttons. Each can use a system effect or a custom duration, intensity and frequency."</string>
+    <string name="i18n_game_vibration_hint" formatted="false">"Forwards game rumble to the selected device; left/right motors can be swapped."</string>
+    <string name="i18n_adaptive_trigger_hint" formatted="false">"Forwards game adaptive-trigger effects to the phone motor, controller motor or controller trigger; left/right triggers can be swapped."</string>
+    <string name="i18n_controller_audio_hint" formatted="false">"Select the output device for controller speaker/headset audio."</string>
+    <string name="i18n_forward_microphone_hint" formatted="false">"Forwards audio captured by the phone microphone as the virtual gamepad's microphone input."</string>
+    <string name="i18n_gamepad_driver_hint" formatted="false">"Auto selects a driver based on controller capabilities; switch manually if you hit compatibility issues."</string>
+    <string name="i18n_input_gamepad_hint" formatted="false">"Select the physical controller to map; when several are connected, each one's capabilities can be viewed separately."</string>
+    <string name="i18n_gyro_source_hint" formatted="false">"Select the motion input source: the phone gyro or a connected controller's gyro."</string>
+    <string name="i18n_gyro_orientation_hint" formatted="false">"Select how the phone is held; a wrong orientation reverses the motion axes."</string>
+    <string name="i18n_screen_off_mode_hint" formatted="false">"Covers the screen with a black overlay while the gamepad keeps working; press Back or use the back gesture to exit."</string>
+    <string name="i18n_double_tap_press_hint" formatted="false">"Double-tap the joystick for L3/R3; double-tap the touchpad for a touchpad click."</string>
+    <string name="i18n_extended_touch_hint" formatted="false">"When enabled, the touchpad responds to touches anywhere in the extended rectangle and maps the whole rectangle to touchpad coordinates; the touchpad's appearance does not change."</string>
+    <string name="i18n_precision_touchpad_hint" formatted="false">"Reports raw multi-touch contacts to the PC so it can recognize gestures; the gesture options below are disabled when this is on."</string>
+    <string name="i18n_swipe_trigger_hint" formatted="false">"When enabled, the control can be triggered by tapping it, or by sliding a finger onto it from elsewhere. Moving the finger outside the control releases it."</string>
+    <string name="i18n_joystick_deadzone_hint" formatted="false">"Dead zone is the non-responsive area around the joystick center; anti-dead zone cancels the game's own dead zone."</string>
+    <string name="i18n_gyro_behavior_hint" formatted="false">"Choose the gyro output: controller motion, mouse, stick camera or stick direction."</string>
+    <string name="i18n_gyro_activation_hint" formatted="false">"Always on, or only while the assigned activation button is held."</string>
+    <string name="i18n_grid_hint" formatted="false">"The grid is only a guide for aligning controls while editing and is not shown in game."</string>
+    <string name="i18n_gyro_mode_handheld_hint" formatted="false">"Simulate the controller's motion input."</string>
+    <string name="i18n_gyro_mode_mouse_hint" formatted="false">"Use the mouse pointer like a laser pointer."</string>
+    <string name="i18n_gyro_mode_view_hint" formatted="false">"Turn the view by rotating the phone."</string>
+    <string name="i18n_gyro_mode_direction_hint" formatted="false">"Use the gyro to simulate a steering wheel with the phone. Suitable for racing games."</string>
 </resources>

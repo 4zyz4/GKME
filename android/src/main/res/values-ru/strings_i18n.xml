@@ -698,4 +698,47 @@
     <string name="i18n_gpl3_text_unavailable" formatted="false">"Не удалось загрузить полный текст GPLv3."</string>
     <string name="i18n_agree_and_continue" formatted="false">"Принять и продолжить"</string>
     <string name="i18n_exit_app" formatted="false">"Выйти из приложения"</string>
+
+    <!-- Описания настроек -->
+    <string name="i18n_gkme_required_on_target" formatted="false">"Для этого режима требуется установить GKME на принимающем устройстве."</string>
+    <string name="i18n_bluetooth_no_gkme_limits" formatted="false">"Для этого режима не требуется GKME на принимающем устройстве, но вибрация и гироскоп контроллера не поддерживаются."</string>
+    <string name="i18n_gyro_mapping_hint" formatted="false">"Сопоставление гироскопа настраивается в разделе «Раскладка — Изменить — Общие настройки», например для поворота обзора или имитации руля."</string>
+    <string name="i18n_overlap_trigger_hint" formatted="false">"Если этот элемент перекрывается другим элементом, определяет, будет ли нажатие на область перекрытия нажимать этот элемент. Области без перекрытия не затрагиваются."</string>
+    <string name="i18n_follow_area_overlap_hint" formatted="false">"Если прямоугольник перекрывается другим элементом, определяет, будет ли нажатие на область перекрытия активировать этот элемент. Области без перекрытия не затрагиваются."</string>
+    <string name="i18n_touchpad_mode_hint" formatted="false">"Стик следует за направлением движения пальца, а не за его положением. Подходит для управления обзором."</string>
+    <string name="i18n_follow_area_hint" formatted="false">"Если включено, нажатие внутри прямоугольника сразу перемещает центр стика под палец, поэтому целиться в сам стик не нужно."</string>
+    <string name="i18n_auto_hold_hint" formatted="false">"Если включено, одно нажатие удерживает кнопку нажатой до следующего нажатия."</string>
+    <string name="i18n_fast_response_hint" formatted="false">"Если включено, отклик становится быстрее, но плавность снижается."</string>
+    <string name="i18n_linear_trigger_hint" formatted="false">"Включает чувствительность к нажатию для триггеров, но срабатывание происходит скольжением, а не нажатием. Подходит для гоночных игр."</string>
+    <string name="i18n_voice_coil_hint" formatted="false">"Моторы Joy-Con являются линейными моторами LRA, но здесь они рассматриваются как моторы звуковой катушки."</string>
+    <string name="i18n_xbox_no_gyro_note" formatted="false">"Примечание: при эмуляции геймпада Xbox управление движением не поддерживается."</string>
+    <string name="i18n_settings_button_wheel_hint" formatted="false">"Проведите по кнопке настроек, чтобы выполнить быстрые действия."</string>
+    <string name="i18n_floating_mode_hint" formatted="false">"Приложение будет отображаться поверх других приложений — удобно для стриминга. Чтобы создать виртуальный геймпад на этом телефоне, используйте «Подключение — Это устройство»."</string>
+    <string name="i18n_control_type_hint" formatted="false">"Роль контроллера отправляет ввод на удалённое устройство; роль управляемого принимает удалённый ввод и создаёт локальный виртуальный геймпад."</string>
+    <string name="i18n_target_platform_hint" formatted="false">"Выберите целевую систему. Режимы «только геймпад» передают только ввод геймпада; универсальный режим клавиатуры/мыши также эмулирует клавиатуру и мышь."</string>
+    <string name="i18n_polling_rate_hint" formatted="false">"Сколько отчётов геймпада отправляется в секунду. Чем выше, тем отзывчивее, но расход энергии больше и требуется лучшее соединение."</string>
+    <string name="i18n_auto_enter_floating_hint" formatted="false">"Автоматически входить в плавающий режим после запуска режима «Это устройство»; если выключено, плавающий режим открывается только вручную."</string>
+    <string name="i18n_hd_vibration_hint" formatted="false">"Использует линейный мотор телефона для высокочастотной детальной HD-вибрации; при выключении используется обычная вибрация."</string>
+    <string name="i18n_button_vibration_hint" formatted="false">"Тактильная отдача при нажатии и отпускании экранных кнопок. Для каждого можно выбрать системный эффект или свои длительность, силу и частоту."</string>
+    <string name="i18n_game_vibration_hint" formatted="false">"Передаёт вибрацию игры на выбранное устройство; левый и правый моторы можно поменять местами."</string>
+    <string name="i18n_adaptive_trigger_hint" formatted="false">"Передаёт эффекты адаптивных триггеров игры на мотор телефона, мотор геймпада или триггер геймпада; левый и правый триггеры можно поменять местами."</string>
+    <string name="i18n_controller_audio_hint" formatted="false">"Выберите устройство вывода звука динамика/наушников геймпада."</string>
+    <string name="i18n_forward_microphone_hint" formatted="false">"Передаёт звук с микрофона телефона как вход микрофона виртуального геймпада."</string>
+    <string name="i18n_gamepad_driver_hint" formatted="false">"Автоматически выбирает драйвер по возможностям геймпада; при проблемах совместимости переключите вручную."</string>
+    <string name="i18n_input_gamepad_hint" formatted="false">"Выберите физический геймпад для сопоставления; при подключении нескольких можно отдельно посмотреть их возможности."</string>
+    <string name="i18n_gyro_source_hint" formatted="false">"Выберите источник движения: гироскоп телефона или подключённого геймпада."</string>
+    <string name="i18n_gyro_orientation_hint" formatted="false">"Выберите ориентацию телефона в руках; неверная ориентация инвертирует оси движения."</string>
+    <string name="i18n_screen_off_mode_hint" formatted="false">"Закрывает экран чёрным оверлеем, пока геймпад продолжает работать; нажмите «Назад» или используйте жест назад, чтобы выйти."</string>
+    <string name="i18n_double_tap_press_hint" formatted="false">"Двойное касание стика — L3/R3; двойное касание тачпада — нажатие тачпада."</string>
+    <string name="i18n_extended_touch_hint" formatted="false">"Если включено, тачпад реагирует на касания во всём расширенном прямоугольнике и пропорционально отображает его на координаты тачпада; внешний вид тачпада не меняется."</string>
+    <string name="i18n_precision_touchpad_hint" formatted="false">"Передаёт сырые мультитач-контакты на ПК для распознавания жестов; параметры жестов ниже при этом отключаются."</string>
+    <string name="i18n_swipe_trigger_hint" formatted="false">"Если включено, элемент можно активировать нажатием на него или проведя пальцем к нему из другого места. При выходе пальца за пределы элемента он отпускается."</string>
+    <string name="i18n_joystick_deadzone_hint" formatted="false">"Мёртвая зона — область вокруг центра стика без отклика; анти-мёртвая зона компенсирует мёртвую зону игры."</string>
+    <string name="i18n_gyro_behavior_hint" formatted="false">"Выберите выход гироскопа: движение геймпада, мышь, обзор стика или направление стика."</string>
+    <string name="i18n_gyro_activation_hint" formatted="false">"Всегда включён или только при удержании назначенной кнопки активации."</string>
+    <string name="i18n_grid_hint" formatted="false">"Сетка служит только для выравнивания элементов при редактировании и не отображается в игре."</string>
+    <string name="i18n_gyro_mode_handheld_hint" formatted="false">"Имитирует движение геймпада."</string>
+    <string name="i18n_gyro_mode_mouse_hint" formatted="false">"Используйте указатель мыши как лазерную указку."</string>
+    <string name="i18n_gyro_mode_view_hint" formatted="false">"Поворачивайте обзор, вращая телефон."</string>
+    <string name="i18n_gyro_mode_direction_hint" formatted="false">"Используйте гироскоп, чтобы имитировать руль телефоном. Подходит для гоночных игр."</string>
 </resources>

@@ -831,6 +831,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                     }
                 }
                 buttonParamsInner.addView(cbFollowOverlap, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+                addHint(buttonParamsInner, R.string.i18n_follow_area_overlap_hint)
             }
 
             return
@@ -896,6 +897,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 }
             }
             buttonParamsInner.addView(cbOverlap, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+            addHint(buttonParamsInner, R.string.i18n_overlap_trigger_hint)
         }
 
         // ── Gyro activation for all controls ──
@@ -924,6 +926,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 }
             }
             buttonParamsInner.addView(cbAutoHold, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+            addHint(buttonParamsInner, R.string.i18n_auto_hold_hint)
         }
 
         val joystickOrTouchpadIds = setOf("leftJoystick", "rightJoystick", "touchpad")
@@ -939,6 +942,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 }
             }
             buttonParamsInner.addView(cb, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+            addHint(buttonParamsInner, R.string.i18n_double_tap_press_hint)
         }
         if (isTouchpadId(buttonId)) {
             // ── Extended touch range ──
@@ -972,6 +976,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 }
             }
             buttonParamsInner.addView(cbExtended, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+            addHint(buttonParamsInner, R.string.i18n_extended_touch_hint)
 
             if (button.followAreaEnabled) {
                 val btnRow = LinearLayout(context).apply {
@@ -1008,6 +1013,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 }
             }
             buttonParamsInner.addView(cbPrecision, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+            addHint(buttonParamsInner, R.string.i18n_precision_touchpad_hint)
 
             if (!button.precisionTouchpad) {
                 // ── 手势动作配置（多个下拉选框）──
@@ -1139,6 +1145,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 buttonParamsInner.addView(btnRow)
             }
 
+            addHint(buttonParamsInner, R.string.i18n_follow_area_hint)
+
             val cbTouchpadMode = CheckBox(context).apply {
                 text = context.getString(R.string.i18n_touchpad_mode)
                 setTextColor(-0x444445)
@@ -1150,6 +1158,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 }
             }
             buttonParamsInner.addView(cbTouchpadMode, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+            addHint(buttonParamsInner, R.string.i18n_touchpad_mode_hint)
 
             val cbPrediction = CheckBox(context).apply {
                 text = context.getString(R.string.i18n_fast_response_mode)
@@ -1162,6 +1171,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 }
             }
             buttonParamsInner.addView(cbPrediction, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+            addHint(buttonParamsInner, R.string.i18n_fast_response_hint)
 
             val curveH = (200f * density).toInt()
 
@@ -1197,6 +1207,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             })
             btnRdzRow.addView(btnRdzSeekbar)
             buttonParamsInner.addView(btnRdzRow)
+            addHint(buttonParamsInner, R.string.i18n_joystick_deadzone_hint)
 
             val tvCurve = TextView(context).apply {
                 text = context.getString(R.string.i18n_sensitivity_curve)
@@ -1325,6 +1336,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 btnRow.addView(btnEnterAdjust)
                 buttonParamsInner.addView(btnRow)
             }
+
+            addHint(buttonParamsInner, R.string.i18n_follow_area_hint)
         }
 
         if (buttonId.substringBefore("_") == "customKeypad") {
@@ -1373,6 +1386,8 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 buttonParamsInner.addView(btnRow)
             }
 
+            addHint(buttonParamsInner, R.string.i18n_follow_area_hint)
+
             // ── Keypad parameter editing ─────────
             buildKeypadParams(density)
         }
@@ -1414,6 +1429,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                 }
             }
             buttonParamsInner.addView(cbSwipe, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+            addHint(buttonParamsInner, R.string.i18n_swipe_trigger_hint)
 
             if (isTrigger) {
                 val cbLinear = CheckBox(context).apply {
@@ -1433,6 +1449,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                     }
                 }
                 buttonParamsInner.addView(cbLinear, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (8f * density).toInt() })
+                addHint(buttonParamsInner, R.string.i18n_linear_trigger_hint)
 
                 val linearContainer = LinearLayout(context).apply {
                     orientation = LinearLayout.VERTICAL
@@ -1501,6 +1518,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                     }
                 }
                 linearContainer.addView(cbLinearPrediction, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = (8f * density).toInt() })
+                val linearPredictionHint = addHint(linearContainer, R.string.i18n_fast_response_hint)
 
                 // visibility controlled dynamically
                 val updateLinearVisibility = { enabled: Boolean ->
@@ -1510,6 +1528,7 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
                     tvTravel.visibility = vis
                     travelSeekbar.visibility = vis
                     cbLinearPrediction.visibility = vis
+                    linearPredictionHint.visibility = vis
                 }
                 // set initial visibility
                 if (button.linearTriggerEnabled) {
@@ -2060,6 +2079,24 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             topMargin = (4f * density).toInt()
             bottomMargin = (4f * density).toInt()
         })
+    }
+
+    /** Small secondary-color explanation shown under an ambiguous setting. */
+    private fun addHint(container: LinearLayout, textRes: Int): TextView {
+        val density = context.resources.displayMetrics.density
+        val tv = TextView(context).apply {
+            text = context.getString(textRes)
+            setTextColor(-0x444445)
+            textSize = 12f
+            setLineSpacing((2f * density), 1f)
+        }
+        container.addView(tv, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply {
+            topMargin = (2f * density).toInt()
+            bottomMargin = (8f * density).toInt()
+        })
+        return tv
     }
 
     private fun addSeekbar(container: LinearLayout, label: String, value: Int, min: Int, max: Int, onChange: (Int) -> Unit, onStartTracking: (() -> Unit)? = null, onStopTracking: (() -> Unit)? = null) {

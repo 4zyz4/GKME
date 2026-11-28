@@ -698,4 +698,47 @@
     <string name="i18n_gpl3_text_unavailable" formatted="false">"無法讀取 GPLv3 全文。"</string>
     <string name="i18n_agree_and_continue" formatted="false">"同意並繼續"</string>
     <string name="i18n_exit_app" formatted="false">"退出應用程式"</string>
+
+    <!-- 設定項目補充說明 -->
+    <string name="i18n_gkme_required_on_target" formatted="false">"使用這個模式需要在被控端安裝GKME。"</string>
+    <string name="i18n_bluetooth_no_gkme_limits" formatted="false">"使用這個模式不需要被控端安裝GKME，但是不支援震動和手把陀螺儀。"</string>
+    <string name="i18n_gyro_mapping_hint" formatted="false">"在佈局-編輯-全域設定中可以調整陀螺儀映射，例如轉視角與模擬方向盤。"</string>
+    <string name="i18n_overlap_trigger_hint" formatted="false">"當這個控制項與其他控制項重疊時，點擊重疊部分，是否按下這個控制項。未重疊部分不受影響。"</string>
+    <string name="i18n_follow_area_overlap_hint" formatted="false">"當矩形區域與其他控制項重疊時，點擊重疊部分，是否觸發這個控制項。未重疊部分不受影響。"</string>
+    <string name="i18n_touchpad_mode_hint" formatted="false">"這會使搖桿追蹤手指的移動方向而非位置，用於轉視角。"</string>
+    <string name="i18n_follow_area_hint" formatted="false">"開啟後，在矩形區域內點擊，搖桿中心會立即移動到手指。這樣可以不必注意搖桿本身的位置。"</string>
+    <string name="i18n_auto_hold_hint" formatted="false">"開啟後，一次點擊會使按鈕保持按下，直到下一次點擊。"</string>
+    <string name="i18n_fast_response_hint" formatted="false">"開啟後，反應速度會變快，但是會犧牲平滑度。"</string>
+    <string name="i18n_linear_trigger_hint" formatted="false">"這會使扳機支援壓感，但是觸發方法從點擊變為滑動。適合於賽車遊戲。"</string>
+    <string name="i18n_voice_coil_hint" formatted="false">"Joy-Con的馬達屬於LRA線性馬達，但這裡也看作音圈馬達。"</string>
+    <string name="i18n_xbox_no_gyro_note" formatted="false">"注意：模擬為Xbox手把時，不支援體感。"</string>
+    <string name="i18n_settings_button_wheel_hint" formatted="false">"滑動設定按鈕，即可執行快捷操作。"</string>
+    <string name="i18n_floating_mode_hint" formatted="false">"應用程式將會懸浮在其他應用程式上方，適合串流場景。如果需要在這台手機建立虛擬手把，請使用連線-本機模式。"</string>
+    <string name="i18n_control_type_hint" formatted="false">"作為控制端：本機傳送輸入到遠端；作為被控端：本機接收遠端輸入並建立虛擬手把。"</string>
+    <string name="i18n_target_platform_hint" formatted="false">"選擇目標系統。僅手把模式只傳送手把輸入；通用鍵鼠模式會模擬鍵盤和滑鼠。"</string>
+    <string name="i18n_polling_rate_hint" formatted="false">"手把輸入的每秒上報次數。越高越跟手，但更耗電、對連線品質要求更高。"</string>
+    <string name="i18n_auto_enter_floating_hint" formatted="false">"啟動本機模式後自動進入懸浮模式；關閉後僅在手動點擊懸浮模式時進入。"</string>
+    <string name="i18n_hd_vibration_hint" formatted="false">"使用手機線性馬達播放高頻、細膩的 HD 震動；關閉後使用一般震動。"</string>
+    <string name="i18n_button_vibration_hint" formatted="false">"按下和放開螢幕按鈕時的觸感回饋，可分別選擇系統效果或自訂時長、強度、頻率。"</string>
+    <string name="i18n_game_vibration_hint" formatted="false">"將遊戲下發的震動轉發到所選裝置；可交換左右馬達。"</string>
+    <string name="i18n_adaptive_trigger_hint" formatted="false">"將遊戲下發的自適應扳機效果轉發到手機馬達、手把馬達或手把扳機；可交換左右扳機。"</string>
+    <string name="i18n_controller_audio_hint" formatted="false">"選擇手把喇叭/耳機音訊的輸出裝置。"</string>
+    <string name="i18n_forward_microphone_hint" formatted="false">"把手機麥克風擷取的音訊轉發為虛擬手把的麥克風輸入。"</string>
+    <string name="i18n_gamepad_driver_hint" formatted="false">"自動會依手把能力選擇驅動；遇到相容性問題時再手動切換。"</string>
+    <string name="i18n_input_gamepad_hint" formatted="false">"選擇要映射的實體手把；多個手把連線時可分別查看能力。"</string>
+    <string name="i18n_gyro_source_hint" formatted="false">"選擇體感輸入來源：手機陀螺儀或已連線的手把陀螺儀。"</string>
+    <string name="i18n_gyro_orientation_hint" formatted="false">"選擇手機在手中的握持方向，方向錯誤會導致體感軸反向。"</string>
+    <string name="i18n_screen_off_mode_hint" formatted="false">"用純黑遮罩覆蓋螢幕，手把繼續運作；按返回鍵或返回手勢退出。"</string>
+    <string name="i18n_double_tap_press_hint" formatted="false">"雙擊搖桿執行 L3/R3；雙擊觸控板執行觸控板按下。"</string>
+    <string name="i18n_extended_touch_hint" formatted="false">"開啟後，觸控板會回應擴展矩形內的觸摸，並把整個矩形按比例映射為觸控板座標；觸控板外觀大小不變。"</string>
+    <string name="i18n_precision_touchpad_hint" formatted="false">"把多指觸點原樣上報給電腦，由電腦辨識手勢；開啟後下方手勢設定不生效。"</string>
+    <string name="i18n_swipe_trigger_hint" formatted="false">"開啟後不但可以點擊觸發，還可以從其他位置滑動到控制項來觸發。手指滑出控制項會鬆開。"</string>
+    <string name="i18n_joystick_deadzone_hint" formatted="false">"死區是搖桿中心不回應的範圍；反死區用於抵消遊戲本身的死區。"</string>
+    <string name="i18n_gyro_behavior_hint" formatted="false">"選擇陀螺儀的輸出方式：模擬手把體感、轉滑鼠、轉搖桿視角或搖桿方向。"</string>
+    <string name="i18n_gyro_activation_hint" formatted="false">"始終開啟，或僅在按住指定啟用按鈕時開啟。"</string>
+    <string name="i18n_grid_hint" formatted="false">"網格僅用於編輯時對齊控制項，不會顯示在遊戲中。"</string>
+    <string name="i18n_gyro_mode_handheld_hint" formatted="false">"模擬手把的體感輸入。"</string>
+    <string name="i18n_gyro_mode_mouse_hint" formatted="false">"就像雷射筆一樣使用滑鼠指標。"</string>
+    <string name="i18n_gyro_mode_view_hint" formatted="false">"透過轉動手機來轉視角。"</string>
+    <string name="i18n_gyro_mode_direction_hint" formatted="false">"藉助陀螺儀把電話模擬成方向盤，適合賽車遊戲。"</string>
 </resources>

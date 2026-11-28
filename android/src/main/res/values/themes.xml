@@ -23,6 +23,14 @@
         <item name="android:fontFamily">sans-serif-medium</item>
     </style>
 
+    <style name="GamepadHint">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:lineSpacingExtra">2dp</item>
+    </style>
+
     <style name="GamepadSmallBtn">
         <item name="android:layout_width">40dp</item>
         <item name="android:layout_height">40dp</item>

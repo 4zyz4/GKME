@@ -1689,6 +1689,13 @@
                         android:text="@string/i18n_this_device" />
                 </LinearLayout>
 
+                <!-- 连接方式说明（WiFi / USB / 蓝牙动态切换） -->
+                <TextView
+                    android:id="@+id/tvConnectionModeHint"
+                    style="@style/GamepadHint"
+                    android:layout_marginBottom="16dp"
+                    android:visibility="gone" />
+
                 <!-- Shizuku 环境（仅本机模式显示） -->
                 <LinearLayout
                     android:id="@+id/sectionShizuku"
@@ -1770,32 +1777,51 @@
                             style="@style/GamepadChip"
                             android:text="Switch Pro" />
                     </LinearLayout>
+
+                    <TextView
+                        style="@style/GamepadHint"
+                        android:text="@string/i18n_xbox_no_gyro_note"
+                        android:textColor="#FF9800"
+                        android:layout_marginBottom="16dp" />
                 </LinearLayout>
 
                 <!-- 自动进入悬浮模式（仅本机模式显示） -->
                 <LinearLayout
-                    android:id="@+id/rowAutoFloating"
+                    android:id="@+id/sectionAutoFloating"
                     android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:background="@color/bg_surface"
-                    android:paddingHorizontal="12dp"
-                    android:layout_marginBottom="16dp"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
                     android:visibility="gone">
 
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/i18n_auto_enter_floating_mode"
-                        android:textColor="@color/text_primary"
-                        android:textSize="14sp" />
+                    <LinearLayout
+                        android:id="@+id/rowAutoFloating"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:background="@color/bg_surface"
+                        android:paddingHorizontal="12dp">
 
-                    <Switch
-                        android:id="@+id/switchAutoEnterFloating"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/i18n_auto_enter_floating_mode"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp" />
+
+                        <Switch
+                            android:id="@+id/switchAutoEnterFloating"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvAutoFloatingHint"
+                        style="@style/GamepadHint"
+                        android:text="@string/i18n_auto_enter_floating_hint"
+                        android:layout_marginTop="2dp"
+                        android:layout_marginBottom="16dp" />
                 </LinearLayout>
 
                 <!-- Control Type (conditional: WiFi) -->
@@ -1833,6 +1859,11 @@
                             style="@style/GamepadChip"
                             android:text="@string/i18n_controlled_mode" />
                     </LinearLayout>
+
+                    <TextView
+                        style="@style/GamepadHint"
+                        android:text="@string/i18n_control_type_hint"
+                        android:layout_marginBottom="16dp" />
                 </LinearLayout>
 
 
@@ -1903,6 +1934,11 @@
                             style="@style/GamepadChip"
                             android:text="@string/i18n_universal_keyboard_mouse" />
                     </LinearLayout>
+
+                    <TextView
+                        style="@style/GamepadHint"
+                        android:text="@string/i18n_target_platform_hint"
+                        android:layout_marginBottom="16dp" />
                 </LinearLayout>
 
                 <!-- Server Status -->
@@ -1998,8 +2034,13 @@
                     android:layout_width="match_parent"
                     android:layout_height="44dp"
                     android:background="@drawable/bg_small_btn"
-                    android:layout_marginBottom="16dp"
+                    android:layout_marginBottom="8dp"
                     android:paddingHorizontal="12dp" />
+
+                <TextView
+                    style="@style/GamepadHint"
+                    android:text="@string/i18n_polling_rate_hint"
+                    android:layout_marginBottom="16dp" />
 
                 <View
                     android:layout_width="match_parent"
@@ -2072,6 +2113,11 @@
                     android:textColor="@color/text_secondary"
                     android:textSize="12sp" />
 
+                <TextView
+                    style="@style/GamepadHint"
+                    android:text="@string/i18n_hd_vibration_hint"
+                    android:layout_marginBottom="8dp" />
+
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
@@ -2108,6 +2154,11 @@
                     android:textColor="@color/text_primary"
                     android:textSize="14sp"
                     android:fontFamily="sans-serif-medium"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    style="@style/GamepadHint"
+                    android:text="@string/i18n_button_vibration_hint"
                     android:layout_marginBottom="8dp" />
 
                 <!-- ─── Left: Press / Right: Release ─── -->
@@ -2250,6 +2301,11 @@
                     android:fontFamily="sans-serif-medium"
                     android:layout_marginBottom="8dp" />
 
+                <TextView
+                    style="@style/GamepadHint"
+                    android:text="@string/i18n_game_vibration_hint"
+                    android:layout_marginBottom="8dp" />
+
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
@@ -2314,6 +2370,11 @@
                     android:textColor="@color/text_primary"
                     android:textSize="14sp"
                     android:fontFamily="sans-serif-medium"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    style="@style/GamepadHint"
+                    android:text="@string/i18n_adaptive_trigger_hint"
                     android:layout_marginBottom="8dp" />
 
                 <LinearLayout
@@ -2397,6 +2458,11 @@
                     android:fontFamily="sans-serif-medium"
                     android:layout_marginBottom="8dp" />
 
+                <TextView
+                    style="@style/GamepadHint"
+                    android:text="@string/i18n_voice_coil_hint"
+                    android:layout_marginBottom="8dp" />
+
                 <!-- Voice Coil Output -->
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -2464,6 +2530,11 @@
                     android:fontFamily="sans-serif-medium"
                     android:layout_marginBottom="8dp" />
 
+                <TextView
+                    style="@style/GamepadHint"
+                    android:text="@string/i18n_controller_audio_hint"
+                    android:layout_marginBottom="8dp" />
+
                 <!-- Controller Audio Output -->
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -2512,6 +2583,12 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content" />
                 </LinearLayout>
+
+                <TextView
+                    style="@style/GamepadHint"
+                    android:text="@string/i18n_forward_microphone_hint"
+                    android:layout_marginTop="-4dp"
+                    android:layout_marginBottom="8dp" />
 
                 <!-- Voice Coil Indicator -->
                 <LinearLayout
@@ -2709,6 +2786,12 @@
                         android:minWidth="160dp" />
                 </LinearLayout>
 
+                <TextView
+                    style="@style/GamepadHint"
+                    android:text="@string/i18n_gamepad_driver_hint"
+                    android:layout_marginTop="-4dp"
+                    android:layout_marginBottom="8dp" />
+
                 <!-- Input Controller Selection -->
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -2733,6 +2816,12 @@
                         android:layout_height="match_parent"
                         android:minWidth="140dp" />
                 </LinearLayout>
+
+                <TextView
+                    style="@style/GamepadHint"
+                    android:text="@string/i18n_input_gamepad_hint"
+                    android:layout_marginTop="-8dp"
+                    android:layout_marginBottom="16dp" />
 
                 <!-- Input Controller Details -->
                 <LinearLayout
@@ -2939,6 +3028,11 @@
                     android:textColor="@color/text_primary"
                     android:textSize="18sp"
                     android:fontFamily="sans-serif-medium"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    style="@style/GamepadHint"
+                    android:text="@string/i18n_gyro_mapping_hint"
                     android:layout_marginBottom="16dp" />
 
                 <!-- Gyro Source Selection -->
@@ -2966,6 +3060,12 @@
                         android:minWidth="140dp" />
                 </LinearLayout>
 
+                <TextView
+                    style="@style/GamepadHint"
+                    android:text="@string/i18n_gyro_source_hint"
+                    android:layout_marginTop="-8dp"
+                    android:layout_marginBottom="16dp" />
+
                 <!-- Gyro Orientation (phone gyro only) -->
                 <LinearLayout
                     android:id="@+id/layoutGyroOrientation"
@@ -2980,6 +3080,11 @@
                         android:textColor="@color/text_primary"
                         android:textSize="14sp"
                         android:fontFamily="sans-serif-medium"
+                        android:layout_marginBottom="8dp" />
+
+                    <TextView
+                        style="@style/GamepadHint"
+                        android:text="@string/i18n_gyro_orientation_hint"
                         android:layout_marginBottom="8dp" />
 
                     <LinearLayout
@@ -3296,6 +3401,12 @@
                         android:text="@string/i18n_enter" />
                 </LinearLayout>
 
+                <TextView
+                    style="@style/GamepadHint"
+                    android:text="@string/i18n_screen_off_mode_hint"
+                    android:layout_marginTop="-8dp"
+                    android:layout_marginBottom="16dp" />
+
                 <!-- Floating Mode -->
                 <LinearLayout
                     android:id="@+id/rowFloatingMode"
@@ -3323,6 +3434,11 @@
                         android:background="@drawable/bg_chip_selected"
                         android:text="@string/i18n_enter" />
                 </LinearLayout>
+
+                <TextView
+                    style="@style/GamepadHint"
+                    android:text="@string/i18n_floating_mode_hint"
+                    android:layout_marginBottom="12dp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -3369,6 +3485,11 @@
                     android:textColor="@color/text_primary"
                     android:textSize="14sp"
                     android:fontFamily="sans-serif-medium"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    style="@style/GamepadHint"
+                    android:text="@string/i18n_settings_button_wheel_hint"
                     android:layout_marginBottom="12dp" />
 
                 <LinearLayout
