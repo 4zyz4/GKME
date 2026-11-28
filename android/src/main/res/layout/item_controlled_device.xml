@@ -50,6 +50,9 @@
             android:layout_height="36dp"
             android:layout_marginTop="6dp"
             android:minWidth="120dp"
+            android:background="@drawable/bg_controlled_input"
+            android:paddingStart="10dp"
+            android:paddingEnd="30dp"
             android:visibility="gone" />
     </LinearLayout>
 
