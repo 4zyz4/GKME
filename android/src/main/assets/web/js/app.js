@@ -268,11 +268,16 @@ class App {
       onTouchpad: (touches) => {
         this.state.touches = touches;
       },
-      // Precision touchpad only updates the snapshot; the next frame (periodic
-      // or immediate) carries every contact at once. Several pointer events can
-      // arrive between frames, and one full-state frame is enough for all.
-      onPrecisionTouchpad: (contacts) => {
+      // Keep the precision-touchpad contacts in the snapshot (mirrors
+      // GamepadState.precisionTouchpad): every frame carries the current full
+      // state, so contacts keep being reported for as long as a finger is down
+      // — the host's tap/gesture detection needs that stream, and a single
+      // down/up pair around one poll tick would otherwise look like noise.
+      // `immediate` marks a contact-count change (a finger down or lifted) and
+      // is sent right away so short taps are never collapsed between frames.
+      onPrecisionTouchpad: (contacts, immediate) => {
         this.state.precisionTouchpad = { contacts, buttons: 0 };
+        if (immediate) this._sendFrame();
       },
       onMouseMove: (dx, dy, speed, b) => this._onMouseMove(dx, dy, speed, b),
       onMouseScroll: (dx, dy, b) => this._onMouseScroll(dx, dy, b),
@@ -697,6 +702,9 @@ class App {
       st.clearMouseDeltas();
       return;
     }
+    // Stop carrying the touchpad state once the layout no longer has a
+    // precision touchpad (mirrors GkViewModel.clearPrecisionTouchpad).
+    if (st.precisionTouchpad && !this._hasPrecisionTouchpad()) st.precisionTouchpad = null;
     // Fold keyboard state into the snapshot. Mapped physical-controller keys are
     // unioned with the on-screen keyboard so releasing one source never releases
     // a key still held by the other.
@@ -717,11 +725,14 @@ class App {
       input.rightStickY = clampS16(st.rightStickY + gyro.stick.ry);
     }
     this.conn.sendGamepadInput(input);
-    // Mouse deltas are one-shot; periodic frames must not repeat them.
+    // Mouse deltas are one-shot; periodic frames must not repeat them. The
+    // precision-touchpad state is deliberately NOT cleared: a real touchpad
+    // reports its contacts every scan, and the host relies on the repeats.
     st.clearMouseDeltas();
-    // Precision touchpad contacts were just sent as one full-state frame;
-    // repeating them every tick would only flood the host.
-    st.precisionTouchpad = null;
+  }
+
+  _hasPrecisionTouchpad() {
+    return this.layout.buttons.some((b) => b.isMousepad && b.precisionTouchpad);
   }
 
   // ── Physical controller forwarding (Gamepad API) ──

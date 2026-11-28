@@ -2236,12 +2236,12 @@ export class GamepadLayout {
     if (info.kind === "mousepad") {
       if (info.b.precisionTouchpad) {
         if (this._mpPointerCount(info.b) === 0) {
-          // Last contact lifted: send an explicit empty state so the host
-          // releases every contact (field present, contacts empty).
+          // Last contact lifted: send the explicit empty state immediately so
+          // the host never holds a press because the lift missed a tick.
           info.b._precisionNextId = 0;
-          this.cb.onPrecisionTouchpad && this.cb.onPrecisionTouchpad([]);
+          this.cb.onPrecisionTouchpad && this.cb.onPrecisionTouchpad([], true);
         } else {
-          this._precisionSend(info.b);
+          this._precisionSend(info.b, true);
         }
         return;
       }
@@ -2859,7 +2859,9 @@ export class GamepadLayout {
       precisionId: (b._precisionNextId++) % 256,
     });
     // Precision mode is transparent: no press highlight and no haptic feedback.
-    this._precisionSend(b);
+    // A finger going down changes the contact count, so send it immediately
+    // (the host needs the down report even when the tap is shorter than a poll).
+    this._precisionSend(b, true);
   }
 
   /** Maps one normalized (0..1) control coordinate for the control rotation. */
@@ -2872,7 +2874,16 @@ export class GamepadLayout {
     }
   }
 
-  _precisionSend(b) {
+  /**
+   * Publishes the full contact list of one precision touchpad control.
+   *
+   * `immediate` asks the app to send the frame right away instead of waiting
+   * for the next polling tick; it is used when the contact count changes (a
+   * finger down or lifted) so a quick tap always produces a down report and a
+   * release report. Moves stay on the polling loop: one full-state frame per
+   * tick carries every finger's latest position.
+   */
+  _precisionSend(b, immediate = false) {
     const r = this.gridRect(b);
     const contacts = [];
     for (const [, info] of this._pointers) {
@@ -2892,7 +2903,7 @@ export class GamepadLayout {
       // Precision touchpad reports carry at most five contacts.
       if (contacts.length >= 5) break;
     }
-    this.cb.onPrecisionTouchpad && this.cb.onPrecisionTouchpad(contacts);
+    this.cb.onPrecisionTouchpad && this.cb.onPrecisionTouchpad(contacts, immediate);
   }
 
   // ── Mousepad gestures (mirrors MainActivityControls.attachMousepadGestures) ──
