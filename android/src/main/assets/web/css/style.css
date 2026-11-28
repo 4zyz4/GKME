@@ -646,17 +646,19 @@ html.force-landscape body {
 #editActions { display: flex; gap: 4px; flex-wrap: wrap; }
 #editActions button {
   flex: 1 1 60px;
-  height: 34px;
-  padding: 0 2px;
+  min-height: 34px;
+  height: auto;
+  padding: 2px;
   background: var(--btn-flat);
   color: var(--text);
   border: none;
   border-radius: 0;
   font-size: 12px;
   font-family: inherit;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.2;
+  /* 法语/俄语等长标签允许折成两行，避免 40% 宽的浮动面板里被省略号截断。 */
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 #editActions button:active { background: var(--btn-flat-pressed); }
 

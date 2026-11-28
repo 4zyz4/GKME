@@ -362,7 +362,8 @@ private fun MainActivity.buildPhysicalMappingCard(
             text = a.physicalInputLabel(input)
             setTextColor(COLOR_TEXT_PRIMARY)
             textSize = 13f
-            maxLines = 2
+            // 不限制行数：法语/俄语的实体按键名称（尤其是背键）较长，
+            // 固定 92dp 宽的左栏里写死 maxLines 会把最后一行裁掉。
         },
         LinearLayout.LayoutParams(dp(92), ViewGroup.LayoutParams.WRAP_CONTENT),
     )

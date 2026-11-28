@@ -401,6 +401,7 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
             gravity = Gravity.CENTER
             setTextColor(androidx.core.content.ContextCompat.getColor(context, R.color.text_primary))
             textSize = 13f
+            isAllCaps = false
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
             setAutoSizeTextTypeUniformWithConfiguration(9, 13, 1, TypedValue.COMPLEX_UNIT_SP)
@@ -425,7 +426,8 @@ class LayoutGlobalSettingsPanel(context: Context) : FrameLayout(context) {
             gravity = Gravity.CENTER
             setTextColor(androidx.core.content.ContextCompat.getColor(context, R.color.text_secondary))
             textSize = 13f
-            maxLines = 1
+            isAllCaps = false
+            maxLines = 2
             ellipsize = android.text.TextUtils.TruncateAt.END
             setAutoSizeTextTypeUniformWithConfiguration(9, 13, 1, TypedValue.COMPLEX_UNIT_SP)
             val drawable = SidebarItemDrawable()

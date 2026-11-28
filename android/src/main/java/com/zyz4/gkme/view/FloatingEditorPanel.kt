@@ -427,6 +427,9 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
         val btnRow = LinearLayout(context).apply {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             orientation = LinearLayout.HORIZONTAL
+            // 「全局设置」折成两行后，默认的基线对齐会把该按钮整体下移，
+            // 导致顶部与其它三个按钮对不齐，这里关闭基线对齐。
+            isBaselineAligned = false
         }
         actionBtnRow = btnRow
         val btnSpacing = (4f * density).toInt()
@@ -458,6 +461,9 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
             text = context.getString(R.string.i18n_global_settings)
             setTextColor(-0x1)
             textSize = 13f
+            // 这个按钮只占动作行 1/4 的宽度，法语/俄语的「全局设置」较长：
+            // 允许折成两行（按钮自带最小高度，两行文字仍能完整显示），避免被截断。
+            maxLines = 2
             setBackgroundResource(R.drawable.button_flat)
             setOnClickListener {
                 if (isAdjustingFollowArea) {
@@ -2573,6 +2579,9 @@ class FloatingEditorPanel(context: Context) : FrameLayout(context) {
 /** Single-line, auto-shrinking button used by the floating editor so long labels never wrap. */
 private class EditorButton(context: Context) : Button(context) {
     init {
+        // 平台 Material 按钮默认全大写，会把法语/俄语标签额外撑宽；
+        // 关闭后按钮文字更接近网页版编辑器的显示方式，也减少自动缩小的幅度。
+        isAllCaps = false
         maxLines = 1
         ellipsize = TextUtils.TruncateAt.END
         setAutoSizeTextTypeUniformWithConfiguration(8, 13, 1, TypedValue.COMPLEX_UNIT_SP)
