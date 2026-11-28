@@ -59,7 +59,7 @@ GKME organizes its functionality along two dimensions: the **connection method**
 | **Controlled device** | Receiver | Receives input from a remote controller, creates a local virtual gamepad via Shizuku + uinput, supports injecting simulated keyboard and mouse, and runs as a foreground service |
 | **Local mode** | Input source + receiver | Acts as both controller and controlled device, creates a local virtual gamepad, and enters floating mode |
 | **Floating mode** | Overlay | The app minimizes and the gamepad floats above other apps as an overlay window, so you can play and control at the same time |
-| **Web gamepad** | Browser as controller | The controlled device runs a built-in HTTP + WebSocket server (port 37285); open the address in a browser on the LAN or scan the QR code to control it, no PC client needed |
+| **Web gamepad** | Browser as controller | The controlled device runs a built-in HTTP + WebSocket server (port 37285); open the address in a browser on the LAN or scan the QR code to control it, no PC client needed (optional HTTPS for gyroscope) |
 
 > Multi-device scenarios: broadcasts and handshakes carry a device identifier (ANDROID_ID) for easier identification and connection; when the controlled device scans multiple IPs for the same device, a merged card is used.
 
@@ -151,6 +151,8 @@ Select "As controlled device" under the WiFi "Control type" and tap "Start servi
 ### Web Gamepad (Controlled Device)
 
 After the controlled device starts its service, it runs a built-in HTTP + WebSocket server (port 37285) hosting the web gamepad. Any device on the same LAN can open the address shown on the "Web gamepad" card in a browser, or scan the card's QR code, to turn the browser into a controller: the web page sends `Hello` / `GamepadInput` over `/ws`, the controlled device bridges it to the local virtual gamepad and returns haptics, matching the logic of the PC-side web gamepad. The card lets you select a network interface and shows the current `IP:port` and a link QR code.
+
+Enable **HTTPS** on the card to serve the same page over TLS on the same port. The app generates a self-signed certificate covering every LAN address; on the first visit the phone asks you to continue past the warning, after which the page is a secure context and gyroscope input (`wss://`) becomes available. HTTP stays available when the switch is off.
 
 ### Floating Mode
 
@@ -254,3 +256,4 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 | [SDL3 / HIDAPI](https://libsdl.org/) | Physical gamepad input and HID access |
 | [Dagger Hilt](https://dagger.dev/hilt/) | Dependency injection framework |
 | [Shizuku](https://shizuku.rikka.app/) | Authorization for creating virtual gamepads in local / controlled device modes |
+| [BouncyCastle](https://www.bouncycastle.org/) | Runtime self-signed certificate for the web gamepad's HTTPS |

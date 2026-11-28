@@ -158,7 +158,7 @@ android/src/main/
 
 - 单一 Gradle 模块：`:android`（见 `settings.gradle.kts`）。
 - Android `compileSdk/targetSdk = 36`，`minSdk = 26`，Kotlin/Java 17。
-- 依赖：Hilt、DataStore、Gson、protobuf-javalite、Shizuku API、SDL3 AAR（`android/libs/`）。
+- 依赖：Hilt、DataStore、Gson、protobuf-javalite、Shizuku API、BouncyCastle（网页手柄 HTTPS 证书）、SDL3 AAR（`android/libs/`）。
 - native 由 CMake 构建，产出 `libgkme_sdl.so` 与 `libgkme_uinput.so`。
 - 单元测试位于 `android/src/test/`，当前覆盖纯 JVM 逻辑：RichTap 编解码、PCM 编码、仲裁、
   Curves/Accel、自适应扳机、DualSense 输出报文、HD rumble 编码、音频 DSP 等。

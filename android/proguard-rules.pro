@@ -8,6 +8,10 @@
 # Signature、注解属性、TypeToken、@SerializedName 由 gson.pro 处理。
 -keep class com.zyz4.gkme.model.** { *; }
 
+# BouncyCastle：只使用证书构造 API，不注册 Provider。部分类引用了桌面 Java
+# 才有的 javax.naming / java.awt，Android 上不会被加载，避免 R8 因缺类失败。
+-dontwarn org.bouncycastle.**
+
 # Input 类：SdlNative 的 native 方法、native/SDL 回调与 UsbPhysicalControllerBackend
 # 的 javaClass.simpleName 分支都依赖原始类名与成员。必须整包完整保留，
 # 否则 release 混淆后 JNI 注册/回调失配导致崩溃。

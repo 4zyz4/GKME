@@ -647,6 +647,10 @@
     <string name="i18n_web_browser" formatted="false">"Web 浏览器"</string>
     <string name="i18n_web_gamepad" formatted="false">"网页手柄"</string>
     <string name="i18n_web_gamepad_qr_code" formatted="false">"网页手柄二维码"</string>
+    <string name="i18n_web_https" formatted="false">"HTTPS"</string>
+    <string name="i18n_web_https_hint" formatted="false">"HTTP 模式无法使用体感，开启 HTTPS 后可启用陀螺仪。"</string>
+    <string name="i18n_web_https_self_signed" formatted="false">"自签名证书：首次打开时请点「高级 → 继续访问（不安全）」。"</string>
+    <string name="i18n_web_https_failed" formatted="true">"HTTPS 启动失败：%1$s"</string>
     <string name="i18n_when_the_gamepad_gyro_is_used_motion_ori" formatted="false">"使用手柄陀螺仪后，体感方向由手柄决定，不可调节"</string>
     <string name="i18n_width" formatted="false">"宽度"</string>
     <string name="i18n_windows_gamepad_only" formatted="false">"Windows仅手柄"</string>

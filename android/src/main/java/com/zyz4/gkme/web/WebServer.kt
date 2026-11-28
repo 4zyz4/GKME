@@ -7,15 +7,20 @@ import android.util.Base64
 import android.util.Log
 import com.zyz4.gkme.controlled.ControlledDevice
 import com.zyz4.gkme.controlled.ControlledHostManager
+import com.zyz4.gkme.data.WebHttpsStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.BufferedOutputStream
 import java.io.ByteArrayOutputStream
 import java.io.EOFException
+import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.Inet4Address
@@ -25,7 +30,11 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.net.URLDecoder
 import java.security.MessageDigest
+import java.util.Collections
 import java.util.UUID
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLServerSocket
+import javax.net.ssl.SSLSocket
 
 /**
  * 被控端内置的 HTTP + WebSocket 服务器：托管 `assets/web` 下的 GKME-Web 网页手柄，
@@ -44,55 +53,168 @@ object WebServer {
     const val HTTP_PORT = 37285
     private const val WEB_ASSET_ROOT = "web"
     private const val WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+    private const val HANDSHAKE_TIMEOUT_MS = 10_000
+    private const val CERT_PATH = "https/self-signed.p12"
 
     @Volatile
     private var running = false
+
+    /** 用户选择的模式；证书初始化失败时回退到 HTTP，但不改变该值。 */
+    @Volatile
+    private var httpsRequested = false
+
+    @Volatile
+    private var httpsActive = false
+
+    private val _httpsState = MutableStateFlow(false)
+
+    /** HTTPS 监听是否已真正生效（证书与端口都就绪）。 */
+    val httpsState: StateFlow<Boolean> = _httpsState.asStateFlow()
+
+    private val _httpsError = MutableStateFlow<String?>(null)
+
+    /** 证书生成或 HTTPS 端口启动失败的原因；null 表示一切正常。 */
+    val httpsError: StateFlow<String?> = _httpsError.asStateFlow()
+
     private var scope: CoroutineScope? = null
     private var serverSocket: ServerSocket? = null
     private var appContext: Context? = null
 
+    /** 每个已接受的连接都登记在这里，停止服务时可一并关闭。 */
+    private val clients: MutableSet<Socket> =
+        Collections.synchronizedSet(HashSet())
+
     fun isRunning(): Boolean = running
 
-    fun start(context: Context) {
-        if (running) return
+    /** 当前是否真的在用 HTTPS 提供服务。 */
+    fun isHttpsActive(): Boolean = httpsActive
+
+    fun isHttpsEnabled(context: Context): Boolean = WebHttpsStore.isEnabled(context)
+
+    /** 网页地址的协议头，随 HTTPS 是否生效变化。 */
+    fun currentScheme(): String = if (httpsActive) "https" else "http"
+
+    fun currentPort(): Int = HTTP_PORT
+
+    /** 读取已保存的模式并启动。 */
+    fun start(context: Context) = start(context, WebHttpsStore.isEnabled(context))
+
+    /**
+     * 启动（或按新的传输方式重启）网页服务器。HTTPS 的证书准备在 IO 线程完成，
+     * 结果通过 [httpsState] / [httpsError] 通知界面。
+     */
+    @Synchronized
+    fun start(context: Context, https: Boolean) {
+        if (running && httpsRequested == https) return
+        stop()
         appContext = context.applicationContext
+        httpsRequested = https
         running = true
         val s = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         scope = s
-        s.launch {
-            var ss: ServerSocket? = null
-            try {
-                ss = ServerSocket()
-                ss.reuseAddress = true
-                ss.bind(InetSocketAddress(HTTP_PORT))
-                serverSocket = ss
-                while (running && isActive) {
-                    val client = try {
-                        ss.accept()
-                    } catch (_: Exception) {
-                        if (!running) break else continue
-                    }
-                    launch { handleClient(client) }
-                }
-            } catch (e: Exception) {
-                if (running) Log.w(TAG, "HTTP 端口 $HTTP_PORT 不可用: ${e.message}")
-            } finally {
-                try { ss?.close() } catch (_: Exception) {}
-                serverSocket = null
-            }
-        }
+        s.launch { runServer(https) }
     }
 
+    @Synchronized
     fun stop() {
         running = false
         try { serverSocket?.close() } catch (_: Exception) {}
         serverSocket = null
+        synchronized(clients) {
+            for (client in clients) {
+                try { client.close() } catch (_: Exception) {}
+            }
+            clients.clear()
+        }
         scope?.cancel()
         scope = null
+        httpsActive = false
+        _httpsState.value = false
+        _httpsError.value = null
     }
 
     /** 构造某个网卡地址对应的网页手柄 URL。 */
-    fun buildUrl(address: String): String = "http://$address:$HTTP_PORT/"
+    fun buildUrl(address: String): String = "${currentScheme()}://$address:$HTTP_PORT/"
+
+    /**
+     * 按当前模式创建监听套接字：HTTPS 时使用 SSLServerSocket，证书 SAN 覆盖所有
+     * 局域网 IPv4；证书失败则回退到普通 HTTP，并把原因写入 [httpsError]。
+     */
+    private suspend fun runServer(https: Boolean) {
+        val context = appContext ?: return
+        val serverScope = scope ?: return
+        _httpsError.value = null
+
+        var ssl: SSLContext? = null
+        if (https) {
+            ssl = try {
+                WebTls.sslContext(
+                    File(context.noBackupFilesDir, CERT_PATH),
+                    enumerateLanInterfaces().map { it.address },
+                )
+            } catch (e: Exception) {
+                Log.w(TAG, "HTTPS 证书初始化失败，回退到 HTTP: ${e.message}")
+                _httpsError.value = e.message ?: e.javaClass.simpleName
+                null
+            }
+            // 用户可能在证书生成期间切回了 HTTP，或在生成完成前停止服务。
+            if (!serverScope.isActive) return
+        }
+
+        val socket = try {
+            val listener = if (ssl != null) {
+                val secure = ssl.serverSocketFactory.createServerSocket() as SSLServerSocket
+                val supported = secure.supportedProtocols.toSet()
+                val enabled = listOf("TLSv1.3", "TLSv1.2").filter { it in supported }
+                if (enabled.isNotEmpty()) secure.enabledProtocols = enabled.toTypedArray()
+                secure
+            } else {
+                ServerSocket()
+            }
+            listener.reuseAddress = true
+            listener.bind(InetSocketAddress(HTTP_PORT))
+            listener
+        } catch (e: Exception) {
+            if (running) Log.w(TAG, "HTTP 端口 $HTTP_PORT 不可用: ${e.message}")
+            if (https && _httpsError.value == null) _httpsError.value = e.message
+            running = false
+            return
+        }
+
+        // 端口绑定完成后再核对一次：较慢的旧协程不能覆盖新的模式。
+        // 提交阶段与 stop() 共用 WebServer 的锁，避免检查通过后立刻被停止服务拆掉。
+        val committed = synchronized(this) {
+            if (scope !== serverScope || !running) {
+                false
+            } else {
+                serverSocket = socket
+                httpsActive = socket is SSLServerSocket
+                true
+            }
+        }
+        if (!committed) {
+            try { socket.close() } catch (_: Exception) {}
+            return
+        }
+
+        _httpsState.value = httpsActive
+        if (httpsActive) Log.i(TAG, "网页手柄已启用 HTTPS")
+
+        try {
+            while (running && serverScope.isActive) {
+                val client = try {
+                    socket.accept()
+                } catch (_: Exception) {
+                    if (!running) break else continue
+                }
+                clients.add(client)
+                serverScope.launch { handleClient(client) }
+            }
+        } finally {
+            try { socket.close() } catch (_: Exception) {}
+            if (serverSocket === socket) serverSocket = null
+        }
+    }
 
     /** 列出可用的 IPv4 局域网网卡（跳过回环与链路本地地址）。 */
     fun enumerateLanInterfaces(): List<LanInterfaceInfo> {
@@ -140,10 +262,18 @@ object WebServer {
         val clientIp: String
         try {
             socket.tcpNoDelay = true
+            if (socket is SSLSocket) {
+                // Conscrypt 在首次读写时才握手；显式握手便于为它设置超时，
+                // 也避免一个不说话的客户端长期占用线程。
+                socket.soTimeout = HANDSHAKE_TIMEOUT_MS
+                socket.startHandshake()
+                socket.soTimeout = 0
+            }
             input = socket.getInputStream()
             output = BufferedOutputStream(socket.getOutputStream())
             clientIp = socket.inetAddress?.hostAddress ?: "127.0.0.1"
         } catch (_: Exception) {
+            clients.remove(socket)
             try { socket.close() } catch (_: Exception) {}
             return
         }
@@ -166,6 +296,7 @@ object WebServer {
             }
         } catch (_: Exception) {
         } finally {
+            clients.remove(socket)
             try { socket.close() } catch (_: Exception) {}
         }
     }

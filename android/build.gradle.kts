@@ -153,6 +153,11 @@ dependencies {
     //noinspection NewerVersionAvailable
     implementation("com.google.code.gson:gson:2.11.0")
 
+    // 被控端网页手柄的 HTTPS：运行时为当前局域网地址生成自签名证书（对齐电脑端
+    // SelfSignedCertificate.cs）。仅用到证书构造与编解码，不注册 BC Provider。
+    implementation("org.bouncycastle:bcprov-jdk18on:1.80.2")
+    implementation("org.bouncycastle:bcpkix-jdk18on:1.80.2")
+
     // 绕过隐藏 API 限制，访问系统 Bluetooth HID Host profile 直连 DualSense
     //noinspection NewerVersionAvailable
     implementation("org.lsposed.hiddenapibypass:hiddenapibypass:6.1")

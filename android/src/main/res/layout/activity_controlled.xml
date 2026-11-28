@@ -157,6 +157,34 @@
                                 android:src="@drawable/ic_arrow_down" />
                         </FrameLayout>
 
+                        <!-- 网页手柄传输方式：HTTPS 才能让浏览器进入安全上下文（体感可用）。 -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/i18n_web_https"
+                                android:textColor="@color/text_primary"
+                                android:textSize="12sp" />
+
+                            <Switch
+                                android:id="@+id/swWebHttps"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/tvWebHint"
+                            style="@style/GamepadHint"
+                            android:layout_marginTop="2dp"
+                            android:textSize="11sp" />
+
                         <TextView
                             android:id="@+id/tvWebHost"
                             android:layout_width="wrap_content"

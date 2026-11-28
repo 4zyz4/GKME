@@ -20,6 +20,7 @@ import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.Spinner
+import android.widget.Switch
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
@@ -31,6 +32,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.zyz4.gkme.CustomDialog
 import com.zyz4.gkme.R
 import com.zyz4.gkme.data.ControlledDeviceModeRepository
+import com.zyz4.gkme.data.WebHttpsStore
 import com.zyz4.gkme.model.VirtualGamepadType
 import com.zyz4.gkme.service.ConnectionManager
 import com.zyz4.gkme.web.QrCodeImage
@@ -61,8 +63,13 @@ class ControlledActivity : ComponentActivity() {
     private lateinit var etManualIp: EditText
     private lateinit var spinnerWebInterface: Spinner
     private lateinit var tvWebHost: TextView
+    private lateinit var tvWebHint: TextView
+    private lateinit var swWebHttps: Switch
     private lateinit var ivWebQr: ImageView
     private var exitDialogShowing = false
+
+    /** 当前选中的网页手柄地址；HTTPS 状态变化时据此重绘 URL 与二维码。 */
+    private var webAddress: String? = null
 
     /** 每台已发现控制端（按 MAC/IP）各自记忆的模拟手柄类型。 */
     private var deviceModes: Map<String, VirtualGamepadType> = emptyMap()
@@ -85,6 +92,8 @@ class ControlledActivity : ComponentActivity() {
         etManualIp = findViewById(R.id.etManualIp)
         spinnerWebInterface = findViewById(R.id.spinnerWebInterface)
         tvWebHost = findViewById(R.id.tvWebHost)
+        tvWebHint = findViewById(R.id.tvWebHint)
+        swWebHttps = findViewById(R.id.swWebHttps)
         ivWebQr = findViewById(R.id.ivWebQr)
 
         GamepadInjector.init(this)
@@ -122,6 +131,15 @@ class ControlledActivity : ComponentActivity() {
      * 静态资源与 WebSocket 桥接由 [WebServer] 在前台服务中托管。
      */
     private fun setupWebCard() {
+        swWebHttps.isChecked = WebHttpsStore.isEnabled(this)
+        swWebHttps.setOnCheckedChangeListener { _, checked ->
+            WebHttpsStore.setEnabled(this, checked)
+            // 证书生成在 WebServer 的 IO 线程完成，界面先按用户选择重绘，
+            // 真正的结果由 httpsState / httpsError 回调刷新。
+            WebServer.start(this, checked)
+            renderWebCard()
+        }
+
         val interfaces = WebServer.enumerateLanInterfaces()
         val adapter = ArrayAdapter(
             this,
@@ -132,9 +150,11 @@ class ControlledActivity : ComponentActivity() {
         spinnerWebInterface.adapter = adapter
 
         if (interfaces.isEmpty()) {
+            webAddress = null
             tvWebHost.text = getString(R.string.i18n_no_available_network_interface)
             ivWebQr.setImageDrawable(null)
             spinnerWebInterface.isEnabled = false
+            renderWebHint()
             return
         }
 
@@ -151,17 +171,35 @@ class ControlledActivity : ComponentActivity() {
         updateWebAddress(interfaces[primaryIndex].address)
     }
 
+    private fun updateWebAddress(address: String?) {
+        webAddress = address
+        renderWebCard()
+    }
+
     // URL 是技术字符串，不做翻译。
     @SuppressLint("SetTextI18n")
-    private fun updateWebAddress(address: String?) {
+    private fun renderWebCard() {
+        val address = webAddress
         if (address.isNullOrBlank()) {
             tvWebHost.text = ""
             ivWebQr.setImageDrawable(null)
+            renderWebHint()
             return
         }
-        tvWebHost.text = "http://$address:${WebServer.HTTP_PORT}"
-        val bitmap = runCatching { QrCodeImage.render(WebServer.buildUrl(address)) }.getOrNull()
-        ivWebQr.setImageBitmap(bitmap)
+        val url = WebServer.buildUrl(address)
+        tvWebHost.text = url.trimEnd('/')
+        ivWebQr.setImageBitmap(runCatching { QrCodeImage.render(url) }.getOrNull())
+        renderWebHint()
+    }
+
+    /** HTTPS 失败原因 / 自签名提示 / HTTP 无体感提示，三选一。 */
+    private fun renderWebHint() {
+        val error = WebServer.httpsError.value
+        tvWebHint.text = when {
+            error != null -> getString(R.string.i18n_web_https_failed, error)
+            WebServer.isHttpsActive() -> getString(R.string.i18n_web_https_self_signed)
+            else -> getString(R.string.i18n_web_https_hint)
+        }
     }
 
     /** 读取每台控制端各自记忆的手柄类型，读完刷新列表以恢复已连接卡片的下拉框。 */
@@ -285,6 +323,13 @@ class ControlledActivity : ComponentActivity() {
                 }
                 launch {
                     ControlledHostManager.connectingIp.collect { renderDevices(ControlledHostManager.devices.value) }
+                }
+                // HTTPS 证书就绪或失败时刷新地址、二维码与提示。
+                launch {
+                    WebServer.httpsState.collect { renderWebCard() }
+                }
+                launch {
+                    WebServer.httpsError.collect { renderWebHint() }
                 }
             }
         }
