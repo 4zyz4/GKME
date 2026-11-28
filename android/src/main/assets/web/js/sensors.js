@@ -105,9 +105,12 @@ export class MotionSensors {
     const rate = event.rotationRate;
     if (rate && (rate.alpha != null || rate.beta != null || rate.gamma != null)) {
       this.hasGyro = true;
-      // W3C axes: beta = x (pitch), alpha = z (yaw), gamma = y (roll).
-      raw.gx = (Number(rate.beta) || 0) * DEG2RAD;
-      raw.gy = (Number(rate.alpha) || 0) * DEG2RAD;
+      // DeviceMotionEventRotationRate: alpha = rotation about X, beta = about Y,
+      // gamma = about Z (device frame). Keep the device axes as-is so the
+      // subsequent remapToOrientation matches Android's SensorHandler, which
+      // reads SensorEvent.values[0..2] = (x, y, z) directly.
+      raw.gx = (Number(rate.alpha) || 0) * DEG2RAD;
+      raw.gy = (Number(rate.beta) || 0) * DEG2RAD;
       raw.gz = (Number(rate.gamma) || 0) * DEG2RAD;
     }
 

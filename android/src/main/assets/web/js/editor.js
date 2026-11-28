@@ -184,7 +184,11 @@ export class LayoutEditor {
       this.panel.style.right = "auto";
       this.panel.style.left = ox + "px";
       this.panel.style.top = oy + "px";
-      try { this.grip.setPointerCapture(e.pointerId); } catch {}
+      // Touch pointers are implicitly captured; an explicit capture is
+      // redundant and buggy for multiple fingers in WebKit.
+      if (e.pointerType !== "touch") {
+        try { this.grip.setPointerCapture(e.pointerId); } catch {}
+      }
     });
     this.grip.addEventListener("pointermove", (e) => {
       if (!dragging) return;

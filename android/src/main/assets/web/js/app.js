@@ -129,6 +129,19 @@ class App {
     this.settingsClose.addEventListener("click", () => this.closeSettings());
     window.addEventListener("gamepadconnected", () => this._onGamepadsChanged());
     window.addEventListener("gamepaddisconnected", () => this._onGamepadsChanged());
+    // iOS Safari ignores `user-scalable=no` and keeps its own pinch-zoom / rotate
+    // recognizer running on multi-finger input even with `touch-action: none`;
+    // every extra finger then costs main-thread time. Cancel the proprietary
+    // gesture events (only Safari fires these, so this is a no-op elsewhere).
+    for (const type of ["gesturestart", "gesturechange", "gestureend"]) {
+      document.addEventListener(type, (e) => e.preventDefault(), { passive: false });
+    }
+    // The canvas is only repainted when something changes; iOS may drop the
+    // backing store while the page is in the background, so repaint on resume.
+    const repaint = () => { if (this.layout) this.layout.render(); };
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) repaint(); });
+    window.addEventListener("pageshow", repaint);
+    window.addEventListener("focus", repaint);
     const onViewportChange = () => this._onViewportChange();
     window.addEventListener("resize", onViewportChange);
     window.addEventListener("orientationchange", () => setTimeout(onViewportChange, 300));
@@ -255,12 +268,11 @@ class App {
       onTouchpad: (touches) => {
         this.state.touches = touches;
       },
-      // Precision touchpad sends a full-state frame immediately; the periodic
-      // loop must not repeat it (field absent = no update).
+      // Precision touchpad only updates the snapshot; the next frame (periodic
+      // or immediate) carries every contact at once. Several pointer events can
+      // arrive between frames, and one full-state frame is enough for all.
       onPrecisionTouchpad: (contacts) => {
         this.state.precisionTouchpad = { contacts, buttons: 0 };
-        this._sendFrame();
-        this.state.precisionTouchpad = null;
       },
       onMouseMove: (dx, dy, speed, b) => this._onMouseMove(dx, dy, speed, b),
       onMouseScroll: (dx, dy, b) => this._onMouseScroll(dx, dy, b),
@@ -660,7 +672,8 @@ class App {
       this._refreshGyroTouchActivation();
       this._updateGyro(dt);
       this.layout.setPressedBits(this.state.buttons);
-      this.layout.render();
+      // Only repaints when input / visuals actually changed (see render()).
+      this.layout.paint();
       this._raf = requestAnimationFrame(loop);
     };
     this._raf = requestAnimationFrame(loop);
@@ -706,6 +719,9 @@ class App {
     this.conn.sendGamepadInput(input);
     // Mouse deltas are one-shot; periodic frames must not repeat them.
     st.clearMouseDeltas();
+    // Precision touchpad contacts were just sent as one full-state frame;
+    // repeating them every tick would only flood the host.
+    st.precisionTouchpad = null;
   }
 
   // ── Physical controller forwarding (Gamepad API) ──

@@ -15,11 +15,16 @@
 
 const CLASS = "force-landscape";
 
+// Cached in JS: isForceLandscape() runs for every pointer event (and every
+// coalesced sample), and classList reads can force a style flush in WebKit.
+let forceLandscape = false;
+
 export function isForceLandscape() {
-  return document.documentElement.classList.contains(CLASS);
+  return forceLandscape;
 }
 
 export function setForceLandscape(on) {
+  forceLandscape = !!on;
   document.documentElement.classList.toggle(CLASS, !!on);
 }
 

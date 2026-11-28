@@ -367,6 +367,12 @@ export class GamepadLayout {
     this._pointers = new Map();
     this._dpr = Math.max(1, window.devicePixelRatio || 1);
     this._layout = { originX: 0, originY: 0, cell: 1 };
+    // Repaint coalescing (see render/paint): pointer handlers mark the layout
+    // dirty and the canvas is repainted at most once per animation frame.
+    this._dirty = true;
+    this._paintRaf = 0;
+    // Auto-fit label metrics, keyed by "weight|text" (see _labelMetrics).
+    this._labelMetricsCache = new Map();
 
     // Grid overlay fade (mirrors GamepadLayout.animateGridTo): 0 hidden, 1 shown.
     // It only fades in while a control is being dragged/resized in edit mode.
@@ -434,7 +440,10 @@ export class GamepadLayout {
       originX: 0,
       originY: 0,
     };
-    this.render();
+    // Resizing the canvas bitmap clears it, so paint right away instead of
+    // waiting for the next frame (which would flash the bare background).
+    this._dirty = true;
+    this.paint();
   }
 
   /** Internal grid columns (1 unit = cssW / cols px). */
@@ -535,11 +544,15 @@ export class GamepadLayout {
   }
 
   setPressedBits(bits) {
-    this.pressedBits = bits >>> 0;
+    bits >>>= 0;
+    if (bits === this.pressedBits) return;
+    this.pressedBits = bits;
+    this.render();
   }
 
   setStickVisual(axis, x, y) {
     this.stickVisual[axis] = { x, y };
+    this.render();
   }
 
   serialize() {
@@ -856,9 +869,33 @@ export class GamepadLayout {
   }
 
   // ── rendering ──
+  /**
+   * Requests a repaint.
+   *
+   * Every pointer event calls this, and each finger dispatches its own
+   * pointermove: repainting synchronously would redraw the whole canvas once
+   * per finger per frame. The request is coalesced into a single animation-frame
+   * paint, which is as often as the display can show a change anyway.
+   */
+  render() {
+    this._dirty = true;
+    if (this._paintRaf) return;
+    this._paintRaf = requestAnimationFrame(() => {
+      this._paintRaf = 0;
+      this.paint();
+    });
+  }
+
+  /** Repaints if anything changed since the last paint (called from the frame loop). */
+  paint() {
+    if (!this._dirty) return;
+    this._dirty = false;
+    this._draw();
+  }
+
   // Mirrors com.zyz4.gkme.view.GamepadLayout (background + trigger areas) and
   // GamepadRenderer (grid + selection) plus each control view's own onDraw.
-  render() {
+  _draw() {
     const ctx = this.ctx;
     ctx.save();
     ctx.setTransform(this._dpr, 0, 0, this._dpr, 0, 0);
@@ -1199,18 +1236,36 @@ export class GamepadLayout {
     ctx.fillStyle = color;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    const ref = 100;
-    ctx.font = `${weight || 500} ${ref}px ${UI_FONT}`;
-    const m = ctx.measureText(label);
-    const tw = Math.max(0.01, m.width);
-    const th = Math.max(
-      0.01,
-      (m.actualBoundingBoxAscent || ref * 0.72) + (m.actualBoundingBoxDescent || ref * 0.2)
-    );
-    let fs = Math.min(ref * (box.w / tw), ref * (box.h / th));
+    const m = this._labelMetrics(label, weight || 500);
+    let fs = Math.min((box.w / m.tw) * 100, (box.h / m.th) * 100);
     if (cap !== Infinity) fs = Math.min(fs, cap);
     ctx.font = `${weight || 500} ${Math.max(1, fs)}px ${UI_FONT}`;
     ctx.fillText(label, 0, 0);
+  }
+
+  /**
+   * Text metrics at the 100px reference size, cached per (text, weight).
+   * measureText with bounding boxes is one of the most expensive canvas calls in
+   * Safari and every label would otherwise be measured again on each repaint.
+   */
+  _labelMetrics(label, weight) {
+    const key = weight + "|" + label;
+    const hit = this._labelMetricsCache.get(key);
+    if (hit) return hit;
+    if (this._labelMetricsCache.size > 512) this._labelMetricsCache.clear();
+    const ctx = this.ctx;
+    const ref = 100;
+    ctx.font = `${weight} ${ref}px ${UI_FONT}`;
+    const m = ctx.measureText(label);
+    const out = {
+      tw: Math.max(0.01, m.width),
+      th: Math.max(
+        0.01,
+        (m.actualBoundingBoxAscent || ref * 0.72) + (m.actualBoundingBoxDescent || ref * 0.2)
+      ),
+    };
+    this._labelMetricsCache.set(key, out);
+    return out;
   }
 
   // AppearanceApplier.getIconDrawable + updateButtonLabels.
@@ -1999,6 +2054,36 @@ export class GamepadLayout {
     c.addEventListener("pointerup", (e) => this._onUp(e));
     c.addEventListener("pointercancel", (e) => this._onUp(e));
     c.addEventListener("contextmenu", (e) => e.preventDefault());
+    // iOS Safari does not reliably honour `touch-action: none`: its scroll /
+    // pinch recogniser keeps watching the canvas and, as soon as the number of
+    // fingers changes, takes the gesture over. It then fires `pointercancel` for
+    // a finger that is still down — which the layout has to treat as a release —
+    // and the touch point visibly disappears. Cancelling the native touch events
+    // is the only reliable way to keep Safari's recogniser out of the way. The
+    // canvas has nothing to scroll, so no useful default action is lost (the
+    // settings panels are separate, scrollable elements).
+    const blockNativeGesture = (e) => {
+      if (!e.cancelable) return;
+      // The pinch/zoom recogniser starts on the second touch of a sequence, so
+      // that is the one that must be refused; plain moves are always refused
+      // too (the canvas never scrolls).
+      if (e.type !== "touchstart" || e.touches.length > 1) e.preventDefault();
+    };
+    c.addEventListener("touchstart", blockNativeGesture, { passive: false });
+    c.addEventListener("touchmove", blockNativeGesture, { passive: false });
+  }
+
+  /**
+   * Captures a pointer on the canvas.
+   *
+   * Direct-manipulation pointers (touch) are already implicitly captured to the
+   * element that received `pointerdown` (Pointer Events spec), so the explicit
+   * call is redundant there — and in WebKit it is buggy: capturing a second
+   * finger can release/cancel the first one. Only mouse / pen pointers need it.
+   */
+  _capturePointer(e) {
+    if (e.pointerType === "touch") return;
+    try { this.canvas.setPointerCapture(e.pointerId); } catch {}
   }
 
   _pos(e) {
@@ -2017,7 +2102,7 @@ export class GamepadLayout {
     // Follow-area trigger (joystick / dpadPad 矩形区域内跟随) takes priority.
     const followB = this._hitFollowArea(px, py);
     if (followB) {
-      try { this.canvas.setPointerCapture(e.pointerId); } catch {}
+      this._capturePointer(e);
       if (followB.isJoystick) {
         this._beginStick(e, followB, px, py, true);
       } else if (followB.isDpadPad) {
@@ -2031,7 +2116,7 @@ export class GamepadLayout {
 
     const b = this._hitTest(px, py);
     if (!b) return;
-    try { this.canvas.setPointerCapture(e.pointerId); } catch {}
+    this._capturePointer(e);
 
     if (b.isSettings) {
       this.cb.onOpenSettings && this.cb.onOpenSettings();
@@ -2227,6 +2312,9 @@ export class GamepadLayout {
     } else if (info.kind === "button") {
       this._releaseControl(info.b);
     }
+    // Stick / dpad / keypad releases change the visual state without a redraw
+    // of their own (the joystick lid returns to centre, the hat clears, ...).
+    this.render();
   }
 
   _pressControl(b) {
@@ -2275,6 +2363,7 @@ export class GamepadLayout {
 
   _setStick(axis, x, y) {
     this.stickVisual[axis] = { x, y };
+    this.render();
     this.cb.onStick && this.cb.onStick(axis, x, y);
   }
 
@@ -3094,9 +3183,19 @@ export class GamepadLayout {
         this.controlActive.set(b.id, false);
         this.cb.onHaptic && this.cb.onHaptic(false);
       }
-      for (const [pid, p] of [...this._pointers]) {
-        if (p.kind === "mousepad" && p.b === b) this._pointers.delete(pid);
+      // The browser reports a cancel per pointer, while Android reports it per
+      // gesture. Keep the gesture alive for the fingers that are still down, so
+      // a single cancelled contact does not take the other contacts with it.
+      const remaining = this._mpPointerCount(b);
+      if (!remaining) {
+        b._mpGesture = null;
+      } else if (g) {
+        g.travel = 0;
+        g.moved = false;
+        g.maxPointers = Math.min(g.maxPointers, remaining);
       }
+      this.render();
+      return;
     }
     b._mpGesture = null;
     this.render();
@@ -3109,7 +3208,7 @@ export class GamepadLayout {
   _editDown(e, px, py) {
     if (this.blockSelection) return;
     this._editPointers.set(e.pointerId, { px, py });
-    try { this.canvas.setPointerCapture(e.pointerId); } catch {}
+    this._capturePointer(e);
 
     // 第二根手指落下 → 进入双指缩放；三指继续走缩放路径。
     if (this._editPointers.size >= 2) {
