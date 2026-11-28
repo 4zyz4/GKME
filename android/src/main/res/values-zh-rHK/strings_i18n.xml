@@ -32,10 +32,6 @@
     <string name="i18n_audio" formatted="false">"音頻"</string>
     <string name="i18n_author_4zyz4_qq_group_639317971" formatted="false">"作者：4zyz4  軟件Q羣：639317971\n\n"</string>
     <string name="i18n_authorized" formatted="false">"已授權"</string>
-    <string name="i18n_joy_con_start_log">開始 Joy-Con 記錄</string>
-    <string name="i18n_joy_con_recording">Joy-Con 記錄中</string>
-    <string name="i18n_joy_con_export_log">匯出記錄</string>
-    <string name="i18n_joy_con_stop_export_log">停止並匯出</string>
     <string name="i18n_joy_con_pair">Joy-Con 雙手掣（實驗）</string>
     <string name="i18n_auto" formatted="false">"自動"</string>
     <string name="i18n_auto_enter_floating_mode" formatted="false">"自動進入懸浮模式"</string>

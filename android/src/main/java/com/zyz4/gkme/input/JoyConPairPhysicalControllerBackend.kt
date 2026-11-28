@@ -47,18 +47,7 @@ internal class JoyConPairPhysicalControllerBackend(context: Context) :
         pair.bind(JoyConSide.LEFT, left?.device?.id)
         pair.bind(JoyConSide.RIGHT, right?.device?.id)
         playerLights.sync(left?.device?.id, right?.device?.id)
-        describeJoyConBindings()
         publishPair()
-    }
-
-    fun describeJoyConBindings() {
-        if (!JoyConDiagnostics.recording) return
-        val halves = listOfNotNull(left, right).joinToString(" ") {
-            "${it.side}:id=${it.device.id},stick=${MotionEvent.axisToString(it.stickX)}/" +
-                "${MotionEvent.axisToString(it.stickY)},trigger=${MotionEvent.axisToString(it.trigger)}," +
-                "simple-hid=${it.simpleHid}"
-        }.ifEmpty { "none" }
-        JoyConDiagnostics.note("BIND $halves")
     }
 
     override fun describeControllers(devices: List<InputDevice>): List<ControllerInfo> {
@@ -71,9 +60,7 @@ internal class JoyConPairPhysicalControllerBackend(context: Context) :
         return listOf(ControllerInfo(id, label, motorCount = 0, supportedButtons = LEFT_KEYS or RIGHT_KEYS))
     }
 
-    override fun handleKeyEvent(event: KeyEvent): Boolean = handleKeyEvent(event, trace = false)
-
-    fun handleKeyEvent(event: KeyEvent, trace: Boolean): Boolean {
+    override fun handleKeyEvent(event: KeyEvent): Boolean {
         val half = activeHalf(event.deviceId) ?: return false
         val simpleBit = if (half.simpleHid) simpleJoyConButton(half.side, event.scanCode) else null
         val bit = simpleBit ?: when (half.side) {
@@ -83,10 +70,7 @@ internal class JoyConPairPhysicalControllerBackend(context: Context) :
             }
             JoyConSide.RIGHT -> keyCodeToBit(event.keyCode) and RIGHT_KEYS
         }
-        if (bit == 0) {
-            if (trace) JoyConDiagnostics.mappedKey(event, half.side, bit, null)
-            return false
-        }
+        if (bit == 0) return false
         val pressed = when (event.action) {
             KeyEvent.ACTION_DOWN -> true
             KeyEvent.ACTION_UP -> false
@@ -94,21 +78,15 @@ internal class JoyConPairPhysicalControllerBackend(context: Context) :
         }
         pair.updateKey(half.side, bit, pressed)
         publishPair()
-        if (trace) JoyConDiagnostics.mappedKey(event, half.side, bit, controllerState.value)
         return true
     }
 
     override fun handleMotionEvent(event: MotionEvent): Boolean {
-        val half = activeHalf(event.deviceId)
-        if (half == null) {
-            if (JoyConDiagnostics.recording) JoyConDiagnostics.motion(event) { "MAP no-active-side" }
-            return false
-        }
+        val half = activeHalf(event.deviceId) ?: return false
         if (event.actionMasked != MotionEvent.ACTION_MOVE ||
             (!event.isFromSource(InputDevice.SOURCE_JOYSTICK) &&
                 !event.isFromSource(InputDevice.SOURCE_GAMEPAD))
         ) {
-            if (JoyConDiagnostics.recording) JoyConDiagnostics.motion(event) { "MAP unsupported-motion-source-or-action" }
             return false
         }
 
@@ -135,10 +113,6 @@ internal class JoyConPairPhysicalControllerBackend(context: Context) :
             normalizedTrigger(half.device, half.trigger, axisValue(event, half.trigger)),
         )
         publishPair()
-        if (JoyConDiagnostics.recording) JoyConDiagnostics.motion(event) {
-            "MAP side=${half.side} stick-source=${if (stick.usesHat) "hat" else "analog"} " +
-                JoyConDiagnostics.physicalState(controllerState.value)
-        }
         return true
     }
 

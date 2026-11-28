@@ -32,10 +32,6 @@
     <string name="i18n_audio" formatted="false">"Аудио"</string>
     <string name="i18n_author_4zyz4_qq_group_639317971" formatted="false">"Автор: 4zyz4  Группа QQ: 639317971\n\n"</string>
     <string name="i18n_authorized" formatted="false">"Авторизовано"</string>
-    <string name="i18n_joy_con_start_log">Начать запись Joy-Con</string>
-    <string name="i18n_joy_con_recording">Запись ввода Joy-Con</string>
-    <string name="i18n_joy_con_export_log">Экспортировать журнал</string>
-    <string name="i18n_joy_con_stop_export_log">Остановить и экспортировать</string>
     <string name="i18n_joy_con_pair">Пара Joy-Con (экспериментально)</string>
     <string name="i18n_auto" formatted="false">"Авто"</string>
     <string name="i18n_auto_enter_floating_mode" formatted="false">"Автоматически входить в плавающий режим"</string>

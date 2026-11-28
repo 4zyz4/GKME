@@ -550,26 +550,15 @@ class PhysicalControllerHandler(private val context: Context) : PhysicalControll
 
     override fun handleKeyEvent(event: KeyEvent): Boolean = backend?.handleKeyEvent(event) ?: false
 
-    internal fun handleJoyConKeyEvent(event: KeyEvent, stage: String): Boolean {
-        val trace = JoyConDiagnostics.recording
-        if (trace) JoyConDiagnostics.key(event, stage)
-        return (backend as? JoyConPairPhysicalControllerBackend)?.handleKeyEvent(event, trace) ?: false
-    }
-
-    internal fun describeJoyConBindings() {
-        (backend as? JoyConPairPhysicalControllerBackend)?.describeJoyConBindings()
-    }
+    internal fun handleJoyConKeyEvent(event: KeyEvent): Boolean =
+        (backend as? JoyConPairPhysicalControllerBackend)?.handleKeyEvent(event) ?: false
 
     fun releaseJoyConInput() {
         (backend as? JoyConPairPhysicalControllerBackend)?.releaseInput()
     }
 
     override fun handleMotionEvent(event: MotionEvent): Boolean {
-        val active = backend
-        if (JoyConDiagnostics.recording && active !is JoyConPairPhysicalControllerBackend) {
-            JoyConDiagnostics.motion(event) { "MAP driver=${activeDriver.value.name}" }
-        }
-        return active?.handleMotionEvent(event) ?: false
+        return backend?.handleMotionEvent(event) ?: false
     }
 
     override fun setCapturedTouchpadState(

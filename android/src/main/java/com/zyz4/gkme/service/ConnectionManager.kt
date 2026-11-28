@@ -4,7 +4,6 @@ import com.zyz4.gkme.R
 import com.zyz4.gkme.i18n.AppStrings
 import com.zyz4.gkme.i18n.AppText
 import android.annotation.SuppressLint
-import com.zyz4.gkme.input.JoyConDiagnostics
 
 import android.content.Context
 import android.os.Build
@@ -1039,9 +1038,6 @@ class ConnectionManager @Inject constructor(
                         if (state.pressedScanCodesCount > 0 || state.keyboardModifiers != 0) {
                             android.util.Log.d("ConnectionManager", "sendGamepadState: keyboard pressed=${state.pressedScanCodesList}, mod=${state.keyboardModifiers}")
                         }
-                        if (JoyConDiagnostics.recording) {
-                            JoyConDiagnostics.outbound("WIFI", state)
-                        }
                         udpService.sendGamepadInput(state)
                     }
                 }
@@ -1053,18 +1049,12 @@ class ConnectionManager @Inject constructor(
                 if (target == TargetPlatform.UNIVERSAL_KM) return
                 val report = GamepadStateMapper.map(state, target)
                 bluetoothService?.let { service ->
-                    if (JoyConDiagnostics.recording) {
-                        JoyConDiagnostics.outbound("BLUETOOTH/$target", state)
-                    }
                     service.sendReport(report)
                 }
             }
             ConnectionMode.USB -> {
                 if (activeProtocol != ActiveProtocol.USB) return
                 if (!usbService.peerConnected) return
-                if (JoyConDiagnostics.recording) {
-                    JoyConDiagnostics.outbound("USB", state)
-                }
                 usbService.sendGamepadInput(state)
             }
             ConnectionMode.LOCAL -> {

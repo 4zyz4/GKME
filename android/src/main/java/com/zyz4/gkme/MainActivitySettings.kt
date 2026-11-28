@@ -3,7 +3,6 @@ package com.zyz4.gkme
 import com.zyz4.gkme.R
 import com.zyz4.gkme.i18n.AppLocale
 import com.zyz4.gkme.i18n.AppText
-import com.zyz4.gkme.input.JoyConDiagnostics
 
 import android.Manifest
 import android.animation.Animator
@@ -897,7 +896,6 @@ internal fun MainActivity.setupSettings() {
             a.requestJoyConLightPermission()
         }
     }
-    if (BuildConfig.DEBUG) a.setupJoyConLogControls()
 
     a.findViewById<Spinner>(R.id.spinnerPhysicalController).apply {
         setOnTouchListener { _, _ ->
@@ -1196,46 +1194,6 @@ internal fun MainActivity.syncControllerDriverUI() {
     val pos = a.controllerDriverEntries.indexOf(a.viewModel.settings.value.controllerDriver)
         .let { if (it >= 0) it else 0 }
     spinner.setSelection(pos)
-}
-
-private fun MainActivity.setupJoyConLogControls() {
-    findViewById<View>(R.id.joyConLogControls).visibility = View.VISIBLE
-    val start = findViewById<Button>(R.id.btnStartJoyConLog)
-    val export = findViewById<Button>(R.id.btnExportJoyConLog)
-
-    fun updateButtons() {
-        start.isEnabled = !JoyConDiagnostics.recording
-        start.setText(
-            if (JoyConDiagnostics.recording) R.string.i18n_joy_con_recording else R.string.i18n_joy_con_start_log
-        )
-        export.isEnabled = JoyConDiagnostics.recording || JoyConDiagnostics.report != null
-        export.setText(
-            if (JoyConDiagnostics.recording) R.string.i18n_joy_con_stop_export_log else R.string.i18n_joy_con_export_log
-        )
-    }
-
-    fun diagnosticContext(): String =
-        "driver=${physicalControllerHandler.activeDriver.value.name} " +
-            "input-index=${physicalControllerHandler.inputControllerIndex} " +
-            "mode=${viewModel.settings.value.connectionMode} " +
-            "host-connected=${viewModel.connectionState.value.connected}"
-
-    start.setOnClickListener {
-        JoyConDiagnostics.start(diagnosticContext())
-        physicalControllerHandler.describeJoyConBindings()
-        val preset = viewModel.currentPreset.value
-        JoyConDiagnostics.note("PRESET custom-inputs=${preset.physicalInputMappings.keys.sorted()} " +
-            "left-stick=${preset.leftStickSettings} right-stick=${preset.rightStickSettings}")
-        updateButtons()
-        hideSettings()
-        showToast("Joy-Con 正在记录，测试后回到此页导出")
-    }
-    export.setOnClickListener {
-        JoyConDiagnostics.stop(diagnosticContext())
-        updateButtons()
-        exportJoyConLogLauncher.launch("GKME-JoyCon-${System.currentTimeMillis()}.txt")
-    }
-    updateButtons()
 }
 
 internal fun MainActivity.syncPhysicalControllerUI() {

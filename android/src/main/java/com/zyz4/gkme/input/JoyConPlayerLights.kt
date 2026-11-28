@@ -47,7 +47,6 @@ internal class JoyConPlayerLights(private val context: Context) {
                 if (output.sendToNamedDevice(name, joyConPlayerLightReport(sequence++))) {
                     submitted[side] = id
                     Log.i(TAG, "$name player light report submitted")
-                    JoyConDiagnostics.note("LIGHT side=$side result=submitted")
                 }
             }
         }
@@ -56,7 +55,6 @@ internal class JoyConPlayerLights(private val context: Context) {
                 handler.postDelayed(retry, 400)
             } else {
                 Log.w(TAG, "Player light report unavailable for ${connected.keys - submitted.keys}")
-                JoyConDiagnostics.note("LIGHT result=unavailable sides=${connected.keys - submitted.keys}")
             }
         }
     }

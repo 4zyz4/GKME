@@ -65,13 +65,9 @@ import com.zyz4.gkme.view.SettingsButtonWheelView
 import com.zyz4.gkme.view.addComboTimingControls
 import com.zyz4.gkme.input.AdaptiveTriggerHandler
 import com.zyz4.gkme.input.ExternalKeyboardPassthrough
-import com.zyz4.gkme.input.JoyConDiagnostics
 import com.zyz4.gkme.input.PhysicalControllerHandler
 import com.zyz4.gkme.input.SdlPlatform
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -239,23 +235,6 @@ class MainActivity : ComponentActivity() {
         uri?.let { exportPresetToUri(it) }
     }
 
-    internal val exportJoyConLogLauncher = registerForActivityResult(
-        NoUserLeaveHintContract(ActivityResultContracts.CreateDocument("text/plain"))
-    ) { uri ->
-        val report = JoyConDiagnostics.report
-        if (uri != null && report != null) {
-            lifecycleScope.launch {
-                val saved = withContext(Dispatchers.IO) {
-                    runCatching {
-                        val stream = checkNotNull(contentResolver.openOutputStream(uri, "wt"))
-                        stream.bufferedWriter(Charsets.UTF_8).use { it.write(report) }
-                    }.isSuccess
-                }
-                showToast(if (saved) "Joy-Con 日志已保存" else "保存失败，可重新导出")
-            }
-        }
-    }
-
     internal val exportAppearanceLauncher = registerForActivityResult(
         NoUserLeaveHintContract(ActivityResultContracts.CreateDocument("application/zip"))
     ) { uri ->
@@ -358,7 +337,7 @@ class MainActivity : ComponentActivity() {
         setContentView(R.layout.activity_main)
         gamepadLayout = findViewById(R.id.gamepadLayout)
         findViewById<ExternalInputFrameLayout>(R.id.externalInputRoot).onExternalKeyPreIme = { event ->
-            dispatchJoyConKeyEvent(event, "pre_ime") || dispatchExternalKeyboardEvent(event, "pre_ime")
+            dispatchJoyConKeyEvent(event) || dispatchExternalKeyboardEvent(event, "pre_ime")
         }
         floatingController = FloatingModeController(this)
         physicalControllerHandler = PhysicalControllerHandler(this)
@@ -638,7 +617,6 @@ class MainActivity : ComponentActivity() {
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (!::gamepadLayout.isInitialized) return
-        if (JoyConDiagnostics.recording) JoyConDiagnostics.note("FOCUS active=$hasFocus")
         if (!hasFocus) {
             viewModel.releaseExternalInput()
             if (::physicalControllerHandler.isInitialized) physicalControllerHandler.releaseJoyConInput()
@@ -759,9 +737,11 @@ class MainActivity : ComponentActivity() {
             device.sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK
     }
 
-    private fun dispatchJoyConKeyEvent(event: KeyEvent, stage: String): Boolean {
+    private fun dispatchJoyConKeyEvent(event: KeyEvent): Boolean {
         // A Joy-Con direction key can reach Android as KEYCODE_UNKNOWN with a Linux scan code.
-        if (!::physicalControllerHandler.isInitialized || !physicalControllerHandler.handleJoyConKeyEvent(event, stage)) return false
+        if (!::physicalControllerHandler.isInitialized ||
+            !physicalControllerHandler.handleJoyConKeyEvent(event)
+        ) return false
         syncPhysicalControllerState()
         return true
     }
@@ -772,7 +752,7 @@ class MainActivity : ComponentActivity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         // Before accepting the license, let the agreement page handle its own keys.
         if (!::gamepadLayout.isInitialized) return super.dispatchKeyEvent(event)
-        if (dispatchJoyConKeyEvent(event, "activity")) return true
+        if (dispatchJoyConKeyEvent(event)) return true
         if (externalMouseController.consumeSideButtonKey(event)) return true
         if (dispatchExternalKeyboardEvent(event, "activity")) return true
         // In screen-off mode the gamepad is meant for gameplay: swallow controller
