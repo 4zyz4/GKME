@@ -112,6 +112,9 @@
     <string name="i18n_controlled_mode_5bf179" formatted="false">"被控端"</string>
     <string name="i18n_controller_audio" formatted="false">"控制器音訊"</string>
     <string name="i18n_controller_audio_output" formatted="false">"控制器音訊輸出"</string>
+    <string name="i18n_forward_microphone" formatted="false">"轉發麥克風"</string>
+    <string name="i18n_microphone" formatted="false">"麥克風"</string>
+    <string name="i18n_microphone_permission_is_required" formatted="false">"需要麥克風權限才能轉發麥克風"</string>
     <string name="i18n_controller_led" formatted="false">"控制器LED"</string>
     <string name="i18n_controller_mode" formatted="false">"作為控制端"</string>
     <string name="i18n_coordinate_system" formatted="false">"座標系"</string>

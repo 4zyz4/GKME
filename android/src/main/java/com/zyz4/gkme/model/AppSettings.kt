@@ -343,6 +343,8 @@ data class AppSettings(
     val swapVoiceCoilMotors: Boolean = false,
     /** Controller-audio target; defaults to the first enumerated sound device. */
     val controllerAudioDevice: AudioDevice = AudioDevice.AUTO_SOUND_DEVICE,
+    /** 是否把手机麦克风以单声道 PCM 转发到电脑端虚拟麦克风，默认关闭。 */
+    val forwardMicrophone: Boolean = false,
     // ── Appearance ──
     val bgFillType: FillType = FillType.SOLID_COLOR,
     val bgColor: Int = 0xFF000000.toInt(),

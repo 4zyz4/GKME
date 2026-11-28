@@ -31,8 +31,10 @@ import com.zyz4.gkme.model.voiceCoilDeviceFor
 import com.zyz4.gkme.proto.ClientToServer
 import com.zyz4.gkme.proto.GamepadInput
 import com.zyz4.gkme.proto.Hello
+import com.zyz4.gkme.proto.MicrophoneFrame
 import com.zyz4.gkme.proto.ServerToClient
 import com.zyz4.gkme.proto.TriggerEffects
+import com.google.protobuf.ByteString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -156,6 +158,16 @@ class ConnectionManager @Inject constructor(
     private val _ledState = MutableStateFlow(LedState())
     val ledState: StateFlow<LedState> = _ledState.asStateFlow()
 
+    /** Phone microphone capture + uplink. Capture runs whenever the setting is
+     * on (so the settings meter still works while disconnected); frames are only
+     * transmitted while a WiFi/USB controller link is live. */
+    private val microphoneForwarder = MicrophoneForwarder(context) { pcm, rate, channels, bits, index ->
+        sendMicrophoneFrame(pcm, rate, channels, bits, index)
+    }
+
+    /** Latest captured microphone level (0..255) for the settings meter. */
+    val microphoneAmplitude: Int get() = microphoneForwarder.amplitude
+
     // Audio DSP runs on its own thread so a burst of audio frames can never block
     // the UDP receive loop (which also carries vibration/LED/control messages).
     // The write into AudioTrack is blocking, so this thread now paces itself to
@@ -208,6 +220,15 @@ class ConnectionManager @Inject constructor(
         }
         audioPlaybackService.onVoiceCoilAmplitudes = { leftAmp, rightAmp ->
             onVoiceCoilMotorOutputUpdate?.invoke(leftAmp, rightAmp)
+        }
+        // Capture is tied to the setting, not the link: the audio page must be
+        // able to show a live microphone level before the user connects. The
+        // send path below independently drops frames when no controller link is
+        // active.
+        scope.launch {
+            _settings.collect { settings ->
+                microphoneForwarder.setEnabled(settings.forwardMicrophone)
+            }
         }
     }
 
@@ -1048,6 +1069,55 @@ class ConnectionManager @Inject constructor(
             }
             ConnectionMode.LOCAL -> {
                 if (GamepadInjector.isReady()) GamepadInjector.update(state)
+            }
+        }
+    }
+
+    /**
+     * Sends one mono microphone window to the PC over the active controller
+     * transport. Only WiFi (protobuf/UDP) and USB (protobuf/TCP) carry the
+     * ClientToServer envelope; other modes have no PC microphone endpoint.
+     */
+    private fun isMicrophoneLinkActive(settings: AppSettings): Boolean = when (settings.connectionMode) {
+        ConnectionMode.WIFI -> activeProtocol == ActiveProtocol.WIFI && udpService.pcAddress != null
+        ConnectionMode.USB -> activeProtocol == ActiveProtocol.USB && usbService.peerConnected
+        else -> false
+    }
+
+    private fun sendMicrophoneFrame(
+        pcm: ByteArray,
+        sampleRate: Int,
+        channels: Int,
+        bitsPerSample: Int,
+        frameIndex: Int,
+    ) {
+        val settings = _settings.value
+        if (!settings.forwardMicrophone) return
+        if (!isMicrophoneLinkActive(settings)) return
+        val frame = MicrophoneFrame.newBuilder()
+            .setSampleRateHz(sampleRate)
+            .setChannels(channels)
+            .setBitsPerSample(bitsPerSample)
+            .setFrameIndex(frameIndex)
+            .setSampleCount(pcm.size / (channels * (bitsPerSample / 8)).coerceAtLeast(1))
+            .setPcm(ByteString.copyFrom(pcm))
+            .build()
+        val message = ClientToServer.newBuilder().setMicrophoneFrame(frame).build()
+        val generation = transportGeneration
+        scope.launch(Dispatchers.IO) {
+            if (generation != transportGeneration) return@launch
+            when (settings.connectionMode) {
+                ConnectionMode.WIFI -> {
+                    if (activeProtocol == ActiveProtocol.WIFI) {
+                        udpService.sendClientToServer(message)
+                    }
+                }
+                ConnectionMode.USB -> {
+                    if (activeProtocol == ActiveProtocol.USB && usbService.peerConnected) {
+                        usbService.sendClientToServer(message)
+                    }
+                }
+                else -> {}
             }
         }
     }

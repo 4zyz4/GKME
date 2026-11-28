@@ -2489,6 +2489,30 @@
                         android:minWidth="120dp" />
                 </LinearLayout>
 
+                <!-- Forward phone microphone to the virtual controller's mic endpoint -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:background="@color/bg_surface"
+                    android:paddingHorizontal="12dp"
+                    android:layout_marginBottom="8dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/i18n_forward_microphone"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp" />
+
+                    <Switch
+                        android:id="@+id/switchForwardMicrophone"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
                 <!-- Voice Coil Indicator -->
                 <LinearLayout
                     android:id="@+id/layoutVoiceCoilStatus"
@@ -2595,6 +2619,39 @@
 
                         <TextView
                             android:id="@+id/tvControllerAudioValue"
+                            android:layout_width="40dp"
+                            android:layout_height="wrap_content"
+                            android:text="0"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <!-- Microphone Amplitude Indicator -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/i18n_microphone"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="12sp"
+                            android:gravity="center_vertical" />
+
+                        <ProgressBar
+                            android:id="@+id/progressMicrophone"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="120dp"
+                            android:layout_height="8dp"
+                            android:max="255"
+                            android:progress="0" />
+
+                        <TextView
+                            android:id="@+id/tvMicrophoneValue"
                             android:layout_width="40dp"
                             android:layout_height="wrap_content"
                             android:text="0"

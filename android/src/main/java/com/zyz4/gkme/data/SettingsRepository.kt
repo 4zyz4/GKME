@@ -126,6 +126,7 @@ class SettingsRepository @Inject constructor(
         val CONTROLLER_AUDIO_DEVICE_CONTROLLER_INDEX = intPreferencesKey("controller_audio_device_controller_index")
         val CONTROLLER_AUDIO_DEVICE_ID = intPreferencesKey("controller_audio_device_id")
         val CONTROLLER_AUDIO_DEVICE_NAME = stringPreferencesKey("controller_audio_device_name")
+        val FORWARD_MICROPHONE = booleanPreferencesKey("forward_microphone")
         // Appearance
         val BG_FILL_TYPE = intPreferencesKey("bg_fill_type")
         val BG_COLOR = intPreferencesKey("bg_color")
@@ -366,6 +367,7 @@ class SettingsRepository @Inject constructor(
             ),
             swapVoiceCoilMotors = prefs[Keys.SWAP_VOICE_COIL_MOTORS] ?: false,
             controllerAudioDevice = restoreControllerAudioDevice(prefs),
+            forwardMicrophone = prefs[Keys.FORWARD_MICROPHONE] ?: false,
         )
     }
 
@@ -492,6 +494,7 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.CONTROLLER_AUDIO_DEVICE_CONTROLLER_INDEX] = settings.controllerAudioDevice.controllerIndex
             prefs[Keys.CONTROLLER_AUDIO_DEVICE_ID] = settings.controllerAudioDevice.deviceId
             prefs[Keys.CONTROLLER_AUDIO_DEVICE_NAME] = settings.controllerAudioDevice.deviceName
+            prefs[Keys.FORWARD_MICROPHONE] = settings.forwardMicrophone
         }
     }
 

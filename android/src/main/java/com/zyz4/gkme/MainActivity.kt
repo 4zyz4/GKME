@@ -101,6 +101,7 @@ class MainActivity : ComponentActivity() {
     internal var localStartPending = false
     /** 用户点击“启动服务”后因缺少蓝牙权限而挂起的蓝牙模式启动请求。 */
     internal var pendingBluetoothStart = false
+    internal var pendingForwardMicrophone = false
     internal var lastAppliedSettings: AppSettings? = null
     internal var lastPresetInfos: Any? = null
     internal var lastPresetCurrentName: String? = null
@@ -281,6 +282,21 @@ class MainActivity : ComponentActivity() {
         if (pendingFloatingStart) {
             pendingFloatingStart = false
             startFloatingMode()
+        }
+    }
+
+    internal val microphonePermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        val wasPending = pendingForwardMicrophone
+        pendingForwardMicrophone = false
+        if (granted) {
+            if (wasPending) viewModel.updateForwardMicrophone(true)
+        } else {
+            if (wasPending) {
+                showToast(getString(R.string.i18n_microphone_permission_is_required))
+            }
+            syncAudioUI()
         }
     }
 

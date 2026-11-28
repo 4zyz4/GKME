@@ -41,7 +41,10 @@ flowchart LR
 
 ```proto
 message ClientToServer {
-  oneof payload { Hello hello = 1; }
+  oneof payload {
+    Hello hello = 1;
+    MicrophoneFrame microphone_frame = 2;
+  }
 }
 
 message Hello {
@@ -49,6 +52,17 @@ message Hello {
   string device_name = 2;
   uint32 controller_index = 4;
   string mac_address = 5;        // 实为 Settings.Secure.ANDROID_ID
+}
+
+// 手机麦克风上行：单声道 16-bit PCM。sample_rate_hz 为采集端格式（当前 48 kHz），
+// 电脑端负责重采样到虚拟手柄的麦克风端点（DS4 单声道 16 kHz / DualSense 双声道 48 kHz）。
+message MicrophoneFrame {
+  uint32 sample_rate_hz = 1;
+  uint32 channels = 2;          // 固定 1
+  uint32 bits_per_sample = 3;   // 固定 16
+  uint32 frame_index = 4;
+  uint32 sample_count = 5;
+  bytes pcm = 6;
 }
 
 message GamepadInput {

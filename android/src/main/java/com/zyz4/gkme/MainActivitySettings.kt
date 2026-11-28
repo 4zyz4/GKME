@@ -575,6 +575,7 @@ internal fun MainActivity.setupSettings() {
         a.viewModel.updateSwapVoiceCoilMotors(isChecked)
         a.audioPlaybackService.resumeIfStopped()
     }
+    a.bindForwardMicrophoneSwitch()
     a.setupControllerAudioSpinner(buildControllerAudioDeviceEntries()) { device ->
         a.viewModel.updateControllerAudioDevice(device)
         a.audioPlaybackService.resumeIfStopped()
@@ -1592,6 +1593,9 @@ internal fun MainActivity.refreshAudioVCIndicators() {
     val controllerAmp = info.controllerAudioAmplitude
     a.findViewById<ProgressBar>(R.id.progressControllerAudio)?.progress = controllerAmp
     a.findViewById<TextView>(R.id.tvControllerAudioValue)?.text = controllerAmp.toString()
+    val microphoneAmp = a.viewModel.microphoneAmplitude
+    a.findViewById<ProgressBar>(R.id.progressMicrophone)?.progress = microphoneAmp
+    a.findViewById<TextView>(R.id.tvMicrophoneValue)?.text = microphoneAmp.toString()
 }
 
 private fun MainActivity.frequencyLabel(he: Int): String =
@@ -2338,4 +2342,36 @@ internal fun MainActivity.syncAudioUI() {
 
     a.syncVoiceCoilUI()
     a.syncControllerAudioUI()
+    a.syncForwardMicrophoneUI()
+}
+
+private fun MainActivity.hasRecordAudioPermission(): Boolean =
+    ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
+        PackageManager.PERMISSION_GRANTED
+
+/** (Re)binds the microphone switch after a programmatic isChecked change. */
+private fun MainActivity.bindForwardMicrophoneSwitch() {
+    val a = this
+    a.findViewById<Switch>(R.id.switchForwardMicrophone)?.setOnCheckedChangeListener { _, isChecked ->
+        if (isChecked && !a.hasRecordAudioPermission()) {
+            a.pendingForwardMicrophone = true
+            a.microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        } else {
+            a.pendingForwardMicrophone = false
+            a.viewModel.updateForwardMicrophone(isChecked)
+        }
+    }
+}
+
+internal fun MainActivity.syncForwardMicrophoneUI() {
+    val a = this
+    if (!a.settingsInflated) return
+    val sw = a.findViewById<Switch>(R.id.switchForwardMicrophone) ?: return
+    val checked = a.viewModel.settings.value.forwardMicrophone
+    if (sw.isChecked == checked) return
+    // Programmatic isChecked fires the listener; do not treat it as a user
+    // action (which would re-prompt for permission).
+    sw.setOnCheckedChangeListener(null)
+    sw.isChecked = checked
+    a.bindForwardMicrophoneSwitch()
 }

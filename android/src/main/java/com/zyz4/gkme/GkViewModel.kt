@@ -90,6 +90,7 @@ class GkViewModel @Inject constructor(
     val settings = connectionManager.settings
     val ledState = connectionManager.ledState
     val pairedDeviceName = connectionManager.pairedDeviceName
+    val microphoneAmplitude: Int get() = connectionManager.microphoneAmplitude
     val isBluetoothRunning: Boolean get() = connectionManager.isBluetoothRunning
 
     internal val _gamepadState = MutableStateFlow(GamepadState())
@@ -718,6 +719,10 @@ class GkViewModel @Inject constructor(
 
     fun updateControllerAudioDevice(device: AudioDevice) {
         connectionManager.updateSettings(settings.value.copy(controllerAudioDevice = device))
+    }
+
+    fun updateForwardMicrophone(enabled: Boolean) {
+        connectionManager.updateSettings(settings.value.copy(forwardMicrophone = enabled))
     }
 
     // ── Appearance updates ──
